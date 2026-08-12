@@ -1,0 +1,135 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum ClientCaseStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+model User {
+  id          String     @id @default(uuid()) @db.Uuid
+  email       String?    @unique
+  phone       String?    @unique
+  displayName String?
+  status      UserStatus @default(ACTIVE)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  roles         UserRole[]
+  clientCases   ClientCase[] @relation("ClientCases")
+  assignedCases ClientCase[] @relation("AssignedLawyerCases")
+}
+
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users UserRole[]
+}
+
+model UserRole {
+  userId     String   @db.Uuid
+  roleId     String   @db.Uuid
+  assignedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+}
+
+model Plan {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  features    PlanFeature[]
+  clientCases ClientCase[]
+}
+
+model Feature {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  plans PlanFeature[]
+}
+
+model PlanFeature {
+  planId    String   @db.Uuid
+  featureId String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  plan    Plan    @relation(fields: [planId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  feature Feature @relation(fields: [featureId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([planId, featureId])
+  @@index([featureId])
+}
+
+model CaseStage {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique
+  name        String
+  description String?
+  sortOrder   Int
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  clientCases ClientCase[]
+
+  @@index([sortOrder])
+}
+
+model ClientCase {
+  id               String           @id @default(uuid()) @db.Uuid
+  caseNumber       String           @unique
+  clientId         String           @db.Uuid
+  planId           String           @db.Uuid
+  stageId          String           @db.Uuid
+  assignedLawyerId String?          @db.Uuid
+  status           ClientCaseStatus @default(DRAFT)
+  openedAt         DateTime?
+  closedAt         DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  client         User      @relation("ClientCases", fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  assignedLawyer User?     @relation("AssignedLawyerCases", fields: [assignedLawyerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  plan           Plan      @relation(fields: [planId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  stage          CaseStage @relation(fields: [stageId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([clientId])
+  @@index([assignedLawyerId])
+  @@index([planId])
+  @@index([stageId])
+  @@index([status])
+}

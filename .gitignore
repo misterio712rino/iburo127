@@ -30,8 +30,12 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files (keep the documented placeholder in version control)
 .env*
+!.env.example
+
+# generated Prisma Client (recreate with npm run db:generate)
+/generated/prisma
 
 # vercel
 .vercel
