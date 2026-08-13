@@ -16,6 +16,8 @@ export default function PlatformLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <DemoIdentityProvider>{children}</DemoIdentityProvider>
+    <DemoIdentityProvider>
+      <div className="platform-typography">{children}</div>
+    </DemoIdentityProvider>
   );
 }

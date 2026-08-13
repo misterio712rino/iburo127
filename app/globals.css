@@ -140,6 +140,14 @@ html[data-platform-theme="pro"] { --background:#0e1d31; --foreground:#f7f9fc; --
 html[data-platform-theme="premium"] { --background:#1b1b1e; --foreground:#f7f6f5; --card:#28282c; --card-foreground:#f7f6f5; --surface-elevated:#313136; --muted:#303034; --muted-foreground:#b8b5b5; --border:#3d3d42; --primary:#ba171e; --primary-foreground:#fff; --accent:#821117; --accent-foreground:#fff; --sidebar:#222226; --sidebar-foreground:#f7f6f5; --sidebar-accent:#302124; --sidebar-accent-foreground:#fff; --sidebar-border:#35353a; }
 html[data-platform-theme="staff"] { --background:#f2f4f5; --foreground:#202326; --card:#fff; --card-foreground:#202326; --surface-elevated:#fff; --muted:#edf0f1; --muted-foreground:#687077; --border:#dce1e4; --primary:#8f1720; --primary-foreground:#fff; --accent:#273642; --accent-foreground:#fff; --sidebar:#202b33; --sidebar-foreground:#f5f7f8; --sidebar-accent:#34434d; --sidebar-accent-foreground:#fff; --sidebar-border:#3c4952; }
 
+.platform-typography,
+.platform-typography button,
+.platform-typography input,
+.platform-typography select,
+.platform-typography textarea {
+  font-family:var(--font-geist-sans),Arial,sans-serif;
+}
+
 .plan-badge { color:var(--primary); border-color:color-mix(in srgb,var(--primary) 35%,transparent); background:color-mix(in srgb,var(--primary) 10%,transparent); }
 html[data-platform-theme="premium"] .plan-badge { color:#c5a46d; border-color:rgba(197,164,109,.35); background:rgba(197,164,109,.08); }
 .demo-entry__glow { position:absolute; border-radius:999px; filter:blur(2px); pointer-events:none; }
