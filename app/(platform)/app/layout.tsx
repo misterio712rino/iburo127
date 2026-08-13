@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DemoIdentityProvider } from "@/components/platform/DemoIdentityProvider";
 
 export const metadata: Metadata = {
   title: "Platform | iБюро",
@@ -15,8 +16,6 @@ export default function PlatformLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className="min-h-screen bg-white text-[#1F1F1F]">
-      <main>{children}</main>
-    </div>
+    <DemoIdentityProvider>{children}</DemoIdentityProvider>
   );
 }
