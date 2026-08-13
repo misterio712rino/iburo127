@@ -7,6 +7,7 @@ import type { PlatformNavItem } from "@/lib/platform/types";
 import { Button } from "@/components/ui/button";
 import { useDemoIdentity } from "./DemoIdentityProvider";
 import { ProfileSwitcher } from "./ProfileSwitcher";
+import { IBuroBrand } from "./IBuroBrand";
 
 const icons = { home: House, book: BookOpen, form: ClipboardCheck, files: FileText, sparkles: Sparkles, chart: ChartNoAxesColumnIncreasing, profile: UserRound, users: UsersRound, briefcase: BriefcaseBusiness, tasks: ClipboardCheck, activity: Activity };
 
@@ -19,8 +20,8 @@ export function PlatformShell({ children }: { children: ReactNode }) {
   const { identity } = useDemoIdentity();
   const navigation = identity.role === "LAWYER" ? LAWYER_NAVIGATION : CLIENT_NAVIGATION.map((item) => item.label === "AI-помощник" && identity.plan !== "INDIVIDUAL" ? { label: item.label, icon: item.icon } : item);
   return <div className="min-h-screen bg-background text-foreground">
-    <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-sidebar-border bg-sidebar p-5 text-sidebar-foreground lg:flex"><a href="/app" className="mb-10 text-2xl font-semibold tracking-[-.05em]">iБюро<span className="text-primary">.</span></a><Navigation items={navigation} /><div className="mt-auto rounded-2xl border border-sidebar-border p-4"><p className="text-xs font-semibold">Демонстрационный режим</p><p className="mt-1 text-xs text-sidebar-foreground/60">Данные не являются реальными.</p></div></aside>
-    {open ? <div className="fixed inset-0 z-50 bg-black/35 lg:hidden" onClick={() => setOpen(false)}><aside className="h-full w-[min(82vw,20rem)] bg-sidebar p-5 text-sidebar-foreground" onClick={(event) => event.stopPropagation()}><div className="mb-8 flex items-center justify-between"><span className="text-2xl font-semibold">iБюро<span className="text-primary">.</span></span><Button variant="ghost" size="icon" aria-label="Закрыть меню" onClick={() => setOpen(false)}><X /></Button></div><Navigation items={navigation} close={() => setOpen(false)} /></aside></div> : null}
+    <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-sidebar-border bg-sidebar p-5 text-sidebar-foreground lg:flex"><a href="/app" className="mb-10 text-2xl font-semibold tracking-[-.05em]"><IBuroBrand dot /></a><Navigation items={navigation} /><div className="mt-auto rounded-2xl border border-sidebar-border p-4"><p className="text-xs font-semibold">Демонстрационный режим</p><p className="mt-1 text-xs text-sidebar-foreground/60">Данные не являются реальными.</p></div></aside>
+    {open ? <div className="fixed inset-0 z-50 bg-black/35 lg:hidden" onClick={() => setOpen(false)}><aside className="h-full w-[min(82vw,20rem)] bg-sidebar p-5 text-sidebar-foreground" onClick={(event) => event.stopPropagation()}><div className="mb-8 flex items-center justify-between"><IBuroBrand dot className="text-2xl font-semibold tracking-[-.05em]" /><Button variant="ghost" size="icon" aria-label="Закрыть меню" onClick={() => setOpen(false)}><X /></Button></div><Navigation items={navigation} close={() => setOpen(false)} /></aside></div> : null}
     <div className="lg:pl-64"><header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-border bg-background/90 px-4 backdrop-blur-md sm:px-8"><Button variant="ghost" size="icon" className="lg:hidden" aria-label="Открыть меню" onClick={() => setOpen(true)}><Menu /></Button><p className="hidden text-sm text-muted-foreground lg:block">Платформа сопровождения</p><ProfileSwitcher /></header><main className="mx-auto max-w-7xl p-4 sm:p-8 lg:p-10">{children}</main></div>
   </div>;
 }

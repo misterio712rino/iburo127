@@ -63,6 +63,8 @@
 
 :root {
 
+  --iburo-brand-red:#b01217;
+
   --surface-elevated:#ffffff;
 
   --background:#f5f5f3;
@@ -146,6 +148,32 @@ html[data-platform-theme="staff"] { --background:#f2f4f5; --foreground:#202326; 
 .platform-typography select,
 .platform-typography textarea {
   font-family:var(--font-geist-sans),Arial,sans-serif;
+}
+
+.platform-typography {
+  font-weight:400;
+}
+
+.platform-typography h1 {
+  font-weight:700;
+  text-wrap:balance;
+}
+
+.platform-typography :is(h2,h3) {
+  text-wrap:balance;
+}
+
+.platform-typography :is(p,li,dd) {
+  text-wrap:pretty;
+}
+
+.platform-typography [data-slot="button"] {
+  font-weight:600;
+  letter-spacing:-0.01em;
+}
+
+.platform-typography nav {
+  letter-spacing:-0.02em;
 }
 
 .plan-badge { color:var(--primary); border-color:color-mix(in srgb,var(--primary) 35%,transparent); background:color-mix(in srgb,var(--primary) 10%,transparent); }

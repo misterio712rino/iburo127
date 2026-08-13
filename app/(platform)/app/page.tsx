@@ -12,6 +12,7 @@ import {
 import { useRouter } from "next/navigation";
 
 import { useDemoIdentity } from "@/components/platform/DemoIdentityProvider";
+import { IBuroBrand } from "@/components/platform/IBuroBrand";
 import {
   PlanBadge,
   ProfileAvatar,
@@ -64,12 +65,12 @@ function ProfilePreviewCard({
       onClick={onSelect}
       whileHover={{ y: -4 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
-      className="profile-preview group flex min-h-[21rem] w-full flex-col overflow-hidden rounded-[2rem] border p-6 text-left focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#7B2330]/25 sm:p-8"
+      className="profile-preview group flex min-h-[19rem] w-full flex-col overflow-hidden rounded-[2rem] border p-5 text-left focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#7B2330]/25 max-[374px]:[&_.plan-badge]:px-2 max-[374px]:[&_.plan-badge]:text-[9px] max-[374px]:[&_.plan-badge]:tracking-[0.08em] sm:min-h-[21rem] sm:p-8"
     >
       <span className="profile-preview__accent" aria-hidden="true" />
 
-      <span className="flex w-full items-start justify-between gap-4">
-        <span className="flex items-center gap-3">
+      <span className="flex w-full items-start justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-3">
           <ProfileAvatar initials={identity.initials} className="size-12" />
           <span>
             <span className="block text-[11px] font-semibold uppercase tracking-[0.16em] opacity-55">
@@ -89,7 +90,7 @@ function ProfilePreviewCard({
         )}
       </span>
 
-      <span className="profile-preview__window mt-8 block w-full rounded-[1.25rem] border p-4">
+      <span className="profile-preview__window mt-6 block w-full rounded-[1.25rem] border p-4 sm:mt-8">
         <span className="flex items-center justify-between">
           <span className="flex items-center gap-2 text-xs font-semibold">
             <PreviewIcon className="size-4" aria-hidden="true" />
@@ -107,7 +108,7 @@ function ProfilePreviewCard({
         </span>
       </span>
 
-      <span className="mt-auto flex w-full items-end justify-between gap-5 pt-8">
+      <span className="mt-auto flex w-full items-end justify-between gap-4 pt-6 sm:gap-5 sm:pt-8">
         <span className="min-w-0">
           <span className="block text-2xl font-bold tracking-[-0.04em] sm:text-[1.7rem]">
             {identity.displayName}
@@ -118,7 +119,7 @@ function ProfilePreviewCard({
               : `Тариф ${PLAN_LABEL[identity.plan!]}`}
           </span>
           {identity.caseNumber ? (
-            <span className="mt-3 block font-mono text-[11px] font-medium tracking-[0.04em] opacity-55">
+            <span className="mt-3 block break-words font-mono text-[11px] font-medium tracking-[0.04em] opacity-55">
               Дело {identity.caseNumber}
             </span>
           ) : null}
@@ -137,16 +138,14 @@ export default function PlatformPage() {
   const { selectIdentity } = useDemoIdentity();
 
   return (
-    <main className="demo-entry relative min-h-screen overflow-hidden bg-[#F7F5F2] px-5 py-7 text-[#1D1D1F] sm:px-8 sm:py-10 lg:px-12">
+    <main className="demo-entry relative min-h-screen overflow-hidden bg-[#F7F5F2] px-5 py-5 text-[#1D1D1F] sm:px-8 sm:py-7 lg:px-12">
       <div className="demo-entry__glow demo-entry__glow--top" aria-hidden="true" />
       <div className="demo-entry__glow demo-entry__glow--bottom" aria-hidden="true" />
 
       <div className="relative mx-auto max-w-[90rem]">
-        <header className="flex items-center justify-between gap-5 border-b border-[#DED5CE]/80 pb-7">
-          <div className="flex flex-col leading-none">
-            <span className="text-[34px] font-bold tracking-[-0.055em] text-[#1D1D1F] sm:text-[40px]">
-              iБюро<span className="text-[#7B2330]">.</span>
-            </span>
+        <header className="flex flex-col items-center gap-4 border-b border-[#DED5CE]/80 pb-6 text-center sm:flex-row sm:justify-between sm:gap-5 sm:pb-7 sm:text-left">
+          <div className="flex flex-col items-center leading-none sm:items-start">
+            <IBuroBrand dot className="text-[34px] font-bold tracking-[-0.055em] text-[#1D1D1F] sm:text-[40px]" />
             <span className="mt-2 text-[9px] font-semibold uppercase tracking-[0.38em] text-[#8D8580]">
               Платформа
             </span>
@@ -162,17 +161,19 @@ export default function PlatformPage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, ease: "easeOut" }}
-          className="pb-14 pt-16 sm:pb-20 sm:pt-24 lg:pb-24 lg:pt-28"
+          className="pb-11 pt-12 text-center sm:pb-14 sm:pt-16 sm:text-left lg:pb-14 lg:pt-14"
         >
-          <span className="inline-flex items-center gap-2 rounded-full border border-[#DCCBC8] bg-[#7B2330]/[0.055] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#7B2330] sm:text-[11px]">
+          <span className="inline-flex items-center gap-2 rounded-full border border-[#DCCBC8] bg-[#7B2330]/[0.055] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#7B2330] sm:text-[11px]">
             <Sparkles className="size-3.5" aria-hidden="true" />
-            Демо платформы iБюро
+            <span>
+              Демо платформы <IBuroBrand className="normal-case tracking-normal" />
+            </span>
           </span>
-          <h1 className="mt-7 max-w-5xl text-[clamp(3rem,7vw,6.5rem)] font-bold leading-[0.94] tracking-[-0.065em] text-[#1D1D1F]">
+          <h1 className="mx-auto mt-7 max-w-5xl text-[clamp(3rem,7vw,6.5rem)] font-bold leading-[0.99] tracking-[-0.06em] text-[#1D1D1F] sm:mx-0 sm:leading-[0.96] lg:leading-[0.94]">
             Демонстрация
             <span className="block text-[#7B2330]">платформы</span>
           </h1>
-          <p className="mt-8 max-w-2xl text-lg leading-8 text-[#66605C] sm:text-xl sm:leading-9">
+          <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#66605C] sm:mx-0 sm:mt-7 sm:text-xl sm:leading-9">
             Выберите профиль, чтобы посмотреть интерфейс клиента или сотрудника.
           </p>
         </motion.section>
