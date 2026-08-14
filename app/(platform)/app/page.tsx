@@ -57,6 +57,8 @@ function ProfilePreviewCard({
   const theme = getPlatformTheme(identity);
   const meta = THEME_META[theme];
   const PreviewIcon = meta.icon;
+  const [firstName, ...lastNameParts] = identity.displayName.trim().split(/\s+/);
+  const lastName = lastNameParts.join(" ");
 
   return (
     <motion.button
@@ -65,26 +67,21 @@ function ProfilePreviewCard({
       onClick={onSelect}
       whileHover={{ y: -4 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
-      className="profile-preview group flex min-h-[19rem] w-full flex-col overflow-hidden rounded-[2rem] border p-5 text-left focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#7B2330]/25 max-[374px]:[&_.plan-badge]:px-2 max-[374px]:[&_.plan-badge]:text-[9px] max-[374px]:[&_.plan-badge]:tracking-[0.08em] sm:min-h-[21rem] sm:p-8"
+      className="profile-preview group flex min-h-[19rem] w-full flex-col overflow-hidden rounded-[2rem] border p-5 text-left focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#7B2330]/25 max-[374px]:[&_.plan-badge]:px-2 max-[374px]:[&_.plan-badge]:text-[9px] max-[374px]:[&_.plan-badge]:tracking-[0.06em] sm:min-h-[21rem] sm:p-8"
     >
       <span className="profile-preview__accent" aria-hidden="true" />
 
-      <span className="flex w-full items-start justify-between gap-3">
-        <span className="flex min-w-0 items-center gap-3">
-          <ProfileAvatar initials={identity.initials} className="size-12" />
-          <span>
-            <span className="block text-[11px] font-semibold uppercase tracking-[0.16em] opacity-55">
-              {identity.role === "LAWYER" ? "Сотрудник" : "Клиент"}
-            </span>
-            <span className="mt-1 block text-sm font-medium opacity-80">
-              {meta.label}
-            </span>
-          </span>
+      <span className="grid w-full grid-cols-[3rem_minmax(0,1fr)_auto] items-start gap-3">
+        <ProfileAvatar initials={identity.initials} className="size-12" />
+        <span className="min-w-0 pt-1 text-[11px] font-semibold uppercase tracking-[0.16em] opacity-55">
+          {identity.role === "LAWYER" ? "Сотрудник" : "Клиент"}
         </span>
         {identity.plan ? (
-          <PlanBadge plan={identity.plan} />
+          <span className="shrink-0 whitespace-nowrap">
+            <PlanBadge plan={identity.plan} />
+          </span>
         ) : (
-          <span className="profile-preview__staff-mark grid size-10 place-items-center rounded-2xl">
+          <span className="profile-preview__staff-mark grid size-10 shrink-0 place-items-center rounded-2xl">
             <BriefcaseBusiness aria-hidden="true" />
           </span>
         )}
@@ -108,21 +105,20 @@ function ProfilePreviewCard({
         </span>
       </span>
 
-      <span className="mt-auto flex w-full items-end justify-between gap-4 pt-6 sm:gap-5 sm:pt-8">
-        <span className="min-w-0">
-          <span className="block text-2xl font-bold tracking-[-0.04em] sm:text-[1.7rem]">
-            {identity.displayName}
+      <span className="mt-auto flex h-36 w-full items-end justify-between gap-4 pt-6 sm:gap-5 sm:pt-8">
+        <span className="min-w-0 self-stretch">
+          <span className="block min-h-14 text-2xl font-bold leading-[1.05] tracking-[-0.04em] sm:text-[1.7rem]">
+            <span className="block">{firstName}</span>
+            <span className="block">{lastName}</span>
           </span>
-          <span className="mt-2 block text-sm opacity-65">
+          <span className="mt-2 block min-h-5 text-sm opacity-65">
             {identity.role === "LAWYER"
               ? "Юрист · Кабинет сотрудника"
               : `Тариф ${PLAN_LABEL[identity.plan!]}`}
           </span>
-          {identity.caseNumber ? (
-            <span className="mt-3 block break-words font-mono text-[11px] font-medium tracking-[0.04em] opacity-55">
-              Дело {identity.caseNumber}
-            </span>
-          ) : null}
+          <span className="mt-3 block min-h-4 break-words font-mono text-[11px] font-medium tracking-[0.04em] opacity-55">
+            {identity.caseNumber ? `Дело ${identity.caseNumber}` : null}
+          </span>
         </span>
         <span className="profile-preview__action grid size-12 shrink-0 place-items-center rounded-full border transition-transform duration-200 group-hover:translate-x-1">
           <ArrowUpRight aria-hidden="true" />
@@ -169,7 +165,7 @@ export default function PlatformPage() {
               Демо платформы <IBuroBrand className="normal-case tracking-normal" />
             </span>
           </span>
-          <h1 className="mx-auto mt-7 max-w-5xl text-[clamp(3rem,7vw,6.5rem)] font-bold leading-[0.99] tracking-[-0.06em] text-[#1D1D1F] sm:mx-0 sm:leading-[0.96] lg:leading-[0.94]">
+          <h1 className="platform-display mx-auto mt-7 max-w-5xl text-[clamp(3.4rem,7.5vw,7rem)] leading-[1.05] tracking-[-0.022em] text-[#1D1D1F] sm:mx-0">
             Демонстрация
             <span className="block text-[#7B2330]">платформы</span>
           </h1>

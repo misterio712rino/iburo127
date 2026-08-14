@@ -20,7 +20,7 @@ export function ProfileAvatar({ initials, className }: { initials: string; class
 }
 
 export function SectionHeader({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
-  return <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><h1 className="text-3xl font-bold leading-tight tracking-[-.04em] sm:text-4xl">{title}</h1>{description ? <p className="mt-2 text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">{description}</p> : null}</div>{action}</div>;
+  return <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><h1 className="platform-display text-4xl leading-[1.05] tracking-[-.022em] sm:text-5xl">{title}</h1>{description ? <p className="mt-2 text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">{description}</p> : null}</div>{action}</div>;
 }
 
 export function MetricCard({ label, value }: { label: string; value: string | number }) {

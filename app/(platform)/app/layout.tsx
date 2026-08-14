@@ -1,5 +1,22 @@
 import type { Metadata } from "next";
+import { Cormorant_Garamond, Manrope } from "next/font/google";
 import { DemoIdentityProvider } from "@/components/platform/DemoIdentityProvider";
+
+const iburoSans = Manrope({
+  variable: "--font-iburo-sans",
+  subsets: ["cyrillic", "latin"],
+  weight: "variable",
+  style: "normal",
+  display: "swap",
+});
+
+const iburoDisplay = Cormorant_Garamond({
+  variable: "--font-iburo-display",
+  subsets: ["cyrillic", "latin"],
+  weight: "variable",
+  style: "normal",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Platform | iБюро",
@@ -17,7 +34,11 @@ export default function PlatformLayout({
 }>) {
   return (
     <DemoIdentityProvider>
-      <div className="platform-typography">{children}</div>
+      <div
+        className={`${iburoSans.variable} ${iburoDisplay.variable} platform-typography`}
+      >
+        {children}
+      </div>
     </DemoIdentityProvider>
   );
 }
