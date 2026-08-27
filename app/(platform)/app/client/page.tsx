@@ -16,18 +16,21 @@ import { useDocumentState } from "@/components/platform/documents/useDocumentSta
 import { generateDocuments, getQuestionnaireSummary } from "@/lib/platform/demo";
 import { ClientRouteGuard } from "@/components/platform/practicum/ClientRouteGuard";
 
-const DEFAULT_CLIENT_ID = "alexander-lite";
-
 export default function ClientPage() {
   return <ClientRouteGuard><ClientDashboard /></ClientRouteGuard>;
 }
 
 function ClientDashboard() {
   const { identity } = useDemoIdentity();
-  const identityId = identity.role === "CLIENT" ? identity.id : DEFAULT_CLIENT_ID;
-  const clientCase = getCaseForIdentity(identityId) ?? getCaseForIdentity(DEFAULT_CLIENT_ID)!;
-  const dashboard = getDashboardForIdentity(identityId) ?? getDashboardForIdentity(DEFAULT_CLIENT_ID)!;
-  const firstName = identity.role === "CLIENT" ? identity.displayName.split(" ")[0] : "Александр";
+  const identityId = identity.id;
+  const clientCase = getCaseForIdentity(identityId);
+  const dashboard = getDashboardForIdentity(identityId);
+
+  if (!clientCase || !dashboard) {
+    throw new Error(`Missing demo client data for identity: ${identityId}`);
+  }
+
+  const firstName = identity.displayName.split(" ")[0];
   const practicum = usePracticumProgress(identityId);
   const questionnaire = useQuestionnaireState(identityId);
   const documentState = useDocumentState(identityId);
