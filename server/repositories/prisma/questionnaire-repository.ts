@@ -1,17 +1,16 @@
 import "server-only";
 
-import { getPrismaClient } from "@/server/database/prisma";
-import type {
-  CompleteQuestionnaireInput,
-  CompleteQuestionnaireSectionInput,
-  QuestionnaireRecord,
-  QuestionnaireRepository,
-  SaveQuestionnaireAnswerInput,
-} from "@/server/domain/questionnaire/contracts";
 import type { QuestionnaireAnswers } from "@/lib/platform/types";
-
-const QUESTIONNAIRE_NOT_FOUND = "QUESTIONNAIRE_NOT_FOUND";
-const QUESTIONNAIRE_VERSION_CONFLICT = "QUESTIONNAIRE_VERSION_CONFLICT";
+import { getPrismaClient } from "@/server/database/prisma";
+import {
+  QUESTIONNAIRE_NOT_FOUND,
+  QUESTIONNAIRE_VERSION_CONFLICT,
+  type CompleteQuestionnaireInput,
+  type CompleteQuestionnaireSectionInput,
+  type QuestionnaireRecord,
+  type QuestionnaireRepository,
+  type SaveQuestionnaireAnswerInput,
+} from "@/server/domain/questionnaire/contracts";
 
 function normalizeAnswers(value: unknown): QuestionnaireAnswers {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
