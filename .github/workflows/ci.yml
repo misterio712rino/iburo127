@@ -34,6 +34,9 @@ jobs:
       - name: Generate Prisma client
         run: npm run db:generate
 
+      - name: Production foundation tests
+        run: npm run test:foundation
+
       - name: TypeScript
         run: npx tsc --noEmit
 
