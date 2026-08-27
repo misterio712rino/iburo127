@@ -3,19 +3,16 @@
 import { useSyncExternalStore } from "react";
 import { QUESTIONNAIRE_SECTIONS, isQuestionnaireFieldVisible } from "@/lib/platform/demo";
 import {
-  getQuestionnaireServerSnapshot,
-  persistQuestionnaireState,
-  readQuestionnaireState,
-  subscribeQuestionnaireState,
+  questionnaireWorkflowService,
   type QuestionnaireStoredState,
-} from "@/lib/platform/workflows/questionnaire/demoQuestionnaireAdapter";
+} from "@/lib/platform/workflows/questionnaire/questionnaireWorkflowService";
 import type { QuestionnaireAnswer } from "@/lib/platform/types";
 
 export function useQuestionnaireState(identityId: string) {
   const serialized = useSyncExternalStore(
-    subscribeQuestionnaireState,
-    () => JSON.stringify(readQuestionnaireState(identityId)),
-    () => getQuestionnaireServerSnapshot(identityId),
+    questionnaireWorkflowService.subscribe,
+    () => JSON.stringify(questionnaireWorkflowService.read(identityId)),
+    () => questionnaireWorkflowService.getServerSnapshot(identityId),
   );
   const state = JSON.parse(serialized) as QuestionnaireStoredState;
   const completed = new Set(state.completedSectionIds);
@@ -24,15 +21,11 @@ export function useQuestionnaireState(identityId: string) {
   const currentSection = QUESTIONNAIRE_SECTIONS.find((section) => !completed.has(section.id)) ?? QUESTIONNAIRE_SECTIONS.at(-1)!;
 
   function start() {
-    persistQuestionnaireState(identityId, { ...state, started: true });
+    questionnaireWorkflowService.start(identityId, state);
   }
 
   function setAnswer(fieldId: string, value: QuestionnaireAnswer) {
-    persistQuestionnaireState(identityId, {
-      ...state,
-      started: true,
-      answers: { ...state.answers, [fieldId]: value },
-    });
+    questionnaireWorkflowService.setAnswer(identityId, state, fieldId, value);
   }
 
   function validateSection(sectionId: string) {
@@ -60,11 +53,7 @@ export function useQuestionnaireState(identityId: string) {
       ? state.completedSectionIds
       : [...state.completedSectionIds, sectionId];
 
-    persistQuestionnaireState(identityId, {
-      ...state,
-      started: true,
-      completedSectionIds: ids,
-    });
+    questionnaireWorkflowService.completeSection(identityId, state, ids);
 
     return errors;
   }
