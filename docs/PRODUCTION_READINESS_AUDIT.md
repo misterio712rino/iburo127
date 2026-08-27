@@ -5,166 +5,224 @@ Base: `demo/investor-preview` @ `c843ba7`
 
 ## Status
 
-The audited branch now contains a production-oriented server foundation alongside the existing investor demo UX. The demo remains intentionally presentation-only; real client data must not use `DemoIdentityProvider` or browser identity state.
+The branch now contains the repository-side production foundation for authentication mapping, server authorization and the core persistent workflows, while preserving the investor demo as a separate presentation experience.
 
-Repository-level hardening completed on this branch includes:
-- CI with Prisma validation/generation, TypeScript, ESLint and production build;
-- platform loading/error boundaries;
-- role-specific presentation route guards for demo UX;
-- server-side actor contracts and Prisma actor repository;
-- query-level `ClientCase` access scoping plus defense-in-depth domain policy;
-- provider-independent server session boundary;
-- explicit external identity -> internal `User.id` mapping architecture;
-- Prisma `AuthIdentity` model with unique `(provider, subject)` mapping;
-- questionnaire persistence model, repository, case-scoped service, authenticated operations, transport/input/HTTP/route-adapter boundaries;
-- workflow service facades between UI hooks and browser demo adapters for questionnaire, practicum and documents;
-- shared task-state adapter for staff demo workflows.
+No production database migration, merge to `main`, production deployment, DNS change or production traffic switch has been performed from this branch.
 
-No production database migration or production deployment has been executed from this audit branch.
+## Completed repository foundation
 
-## P0 — blockers before real client data
+### Authentication and identity
 
-### 1. Real authentication provider/session issuance is not enabled yet
+- provider-independent `SessionProvider` boundary;
+- trusted external-session boundary (`ExternalSessionReader`);
+- explicit external `(provider, subject)` -> internal `User.id` resolution;
+- Prisma `AuthIdentity` model with unique `(provider, subject)`;
+- active-user enforcement;
+- roles resolved from internal PostgreSQL `UserRole` / `Role`, never from browser state or provider claims.
 
-Completed foundation:
-- `SessionProvider` contract;
-- `ExternalSessionReader` + `AuthIdentityResolver` boundary;
-- `MappedSessionProvider`;
-- Prisma-backed `AuthIdentity` mapping;
-- active-user resolution and database role lookup.
+A concrete login/session vendor is intentionally not faked or hard-coded. Selecting/configuring the provider remains an external enablement step.
 
-Still required before real users can sign in:
-- choose and configure the concrete authentication/session provider;
-- implement its trusted server-side `ExternalSessionReader`;
-- implement account enrollment/recovery/MFA policy appropriate to the product;
-- provision `AuthIdentity` records during controlled account linking.
+### Authorization
 
-Security rule: provider email/role/browser `userId` must never become an authorization source. Authorization continues to derive from internal `User`, `UserRole`, `Role` and case ownership/assignment.
+- server-side `AuthenticatedActor`;
+- CLIENT / LAWYER / MANAGER access policy;
+- query-level `ClientCase` scoping in the Prisma repository;
+- defense-in-depth domain checks;
+- protected workflow services and authenticated operations;
+- untrusted payload parsing and safe transport error mapping;
+- route-adapter contracts that take authoritative resource IDs from route parameters rather than browser JSON.
 
-### 2. Server authorization foundation is complete; production routes are not enabled
+Demo route guards remain UX-only and are not considered authorization controls.
 
-Completed:
-- authenticated actor resolution;
-- CLIENT / LAWYER / MANAGER case access policy;
-- database-level access scoping in `PrismaClientCaseRepository`;
-- defense-in-depth domain filtering;
-- questionnaire case-scoped write policy;
-- safe transport error mapping and untrusted input parsing.
+### Persistent workflow models and server layers
 
-Still required:
-- wire a concrete production `SessionProvider` into actual Next.js route handlers/server actions;
-- keep demo route guards only as presentation UX, never as production authorization.
+Repository/server foundations now exist for:
 
-### 3. Operational persistence is partially implemented
+1. **Questionnaire**
+   - `CaseQuestionnaire`;
+   - schema versioning;
+   - JSON answers + completed sections;
+   - optimistic concurrency;
+   - client-owner writes, authorized staff reads;
+   - service, repository, operations, input, transport, HTTP and route-adapter layers.
 
-Questionnaire persistence foundation is implemented in Prisma and server code.
+2. **Practicum**
+   - `CasePracticumProgress`;
+   - completed lesson IDs, started/completed timestamps and version;
+   - lesson-ID validation;
+   - client-owner writes, authorized staff reads;
+   - full server/transport/route-adapter foundation.
 
-Still presentation-only:
-- practicum progress;
-- tasks/task history;
-- document lifecycle/review state;
-- activity/audit events;
-- notifications;
-- file metadata/storage.
+3. **Tasks**
+   - `CaseTask`;
+   - `TaskStatusEvent` history;
+   - NEW / WORKING / DONE lifecycle;
+   - manager access and assigned-lawyer scoping;
+   - transactional status history and optimistic concurrency;
+   - full server/transport/route-adapter foundation.
 
-These workflows now have service/adaptor boundaries where already refactored, so browser demo storage can be replaced incrementally without rewriting UI components.
+4. **Documents**
+   - `CaseDocument`;
+   - WAITING_DATA / DRAFT / READY_FOR_REVIEW / SENT_FOR_REVIEW / REVIEWED lifecycle;
+   - readiness derived from required questionnaire fields;
+   - client regeneration/submission and assigned-lawyer/manager review boundaries;
+   - optimistic concurrency;
+   - full server/transport/route-adapter foundation.
 
-## P1 — high priority engineering work
+5. **Activity / audit**
+   - `CaseActivityEvent`;
+   - case-scoped read service;
+   - trusted actor/system append service;
+   - bounded primitive metadata;
+   - authenticated read transport/route-adapter foundation.
 
-### 4. Database migration baseline is not established
+6. **Notifications**
+   - `Notification`;
+   - per-user listing and ownership-scoped mark-read;
+   - internal system creation service;
+   - authenticated transport/route-adapter foundation.
 
-The repository now contains additional Prisma models (`CaseQuestionnaire`, `AuthIdentity`), but migration history has not been applied to an authoritative PostgreSQL environment.
+7. **Stored file metadata**
+   - `StoredFile`;
+   - case ownership scope;
+   - provider/object key/name/MIME/size/checksum metadata;
+   - authenticated list/get;
+   - trusted internal registration boundary;
+   - BigInt converted to a JSON-safe string at transport level.
 
-Before any migration:
-1. confirm the real target PostgreSQL cluster and `DATABASE_URL`;
-2. inspect the existing database schema/state;
-3. establish a migration baseline if the database predates Prisma migration history;
-4. generate and review SQL diff;
-5. take a backup/snapshot;
-6. apply only reviewed migrations.
+The repository deliberately does not implement a public upload endpoint or storage byte transport until an object-storage provider and private signed-access strategy are selected.
 
-Do not run broad `migrate dev`, `db push`, `npm audit fix`, or force operations against production.
+### UI migration boundaries
 
-### 5. CI baseline — COMPLETE
+Client UI hooks no longer need to couple directly to concrete browser adapters for:
 
-Current workflow validates:
-- install from lockfile;
-- Prisma schema;
-- Prisma client generation;
-- TypeScript;
-- ESLint;
-- production build.
-
-This must remain a required quality gate for production work.
-
-### 6. Error/loading boundary baseline — COMPLETE
-
-Platform loading and error boundaries are present. Workflow-specific empty/retry states should be added when each workflow switches from demo storage to real server data.
-
-## P2 — quality / maintainability
-
-### 7. Demo source coupling — PARTIALLY RESOLVED
-
-Completed service/facade boundaries:
 - questionnaire;
 - practicum;
-- documents;
-- shared task state.
+- documents.
 
-Remaining demo datasets may still drive presentation content. That is acceptable while the investor demo coexists with production architecture, provided production server paths never trust demo identity/state.
+Workflow service facades sit between UI hooks and the current demo adapters, allowing server adapters to replace browser persistence incrementally.
 
-### 8. Demo fallbacks — RESOLVED FOR KNOWN CLIENT FALLBACK
+Shared task demo state has also been centralized behind its shared adapter/hook.
 
-The previously identified Alexander fallback was removed. Continue to reject invalid authenticated state explicitly rather than silently selecting a demo identity.
+### Reliability / CI
 
-## Existing strengths
+CI now runs:
 
-- Next.js App Router structure is clear.
-- `ClientCase` remains the central legal-case entity.
-- Plan belongs to `ClientCase`, avoiding user-level tariff coupling.
-- Prisma client creation is server-only and fails explicitly when `DATABASE_URL` is absent.
-- Platform metadata is `noindex, nofollow` for the presentation environment.
-- Role-specific client/staff experiences are visually separated.
-- Production-oriented authorization now scopes data at repository/domain level rather than relying on browser guards.
+1. `npm ci`
+2. Prisma schema validation
+3. Prisma client generation
+4. production-foundation tests
+5. TypeScript `--noEmit`
+6. ESLint
+7. production build
 
-## Remaining migration roadmap
+Foundation tests cover the central case-access policy and questionnaire-definition invariants. Additional database integration/E2E tests must be added when an actual test database and real auth provider are enabled.
 
-### Phase A — repository hardening
+## What is intentionally NOT enabled yet
 
-Status: substantially complete.
+The following items require external infrastructure, credentials or product security decisions and therefore are not safely inferable from repository code:
 
-### Phase B — authenticated shell
+### Concrete authentication provider
 
-Repository foundation: complete.
-External/provider work remaining:
-- concrete login/session provider;
-- account enrollment/recovery/MFA;
-- production route wiring.
+Still required:
+- provider selection/configuration;
+- trusted server-side session reader implementation;
+- account enrollment/linking;
+- recovery policy;
+- MFA policy;
+- provisioning `AuthIdentity` mappings.
 
-### Phase C — persistent workflows
+Security invariant: email, browser user ID, browser role or demo identity must never become the production authorization key.
 
-Questionnaire foundation: substantially complete, pending DB baseline/migration and real auth wiring.
+### Authoritative PostgreSQL baseline and migrations
 
-Next order:
-1. practicum persistence;
-2. tasks and task history;
-3. document state/review lifecycle;
-4. activity/audit trail;
-5. notifications;
-6. file metadata/storage.
+The Prisma schema contains the production models, but they have **not** been applied to an authoritative database.
 
-### Phase D — integrations
+Before migration:
+- confirm the real cluster/database;
+- inspect current schema and `_prisma_migrations` state;
+- take a backup/snapshot;
+- establish a baseline if required;
+- generate and review SQL;
+- migrate a non-production database first;
+- run smoke/integration tests;
+- only then apply reviewed production migrations.
 
-After authenticated persistence is operational:
-- AI backend scoped to a specific `ClientCase`;
-- Bitrix integration as an external integration, not source of truth;
-- operational notifications and document pipeline.
+See `docs/DATABASE_BASELINE_AND_MIGRATION_PLAN.md`.
+
+### Object storage
+
+`StoredFile` persists metadata only. Still required:
+- object-storage provider;
+- private bucket/container configuration;
+- signed upload/download strategy;
+- content/type/size validation policy;
+- malware scanning if required;
+- retention/deletion policy.
+
+### Production route activation
+
+Server route-adapter contracts exist, but actual real-data Next.js route handlers/server actions remain disabled until a concrete trusted `SessionProvider` and migrated database are available.
+
+This prevents accidentally publishing an endpoint backed by demo identity or fake authentication.
+
+### Workflow event integration
+
+Task status history is written transactionally.
+
+For cross-workflow activity/audit events and notifications, the persistence foundations exist but critical mutation-to-event wiring should be implemented using a transactional/outbox-style approach once the database is active. A second independent write after a business mutation should not be relied on for mandatory audit records.
+
+## Readiness classification
+
+### Repository architecture: READY FOR REVIEW
+
+The safe server architecture, persistence models, workflow boundaries and transport contracts are in place for the current MVP core.
+
+### Investor demo: PRESERVED
+
+The presentation experience remains separate from production authorization and can continue to be used while the production stack is enabled.
+
+### Real production client data: NOT YET ENABLED
+
+Blocked by external enablement rather than missing core repository architecture:
+
+1. authoritative PostgreSQL baseline/migrations;
+2. concrete authentication/session provider;
+3. object storage for file bytes;
+4. actual production route/UI adapter switch;
+5. database-backed integration/E2E verification.
+
+## Production enablement order
+
+1. Confirm authoritative PostgreSQL and establish migration baseline.
+2. Configure the concrete authentication provider and trusted session reader.
+3. Apply reviewed migrations in staging/non-production.
+4. Provision test users, roles, `ClientCase` records and `AuthIdentity` mappings.
+5. Enable questionnaire route/UI server adapter and verify end-to-end.
+6. Enable practicum.
+7. Enable tasks.
+8. Enable documents/review.
+9. Enable activity and notifications with transactional/outbox event wiring.
+10. Configure private object storage and then enable file upload/download.
+11. Run security, cross-role and regression QA.
+12. Review the exact release diff and green CI commit before any merge/deployment.
 
 ## Safety constraints
 
-- do not modify `main`;
-- do not merge or deploy production from this audit branch without final review;
-- do not apply Prisma migrations until authoritative database baseline is confirmed;
-- no fake authentication or browser identity bridge into production server paths;
-- no broad dependency/security autofix without reviewing the resulting diff;
-- never trust client-supplied user identity, role or case ownership.
+- do not modify or merge into `main` without final review;
+- do not deploy this audit branch to production until external enablement gates are satisfied;
+- do not apply Prisma migrations until the authoritative database baseline is confirmed;
+- do not connect demo/localStorage identity to production routes;
+- do not run `prisma db push` as a production migration shortcut;
+- do not run broad dependency/security autofixes such as `npm audit fix --force` automatically;
+- never trust client-supplied user identity, role or ownership;
+- do not expose raw questionnaire answers, document contents, secrets or storage object keys in logs.
+
+## Supporting documents
+
+- `docs/AUTHORIZATION_ARCHITECTURE.md`
+- `docs/AUTH_PROVIDER_INTEGRATION_REVIEW.md`
+- `docs/STATE_MIGRATION_ARCHITECTURE.md`
+- `docs/QUESTIONNAIRE_PERSISTENCE_SCHEMA_REVIEW.md`
+- `docs/PRODUCTION_ENABLEMENT_CHECKLIST.md`
+- `docs/DATABASE_BASELINE_AND_MIGRATION_PLAN.md`
