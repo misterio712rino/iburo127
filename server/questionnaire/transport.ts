@@ -11,6 +11,7 @@ import {
   QUESTIONNAIRE_INVALID_FIELD,
   QUESTIONNAIRE_INVALID_SECTION,
 } from "@/server/domain/questionnaire/service";
+import { QUESTIONNAIRE_INVALID_INPUT } from "@/server/questionnaire/input";
 
 export type QuestionnaireTransportErrorCode =
   | "UNAUTHENTICATED"
@@ -40,6 +41,7 @@ export function classifyQuestionnaireError(error: unknown): QuestionnaireTranspo
     case QUESTIONNAIRE_CASE_NOT_FOUND:
     case QUESTIONNAIRE_NOT_FOUND:
       return { code: "NOT_FOUND", status: 404 };
+    case QUESTIONNAIRE_INVALID_INPUT:
     case QUESTIONNAIRE_INVALID_FIELD:
     case QUESTIONNAIRE_INVALID_SECTION:
       return { code: "INVALID_INPUT", status: 400 };
