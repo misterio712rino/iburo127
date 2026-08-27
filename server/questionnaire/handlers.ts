@@ -1,6 +1,5 @@
 import "server-only";
 
-import type { QuestionnaireAnswer } from "@/lib/platform/types";
 import type { SessionProvider } from "@/server/auth/contracts";
 import {
   completeQuestionnaire,
@@ -9,50 +8,52 @@ import {
   getQuestionnaire,
   saveQuestionnaireAnswer,
 } from "@/server/questionnaire/operations";
+import {
+  parseClientCaseId,
+  parseCompleteQuestionnaireInput,
+  parseCompleteQuestionnaireSectionInput,
+  parseSaveQuestionnaireAnswerInput,
+} from "@/server/questionnaire/input";
 import { executeQuestionnaireOperation } from "@/server/questionnaire/transport";
 
-export function handleGetQuestionnaire(sessionProvider: SessionProvider, clientCaseId: string) {
-  return executeQuestionnaireOperation(() => getQuestionnaire(sessionProvider, clientCaseId));
+export function handleGetQuestionnaire(sessionProvider: SessionProvider, clientCaseId: unknown) {
+  return executeQuestionnaireOperation(() =>
+    getQuestionnaire(sessionProvider, parseClientCaseId(clientCaseId)),
+  );
 }
 
 export function handleGetOrCreateQuestionnaire(
   sessionProvider: SessionProvider,
-  clientCaseId: string,
+  clientCaseId: unknown,
 ) {
   return executeQuestionnaireOperation(() =>
-    getOrCreateQuestionnaireForClient(sessionProvider, clientCaseId),
+    getOrCreateQuestionnaireForClient(sessionProvider, parseClientCaseId(clientCaseId)),
   );
 }
 
 export function handleSaveQuestionnaireAnswer(
   sessionProvider: SessionProvider,
-  input: {
-    clientCaseId: string;
-    fieldId: string;
-    value: QuestionnaireAnswer;
-    expectedVersion?: number;
-  },
+  input: unknown,
 ) {
-  return executeQuestionnaireOperation(() => saveQuestionnaireAnswer(sessionProvider, input));
+  return executeQuestionnaireOperation(() =>
+    saveQuestionnaireAnswer(sessionProvider, parseSaveQuestionnaireAnswerInput(input)),
+  );
 }
 
 export function handleCompleteQuestionnaireSection(
   sessionProvider: SessionProvider,
-  input: {
-    clientCaseId: string;
-    sectionId: string;
-    expectedVersion?: number;
-  },
+  input: unknown,
 ) {
-  return executeQuestionnaireOperation(() => completeQuestionnaireSection(sessionProvider, input));
+  return executeQuestionnaireOperation(() =>
+    completeQuestionnaireSection(sessionProvider, parseCompleteQuestionnaireSectionInput(input)),
+  );
 }
 
 export function handleCompleteQuestionnaire(
   sessionProvider: SessionProvider,
-  input: {
-    clientCaseId: string;
-    expectedVersion?: number;
-  },
+  input: unknown,
 ) {
-  return executeQuestionnaireOperation(() => completeQuestionnaire(sessionProvider, input));
+  return executeQuestionnaireOperation(() =>
+    completeQuestionnaire(sessionProvider, parseCompleteQuestionnaireInput(input)),
+  );
 }
