@@ -49,7 +49,7 @@ export const CLIENT_DASHBOARDS = [
       { code: "QUESTIONNAIRE", title: "Анкета", summary: "7 из 12 разделов", detail: "Следующий раздел: имущество", progress: 58, state: "active" },
       { code: "DOCUMENTS", title: "Документы", summary: "Подготовка ещё не начата", detail: "Доступны после заполнения анкеты", state: "upcoming" },
       { code: "CASE_PROGRESS", title: "Прогресс дела", summary: "Текущий этап: Анкета", detail: "Общий прогресс — 46%", progress: 46, state: "active" },
-      { code: "MORTGAGE", title: "Анализ ипотечного жилья", summary: "Доступен", detail: "Оценка обстоятельств и возможных сценариев", state: "active" },
+      { code: "MORTGAGE", title: "Анализ ипотечного жилья", summary: "Индивидуальная оценка", detail: "Обстоятельства ипотечного жилья оценивает специалист", state: "active" },
       { code: "AI_ASSISTANT", title: "AI-помощник", summary: "Персональная поддержка", detail: "Ответы с учётом материалов дела", state: "locked", lockLabel: "Доступно в тарифе ИНДИВИДУАЛЬНЫЙ" },
     ],
     activity: [
@@ -72,7 +72,7 @@ export const CLIENT_DASHBOARDS = [
       { code: "QUESTIONNAIRE", title: "Анкета", summary: "12 из 12 разделов", detail: "Данные проверены", progress: 100, state: "completed" },
       { code: "DOCUMENTS", title: "Документы", summary: "3 документа подготовлено", detail: "Ожидают вашей проверки", progress: 68, state: "active" },
       { code: "CASE_PROGRESS", title: "Прогресс дела", summary: "Этап: Подготовка документов", detail: "Общий прогресс — 63%", progress: 63, state: "active" },
-      { code: "MORTGAGE", title: "Анализ ипотечного жилья", summary: "Доступен", detail: "Персональный анализ обстоятельств", state: "active" },
+      { code: "MORTGAGE", title: "Анализ ипотечного жилья", summary: "Индивидуальная оценка", detail: "Обстоятельства ипотечного жилья оценивает специалист", state: "active" },
       { code: "AI_ASSISTANT", title: "AI-помощник", summary: "Готов помочь", detail: "Учитывает материалы вашего дела", state: "active" },
     ],
     activity: [

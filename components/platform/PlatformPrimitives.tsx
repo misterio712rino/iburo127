@@ -4,7 +4,7 @@ import { PLAN_LABEL } from "@/lib/platform/themes";
 import type { PlanCode } from "@/lib/platform/types";
 
 export function PlatformCard({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("rounded-[1.4rem] border border-border bg-card text-card-foreground shadow-[0_18px_50px_rgba(0,0,0,.06)]", className)} {...props} />;
+  return <div className={cn("platform-glass rounded-[1.4rem] border border-border bg-card text-card-foreground shadow-[0_18px_50px_rgba(0,0,0,.06)]", className)} {...props} />;
 }
 
 export function PlanBadge({ plan }: { plan: PlanCode }) {
@@ -19,7 +19,7 @@ export function ProfileAvatar({ initials, className }: { initials: string; class
   return <span className={cn("grid size-10 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground", className)} aria-hidden="true">{initials}</span>;
 }
 
-export function SectionHeader({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
+export function SectionHeader({ title, description, action }: { title: ReactNode; description?: string; action?: ReactNode }) {
   return <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><h1 className="platform-display text-4xl leading-[1.05] tracking-[-.022em] sm:text-5xl">{title}</h1>{description ? <p className="mt-2 text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">{description}</p> : null}</div>{action}</div>;
 }
 

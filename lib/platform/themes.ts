@@ -13,5 +13,5 @@ export const PLAN_LABEL: Record<PlanCode, string> = {
 };
 
 export function getPlatformTheme(identity: DemoIdentity): PlatformTheme {
-  return identity.role === "LAWYER" ? "staff" : PLAN_THEME[identity.plan ?? "LITE"];
+  return identity.role === "LAWYER" || identity.role === "MANAGER" ? "staff" : PLAN_THEME[identity.plan ?? "LITE"];
 }

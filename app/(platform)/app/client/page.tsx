@@ -36,7 +36,7 @@ function ClientDashboard() {
   const reviewedDocuments = documents.filter((document) => document.status === "reviewed").length;
   const modules = dashboard.modules.map((module) => module.code === "PRACTICUM" ? { ...module, summary: `${practicum.completedCount} из 12 уроков`, detail: practicum.isComplete ? "Обучение завершено" : `Текущий урок: ${practicum.currentLesson?.title ?? "программа завершена"}`, progress: practicum.progress, state: practicum.isComplete ? "completed" as const : "active" as const } : module.code === "QUESTIONNAIRE" ? { ...module, summary: questionnaire.started ? `${questionnaire.completedCount} из 10 разделов` : "Не начата", detail: questionnaire.isComplete ? "Данные проверены" : questionnaire.started ? `Следующий раздел: ${questionnaire.currentSection.title.toLocaleLowerCase("ru")}` : "Следующий этап после обучения", progress: questionnaire.progress, state: questionnaire.isComplete ? "completed" as const : questionnaire.started ? "active" as const : "upcoming" as const } : module.code === "DOCUMENTS" ? { ...module, summary: preparedDocuments.length ? `${preparedDocuments.length} документа подготовлено` : documents.some((document) => document.status === "draft") ? "Есть предварительные черновики" : "Пока не сформированы", detail: reviewedDocuments ? `${reviewedDocuments} проверено юристом` : documentState.state.sentForReviewIds.length ? "Переданы юристу на проверку" : questionnaire.isComplete ? "Ожидают вашей проверки" : "Заполняются по данным анкеты", progress: questionnaire.progress, state: preparedDocuments.length ? "active" as const : "upcoming" as const } : module);
   const nextStep = identityId === "maria-pro" && questionnaire.isComplete ? { title:"Перейти к подготовке документов", description:"Анкета заполнена и готова для следующего этапа.", actionLabel:"Перейти к документам" } : dashboard.nextStep;
-  const nextStepHref = identityId === "alexander-lite" ? `/app/client/practicum/${practicum.currentLesson?.id ?? "lesson-1"}` : identityId === "maria-pro" && !questionnaire.isComplete ? "/app/client/questionnaire" : identityId === "dmitry-individual" || questionnaire.isComplete ? "/app/client/documents" : undefined;
+  const nextStepHref = identityId === "alexander-lite" ? `/app/client/practicum/${practicum.currentLesson?.id ?? "lesson-1"}` : identityId === "maria-pro" && !questionnaire.isComplete ? "/app/client/questionnaire" : identityId === "dmitry-individual" || questionnaire.isComplete ? "/app/client/documents" : "/app/client/progress";
 
   return (
     <PlatformShell>
@@ -74,7 +74,6 @@ function ClientDashboard() {
           <LawyerCard description={dashboard.supportDescription} />
         </section>
 
-        <p className="pb-2 text-xs text-muted-foreground">Данные профиля подготовлены для демонстрации и не являются реальными.</p>
       </div>
     </PlatformShell>
   );

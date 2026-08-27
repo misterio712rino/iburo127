@@ -59,6 +59,10 @@ function ProfilePreviewCard({
   const PreviewIcon = meta.icon;
   const [firstName, ...lastNameParts] = identity.displayName.trim().split(/\s+/);
   const lastName = lastNameParts.join(" ");
+  const individual = identity.plan === "INDIVIDUAL";
+  const roleLabel = identity.role === "MANAGER" ? "Руководитель" : identity.role === "LAWYER" ? "Сотрудник" : "Клиент";
+  const previewLabel = identity.role === "MANAGER" ? "Операционная сводка" : identity.role === "LAWYER" ? "Активные дела" : "Прогресс дела";
+  const identityLabel = identity.role === "MANAGER" ? "Руководитель практики" : identity.role === "LAWYER" ? "Юрист · Кабинет сотрудника" : `Тариф ${PLAN_LABEL[identity.plan!]}`;
 
   return (
     <motion.button
@@ -71,13 +75,13 @@ function ProfilePreviewCard({
     >
       <span className="profile-preview__accent" aria-hidden="true" />
 
-      <span className="grid w-full grid-cols-[3rem_minmax(0,1fr)_auto] items-start gap-3">
+      <span className={`grid w-full grid-cols-[3rem_minmax(0,1fr)_auto] items-start gap-3 lg:flex lg:items-center ${individual ? "lg:gap-2" : "lg:gap-4"}`}>
         <ProfileAvatar initials={identity.initials} className="size-12" />
-        <span className="min-w-0 pt-1 text-[11px] font-semibold uppercase tracking-[0.16em] opacity-55">
-          {identity.role === "LAWYER" ? "Сотрудник" : "Клиент"}
+        <span className={`min-w-0 pt-1 text-[11px] font-semibold uppercase tracking-[0.16em] opacity-55 lg:pt-0 lg:whitespace-nowrap ${individual ? "lg:min-w-[4rem] lg:flex-none" : "lg:flex-1"}`}>
+          {roleLabel}
         </span>
         {identity.plan ? (
-          <span className="shrink-0 whitespace-nowrap">
+          <span className={`${individual ? "profile-preview__plan--individual" : ""} shrink-0 whitespace-nowrap`}>
             <PlanBadge plan={identity.plan} />
           </span>
         ) : (
@@ -91,7 +95,7 @@ function ProfilePreviewCard({
         <span className="flex items-center justify-between">
           <span className="flex items-center gap-2 text-xs font-semibold">
             <PreviewIcon className="size-4" aria-hidden="true" />
-            {identity.role === "LAWYER" ? "Активные дела" : "Прогресс дела"}
+            {previewLabel}
           </span>
           <span className="profile-preview__status size-2 rounded-full" />
         </span>
@@ -112,9 +116,7 @@ function ProfilePreviewCard({
             <span className="block">{lastName}</span>
           </span>
           <span className="mt-2 block min-h-5 text-sm opacity-65">
-            {identity.role === "LAWYER"
-              ? "Юрист · Кабинет сотрудника"
-              : `Тариф ${PLAN_LABEL[identity.plan!]}`}
+            {identityLabel}
           </span>
           <span className="mt-3 block min-h-4 break-words font-mono text-[11px] font-medium tracking-[0.04em] opacity-55">
             {identity.caseNumber ? `Дело ${identity.caseNumber}` : null}
@@ -149,7 +151,7 @@ export default function PlatformPage() {
           <span className="inline-flex items-center gap-2 rounded-full border border-[#DED5CE] bg-white/75 px-3.5 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#6E6661] shadow-sm sm:px-4 sm:text-[11px]">
             <ShieldCheck className="size-4 text-[#7B2330]" aria-hidden="true" />
             <span className="hidden sm:inline">Демонстрационный режим</span>
-            <span className="sm:hidden">Демо</span>
+            <span className="sm:hidden">Режим показа</span>
           </span>
         </header>
 
@@ -162,12 +164,12 @@ export default function PlatformPage() {
           <span className="inline-flex items-center gap-2 rounded-full border border-[#DCCBC8] bg-[#7B2330]/[0.055] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#7B2330] sm:text-[11px]">
             <Sparkles className="size-3.5" aria-hidden="true" />
             <span>
-              Демо платформы <IBuroBrand className="normal-case tracking-normal" />
+              Цифровая система <IBuroBrand className="normal-case tracking-normal" />
             </span>
           </span>
           <h1 className="platform-display mx-auto mt-7 max-w-5xl text-[clamp(3.4rem,7.5vw,7rem)] leading-[1.05] tracking-[-0.022em] text-[#1D1D1F] sm:mx-0">
-            Демонстрация
-            <span className="block text-[#7B2330]">платформы</span>
+            Выберите
+            <span className="block text-[#7B2330]">профиль</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#66605C] sm:mx-0 sm:mt-7 sm:text-xl sm:leading-9">
             Выберите профиль, чтобы посмотреть интерфейс клиента или сотрудника.
@@ -175,11 +177,11 @@ export default function PlatformPage() {
         </motion.section>
 
         <motion.section
-          aria-label="Демонстрационные профили"
+          aria-label="Профили пользователей"
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
-          className="grid gap-5 pb-12 md:grid-cols-2 xl:grid-cols-4"
+          className="grid gap-5 pb-12 md:grid-cols-2 xl:grid-cols-5"
         >
           {DEMO_IDENTITIES.map((identity) => (
             <ProfilePreviewCard
@@ -188,7 +190,7 @@ export default function PlatformPage() {
               onSelect={() => {
                 selectIdentity(identity);
                 router.push(
-                  identity.role === "LAWYER" ? "/app/lawyer" : "/app/client",
+                  identity.role === "MANAGER" ? "/app/manager" : identity.role === "LAWYER" ? "/app/lawyer" : "/app/client",
                 );
               }}
             />

@@ -13,7 +13,6 @@ const actions = {
   documents: { type: "OPEN_DOCUMENTS", label: "Открыть документы", href: "/app/client/documents" },
   questionnaire: { type: "OPEN_QUESTIONNAIRE", label: "Открыть анкету", href: "/app/client/questionnaire" },
   practicum: { type: "OPEN_PRACTICUM", label: "Перейти в Практикум", href: "/app/client/practicum" },
-  lawyer: { type: "ASK_LAWYER", label: "Задать вопрос Анне Орловой" },
 } satisfies Record<string, AiAction>;
 
 function includesAny(value: string, words: readonly string[]) { return words.some((word) => value.includes(word)); }
@@ -46,17 +45,17 @@ export function classifyDemoIntent(message: string) {
 
 function makeReply(context: AiContext, message: string): AiReply {
   switch (classifyDemoIntent(message)) {
-    case "CONCEALMENT": return { content: "Я не могу помогать скрывать имущество или предоставлять недостоверные сведения. Для процедуры важно указывать информацию корректно. Если ситуация сложная, лучше обсудить её со специалистом.", action: actions.lawyer };
-    case "GUARANTEE": return { content: "Результат процедуры нельзя гарантировать заранее: он зависит от обстоятельств дела и юридической оценки. Я могу объяснить общий процесс, а итоговый вывод должен сделать специалист.", action: actions.lawyer };
-    case "MORTGAGE": return { content: "В вашем деле указано ипотечное жильё. Такие ситуации требуют отдельного анализа условий кредита, статуса жилья и других обстоятельств. В тарифе ИНДИВИДУАЛЬНЫЙ предусмотрен персональный анализ, поэтому итоговую оценку должен дать специалист.", action: actions.lawyer };
+    case "CONCEALMENT": return { content: "Я не могу помогать скрывать имущество или предоставлять недостоверные сведения. Для процедуры важно указывать информацию корректно. Если ситуация сложная, лучше обсудить её со специалистом." };
+    case "GUARANTEE": return { content: "Результат процедуры нельзя гарантировать заранее: он зависит от обстоятельств дела и юридической оценки. Я могу объяснить общий процесс, а итоговый вывод должен сделать специалист." };
+    case "MORTGAGE": return { content: "В вашем деле указано ипотечное жильё. Такие ситуации требуют отдельного анализа условий кредита, статуса жилья и других обстоятельств. В тарифе ИНДИВИДУАЛЬНЫЙ предусмотрен персональный анализ, поэтому итоговую оценку должен дать специалист." };
     case "NEXT_STEP": return { content: `Сейчас ваше дело находится на этапе «${context.currentStage}». Анкета заполнена на ${context.questionnaireProgress}%, и ${context.documents.readyCount} документа готовы к проверке. Рекомендую открыть раздел «Документы», проверить сведения и затем передать черновики ${context.assignedLawyer} на проверку.`, action: actions.documents };
-    case "DOCUMENTS": return { content: `${documentsText(context)} Значения подставлены из нормализованных ответов анкеты, а источник ключевых полей показан в preview.`, action: actions.documents };
-    case "LAWYER": return { content: `AI-помощник помогает ориентироваться и объяснять информацию, но итоговую проверку документов и юридическую оценку выполняет специалист. Ваше дело сопровождает ${context.assignedLawyer}.`, action: actions.lawyer };
+    case "DOCUMENTS": return { content: `${documentsText(context)} Значения подставлены из нормализованных ответов анкеты, а источник ключевых полей указан в карточке документа.`, action: actions.documents };
+    case "LAWYER": return { content: `AI-помощник помогает ориентироваться и объяснять информацию, но итоговую проверку документов и юридическую оценку выполняет специалист. Ваше дело сопровождает ${context.assignedLawyer}.` };
     case "QUESTIONNAIRE": return { content: `Анкета заполнена на ${context.questionnaireProgress}%. Её нормализованные ответы используются для подготовки черновиков документов. Если данные изменятся, документы можно обновить.`, action: actions.questionnaire };
     case "PRACTICUM": return { content: `Практикум завершён на ${context.practicumProgress}%. Он объясняет общий порядок процедуры и помогает подготовиться к следующим этапам.`, action: actions.practicum };
     case "CASE_STATUS": return { content: `Дело № ${context.caseNumber} активно. Текущий этап — «${context.currentStage}», общий прогресс — ${context.overallProgress}%. Следующий ориентир: ${context.nextStep.toLocaleLowerCase("ru")}.`, action: actions.documents };
-    case "GENERAL_HELP": return { content: "Я могу объяснить текущий этап, состояние анкеты и документов, материалы Практикума или помочь подготовить вопрос специалисту. Ответы в этом режиме демонстрируют предполагаемую логику продукта." };
-    default: return { content: "Я не хочу давать неточный ответ на этот вопрос. Могу помочь разобраться в этапах дела, анкете, документах или работе платформы. Для юридической оценки лучше передать вопрос вашему специалисту.", action: actions.lawyer };
+    case "GENERAL_HELP": return { content: "Я могу объяснить текущий этап, состояние анкеты и документов, материалы Практикума или помочь подготовить вопрос специалисту." };
+    default: return { content: "Я не хочу давать неточный ответ на этот вопрос. Могу помочь разобраться в этапах дела, анкете, документах или работе платформы. Для юридической оценки лучше обсудить вопрос со специалистом." };
   }
 }
 

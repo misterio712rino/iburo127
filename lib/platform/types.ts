@@ -1,6 +1,6 @@
 export type PlanCode = "LITE" | "PRO" | "INDIVIDUAL";
 export type PlatformTheme = "light" | "pro" | "premium" | "staff";
-export type DemoRole = "CLIENT" | "LAWYER";
+export type DemoRole = "CLIENT" | "LAWYER" | "MANAGER";
 
 export type DemoIdentity = {
   id: string;
@@ -19,6 +19,7 @@ export type DemoClientCase = {
   status: "Активно";
   progress: number;
   nextStep: string;
+  assignedEmployeeId: string;
   assignedLawyer: string;
   openedDate: string;
 };
@@ -164,7 +165,7 @@ export type LawyerCaseSummary = {
 };
 
 export type AiRole = "user" | "assistant";
-export type AiActionType = "OPEN_DOCUMENTS" | "OPEN_QUESTIONNAIRE" | "OPEN_PRACTICUM" | "ASK_LAWYER";
+export type AiActionType = "OPEN_DOCUMENTS" | "OPEN_QUESTIONNAIRE" | "OPEN_PRACTICUM";
 export type AiAction = { type: AiActionType; label: string; href?: string };
 export type AiMessage = { id: string; role: AiRole; content: string; createdAt: string; action?: AiAction };
 export type AiConversation = { createdAt: string; messages: AiMessage[]; escalatedAt?: string };

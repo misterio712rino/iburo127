@@ -23,7 +23,7 @@ export function LawyerCard({ description }: { description: string }) {
           {requested ? "Запрос сохранён" : "Задать вопрос"}
         </Button>
       </div>
-      {requested ? <p className="mt-3 text-xs text-muted-foreground" role="status">Чат появится в одном из следующих демо-модулей.</p> : null}
+      {requested ? <p className="mt-3 text-xs text-muted-foreground" role="status">Вопрос подготовлен для специалиста.</p> : null}
     </PlatformCard>
   );
 }

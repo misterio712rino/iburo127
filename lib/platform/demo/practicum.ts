@@ -30,5 +30,6 @@ export const CLIENT_PRACTICUM_STATES = [
 ] as const satisfies readonly ClientPracticumState[];
 
 export function getPracticumState(identityId:string): ClientPracticumState | undefined { return CLIENT_PRACTICUM_STATES.find((state)=>state.identityId===identityId); }
+export function getPracticumProgress(identityId:string) { const state=getPracticumState(identityId);return state?Math.round(new Set(state.initialCompletedLessonIds).size/PRACTICUM_LESSONS.length*100):undefined; }
 export function getPracticumLesson(lessonId:string): PracticumLesson | undefined { return PRACTICUM_LESSONS.find((lesson)=>lesson.id===lessonId); }
 export function getLessonModule(lesson:PracticumLesson): PracticumModule { return PRACTICUM_MODULES.find((module)=>module.id===lesson.moduleId)!; }

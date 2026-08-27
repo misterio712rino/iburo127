@@ -26,7 +26,6 @@ export function useAiConversation(identityId: string, context: AiContext) {
     conversation,
     appendUser(content: string) { const message: AiMessage = { id: id("user"), role: "user", content, createdAt: new Date().toISOString() }; mutate((current) => ({ ...current, messages: [...current.messages, message] })); },
     appendReply(reply: AiReply) { const message: AiMessage = { id: id("assistant"), role: "assistant", content: reply.content, action: reply.action, createdAt: new Date().toISOString() }; mutate((current) => ({ ...current, messages: [...current.messages, message] })); },
-    escalate() { mutate((current) => ({ ...current, escalatedAt: new Date().toISOString() })); },
     reset() { persist(identityId, initialConversation(context)); },
   };
 }

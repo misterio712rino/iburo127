@@ -18,7 +18,7 @@ export function ProcedureProgress({ currentStageIndex }: { currentStageIndex: nu
           return (
             <li key={stage} className="relative flex gap-4 pb-5 last:pb-0 md:block md:pb-0">
               {index < PROCEDURE_STAGES.length - 1 ? <span className="absolute bottom-0 left-[15px] top-8 w-px bg-border md:left-8 md:right-0 md:top-4 md:h-px md:w-auto" aria-hidden="true" /> : null}
-              <span className={cn("relative z-10 grid size-8 shrink-0 place-items-center rounded-full border text-[11px] font-bold", completed && "border-primary bg-primary text-primary-foreground", current && "border-primary bg-card text-primary ring-4 ring-primary/15", !completed && !current && "border-border bg-muted text-muted-foreground")} aria-current={current ? "step" : undefined}>
+              <span className={cn("relative z-10 grid size-8 shrink-0 place-items-center rounded-full border text-[11px] font-bold", completed && "border-primary bg-primary text-primary-foreground", current && "platform-step-current border-primary bg-card text-primary ring-4 ring-primary/15", !completed && !current && "border-border bg-muted text-muted-foreground")} aria-current={current ? "step" : undefined}>
                 {completed ? <Check className="size-4" aria-hidden="true" /> : index + 1}
               </span>
               <span className={cn("block pt-1 text-xs leading-5 md:mt-3 md:max-w-[7rem] md:pr-2", current ? "font-semibold text-foreground" : "text-muted-foreground")}>{stage}</span>

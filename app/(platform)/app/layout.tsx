@@ -19,8 +19,8 @@ const iburoDisplay = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  title: "Platform | iБюро",
-  description: "iБюро Platform — Investor Preview Foundation.",
+  title: "iБюро — Личный кабинет",
+  description: "Платформа сопровождения процедуры банкротства",
   robots: {
     index: false,
     follow: false,
