@@ -9,7 +9,8 @@ This checklist defines the conditions for switching any platform workflow from i
 - [ ] Prisma migration baseline established without destructive drift.
 - [x] Authentication product direction selected: Better Auth, self-hosted against PostgreSQL.
 - [ ] Better Auth dependency/configuration installed on the release branch with reviewed lockfile changes.
-- [ ] Trusted Better Auth server-side session reader implemented.
+- [x] Provider-specific Better Auth session-reader boundary implemented.
+- [ ] Real Better Auth server session loader wired into that boundary.
 - [x] External `(provider, subject)` -> internal `User.id` mapping architecture implemented through `AuthIdentity`.
 - [ ] Account enrollment, recovery and MFA policy implemented; staff MFA mandatory.
 - [x] Production server architecture does not use `DemoIdentityProvider`, localStorage identity, browser role or browser user ID as authorization sources.
@@ -60,8 +61,11 @@ Repository/server foundation is complete; activation still requires:
 - [x] Case-scoped document repository/service/transport foundation implemented.
 - [x] Review actions modeled as server-authorized lifecycle changes.
 - [x] Private stored-file metadata model/repository/service foundation implemented.
-- [ ] Private object storage provider selected and configured.
-- [ ] Signed/private upload/download strategy implemented against the selected storage provider.
+- [x] Private object storage product direction selected: Yandex Object Storage.
+- [x] Provider-neutral short-lived signed URL contract implemented.
+- [ ] Yandex S3-compatible storage adapter implemented with reviewed dependency/lockfile changes.
+- [ ] Private staging bucket/service account configured.
+- [ ] Signed/private upload/download flow wired through server authorization.
 - [ ] Document/file migrations reviewed and applied to staging.
 - [ ] No generated document or uploaded file exposed by a guessable public URL.
 - [ ] DB-backed review/audit E2E completed.
@@ -89,10 +93,11 @@ Architecture decision: see `docs/AUTH_PROVIDER_DECISION.md`.
 - [x] `AuthIdentity` mapping model implemented.
 - [x] Active internal user + internal role resolution implemented.
 - [x] Better Auth selected as preferred self-hosted provider.
+- [x] Better Auth external identity/session-reader boundary implemented without trusting provider IDs as internal IDs.
 - [ ] Add Better Auth dependency with controlled lockfile update.
 - [ ] Configure Better Auth PostgreSQL schema without auto-migrating production.
 - [ ] Add `/api/auth/[...all]` route handler.
-- [ ] Implement Better Auth `ExternalSessionReader` adapter.
+- [ ] Wire actual Better Auth server session validation into `BetterAuthExternalSessionReader`.
 - [ ] Add sign-in/sign-out/recovery/verification UI.
 - [ ] Add TOTP 2FA and backup-code flow; require it for staff.
 - [ ] Implement controlled `AuthIdentity` linking/provisioning.
