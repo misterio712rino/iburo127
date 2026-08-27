@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { BriefcaseBusiness, CheckCircle2, Clock3, Search, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,11 +11,12 @@ import { DEMO_CASES } from "@/lib/platform/demo/cases";
 import { DEMO_IDENTITIES, LAWYER_IDENTITY } from "@/lib/platform/demo/identities";
 import { DEMO_TASKS, type DemoTask, type DemoTaskGroup, type DemoTaskStatus } from "@/lib/platform/demo/tasks";
 import type { PlanCode } from "@/lib/platform/types";
+import { useTaskState, type TaskState } from "@/lib/platform/workflows/tasks/useTaskState";
 
 type TaskGroup = DemoTaskGroup;
 export type LawyerTaskStatus = DemoTaskStatus;
 type Filter = "all" | "urgent" | "today" | "week" | "working" | "done";
-export type LawyerTaskState = Record<string, LawyerTaskStatus>;
+export type LawyerTaskState = TaskState;
 export type LawyerTask = DemoTask & { client: string; caseNumber: string; plan: "LITE" | "PRO" | "ИНДИВИДУАЛЬНЫЙ" };
 
 const SUPPORTED_LAWYER_CLIENT_IDS = new Set(DEMO_IDENTITIES.filter((identity) => identity.role === "CLIENT").map((identity) => identity.id));
@@ -36,18 +37,16 @@ const groupStyle: Record<TaskGroup, string> = { overdue: "border-[#8f1720]/25 bg
 export function LawyerTasks() { return <LawyerRouteGuard><PlatformShell><TasksContent /></PlatformShell></LawyerRouteGuard>; }
 
 export function useLawyerTaskSnapshot() {
-  const stored = useSyncExternalStore((callback) => { window.addEventListener("storage", callback); window.addEventListener("iburo-task-state", callback); return () => { window.removeEventListener("storage", callback); window.removeEventListener("iburo-task-state", callback); }; }, () => window.localStorage.getItem("iburo.tasks.v1") ?? "", () => "");
-  let state: LawyerTaskState = {};
-  try { if (stored) state = JSON.parse(stored) as LawyerTaskState; } catch {}
-  return state;
+  return useTaskState().state;
 }
 
 function TasksContent() {
-  const state = useLawyerTaskSnapshot();
+  const tasks = useTaskState();
+  const state = tasks.state;
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
-  function statusOf(id: string): LawyerTaskStatus { return state[id] ?? "new"; }
-  function update(id: string, value: LawyerTaskStatus) { const next = { ...state, [id]: value }; window.localStorage.setItem("iburo.tasks.v1", JSON.stringify(next)); window.dispatchEvent(new Event("iburo-task-state")); }
+  const statusOf = tasks.statusOf;
+  const update = tasks.update;
 
   const counts = {
     urgent: LAWYER_TASKS.filter((task) => task.group === "urgent" && statusOf(task.id) !== "done").length,
@@ -59,11 +58,11 @@ function TasksContent() {
   const visible = (() => {
     const normalized = query.trim().toLocaleLowerCase("ru-RU");
     return LAWYER_TASKS.filter((task) => {
-      const status = state[task.id] ?? "new";
+      const status = statusOf(task.id);
       const matchesFilter = filter === "all" || filter === "working" && status === "working" || filter === "done" && status === "done" || filter === "urgent" && (task.group === "urgent" || task.group === "overdue") && status !== "done" || filter === "today" && (task.group === "today" || task.group === "urgent") && status !== "done" || filter === "week" && task.group === "week" && status !== "done";
       const haystack = `${task.client} ${task.caseNumber} ${task.title}`.toLocaleLowerCase("ru-RU");
       return matchesFilter && (!normalized || haystack.includes(normalized));
-    }).sort((a, b) => taskRank(a, state[a.id] ?? "new") - taskRank(b, state[b.id] ?? "new") || a.dueOrder - b.dueOrder);
+    }).sort((a, b) => taskRank(a, statusOf(a.id)) - taskRank(b, statusOf(b.id)) || a.dueOrder - b.dueOrder);
   })();
 
   const emptyText = query ? "По вашему запросу задач не найдено" : filter === "urgent" ? "Срочных задач нет" : filter === "today" ? "Все задачи на сегодня выполнены" : filter === "done" ? "Завершённых задач пока нет" : filter === "working" ? "Задач в работе нет" : "В этой категории задач нет";
