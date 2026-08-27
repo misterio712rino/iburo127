@@ -27,6 +27,12 @@ enum QuestionnaireStatus {
   COMPLETED
 }
 
+enum TaskStatus {
+  NEW
+  WORKING
+  DONE
+}
+
 model User {
   id          String     @id @default(uuid()) @db.Uuid
   email       String?    @unique
@@ -36,10 +42,12 @@ model User {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  roles          UserRole[]
-  clientCases    ClientCase[] @relation("ClientCases")
-  assignedCases  ClientCase[] @relation("AssignedLawyerCases")
-  authIdentities AuthIdentity[]
+  roles            UserRole[]
+  clientCases      ClientCase[]      @relation("ClientCases")
+  assignedCases    ClientCase[]      @relation("AssignedLawyerCases")
+  authIdentities   AuthIdentity[]
+  assignedTasks    CaseTask[]        @relation("AssignedTasks")
+  taskStatusEvents TaskStatusEvent[] @relation("TaskStatusEventActors")
 }
 
 model AuthIdentity {
@@ -149,6 +157,7 @@ model ClientCase {
   stage             CaseStage              @relation(fields: [stageId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   questionnaire     CaseQuestionnaire?
   practicumProgress CasePracticumProgress?
+  tasks             CaseTask[]
 
   @@index([clientId])
   @@index([assignedLawyerId])
@@ -173,13 +182,52 @@ model CaseQuestionnaire {
 }
 
 model CasePracticumProgress {
-  clientCaseId        String   @id @db.Uuid
-  completedLessonIds  String[]
-  startedAt           DateTime?
-  completedAt         DateTime?
-  version             Int      @default(1)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  clientCaseId       String   @id @db.Uuid
+  completedLessonIds String[]
+  startedAt          DateTime?
+  completedAt        DateTime?
+  version            Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   clientCase ClientCase @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+}
+
+model CaseTask {
+  id           String     @id @default(uuid()) @db.Uuid
+  clientCaseId String     @db.Uuid
+  assigneeId   String     @db.Uuid
+  title        String
+  description  String?
+  status       TaskStatus @default(NEW)
+  dueAt        DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  version      Int        @default(1)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  clientCase ClientCase        @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  assignee   User              @relation("AssignedTasks", fields: [assigneeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  events     TaskStatusEvent[]
+
+  @@index([clientCaseId])
+  @@index([assigneeId])
+  @@index([status])
+  @@index([dueAt])
+}
+
+model TaskStatusEvent {
+  id          String     @id @default(uuid()) @db.Uuid
+  taskId      String     @db.Uuid
+  actorUserId String     @db.Uuid
+  fromStatus  TaskStatus
+  toStatus    TaskStatus
+  createdAt   DateTime   @default(now())
+
+  task  CaseTask @relation(fields: [taskId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  actor User     @relation("TaskStatusEventActors", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([taskId, createdAt])
+  @@index([actorUserId])
 }
