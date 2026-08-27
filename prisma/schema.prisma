@@ -21,6 +21,12 @@ enum ClientCaseStatus {
   ARCHIVED
 }
 
+enum QuestionnaireStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
 model User {
   id          String     @id @default(uuid()) @db.Uuid
   email       String?    @unique
@@ -126,10 +132,26 @@ model ClientCase {
   assignedLawyer User?     @relation("AssignedLawyerCases", fields: [assignedLawyerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   plan           Plan      @relation(fields: [planId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   stage          CaseStage @relation(fields: [stageId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  questionnaire  CaseQuestionnaire?
 
   @@index([clientId])
   @@index([assignedLawyerId])
   @@index([planId])
   @@index([stageId])
   @@index([status])
+}
+
+model CaseQuestionnaire {
+  clientCaseId       String              @id @db.Uuid
+  schemaVersion      Int                 @default(1)
+  status             QuestionnaireStatus @default(NOT_STARTED)
+  answers            Json
+  completedSectionIds String[]
+  startedAt          DateTime?
+  completedAt        DateTime?
+  version            Int                 @default(1)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  clientCase ClientCase @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 }
