@@ -28,9 +28,15 @@ export type CompleteQuestionnaireSectionInput = {
   expectedVersion?: number;
 };
 
+export type CompleteQuestionnaireInput = {
+  clientCaseId: string;
+  expectedVersion?: number;
+};
+
 export interface QuestionnaireRepository {
   getByClientCaseId(clientCaseId: string): Promise<QuestionnaireRecord | null>;
   createForCase(clientCaseId: string, schemaVersion: number): Promise<QuestionnaireRecord>;
   saveAnswer(input: SaveQuestionnaireAnswerInput): Promise<QuestionnaireRecord>;
   completeSection(input: CompleteQuestionnaireSectionInput): Promise<QuestionnaireRecord>;
+  markCompleted(input: CompleteQuestionnaireInput): Promise<QuestionnaireRecord>;
 }
