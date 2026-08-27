@@ -1,5 +1,8 @@
 import type { QuestionnaireAnswer, QuestionnaireAnswers } from "@/lib/platform/types";
 
+export const QUESTIONNAIRE_NOT_FOUND = "QUESTIONNAIRE_NOT_FOUND";
+export const QUESTIONNAIRE_VERSION_CONFLICT = "QUESTIONNAIRE_VERSION_CONFLICT";
+
 export type QuestionnaireStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
 
 export type QuestionnaireRecord = {
