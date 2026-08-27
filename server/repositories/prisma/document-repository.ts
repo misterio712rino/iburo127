@@ -24,35 +24,10 @@ function toRecord(row: {
   return row;
 }
 
-async function updateDocument(
-  clientCaseId: string,
-  documentCode: string,
-  expectedVersion: number | undefined,
-  data: (current: CaseDocumentRecord, now: Date) => Record<string, unknown>,
-) {
-  const prisma = getPrismaClient();
-  return prisma.$transaction(async (tx) => {
-    const current = await tx.caseDocument.findUnique({
-      where: { clientCaseId_documentCode: { clientCaseId, documentCode } },
-    });
-    if (!current) throw new Error(DOCUMENT_NOT_FOUND);
-    if (expectedVersion !== undefined && current.version !== expectedVersion) {
-      throw new Error(DOCUMENT_VERSION_CONFLICT);
-    }
-
-    const updated = await tx.caseDocument.updateMany({
-      where: { id: current.id, version: current.version },
-      data: {
-        ...data(toRecord(current), new Date()),
-        version: { increment: 1 },
-      },
-    });
-    if (updated.count !== 1) throw new Error(DOCUMENT_VERSION_CONFLICT);
-
-    const row = await tx.caseDocument.findUnique({ where: { id: current.id } });
-    if (!row) throw new Error(DOCUMENT_NOT_FOUND);
-    return toRecord(row);
-  });
+function assertExpectedVersion(currentVersion: number, expectedVersion?: number) {
+  if (expectedVersion !== undefined && currentVersion !== expectedVersion) {
+    throw new Error(DOCUMENT_VERSION_CONFLICT);
+  }
 }
 
 export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
@@ -89,17 +64,35 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
     status: CaseDocumentStatus;
     expectedVersion?: number;
   }) {
-    return updateDocument(
-      input.clientCaseId,
-      input.documentCode,
-      input.expectedVersion,
-      (_current, now) => ({
-        status: input.status,
-        regeneratedAt: now,
-        sentForReviewAt: null,
-        reviewedAt: null,
-      }),
-    );
+    const prisma = getPrismaClient();
+    return prisma.$transaction(async (tx) => {
+      const current = await tx.caseDocument.findUnique({
+        where: {
+          clientCaseId_documentCode: {
+            clientCaseId: input.clientCaseId,
+            documentCode: input.documentCode,
+          },
+        },
+      });
+      if (!current) throw new Error(DOCUMENT_NOT_FOUND);
+      assertExpectedVersion(current.version, input.expectedVersion);
+
+      const updated = await tx.caseDocument.updateMany({
+        where: { id: current.id, version: current.version },
+        data: {
+          status: input.status,
+          regeneratedAt: new Date(),
+          sentForReviewAt: null,
+          reviewedAt: null,
+          version: { increment: 1 },
+        },
+      });
+      if (updated.count !== 1) throw new Error(DOCUMENT_VERSION_CONFLICT);
+
+      const row = await tx.caseDocument.findUnique({ where: { id: current.id } });
+      if (!row) throw new Error(DOCUMENT_NOT_FOUND);
+      return toRecord(row);
+    });
   }
 
   async sendForReview(input: {
@@ -107,12 +100,33 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
     documentCode: string;
     expectedVersion?: number;
   }) {
-    return updateDocument(
-      input.clientCaseId,
-      input.documentCode,
-      input.expectedVersion,
-      (_current, now) => ({ status: "SENT_FOR_REVIEW", sentForReviewAt: now }),
-    );
+    const prisma = getPrismaClient();
+    return prisma.$transaction(async (tx) => {
+      const current = await tx.caseDocument.findUnique({
+        where: {
+          clientCaseId_documentCode: {
+            clientCaseId: input.clientCaseId,
+            documentCode: input.documentCode,
+          },
+        },
+      });
+      if (!current) throw new Error(DOCUMENT_NOT_FOUND);
+      assertExpectedVersion(current.version, input.expectedVersion);
+
+      const updated = await tx.caseDocument.updateMany({
+        where: { id: current.id, version: current.version },
+        data: {
+          status: "SENT_FOR_REVIEW",
+          sentForReviewAt: new Date(),
+          version: { increment: 1 },
+        },
+      });
+      if (updated.count !== 1) throw new Error(DOCUMENT_VERSION_CONFLICT);
+
+      const row = await tx.caseDocument.findUnique({ where: { id: current.id } });
+      if (!row) throw new Error(DOCUMENT_NOT_FOUND);
+      return toRecord(row);
+    });
   }
 
   async markReviewed(input: {
@@ -120,11 +134,32 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
     documentCode: string;
     expectedVersion?: number;
   }) {
-    return updateDocument(
-      input.clientCaseId,
-      input.documentCode,
-      input.expectedVersion,
-      (_current, now) => ({ status: "REVIEWED", reviewedAt: now }),
-    );
+    const prisma = getPrismaClient();
+    return prisma.$transaction(async (tx) => {
+      const current = await tx.caseDocument.findUnique({
+        where: {
+          clientCaseId_documentCode: {
+            clientCaseId: input.clientCaseId,
+            documentCode: input.documentCode,
+          },
+        },
+      });
+      if (!current) throw new Error(DOCUMENT_NOT_FOUND);
+      assertExpectedVersion(current.version, input.expectedVersion);
+
+      const updated = await tx.caseDocument.updateMany({
+        where: { id: current.id, version: current.version },
+        data: {
+          status: "REVIEWED",
+          reviewedAt: new Date(),
+          version: { increment: 1 },
+        },
+      });
+      if (updated.count !== 1) throw new Error(DOCUMENT_VERSION_CONFLICT);
+
+      const row = await tx.caseDocument.findUnique({ where: { id: current.id } });
+      if (!row) throw new Error(DOCUMENT_NOT_FOUND);
+      return toRecord(row);
+    });
   }
 }
