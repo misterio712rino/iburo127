@@ -143,11 +143,12 @@ model ClientCase {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
-  client         User      @relation("ClientCases", fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  assignedLawyer User?     @relation("AssignedLawyerCases", fields: [assignedLawyerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  plan           Plan      @relation(fields: [planId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  stage          CaseStage @relation(fields: [stageId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  questionnaire  CaseQuestionnaire?
+  client            User                   @relation("ClientCases", fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  assignedLawyer    User?                  @relation("AssignedLawyerCases", fields: [assignedLawyerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  plan              Plan                   @relation(fields: [planId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  stage             CaseStage              @relation(fields: [stageId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  questionnaire     CaseQuestionnaire?
+  practicumProgress CasePracticumProgress?
 
   @@index([clientId])
   @@index([assignedLawyerId])
@@ -167,6 +168,18 @@ model CaseQuestionnaire {
   version             Int                 @default(1)
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
+
+  clientCase ClientCase @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+}
+
+model CasePracticumProgress {
+  clientCaseId        String   @id @db.Uuid
+  completedLessonIds  String[]
+  startedAt           DateTime?
+  completedAt         DateTime?
+  version             Int      @default(1)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   clientCase ClientCase @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 }
