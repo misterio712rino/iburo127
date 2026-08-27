@@ -2,19 +2,14 @@
 
 import { useSyncExternalStore } from "react";
 import { PRACTICUM_LESSONS } from "@/lib/platform/demo";
-import {
-  getPracticumServerSnapshot,
-  persistCompletedLessonIds,
-  readCompletedLessonIds,
-  subscribePracticumState,
-} from "@/lib/platform/workflows/practicum/demoPracticumAdapter";
+import { practicumWorkflowService } from "@/lib/platform/workflows/practicum/practicumWorkflowService";
 import type { LessonStatus } from "@/lib/platform/types";
 
 export function usePracticumProgress(identityId: string) {
   const serialized = useSyncExternalStore(
-    subscribePracticumState,
-    () => JSON.stringify(readCompletedLessonIds(identityId)),
-    () => getPracticumServerSnapshot(identityId),
+    practicumWorkflowService.subscribe,
+    () => JSON.stringify(practicumWorkflowService.read(identityId)),
+    () => practicumWorkflowService.getServerSnapshot(identityId),
   );
   const completedLessonIds = JSON.parse(serialized) as string[];
   const completed = new Set(completedLessonIds);
@@ -23,8 +18,7 @@ export function usePracticumProgress(identityId: string) {
   const currentLesson = PRACTICUM_LESSONS.find((lesson) => !completed.has(lesson.id));
 
   function completeLesson(lessonId: string) {
-    if (completed.has(lessonId)) return;
-    persistCompletedLessonIds(identityId, [...completedLessonIds, lessonId]);
+    practicumWorkflowService.completeLesson(identityId, completedLessonIds, lessonId);
   }
 
   function getStatus(lessonId: string): LessonStatus {
