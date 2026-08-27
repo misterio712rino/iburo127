@@ -51,11 +51,14 @@ model User {
   updatedAt   DateTime   @updatedAt
 
   roles            UserRole[]
-  clientCases      ClientCase[]      @relation("ClientCases")
-  assignedCases    ClientCase[]      @relation("AssignedLawyerCases")
+  clientCases      ClientCase[]       @relation("ClientCases")
+  assignedCases    ClientCase[]       @relation("AssignedLawyerCases")
   authIdentities   AuthIdentity[]
-  assignedTasks    CaseTask[]        @relation("AssignedTasks")
-  taskStatusEvents TaskStatusEvent[] @relation("TaskStatusEventActors")
+  assignedTasks    CaseTask[]         @relation("AssignedTasks")
+  taskStatusEvents TaskStatusEvent[]  @relation("TaskStatusEventActors")
+  activityEvents   CaseActivityEvent[] @relation("CaseActivityActors")
+  notifications    Notification[]
+  uploadedFiles    StoredFile[]       @relation("StoredFileUploaders")
 }
 
 model AuthIdentity {
@@ -167,6 +170,9 @@ model ClientCase {
   practicumProgress CasePracticumProgress?
   tasks             CaseTask[]
   documents         CaseDocument[]
+  activityEvents    CaseActivityEvent[]
+  notifications     Notification[]
+  files             StoredFile[]
 
   @@index([clientId])
   @@index([assignedLawyerId])
@@ -257,4 +263,56 @@ model CaseDocument {
 
   @@unique([clientCaseId, documentCode])
   @@index([clientCaseId, status])
+}
+
+model CaseActivityEvent {
+  id           String   @id @default(uuid()) @db.Uuid
+  clientCaseId String   @db.Uuid
+  actorUserId  String?  @db.Uuid
+  type         String
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  clientCase ClientCase @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  actor      User?      @relation("CaseActivityActors", fields: [actorUserId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([clientCaseId, createdAt])
+  @@index([actorUserId])
+  @@index([type])
+}
+
+model Notification {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @db.Uuid
+  clientCaseId String?  @db.Uuid
+  type         String
+  title        String
+  body         String
+  readAt       DateTime?
+  createdAt    DateTime @default(now())
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  clientCase ClientCase? @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@index([clientCaseId])
+}
+
+model StoredFile {
+  id              String   @id @default(uuid()) @db.Uuid
+  clientCaseId    String   @db.Uuid
+  uploadedById    String?  @db.Uuid
+  storageProvider String
+  objectKey       String   @unique
+  fileName        String
+  mimeType        String
+  sizeBytes       BigInt
+  checksumSha256  String?
+  createdAt       DateTime @default(now())
+
+  clientCase ClientCase @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  uploadedBy User?      @relation("StoredFileUploaders", fields: [uploadedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([clientCaseId, createdAt])
+  @@index([uploadedById])
 }
