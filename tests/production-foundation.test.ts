@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { canAccessClientCase } from "@/server/domain/client-cases/access-policy";
 import { createQuestionnaireDefinition } from "@/server/domain/questionnaire/definition";
+import { TaskService } from "@/server/domain/tasks/service";
 import type { AuthenticatedActor, ClientCaseRecord } from "@/server/domain/client-cases/contracts";
+import type { TaskRecord, TaskRepository, TaskStatus } from "@/server/domain/tasks/contracts";
 import type { QuestionnaireSection } from "@/lib/platform/types";
 
 const clientCase: ClientCaseRecord = {
@@ -72,5 +74,90 @@ assert.throws(
   () => createQuestionnaireDefinition(duplicateFieldSections, 1),
   /QUESTIONNAIRE_DUPLICATE_FIELD:name/,
 );
+
+const now = new Date("2026-08-28T00:00:00.000Z");
+const task: TaskRecord = {
+  id: "task-1",
+  clientCaseId: clientCase.id,
+  assigneeId: actors.lawyer.userId,
+  title: "Review documents",
+  description: null,
+  status: "NEW",
+  dueAt: null,
+  startedAt: null,
+  completedAt: null,
+  version: 1,
+  createdAt: now,
+  updatedAt: now,
+};
+
+class InMemoryTaskRepository implements TaskRepository {
+  current = task;
+
+  async getAccessible(_actor: AuthenticatedActor, taskId: string) {
+    return taskId === this.current.id ? this.current : null;
+  }
+
+  async listAccessible(_actor: AuthenticatedActor) {
+    return [this.current];
+  }
+
+  async updateStatus(input: {
+    actor: AuthenticatedActor;
+    taskId: string;
+    status: TaskStatus;
+    expectedVersion?: number;
+  }) {
+    assert.equal(input.taskId, this.current.id);
+    if (input.expectedVersion !== undefined) assert.equal(input.expectedVersion, this.current.version);
+    this.current = {
+      ...this.current,
+      status: input.status,
+      startedAt: input.status === "WORKING" ? now : this.current.startedAt,
+      completedAt: input.status === "DONE" ? now : null,
+      version: this.current.version + 1,
+      updatedAt: now,
+    };
+    return this.current;
+  }
+}
+
+async function testTaskAuthorization() {
+  const repository = new InMemoryTaskRepository();
+  const service = new TaskService(repository);
+
+  assert.equal((await service.get(actors.lawyer, task.id))?.id, task.id);
+  assert.equal(await service.get(actors.otherLawyer, task.id), null);
+  assert.equal(await service.get(actors.client, task.id), null);
+  assert.equal((await service.get(actors.manager, task.id))?.id, task.id);
+
+  assert.equal((await service.list(actors.lawyer)).length, 1);
+  assert.equal((await service.list(actors.otherLawyer)).length, 0);
+  assert.equal((await service.list(actors.client)).length, 0);
+  assert.equal((await service.list(actors.manager)).length, 1);
+
+  await assert.rejects(
+    service.updateStatus(actors.otherLawyer, { taskId: task.id, status: "WORKING" }),
+    /TASK_FORBIDDEN/,
+  );
+
+  const working = await service.updateStatus(actors.lawyer, {
+    taskId: task.id,
+    status: "WORKING",
+    expectedVersion: 1,
+  });
+  assert.equal(working.status, "WORKING");
+  assert.equal(working.version, 2);
+
+  const done = await service.updateStatus(actors.manager, {
+    taskId: task.id,
+    status: "DONE",
+    expectedVersion: 2,
+  });
+  assert.equal(done.status, "DONE");
+  assert.equal(done.version, 3);
+}
+
+await testTaskAuthorization();
 
 console.log("production foundation tests: PASS");
