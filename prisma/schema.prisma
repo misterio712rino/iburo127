@@ -33,6 +33,14 @@ enum TaskStatus {
   DONE
 }
 
+enum CaseDocumentStatus {
+  WAITING_DATA
+  DRAFT
+  READY_FOR_REVIEW
+  SENT_FOR_REVIEW
+  REVIEWED
+}
+
 model User {
   id          String     @id @default(uuid()) @db.Uuid
   email       String?    @unique
@@ -158,6 +166,7 @@ model ClientCase {
   questionnaire     CaseQuestionnaire?
   practicumProgress CasePracticumProgress?
   tasks             CaseTask[]
+  documents         CaseDocument[]
 
   @@index([clientId])
   @@index([assignedLawyerId])
@@ -230,4 +239,22 @@ model TaskStatusEvent {
 
   @@index([taskId, createdAt])
   @@index([actorUserId])
+}
+
+model CaseDocument {
+  id              String             @id @default(uuid()) @db.Uuid
+  clientCaseId    String             @db.Uuid
+  documentCode    String
+  status          CaseDocumentStatus @default(WAITING_DATA)
+  regeneratedAt   DateTime?
+  sentForReviewAt DateTime?
+  reviewedAt      DateTime?
+  version         Int                @default(1)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  clientCase ClientCase @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([clientCaseId, documentCode])
+  @@index([clientCaseId, status])
 }
