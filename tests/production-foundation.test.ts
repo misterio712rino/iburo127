@@ -33,6 +33,7 @@ assert.equal(canAccessClientCase(actors.roleless, clientCase), false);
 const sections = [
   {
     id: "personal",
+    number: 1,
     title: "Personal",
     description: "",
     fields: [
@@ -42,6 +43,7 @@ const sections = [
   },
   {
     id: "finance",
+    number: 2,
     title: "Finance",
     description: "",
     fields: [{ id: "income", label: "Income", type: "currency" }],
@@ -59,6 +61,7 @@ const duplicateFieldSections = [
   sections[0],
   {
     id: "other",
+    number: 3,
     title: "Other",
     description: "",
     fields: [{ id: "name", label: "Duplicate", type: "text" }],
