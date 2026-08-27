@@ -49,7 +49,7 @@ export class StoredFileService {
     },
   ) {
     await this.requireAccessibleCase(actor, input.clientCaseId);
-    if (input.sizeBytes < 0n) throw new Error(FILE_INVALID_METADATA);
+    if (input.sizeBytes < BigInt(0)) throw new Error(FILE_INVALID_METADATA);
 
     return this.repository.create({
       clientCaseId: input.clientCaseId,
