@@ -36,9 +36,24 @@ model User {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  roles         UserRole[]
-  clientCases   ClientCase[] @relation("ClientCases")
-  assignedCases ClientCase[] @relation("AssignedLawyerCases")
+  roles          UserRole[]
+  clientCases    ClientCase[] @relation("ClientCases")
+  assignedCases  ClientCase[] @relation("AssignedLawyerCases")
+  authIdentities AuthIdentity[]
+}
+
+model AuthIdentity {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  provider  String
+  subject   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([provider, subject])
+  @@index([userId])
 }
 
 model Role {
@@ -142,16 +157,16 @@ model ClientCase {
 }
 
 model CaseQuestionnaire {
-  clientCaseId       String              @id @db.Uuid
-  schemaVersion      Int                 @default(1)
-  status             QuestionnaireStatus @default(NOT_STARTED)
-  answers            Json
+  clientCaseId        String              @id @db.Uuid
+  schemaVersion       Int                 @default(1)
+  status              QuestionnaireStatus @default(NOT_STARTED)
+  answers             Json
   completedSectionIds String[]
-  startedAt          DateTime?
-  completedAt        DateTime?
-  version            Int                 @default(1)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  startedAt           DateTime?
+  completedAt         DateTime?
+  version             Int                 @default(1)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
 
   clientCase ClientCase @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 }
