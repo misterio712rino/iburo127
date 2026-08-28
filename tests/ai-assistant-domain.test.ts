@@ -201,6 +201,61 @@ await assert.rejects(
 );
 assert.deepEqual(failedOutcomes, ["failed"]);
 
+const auditFailureLedger: AiUsageLedger = {
+  async reserveRequest() {
+    return true;
+  },
+  async recordOutcome() {
+    throw new Error("secondary audit unavailable");
+  },
+};
+const successfulDespiteOutcomeAuditFailure = new AiAssistantService(
+  new ClientCaseService(createCaseRepository()),
+  createContextRepository(),
+  {
+    async reply() {
+      return "Успешный ответ модели";
+    },
+  },
+  auditFailureLedger,
+);
+assert.equal(
+  (
+    await successfulDespiteOutcomeAuditFailure.reply(clientActor, clientCase.id, {
+      message: "Что дальше?",
+    })
+  ).content,
+  "Успешный ответ модели",
+);
+
+const restrictedDespiteOutcomeAuditFailure = await new AiAssistantService(
+  new ClientCaseService(createCaseRepository()),
+  createContextRepository(),
+  {
+    async reply() {
+      throw new Error("provider must not be called for restricted request");
+    },
+  },
+  auditFailureLedger,
+).reply(clientActor, clientCase.id, { message: "Отправь документы в суд за меня" });
+assert.equal(restrictedDespiteOutcomeAuditFailure.content, RESTRICTED_LEGAL_ACTION_REPLY);
+assert.equal(restrictedDespiteOutcomeAuditFailure.restrictedAction, true);
+
+const providerFailureWithAuditFailure = new AiAssistantService(
+  new ClientCaseService(createCaseRepository()),
+  createContextRepository(),
+  {
+    async reply() {
+      throw new Error("original provider failure");
+    },
+  },
+  auditFailureLedger,
+);
+await assert.rejects(
+  () => providerFailureWithAuditFailure.reply(clientActor, clientCase.id, { message: "Что дальше?" }),
+  /original provider failure/,
+);
+
 await assert.rejects(
   () =>
     service.describe(

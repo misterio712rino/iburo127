@@ -8,6 +8,7 @@ import {
   AI_RATE_LIMITED,
   type AiAssistantCaseState,
   type AiAssistantReply,
+  type AiAuditOutcome,
   type AiCaseContextRepository,
   type AiModelGateway,
   type AiUsageLedger,
@@ -43,6 +44,20 @@ export class AiAssistantService {
     const context = await this.contextRepository.loadCaseContext(clientCase.id);
     if (!context) throw new Error(AI_CASE_NOT_FOUND);
     return { clientCase, context };
+  }
+
+  private async recordOutcomeBestEffort(input: {
+    clientCaseId: string;
+    actorUserId: string;
+    outcome: AiAuditOutcome;
+  }): Promise<void> {
+    try {
+      await this.usageLedger.recordOutcome(input);
+    } catch {
+      // The durable reservation was already written before any provider call.
+      // A missing secondary outcome is an operational audit anomaly, but must
+      // not convert an already-produced provider response into a retriable 503.
+    }
   }
 
   async describe(
@@ -86,7 +101,7 @@ export class AiAssistantService {
     if (!reserved) throw new Error(AI_RATE_LIMITED);
 
     if (isDirectRestrictedLegalActionRequest(request.message)) {
-      await this.usageLedger.recordOutcome({
+      await this.recordOutcomeBestEffort({
         clientCaseId: clientCase.id,
         actorUserId: actor.userId,
         outcome: "restricted",
@@ -94,31 +109,43 @@ export class AiAssistantService {
       return { content: RESTRICTED_LEGAL_ACTION_REPLY, restrictedAction: true };
     }
 
+    let response: string;
     try {
       const untrustedHistory = buildUntrustedHistoryContext(request.history);
-      const response = await this.modelGateway.reply({
+      response = await this.modelGateway.reply({
         instructions: buildAiInstructions(context),
         messages: [
           ...(untrustedHistory ? [{ role: "user" as const, content: untrustedHistory }] : []),
           { role: "user", content: request.message },
         ],
       });
-
-      const content = sanitizeAiModelReply(response);
-      const restrictedAction = content === RESTRICTED_LEGAL_ACTION_REPLY;
-      await this.usageLedger.recordOutcome({
-        clientCaseId: clientCase.id,
-        actorUserId: actor.userId,
-        outcome: restrictedAction ? "restricted" : "completed",
-      });
-      return { content, restrictedAction };
     } catch (error) {
-      await this.usageLedger.recordOutcome({
+      await this.recordOutcomeBestEffort({
         clientCaseId: clientCase.id,
         actorUserId: actor.userId,
         outcome: "failed",
       });
       throw error;
     }
+
+    let content: string;
+    try {
+      content = sanitizeAiModelReply(response);
+    } catch (error) {
+      await this.recordOutcomeBestEffort({
+        clientCaseId: clientCase.id,
+        actorUserId: actor.userId,
+        outcome: "failed",
+      });
+      throw error;
+    }
+
+    const restrictedAction = content === RESTRICTED_LEGAL_ACTION_REPLY;
+    await this.recordOutcomeBestEffort({
+      clientCaseId: clientCase.id,
+      actorUserId: actor.userId,
+      outcome: restrictedAction ? "restricted" : "completed",
+    });
+    return { content, restrictedAction };
   }
 }
