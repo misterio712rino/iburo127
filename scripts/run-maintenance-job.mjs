@@ -3,6 +3,7 @@ import { pathToFileURL } from "node:url";
 const JOB_PATHS = Object.freeze({
   "notification-deliveries": "/api/internal/maintenance/notification-deliveries",
   "stale-uploads": "/api/internal/maintenance/stale-uploads",
+  "ai-audit-health": "/api/internal/maintenance/ai-audit-health",
 });
 
 function fail(message) {
@@ -56,7 +57,7 @@ function readTimeoutMs(env) {
 
 function requireJob(job) {
   if (!Object.hasOwn(JOB_PATHS, job)) {
-    fail("job must be notification-deliveries or stale-uploads");
+    fail("job must be notification-deliveries, stale-uploads, or ai-audit-health");
   }
   return job;
 }
