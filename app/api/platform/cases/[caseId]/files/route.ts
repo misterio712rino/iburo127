@@ -13,3 +13,8 @@ export async function GET(_request: Request, context: RouteContext) {
   const { caseId } = await context.params;
   return adapter().list(caseId);
 }
+
+export async function POST(request: Request, context: RouteContext) {
+  const { caseId } = await context.params;
+  return adapter().prepareUpload(caseId, request);
+}
