@@ -36,6 +36,22 @@ export type AiCaseContext = {
   featureCodes: readonly string[];
 };
 
+export type AiAssistantCaseState = {
+  caseId: string;
+  caseNumber: string;
+  planCode: string;
+  stageCode: string;
+  caseStatus: string;
+  enabled: boolean;
+  questionnaireStatus: string | null;
+  questionnaireCompletedSections: number;
+  practicumStatus: string | null;
+  practicumCompletedLessons: number;
+  documents: readonly { code: string; status: string }[];
+  taskSummary: AiCaseContext["taskSummary"];
+  readyFileCount: number;
+};
+
 export interface AiCaseContextRepository {
   loadCaseContext(clientCaseId: string): Promise<AiCaseContext | null>;
 }

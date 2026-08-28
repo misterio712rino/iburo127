@@ -85,6 +85,14 @@ const service = new AiAssistantService(
   gateway,
 );
 
+const described = await service.describe(clientActor, clientCase.id);
+assert.equal(described.enabled, true);
+assert.equal(described.caseNumber, "CASE-001");
+assert.equal(described.questionnaireCompletedSections, 3);
+assert.equal(described.readyFileCount, 5);
+assert.equal("featureCodes" in described, false);
+assert.equal(modelCalls, 0);
+
 const response = await service.reply(clientActor, clientCase.id, {
   message: "Что мне делать дальше?",
   history: [{ role: "assistant", content: "Чем помочь?" }],
@@ -112,11 +120,22 @@ const noFeatureService = new AiAssistantService(
   createContextRepository({ ...context, featureCodes: ["QUESTIONNAIRE"] }),
   gateway,
 );
+const noFeatureDescription = await noFeatureService.describe(clientActor, clientCase.id);
+assert.equal(noFeatureDescription.enabled, false);
+assert.equal(modelCalls, callsBeforeRestricted);
 await assert.rejects(
   () => noFeatureService.reply(clientActor, clientCase.id, { message: "Что дальше?" }),
   new RegExp(AI_FEATURE_NOT_AVAILABLE),
 );
 
+await assert.rejects(
+  () =>
+    service.describe(
+      { userId: "33333333-3333-4333-8333-333333333333", roles: ["MANAGER"] },
+      clientCase.id,
+    ),
+  new RegExp(AI_ACCESS_DENIED),
+);
 await assert.rejects(
   () =>
     service.reply(

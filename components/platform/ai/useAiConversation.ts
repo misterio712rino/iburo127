@@ -1,31 +1,62 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
-import { getInitialAiMessage } from "@/lib/platform/ai";
-import type { AiContext, AiConversation, AiMessage, AiReply } from "@/lib/platform/types";
+import { useState } from "react";
+import type { AiConversation, AiMessage, AiReply } from "@/lib/platform/types";
 
-const STORAGE_PREFIX = "iburo.demo.ai.v1.";
-const EVENT_NAME = "iburo-ai-conversation";
-const serverSnapshots = new Map<string, string>();
+const WELCOME_MESSAGE =
+  "Здравствуйте. Я помогу сориентироваться по текущему этапу дела и материалам платформы. Я не принимаю юридически значимые решения и не совершаю действия от вашего имени.";
 
-function initialConversation(context: AiContext): AiConversation {
-  return { createdAt: "2026-01-24T15:00:00+03:00", messages: [{ id: "welcome", role: "assistant", content: getInitialAiMessage(context), createdAt: "2026-01-24T15:00:00+03:00" }] };
+function id(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
-function read(identityId: string, context: AiContext) { try { const value = window.localStorage.getItem(`${STORAGE_PREFIX}${identityId}`); return value ? JSON.parse(value) as AiConversation : initialConversation(context); } catch { return initialConversation(context); } }
-function subscribe(callback: () => void) { window.addEventListener(EVENT_NAME, callback); window.addEventListener("storage", callback); return () => { window.removeEventListener(EVENT_NAME, callback); window.removeEventListener("storage", callback); }; }
-function persist(identityId: string, conversation: AiConversation) { window.localStorage.setItem(`${STORAGE_PREFIX}${identityId}`, JSON.stringify(conversation)); window.dispatchEvent(new Event(EVENT_NAME)); }
-function id(prefix: string) { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
 
-export function useAiConversation(identityId: string, context: AiContext) {
-  const fallback = JSON.stringify(initialConversation(context));
-  if (!serverSnapshots.has(identityId)) serverSnapshots.set(identityId, fallback);
-  const serialized = useSyncExternalStore(subscribe, () => JSON.stringify(read(identityId, context)), () => serverSnapshots.get(identityId) ?? fallback);
-  const conversation = JSON.parse(serialized) as AiConversation;
-  function mutate(update: (current: AiConversation) => AiConversation) { persist(identityId, update(read(identityId, context))); }
+function initialConversation(): AiConversation {
+  const createdAt = new Date().toISOString();
+  return {
+    createdAt,
+    messages: [
+      {
+        id: "welcome",
+        role: "assistant",
+        content: WELCOME_MESSAGE,
+        createdAt,
+      },
+    ],
+  };
+}
+
+export function useAiConversation() {
+  const [conversation, setConversation] = useState<AiConversation>(initialConversation);
+
   return {
     conversation,
-    appendUser(content: string) { const message: AiMessage = { id: id("user"), role: "user", content, createdAt: new Date().toISOString() }; mutate((current) => ({ ...current, messages: [...current.messages, message] })); },
-    appendReply(reply: AiReply) { const message: AiMessage = { id: id("assistant"), role: "assistant", content: reply.content, action: reply.action, createdAt: new Date().toISOString() }; mutate((current) => ({ ...current, messages: [...current.messages, message] })); },
-    reset() { persist(identityId, initialConversation(context)); },
+    appendUser(content: string) {
+      const message: AiMessage = {
+        id: id("user"),
+        role: "user",
+        content,
+        createdAt: new Date().toISOString(),
+      };
+      setConversation((current) => ({
+        ...current,
+        messages: [...current.messages, message],
+      }));
+    },
+    appendReply(reply: AiReply) {
+      const message: AiMessage = {
+        id: id("assistant"),
+        role: "assistant",
+        content: reply.content,
+        action: reply.action,
+        createdAt: new Date().toISOString(),
+      };
+      setConversation((current) => ({
+        ...current,
+        messages: [...current.messages, message],
+      }));
+    },
+    reset() {
+      setConversation(initialConversation());
+    },
   };
 }

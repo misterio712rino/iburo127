@@ -26,10 +26,65 @@ function errorCode(error: unknown): string {
   return error instanceof Error ? error.message : "";
 }
 
+function toAiErrorResponse(error: unknown): Response {
+  const code = errorCode(error);
+  if (code === UNAUTHENTICATED) {
+    return privateJsonResponse({ ok: false, error: { code: "UNAUTHENTICATED" } }, 401);
+  }
+  if (code === AI_ACCESS_DENIED) {
+    return privateJsonResponse({ ok: false, error: { code: "FORBIDDEN" } }, 403);
+  }
+  if (code === AI_CASE_NOT_FOUND) {
+    return privateJsonResponse({ ok: false, error: { code: "NOT_FOUND" } }, 404);
+  }
+  if (code === AI_FEATURE_NOT_AVAILABLE) {
+    return privateJsonResponse(
+      { ok: false, error: { code: "AI_FEATURE_NOT_AVAILABLE" } },
+      403,
+    );
+  }
+  if (code === AI_INVALID_REQUEST) {
+    return privateJsonResponse({ ok: false, error: { code: "INVALID_REQUEST" } }, 400);
+  }
+  if (
+    code === AI_MODEL_RESPONSE_INVALID ||
+    code.startsWith(`${AI_PROVIDER_ERROR}:`) ||
+    code.startsWith(`${PRODUCTION_CONFIG_ERROR}:`)
+  ) {
+    return privateJsonResponse(
+      { ok: false, error: { code: "AI_TEMPORARILY_UNAVAILABLE" } },
+      503,
+    );
+  }
+  return privateJsonResponse({ ok: false, error: { code: "INTERNAL_ERROR" } }, 500);
+}
+
+function normalizeCaseId(clientCaseId: unknown): string | null {
+  return typeof clientCaseId === "string" && clientCaseId.trim()
+    ? clientCaseId.trim()
+    : null;
+}
+
 export function createAiRouteAdapter(sessionProvider: SessionProvider) {
   return {
+    async describe(clientCaseId: unknown): Promise<Response> {
+      const caseId = normalizeCaseId(clientCaseId);
+      if (!caseId) {
+        return privateJsonResponse({ ok: false, error: { code: "NOT_FOUND" } }, 404);
+      }
+
+      try {
+        const actor = await requireServerActor(sessionProvider);
+        const result = await getAiAssistantService().describe(actor, caseId);
+        return privateJsonResponse({ ok: true, data: result });
+      } catch (error) {
+        return toAiErrorResponse(error);
+      }
+    },
+
     async reply(clientCaseId: unknown, request: Request): Promise<Response> {
-      if (typeof clientCaseId !== "string" || !clientCaseId.trim()) {
+      const caseId = normalizeCaseId(clientCaseId);
+      if (!caseId) {
         return privateJsonResponse({ ok: false, error: { code: "NOT_FOUND" } }, 404);
       }
 
@@ -37,41 +92,12 @@ export function createAiRouteAdapter(sessionProvider: SessionProvider) {
         const actor = await requireServerActor(sessionProvider);
         const result = await getAiAssistantService().reply(
           actor,
-          clientCaseId.trim(),
+          caseId,
           await readJsonBody(request),
         );
         return privateJsonResponse({ ok: true, data: result });
       } catch (error) {
-        const code = errorCode(error);
-        if (code === UNAUTHENTICATED) {
-          return privateJsonResponse({ ok: false, error: { code: "UNAUTHENTICATED" } }, 401);
-        }
-        if (code === AI_ACCESS_DENIED) {
-          return privateJsonResponse({ ok: false, error: { code: "FORBIDDEN" } }, 403);
-        }
-        if (code === AI_CASE_NOT_FOUND) {
-          return privateJsonResponse({ ok: false, error: { code: "NOT_FOUND" } }, 404);
-        }
-        if (code === AI_FEATURE_NOT_AVAILABLE) {
-          return privateJsonResponse(
-            { ok: false, error: { code: "AI_FEATURE_NOT_AVAILABLE" } },
-            403,
-          );
-        }
-        if (code === AI_INVALID_REQUEST) {
-          return privateJsonResponse({ ok: false, error: { code: "INVALID_REQUEST" } }, 400);
-        }
-        if (
-          code === AI_MODEL_RESPONSE_INVALID ||
-          code.startsWith(`${AI_PROVIDER_ERROR}:`) ||
-          code.startsWith(`${PRODUCTION_CONFIG_ERROR}:`)
-        ) {
-          return privateJsonResponse(
-            { ok: false, error: { code: "AI_TEMPORARILY_UNAVAILABLE" } },
-            503,
-          );
-        }
-        return privateJsonResponse({ ok: false, error: { code: "INTERNAL_ERROR" } }, 500);
+        return toAiErrorResponse(error);
       }
     },
   };
