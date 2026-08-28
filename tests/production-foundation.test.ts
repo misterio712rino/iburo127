@@ -136,10 +136,10 @@ class InMemoryTaskRepository implements TaskRepository {
     actor: AuthenticatedActor;
     taskId: string;
     status: TaskStatus;
-    expectedVersion?: number;
+    expectedVersion: number;
   }) {
     assert.equal(input.taskId, this.current.id);
-    if (input.expectedVersion !== undefined) assert.equal(input.expectedVersion, this.current.version);
+    assert.equal(input.expectedVersion, this.current.version);
     this.current = {
       ...this.current,
       status: input.status,
@@ -167,7 +167,7 @@ async function testTaskAuthorization() {
   assert.equal((await service.list(actors.manager)).length, 1);
 
   await assert.rejects(
-    service.updateStatus(actors.otherLawyer, { taskId: task.id, status: "WORKING" }),
+    service.updateStatus(actors.otherLawyer, { taskId: task.id, status: "WORKING", expectedVersion: 1 }),
     /TASK_FORBIDDEN/,
   );
 
