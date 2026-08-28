@@ -77,6 +77,11 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
       const current = await tx.caseQuestionnaire.findUnique({ where: { clientCaseId: input.clientCaseId } });
       if (!current) throw new Error(QUESTIONNAIRE_NOT_FOUND);
 
+      const invalidated = new Set(input.invalidatedSectionIds ?? []);
+      const completedSectionIds = current.completedSectionIds.filter(
+        (sectionId) => !invalidated.has(sectionId),
+      );
+
       const updated = await tx.caseQuestionnaire.updateMany({
         where: {
           clientCaseId: input.clientCaseId,
@@ -87,6 +92,7 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
             ...normalizeAnswers(current.answers),
             [input.fieldId]: input.value,
           },
+          completedSectionIds,
           status: current.status === "COMPLETED" ? "COMPLETED" : "IN_PROGRESS",
           startedAt: current.startedAt ?? new Date(),
           version: { increment: 1 },
