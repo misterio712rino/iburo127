@@ -8,6 +8,7 @@ import {
 const secret = "stageWebhookSecret123";
 const fingerprint = bitrix24SecretFingerprint(secret);
 const baseEnv: NodeJS.ProcessEnv = {
+  NODE_ENV: "test",
   IB_BITRIX24_TARGET: "staging",
   BITRIX24_PORTAL_ORIGIN: "https://iburo-staging.bitrix24.ru",
   IB_BITRIX24_ALLOWED_HOST: "iburo-staging.bitrix24.ru",
