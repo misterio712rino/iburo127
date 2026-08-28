@@ -10,6 +10,7 @@ This checklist defines the conditions for switching any platform workflow from i
 - [x] Read-only PostgreSQL baseline inspection command implemented as `npm run db:inspect:baseline`; it does not run migrations, DDL, DML or read user table contents.
 - [x] Migration SQL review gate implemented as `npm run db:review:sql`; destructive/high-risk SQL is fingerprinted and automatically blocked or flagged before staging application.
 - [x] Guarded staging-only migration deploy command implemented as `npm run db:deploy:staging`; it requires an exact database-name match and explicit confirmation before `prisma migrate deploy` can run.
+- [x] Read-only post-migration staging schema verification implemented as `npm run db:verify:staging`; it verifies required domain tables/enums and rejects unfinished Prisma migrations without reading client data.
 - [x] Authentication product direction selected: Better Auth, self-hosted against PostgreSQL.
 - [x] Better Auth dependency/configuration installed on the audit branch with controlled lockfile changes.
 - [x] Provider-specific Better Auth session-reader boundary implemented.
@@ -146,6 +147,7 @@ Architecture decision: see `docs/AUTH_PROVIDER_DECISION.md`.
 - [x] Read-only authoritative database structure inspection documented in `docs/DATABASE_BASELINE_INSPECTION.md` and implemented as `npm run db:inspect:baseline`.
 - [x] Migration SQL review gate documented in `docs/MIGRATION_SQL_REVIEW_GATE.md` and implemented as `npm run db:review:sql`.
 - [x] Guarded staging migration deployment documented in `docs/STAGING_MIGRATION_DEPLOY.md` and implemented as `npm run db:deploy:staging`; no production deploy command exists.
+- [x] Read-only post-migration schema verification documented in `docs/STAGING_POST_MIGRATION_VERIFICATION.md` and implemented as `npm run db:verify:staging`.
 - [x] Read-only staging authorization fixture verification documented in `docs/STAGING_AUTHZ_VERIFICATION.md` and implemented as `npm run check:staging:authz`.
 
 ## Release safety
