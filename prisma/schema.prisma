@@ -121,6 +121,17 @@ model AuthIdentity {
   @@index([userId])
 }
 
+// Better Auth database-backed distributed rate limiting.
+// The physical table/field names intentionally match Better Auth's schema.
+model AuthRateLimit {
+  id          String @id
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+
+  @@map("rateLimit")
+}
+
 model UserSecurityEvent {
   id        String   @id @default(uuid()) @db.Uuid
   userId    String   @db.Uuid
