@@ -27,6 +27,19 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
     return row ? toRecord(row) : null;
   }
 
+  async listPendingBefore(before: Date, limit: number) {
+    const prisma = getPrismaClient();
+    const rows = await prisma.storedFile.findMany({
+      where: {
+        status: "PENDING_UPLOAD",
+        createdAt: { lt: before },
+      },
+      orderBy: { createdAt: "asc" },
+      take: limit,
+    });
+    return rows.map(toRecord);
+  }
+
   async create(input: {
     id: string;
     clientCaseId: string;
@@ -56,5 +69,16 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
       data: { status: "READY", readyAt },
     });
     return toRecord(row);
+  }
+
+  async deletePending(fileId: string) {
+    const prisma = getPrismaClient();
+    const result = await prisma.storedFile.deleteMany({
+      where: {
+        id: fileId,
+        status: "PENDING_UPLOAD",
+      },
+    });
+    return result.count === 1;
   }
 }
