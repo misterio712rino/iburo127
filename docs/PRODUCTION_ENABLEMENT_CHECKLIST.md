@@ -72,11 +72,14 @@ Repository/server foundation is complete; activation still requires:
 - [x] Yandex-specific private storage policy adapter implemented: bucket scoping, safe object keys, 30–900 second TTL policy.
 - [x] AWS SDK S3 signer/client dependencies added with controlled lockfile changes.
 - [x] Authorized private file list/metadata/download-URL API routes implemented.
+- [x] Signed private upload preparation + HEAD-verified completion flow implemented.
+- [x] Pending uploads remain hidden from normal file list/get/download operations until verification succeeds.
+- [x] Upload input enforces allowlisted MIME types, a 50 MiB limit, UUID-scoped opaque keys and optional SHA-256 syntax validation.
 - [ ] Private staging bucket/service account configured.
-- [ ] Signed private upload initiation + verified upload registration flow implemented.
+- [ ] Add stale `PENDING_UPLOAD` cleanup after staging storage policy is available.
 - [ ] Document/file migrations reviewed and applied to staging.
 - [ ] No generated document or uploaded file exposed by a guessable public URL in staging E2E.
-- [ ] DB-backed review/audit E2E completed.
+- [ ] DB-backed upload/download/review/audit E2E completed.
 
 ## Activity / audit gates
 
