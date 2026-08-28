@@ -48,7 +48,7 @@ export class PracticumService {
 
   async completeLesson(
     actor: AuthenticatedActor,
-    input: { clientCaseId: string; lessonId: string; expectedVersion?: number },
+    input: { clientCaseId: string; lessonId: string; expectedVersion: number },
   ) {
     await this.requireClientEditor(actor, input.clientCaseId);
     if (!this.definition.lessonIdSet.has(input.lessonId)) {
