@@ -17,7 +17,7 @@ export async function listTasks(sessionProvider: SessionProvider) {
 
 export async function updateTaskStatus(
   sessionProvider: SessionProvider,
-  input: { taskId: string; status: TaskStatus; expectedVersion?: number },
+  input: { taskId: string; status: TaskStatus; expectedVersion: number },
 ) {
   const actor = await requireServerActor(sessionProvider);
   return taskService.updateStatus(actor, input);
