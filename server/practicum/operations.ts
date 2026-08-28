@@ -22,7 +22,7 @@ export async function getOrCreatePracticumProgressForClient(
 
 export async function completePracticumLesson(
   sessionProvider: SessionProvider,
-  input: { clientCaseId: string; lessonId: string; expectedVersion?: number },
+  input: { clientCaseId: string; lessonId: string; expectedVersion: number },
 ) {
   const actor = await requireServerActor(sessionProvider);
   return practicumService.completeLesson(actor, input);
