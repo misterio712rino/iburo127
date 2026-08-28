@@ -1,5 +1,6 @@
 import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
 import type { NotificationRepository } from "@/server/domain/notifications/contracts";
+import { requireNotificationType } from "@/server/domain/notifications/taxonomy";
 
 export const NOTIFICATION_INVALID_INPUT = "NOTIFICATION_INVALID_INPUT";
 
@@ -38,7 +39,7 @@ export class NotificationService {
     return this.repository.create({
       userId: requireText(input.userId, 100),
       clientCaseId: input.clientCaseId ?? null,
-      type: requireText(input.type, 100),
+      type: requireNotificationType(input.type),
       title: requireText(input.title, 200),
       body: requireText(input.body, 4000),
     });
