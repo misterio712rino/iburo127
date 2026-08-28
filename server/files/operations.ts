@@ -1,24 +1,95 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import type { SessionProvider } from "@/server/auth/contracts";
 import { requireServerActor } from "@/server/auth/runtime";
 import { storedFileService } from "@/server/files/runtime";
 import { getPrivateObjectStorage } from "@/server/files/object-storage-runtime";
+import { createStoredFileObjectKey } from "@/server/files/yandex-object-storage";
 
-export async function listStoredFiles(
-  sessionProvider: SessionProvider,
-  clientCaseId: string,
-) {
+export const FILE_UPLOAD_INCOMPLETE = "FILE_UPLOAD_INCOMPLETE";
+export const FILE_UPLOAD_METADATA_MISMATCH = "FILE_UPLOAD_METADATA_MISMATCH";
+export const FILE_STORAGE_PROVIDER_MISMATCH = "FILE_STORAGE_PROVIDER_MISMATCH";
+
+const MIME_EXTENSIONS: Record<string, string> = {
+  "application/pdf": "pdf",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+};
+
+export async function listStoredFiles(sessionProvider: SessionProvider, clientCaseId: string) {
   const actor = await requireServerActor(sessionProvider);
   return storedFileService.list(actor, clientCaseId);
 }
 
-export async function getStoredFile(
-  sessionProvider: SessionProvider,
-  fileId: string,
-) {
+export async function getStoredFile(sessionProvider: SessionProvider, fileId: string) {
   const actor = await requireServerActor(sessionProvider);
   return storedFileService.get(actor, fileId);
+}
+
+export async function prepareStoredFileUpload(
+  sessionProvider: SessionProvider,
+  input: {
+    clientCaseId: string;
+    fileName: string;
+    mimeType: string;
+    sizeBytes: bigint;
+    checksumSha256?: string | null;
+  },
+) {
+  const actor = await requireServerActor(sessionProvider);
+  const storage = getPrivateObjectStorage();
+  const fileId = randomUUID();
+  const objectKey = createStoredFileObjectKey({
+    clientCaseId: input.clientCaseId,
+    fileId,
+    extension: MIME_EXTENSIONS[input.mimeType] ?? null,
+  });
+
+  await storedFileService.registerPendingUpload(actor, {
+    id: fileId,
+    clientCaseId: input.clientCaseId,
+    storageProvider: storage.providerCode,
+    objectKey,
+    fileName: input.fileName,
+    mimeType: input.mimeType,
+    sizeBytes: input.sizeBytes,
+    checksumSha256: input.checksumSha256,
+  });
+
+  const signed = await storage.createUploadUrl({
+    objectKey,
+    mimeType: input.mimeType,
+    expiresInSeconds: 300,
+  });
+
+  return {
+    fileId,
+    uploadUrl: signed.url,
+    expiresAt: signed.expiresAt,
+    requiredHeaders: { "Content-Type": input.mimeType },
+  };
+}
+
+export async function completeStoredFileUpload(sessionProvider: SessionProvider, fileId: string) {
+  const actor = await requireServerActor(sessionProvider);
+  const file = await storedFileService.getPendingUpload(actor, fileId);
+  const storage = getPrivateObjectStorage();
+
+  if (file.storageProvider !== storage.providerCode) throw new Error(FILE_STORAGE_PROVIDER_MISMATCH);
+
+  const object = await storage.statObject(file.objectKey);
+  if (!object) throw new Error(FILE_UPLOAD_INCOMPLETE);
+
+  if (object.sizeBytes !== file.sizeBytes || (object.mimeType && object.mimeType !== file.mimeType)) {
+    await storage.deleteObject(file.objectKey);
+    throw new Error(FILE_UPLOAD_METADATA_MISMATCH);
+  }
+
+  return storedFileService.markUploadReady(actor, file.id);
 }
 
 export async function createStoredFileDownloadUrl(
@@ -30,9 +101,7 @@ export async function createStoredFileDownloadUrl(
   const file = await storedFileService.get(actor, fileId);
   const storage = getPrivateObjectStorage();
 
-  if (file.storageProvider !== storage.providerCode) {
-    throw new Error("FILE_STORAGE_PROVIDER_MISMATCH");
-  }
+  if (file.storageProvider !== storage.providerCode) throw new Error(FILE_STORAGE_PROVIDER_MISMATCH);
 
   return storage.createDownloadUrl({
     objectKey: file.objectKey,
