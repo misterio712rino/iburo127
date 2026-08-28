@@ -41,7 +41,7 @@ export function TwoFactorForm() {
         );
         return;
       }
-      window.location.assign("/app");
+      window.location.assign("/portal");
     } catch {
       setError("Не удалось проверить код. Повторите попытку позже.");
     } finally {
