@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { requireStagingDatabaseTarget } from "@/scripts/staging-target-guard";
+import {
+  requireStagingDatabaseTarget,
+  requireStagingMutationConfirmation,
+} from "@/scripts/staging-target-guard";
 
 const baseEnv: Record<string, string | undefined> = {
   IB_DB_TARGET: "staging",
@@ -35,6 +38,26 @@ assert.throws(
 assert.throws(
   () => requireStagingDatabaseTarget({ ...baseEnv, DATABASE_URL: "https://staging.pg.example.net/iburo_staging" }),
   /postgresql/,
+);
+
+assert.equal(
+  requireStagingMutationConfirmation(
+    { IB_STAGING_REFERENCE_SEED_CONFIRM: "REFERENCE-SEED:iburo_staging" },
+    "IB_STAGING_REFERENCE_SEED_CONFIRM",
+    "REFERENCE-SEED",
+    "iburo_staging",
+  ),
+  "REFERENCE-SEED:iburo_staging",
+);
+assert.throws(
+  () =>
+    requireStagingMutationConfirmation(
+      { IB_STAGING_REFERENCE_SEED_CONFIRM: "REFERENCE-SEED:production" },
+      "IB_STAGING_REFERENCE_SEED_CONFIRM",
+      "REFERENCE-SEED",
+      "iburo_staging",
+    ),
+  /IB_STAGING_REFERENCE_SEED_CONFIRM/,
 );
 
 console.log("STAGING_TARGET_GUARD_TEST_PASS");

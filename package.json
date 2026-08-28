@@ -25,13 +25,11 @@
     "db:review:sql": "tsx scripts/review-migration-sql.ts",
     "db:deploy:staging": "npm run check:staging:target && tsx scripts/apply-staging-migrations.ts",
     "db:verify:staging": "npm run check:staging:target && tsx scripts/verify-staging-schema.ts",
+    "db:seed:reference:staging": "npm run check:staging:target && prisma db seed",
+    "db:seed:demo:staging": "npm run check:staging:target && tsx prisma/seed-demo.ts",
     "auth:link:staging": "npm run check:staging:target && tsx scripts/provision-auth-identity.ts",
     "db:generate": "prisma generate",
-    "db:validate": "prisma validate",
-    "db:migrate": "prisma migrate dev",
-    "db:seed": "prisma db seed",
-    "db:seed:demo": "tsx prisma/seed-demo.ts",
-    "db:studio": "prisma studio"
+    "db:validate": "prisma validate"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1120.0",

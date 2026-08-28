@@ -2,18 +2,20 @@ import "dotenv/config";
 
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client.js";
+import {
+  requireStagingDatabaseTarget,
+  requireStagingMutationConfirmation,
+} from "../scripts/staging-target-guard";
 
-if (process.env.NODE_ENV === "production") {
-  throw new Error("Investor demo seed is disabled in production.");
-}
+const target = requireStagingDatabaseTarget();
+requireStagingMutationConfirmation(
+  process.env,
+  "IB_STAGING_DEMO_SEED_CONFIRM",
+  "DEMO-SEED",
+  target.expectedDatabaseName,
+);
 
-const databaseUrl = process.env.DATABASE_URL;
-
-if (!databaseUrl) {
-  throw new Error("DATABASE_URL is not configured.");
-}
-
-const adapter = new PrismaPg({ connectionString: databaseUrl });
+const adapter = new PrismaPg({ connectionString: target.databaseUrl });
 const prisma = new PrismaClient({ adapter });
 
 const demoUsers = [
@@ -70,7 +72,7 @@ async function seedDemoData(): Promise<void> {
   const roleIds = new Map(roles.map((role) => [role.code, role.id]));
 
   if (!roleIds.has("CLIENT") || !roleIds.has("LAWYER")) {
-    throw new Error("Reference roles are missing. Run the reference seed first.");
+    throw new Error("Reference roles are missing. Run the guarded reference seed first.");
   }
 
   const userIds = new Map<string, string>();
@@ -90,10 +92,7 @@ async function seedDemoData(): Promise<void> {
     });
 
     const roleId = roleIds.get(demoUser.roleCode);
-
-    if (!roleId) {
-      throw new Error("Reference role is missing.");
-    }
+    if (!roleId) throw new Error("Reference role is missing.");
 
     await prisma.userRole.upsert({
       where: { userId_roleId: { userId: user.id, roleId } },
@@ -105,10 +104,7 @@ async function seedDemoData(): Promise<void> {
   }
 
   const assignedLawyerId = userIds.get("lawyer.demo@example.test");
-
-  if (!assignedLawyerId) {
-    throw new Error("Demo lawyer was not created.");
-  }
+  if (!assignedLawyerId) throw new Error("Demo lawyer was not created.");
 
   const plans = await prisma.plan.findMany({
     where: { code: { in: demoCases.map((demoCase) => demoCase.planCode) } },
@@ -151,6 +147,7 @@ async function seedDemoData(): Promise<void> {
 
 try {
   await seedDemoData();
+  console.log("STAGING_DEMO_SEED_PASS");
 } finally {
   await prisma.$disconnect();
 }

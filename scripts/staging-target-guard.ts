@@ -50,3 +50,16 @@ export function requireStagingDatabaseTarget(env: Environment = process.env): St
 
   return { databaseUrl, expectedDatabaseName, expectedHost, expectedUser };
 }
+
+export function requireStagingMutationConfirmation(
+  env: Environment,
+  variableName: string,
+  action: string,
+  expectedDatabaseName: string,
+) {
+  const expected = `${action}:${expectedDatabaseName}`;
+  if (env[variableName]?.trim() !== expected) {
+    throw new Error(`${variableName} must be exactly ${expected}`);
+  }
+  return expected;
+}

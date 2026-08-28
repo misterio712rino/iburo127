@@ -2,14 +2,20 @@ import "dotenv/config";
 
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client.js";
+import {
+  requireStagingDatabaseTarget,
+  requireStagingMutationConfirmation,
+} from "../scripts/staging-target-guard";
 
-const databaseUrl = process.env.DATABASE_URL;
+const target = requireStagingDatabaseTarget();
+requireStagingMutationConfirmation(
+  process.env,
+  "IB_STAGING_REFERENCE_SEED_CONFIRM",
+  "REFERENCE-SEED",
+  target.expectedDatabaseName,
+);
 
-if (!databaseUrl) {
-  throw new Error("DATABASE_URL is not configured.");
-}
-
-const adapter = new PrismaPg({ connectionString: databaseUrl });
+const adapter = new PrismaPg({ connectionString: target.databaseUrl });
 const prisma = new PrismaClient({ adapter });
 
 const roles = [
@@ -123,6 +129,7 @@ async function seedReferenceData(): Promise<void> {
 
 try {
   await seedReferenceData();
+  console.log("STAGING_REFERENCE_SEED_PASS");
 } finally {
   await prisma.$disconnect();
 }
