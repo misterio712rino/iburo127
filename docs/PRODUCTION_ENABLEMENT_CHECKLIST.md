@@ -90,6 +90,7 @@ Repository/server foundation is complete; activation still requires:
 - [x] Upload input enforces allowlisted MIME types, a 50 MiB limit and UUID-scoped opaque keys.
 - [x] Browser-supplied checksum values are not persisted as trusted integrity metadata; checksum support remains reserved for a future server-verified flow.
 - [x] Stale `PENDING_UPLOAD` cleanup service/repository foundation implemented with bounded batches and conditional metadata deletion.
+- [x] Upload completion now performs conditional `PENDING_UPLOAD -> READY` plus `file.upload.completed` audit creation inside one Prisma transaction; cleanup/completion races fail closed.
 - [x] Read-only staging Object Storage metadata verifier implemented as `npm run check:staging:storage`; it checks bucket identity/ACL/policy/CORS without listing, reading, writing or deleting objects.
 - [ ] Private staging bucket/service account configured and verified with staging credentials.
 - [ ] Schedule/operate stale `PENDING_UPLOAD` cleanup only after staging storage policy is available.
@@ -105,8 +106,9 @@ Repository/server foundation is complete; activation still requires:
 - [x] Controlled event taxonomy implemented.
 - [x] Activity metadata allowlist rejects unapproved fields and long values to reduce sensitive-data leakage risk.
 - [x] Authenticated case activity is exposed in the production portal without raw sensitive payloads.
+- [x] Critical questionnaire/task/document/file mutations that currently emit case activity write the business mutation and corresponding `CaseActivityEvent` in the same Prisma transaction.
+- [ ] Add a separate user-scoped auth security audit trail for sign-in/MFA/recovery events; do not attach user-level security events to an arbitrary `ClientCase`.
 - [ ] Approve the final audit retention period before production data is enabled.
-- [ ] Wire critical questionnaire/task/document/file/auth events into the audit trail with transaction/failure semantics that cannot report a failed workflow after its business mutation already committed.
 - [ ] Verify production logs and stored audit metadata contain no sensitive payloads during DB-backed E2E.
 
 ## Notifications gates
