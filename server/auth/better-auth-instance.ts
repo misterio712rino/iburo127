@@ -66,6 +66,11 @@ function createBetterAuthInstance() {
     secret: runtime.secret,
     baseURL: runtime.baseUrl,
     database: pool,
+    rateLimit: {
+      enabled: true,
+      storage: "database",
+      modelName: "rateLimit",
+    },
     emailAndPassword: {
       enabled: true,
       disableSignUp: true,
