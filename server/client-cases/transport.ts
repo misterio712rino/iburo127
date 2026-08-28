@@ -4,7 +4,6 @@ import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { privateJsonResponse } from "@/server/http/private-json";
 
 export type PlatformActorTransport = {
-  userId: string;
   roles: readonly ("CLIENT" | "LAWYER" | "MANAGER")[];
 };
 
@@ -16,8 +15,10 @@ export type ClientCaseTransportRecord = {
   status: string;
 };
 
-export function toPlatformActorTransport(actor: PlatformActorTransport): PlatformActorTransport {
-  return { userId: actor.userId, roles: [...actor.roles] };
+export function toPlatformActorTransport(actor: {
+  roles: readonly ("CLIENT" | "LAWYER" | "MANAGER")[];
+}): PlatformActorTransport {
+  return { roles: [...actor.roles] };
 }
 
 export function toClientCaseTransportRecord(clientCase: {
