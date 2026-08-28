@@ -15,9 +15,11 @@ import {
 } from "./contracts";
 import {
   AI_POLICY_BOUNDARY_REPLY,
+  AI_SENSITIVE_DATA_REPLY,
   buildAiInstructions,
   buildAiSafetyIdentifier,
   buildUntrustedHistoryContext,
+  containsSensitivePersonalData,
   isDirectRestrictedLegalActionRequest,
   isPromptInjectionAttempt,
   isRestrictedAiReply,
@@ -116,6 +118,14 @@ export class AiAssistantService {
       now: new Date(),
     });
     if (!reserved) throw new Error(AI_RATE_LIMITED);
+
+    if (containsSensitivePersonalData(request.message)) {
+      return this.restrictedReply({
+        clientCaseId: clientCase.id,
+        actorUserId: actor.userId,
+        content: AI_SENSITIVE_DATA_REPLY,
+      });
+    }
 
     if (isPromptInjectionAttempt(request.message)) {
       return this.restrictedReply({
