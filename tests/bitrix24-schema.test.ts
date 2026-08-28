@@ -11,18 +11,40 @@ import {
 
 const parsed = readBitrix24CaseSchemaConfig({
   BITRIX24_CASE_ENTITY_TYPE_ID: "128",
-  BITRIX24_CASE_REQUIRED_WRITABLE_FIELDS: "title,stageId,ufCrm128_123",
+  BITRIX24_CASE_FIELD_MAP:
+    "caseNumber=title,planCode=ufCrm128PlanCode,stageCode=ufCrm128StageCode,status=ufCrm128CaseStatus",
 });
 assert.deepEqual(parsed, {
   entityTypeId: 128,
-  requiredWritableFields: ["title", "stageId", "ufCrm128_123"],
+  fieldMap: {
+    caseNumber: "title",
+    planCode: "ufCrm128PlanCode",
+    stageCode: "ufCrm128StageCode",
+    status: "ufCrm128CaseStatus",
+  },
+  requiredWritableFields: [
+    "title",
+    "ufCrm128PlanCode",
+    "ufCrm128StageCode",
+    "ufCrm128CaseStatus",
+  ],
 });
 
 for (const env of [
-  { BITRIX24_CASE_ENTITY_TYPE_ID: "0", BITRIX24_CASE_REQUIRED_WRITABLE_FIELDS: "title" },
-  { BITRIX24_CASE_ENTITY_TYPE_ID: "1.5", BITRIX24_CASE_REQUIRED_WRITABLE_FIELDS: "title" },
-  { BITRIX24_CASE_ENTITY_TYPE_ID: "2", BITRIX24_CASE_REQUIRED_WRITABLE_FIELDS: "title,title" },
-  { BITRIX24_CASE_ENTITY_TYPE_ID: "2", BITRIX24_CASE_REQUIRED_WRITABLE_FIELDS: "title,bad-field" },
+  {
+    BITRIX24_CASE_ENTITY_TYPE_ID: "0",
+    BITRIX24_CASE_FIELD_MAP:
+      "caseNumber=title,planCode=plan,stageCode=stage,status=status",
+  },
+  {
+    BITRIX24_CASE_ENTITY_TYPE_ID: "1.5",
+    BITRIX24_CASE_FIELD_MAP:
+      "caseNumber=title,planCode=plan,stageCode=stage,status=status",
+  },
+  {
+    BITRIX24_CASE_ENTITY_TYPE_ID: "2",
+    BITRIX24_CASE_FIELD_MAP: "caseNumber=title,planCode=plan,stageCode=stage",
+  },
 ]) {
   assert.throws(
     () => readBitrix24CaseSchemaConfig(env),

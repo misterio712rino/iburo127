@@ -1,7 +1,14 @@
+import {
+  BITRIX24_CASE_PROJECTION_KEYS,
+  parseBitrix24CaseFieldMap,
+  type Bitrix24CaseFieldMap,
+} from "./case-projection";
+
 export const BITRIX24_CASE_SCHEMA_CONFIG_ERROR = "BITRIX24_CASE_SCHEMA_CONFIG_ERROR";
 
 export type Bitrix24CaseSchemaConfig = {
   entityTypeId: number;
+  fieldMap: Bitrix24CaseFieldMap;
   requiredWritableFields: readonly string[];
 };
 
@@ -29,19 +36,16 @@ export function readBitrix24CaseSchemaConfig(
     fail("ENTITY_TYPE_ID");
   }
 
-  const rawFields = required(env, "BITRIX24_CASE_REQUIRED_WRITABLE_FIELDS");
-  const fields = rawFields.split(",").map((value) => value.trim());
-  if (fields.some((value) => !value)) fail("FIELD_LIST");
-  if (fields.length < 1 || fields.length > 32) fail("FIELD_LIST");
-
-  const unique = [...new Set(fields)];
-  if (unique.length !== fields.length) fail("FIELD_DUPLICATE");
-  for (const field of unique) {
-    if (!/^[A-Za-z][A-Za-z0-9_]{0,127}$/.test(field)) fail("FIELD_NAME");
+  let fieldMap: Bitrix24CaseFieldMap;
+  try {
+    fieldMap = parseBitrix24CaseFieldMap(required(env, "BITRIX24_CASE_FIELD_MAP"));
+  } catch {
+    fail("FIELD_MAP");
   }
 
   return {
     entityTypeId,
-    requiredWritableFields: unique,
+    fieldMap,
+    requiredWritableFields: BITRIX24_CASE_PROJECTION_KEYS.map((key) => fieldMap[key]),
   };
 }
