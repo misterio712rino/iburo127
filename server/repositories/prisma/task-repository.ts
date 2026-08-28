@@ -59,7 +59,7 @@ export class PrismaTaskRepository implements TaskRepository {
     actor: AuthenticatedActor;
     taskId: string;
     status: TaskStatus;
-    expectedVersion?: number;
+    expectedVersion: number;
   }) {
     const scope = actorTaskWhere(input.actor);
     if (!scope) throw new Error(TASK_NOT_FOUND);
@@ -70,9 +70,7 @@ export class PrismaTaskRepository implements TaskRepository {
         where: { id: input.taskId, ...scope },
       });
       if (!current) throw new Error(TASK_NOT_FOUND);
-      if (input.expectedVersion !== undefined && current.version !== input.expectedVersion) {
-        throw new Error(TASK_VERSION_CONFLICT);
-      }
+      if (current.version !== input.expectedVersion) throw new Error(TASK_VERSION_CONFLICT);
 
       if (current.status === input.status) return toRecord(current);
 
@@ -80,7 +78,7 @@ export class PrismaTaskRepository implements TaskRepository {
       const updated = await tx.caseTask.updateMany({
         where: {
           id: current.id,
-          version: current.version,
+          version: input.expectedVersion,
           ...scope,
         },
         data: {
