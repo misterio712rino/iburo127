@@ -9,7 +9,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:foundation": "tsx tests/production-foundation.test.ts && tsx tests/questionnaire-domain.test.ts && tsx tests/production-mutation-boundaries.test.ts",
+    "test:foundation": "tsx tests/production-foundation.test.ts && tsx tests/questionnaire-domain.test.ts && tsx tests/production-mutation-boundaries.test.ts && tsx tests/auth-mfa-policy.test.ts",
     "check:runtime-logging": "tsx scripts/check-runtime-logging.ts",
     "check:staging": "tsx scripts/check-staging-readiness.ts",
     "check:staging:authz": "tsx scripts/verify-staging-authz-fixtures.ts",

@@ -14,15 +14,19 @@ export type BetterAuthApiSessionReader = {
  * Adapts Better Auth's server API to the minimal verified-session loader used by
  * the provider-neutral authentication boundary.
  *
- * This file deliberately depends only on the shape of auth.api.getSession so
- * the Better Auth package/config can be wired later without leaking provider
- * types through the domain layer.
+ * The result is memoized for the lifetime of this loader so authentication and
+ * MFA policy checks in one request observe the same verified Better Auth session.
  */
 export function createBetterAuthNextSessionLoader(
   authApi: BetterAuthApiSessionReader,
 ): BetterAuthSessionLoader {
-  return async () =>
-    authApi.getSession({
-      headers: await headers(),
-    });
+  let sessionPromise: Promise<BetterAuthVerifiedSession | null> | null = null;
+
+  return () => {
+    sessionPromise ??= (async () =>
+      authApi.getSession({
+        headers: await headers(),
+      }))();
+    return sessionPromise;
+  };
 }

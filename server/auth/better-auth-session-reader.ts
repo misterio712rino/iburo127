@@ -10,6 +10,7 @@ export const BETTER_AUTH_PROVIDER = "better-auth";
 export type BetterAuthVerifiedSession = {
   user: {
     id: string;
+    twoFactorEnabled?: boolean | null;
   };
 };
 
