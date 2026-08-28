@@ -1,3 +1,5 @@
+export type Environment = Readonly<Record<string, string | undefined>>;
+
 export type StagingDatabaseTarget = {
   databaseUrl: string;
   expectedDatabaseName: string;
@@ -5,13 +7,13 @@ export type StagingDatabaseTarget = {
   expectedUser: string;
 };
 
-function requireValue(env: NodeJS.ProcessEnv, name: string) {
+function requireValue(env: Environment, name: string) {
   const value = env[name]?.trim();
   if (!value) throw new Error(`missing ${name}`);
   return value;
 }
 
-export function requireStagingDatabaseTarget(env: NodeJS.ProcessEnv = process.env): StagingDatabaseTarget {
+export function requireStagingDatabaseTarget(env: Environment = process.env): StagingDatabaseTarget {
   if (env.IB_DB_TARGET?.trim() !== "staging") {
     throw new Error('IB_DB_TARGET must be exactly "staging"');
   }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { requireStagingDatabaseTarget } from "@/scripts/staging-target-guard";
 
-const baseEnv: NodeJS.ProcessEnv = {
+const baseEnv: Record<string, string | undefined> = {
   IB_DB_TARGET: "staging",
   IB_STAGING_DATABASE_NAME: "iburo_staging",
   IB_STAGING_DATABASE_HOST: "staging.pg.example.net",
