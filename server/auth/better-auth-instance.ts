@@ -25,6 +25,11 @@ export function getBetterAuthInstance() {
     database: authPool,
     emailAndPassword: {
       enabled: true,
+      disableSignUp: true,
+      minPasswordLength: 12,
+      maxPasswordLength: 128,
+      autoSignIn: false,
+      revokeSessionsOnPasswordReset: true,
     },
     plugins: [
       twoFactor({
