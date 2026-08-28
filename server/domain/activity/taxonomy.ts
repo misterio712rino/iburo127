@@ -51,6 +51,7 @@ const SAFE_METADATA_KEYS = new Set([
   "notificationId",
   "notificationType",
   "authProvider",
+  "auditId",
 ]);
 
 export function requireCaseActivityType(type: string): CaseActivityType {
