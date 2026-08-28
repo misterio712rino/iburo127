@@ -97,7 +97,6 @@ export function AiAssistant({ caseId, withShell = true }: AiAssistantProps = {})
 
   useEffect(() => {
     let active = true;
-    setLoadState({ status: "loading" });
     void resolveClientAiCase(caseId)
       .then((caseState) => {
         if (!active) return;
