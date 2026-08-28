@@ -17,6 +17,7 @@ const REQUIRED_COLUMNS = {
     "failedVerificationCount",
     "lockedUntil",
   ],
+  rateLimit: ["id", "key", "count", "lastRequest"],
 } as const;
 
 const REQUIRED_TABLES = Object.keys(REQUIRED_COLUMNS);
@@ -132,12 +133,16 @@ try {
     ["verification", "id"],
     ["twoFactor", "id"],
     ["twoFactor", "userId"],
+    ["rateLimit", "id"],
+    ["rateLimit", "key"],
   ] as const) {
     requireType(tableName, columnName, STRING_TYPES);
   }
   requireType("user", "twoFactorEnabled", new Set(["boolean"]));
   requireType("twoFactor", "verified", new Set(["boolean"]));
   requireType("twoFactor", "failedVerificationCount", INTEGER_TYPES);
+  requireType("rateLimit", "count", INTEGER_TYPES);
+  requireType("rateLimit", "lastRequest", INTEGER_TYPES);
   requireType("session", "expiresAt", TIMESTAMP_TYPES);
   requireType("verification", "expiresAt", TIMESTAMP_TYPES);
   requireType("twoFactor", "lockedUntil", TIMESTAMP_TYPES);
@@ -184,6 +189,9 @@ try {
   if (!hasUniqueIndex("session", ["token"])) fail("session.token unique index/constraint is missing");
   if (!hasUniqueIndex("account", ["issuer", "accountId"])) {
     fail("account unique index on (issuer, accountId) is missing");
+  }
+  if (!hasUniqueIndex("rateLimit", ["key"])) {
+    fail("rateLimit.key unique index/constraint is missing");
   }
 
   const primaryKeyResult = await client.query<{
@@ -267,7 +275,7 @@ try {
 
   console.log(`Staging database identity verified: ${identityRow.database_name}`);
   console.log(`Better Auth schema/search_path verified: ${expectedSchema}`);
-  console.log(`Better Auth core + 2FA tables verified: ${REQUIRED_TABLES.length}`);
+  console.log(`Better Auth core + 2FA + rate-limit tables verified: ${REQUIRED_TABLES.length}`);
   console.log("Better Auth required unique indexes and user foreign keys verified");
   console.log(`Better Auth structural SHA-256: ${fingerprint}`);
   console.log("STAGING_BETTER_AUTH_SCHEMA_VERIFY_PASS");
