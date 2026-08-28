@@ -15,6 +15,7 @@
     "db:inspect:baseline": "tsx scripts/inspect-database-baseline.ts",
     "db:review:sql": "tsx scripts/review-migration-sql.ts",
     "db:deploy:staging": "tsx scripts/apply-staging-migrations.ts",
+    "db:verify:staging": "tsx scripts/verify-staging-schema.ts",
     "auth:link": "tsx scripts/provision-auth-identity.ts",
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",
