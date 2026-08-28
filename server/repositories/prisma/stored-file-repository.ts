@@ -81,13 +81,43 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
     });
   }
 
-  async markReady(fileId: string, readyAt: Date) {
+  async markReady(fileId: string, readyAt: Date, auditActorUserId: string) {
     const prisma = getPrismaClient();
-    const row = await prisma.storedFile.update({
-      where: { id: fileId },
-      data: { status: "READY", readyAt },
+    return prisma.$transaction(async (tx) => {
+      const current = await tx.storedFile.findUnique({ where: { id: fileId } });
+      if (
+        !current ||
+        current.status !== "PENDING_UPLOAD" ||
+        current.uploadedById !== auditActorUserId
+      ) {
+        return null;
+      }
+
+      const updated = await tx.storedFile.updateMany({
+        where: {
+          id: current.id,
+          status: "PENDING_UPLOAD",
+          uploadedById: auditActorUserId,
+        },
+        data: { status: "READY", readyAt },
+      });
+      if (updated.count !== 1) return null;
+
+      await tx.caseActivityEvent.create({
+        data: buildCaseActivityWrite({
+          clientCaseId: current.clientCaseId,
+          actorUserId: auditActorUserId,
+          type: "file.upload.completed",
+          metadata: {
+            fileId: current.id,
+            storageProvider: current.storageProvider,
+          },
+        }),
+      });
+
+      const row = await tx.storedFile.findUnique({ where: { id: current.id } });
+      return row ? toRecord(row) : null;
     });
-    return toRecord(row);
   }
 
   async deletePending(fileId: string) {

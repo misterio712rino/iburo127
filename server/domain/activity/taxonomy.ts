@@ -17,6 +17,7 @@ export const CASE_ACTIVITY_TYPES = [
   "document.sent_for_review",
   "document.reviewed",
   "file.upload.registered",
+  "file.upload.completed",
   "file.download.authorized",
   "notification.created",
 ] as const;

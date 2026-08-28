@@ -31,7 +31,11 @@ export interface StoredFileRepository {
     sizeBytes: bigint;
     checksumSha256?: string | null;
   }): Promise<StoredFileRecord>;
-  markReady(fileId: string, readyAt: Date): Promise<StoredFileRecord>;
+  markReady(
+    fileId: string,
+    readyAt: Date,
+    auditActorUserId: string,
+  ): Promise<StoredFileRecord | null>;
   deletePending(fileId: string): Promise<boolean>;
   restorePending(file: StoredFileRecord): Promise<boolean>;
 }

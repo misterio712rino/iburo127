@@ -79,6 +79,8 @@ export class StoredFileService {
 
   async markUploadReady(actor: AuthenticatedActor, fileId: string) {
     await this.getPendingUpload(actor, fileId);
-    return this.repository.markReady(fileId, new Date());
+    const ready = await this.repository.markReady(fileId, new Date(), actor.userId);
+    if (!ready) throw new Error(FILE_UPLOAD_NOT_PENDING);
+    return ready;
   }
 }
