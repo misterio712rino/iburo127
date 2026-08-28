@@ -1,6 +1,6 @@
 # Shared production portal shell
 
-Status: code-level migration foundation for the protected `/portal` surface.
+Status: code-level production portal shell migration complete for the current `/portal` route set.
 
 ## Separation from demo
 
@@ -21,26 +21,25 @@ Status: code-level migration foundation for the protected `/portal` surface.
 
 The frame receives only presentation booleans/labels from server components. It is not an authorization boundary: every protected page and API route continues to enforce its own Better Auth, role and ClientCase policy.
 
-## First migrated pages
+## Migrated pages
 
-The first pass migrates:
+The shared frame is now used by the current production portal routes:
 
 - `/portal`;
+- `/portal/notifications`;
+- `/portal/tasks`;
 - `/portal/cases/:caseId`;
+- `/portal/cases/:caseId/questionnaire`;
+- `/portal/cases/:caseId/practicum`;
+- `/portal/cases/:caseId/documents`;
+- `/portal/cases/:caseId/files`;
+- `/portal/cases/:caseId/activity`;
 - `/portal/cases/:caseId/ai`.
 
-The case page derives staff navigation visibility from the authenticated internal actor. The AI page remains CLIENT-only and re-authorizes ownership of the concrete ClientCase before rendering the production-backed chat.
+Page-specific authorization remains unchanged. Client edit rights, lawyer assignment checks, manager review rights, task staff-only access, AI CLIENT-only ownership and AI feature entitlement are still enforced by the existing server operations/services and API routes.
 
-## Remaining portal migration
+## Remaining acceptance work
 
-Nested production pages still carrying their older local headers should be migrated in later atomic passes:
+This shell migration is a code/layout change. Before release it still requires authenticated staging browser QA for desktop and mobile navigation, session expiry/sign-out behavior and each role's visible navigation.
 
-- questionnaire;
-- practicum;
-- documents;
-- files;
-- activity;
-- notifications;
-- staff tasks.
-
-This visual/layout migration must not weaken the existing per-page or API authorization checks.
+The demo `/app` route is intentionally not coupled to this production shell.

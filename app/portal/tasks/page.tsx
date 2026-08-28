@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft, ClipboardList, Clock3 } from "lucide-react";
-import { IBuroBrand } from "@/components/platform/IBuroBrand";
-import { SignOutButton } from "@/components/platform/auth/SignOutButton";
+import { PortalFrame } from "@/components/portal/PortalFrame";
 import { TaskStatusControl } from "@/components/platform/tasks/TaskStatusControl";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
@@ -26,9 +25,7 @@ export default async function PortalTasksPage() {
     actor = await getCurrentPlatformActor(sessionProvider);
     tasks = await listTasks(sessionProvider);
   } catch (error) {
-    if (error instanceof Error && error.message === UNAUTHENTICATED) {
-      redirect("/auth/sign-in");
-    }
+    if (error instanceof Error && error.message === UNAUTHENTICATED) redirect("/auth/sign-in");
     throw error;
   }
 
@@ -37,15 +34,7 @@ export default async function PortalTasksPage() {
   }
 
   return (
-    <div className="mx-auto min-h-screen w-full max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
-      <header className="flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <IBuroBrand dot className="font-[var(--font-iburo-display)] text-4xl font-semibold tracking-tight" />
-          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Задачи сотрудников</p>
-        </div>
-        <SignOutButton />
-      </header>
-
+    <PortalFrame sectionLabel="Задачи сотрудников" showStaffTasks>
       <main className="py-10">
         <Link href="/portal" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900">
           <ArrowLeft className="size-4" aria-hidden="true" />
@@ -53,9 +42,7 @@ export default async function PortalTasksPage() {
         </Link>
 
         <div className="mt-8 flex items-center gap-3">
-          <span className="grid size-11 place-items-center rounded-2xl bg-white text-slate-700 shadow-sm">
-            <ClipboardList className="size-5" aria-hidden="true" />
-          </span>
+          <span className="grid size-11 place-items-center rounded-2xl bg-white text-slate-700 shadow-sm"><ClipboardList className="size-5" aria-hidden="true" /></span>
           <div>
             <h1 className="font-[var(--font-iburo-display)] text-4xl font-semibold text-slate-900">Задачи</h1>
             <p className="mt-1 text-sm text-slate-500">Менеджер видит доступные staff-задачи, юрист — только назначенные ему.</p>
@@ -71,17 +58,12 @@ export default async function PortalTasksPage() {
                     <p className="text-lg font-bold text-slate-900">{task.title}</p>
                     {task.description ? <p className="mt-2 text-sm leading-6 text-slate-500">{task.description}</p> : null}
                   </div>
-                  <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-bold text-slate-600">
-                    {STATUS_LABELS[task.status]}
-                  </span>
+                  <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-bold text-slate-600">{STATUS_LABELS[task.status]}</span>
                 </div>
                 <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4 text-xs text-slate-400">
                   <span>Версия {task.version}</span>
                   {task.dueAt ? (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Clock3 className="size-3.5" aria-hidden="true" />
-                      До {task.dueAt.toLocaleString("ru-RU")}
-                    </span>
+                    <span className="inline-flex items-center gap-1.5"><Clock3 className="size-3.5" aria-hidden="true" />До {task.dueAt.toLocaleString("ru-RU")}</span>
                   ) : null}
                 </div>
                 <TaskStatusControl taskId={task.id} status={task.status} version={task.version} />
@@ -89,11 +71,9 @@ export default async function PortalTasksPage() {
             ))}
           </div>
         ) : (
-          <div className="mt-8 rounded-[28px] border border-dashed border-slate-300 bg-white/70 p-8 text-sm text-slate-500">
-            Доступных задач сейчас нет.
-          </div>
+          <div className="mt-8 rounded-[28px] border border-dashed border-slate-300 bg-white/70 p-8 text-sm text-slate-500">Доступных задач сейчас нет.</div>
         )}
       </main>
-    </div>
+    </PortalFrame>
   );
 }

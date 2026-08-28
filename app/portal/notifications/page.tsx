@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft, Bell, CheckCircle2 } from "lucide-react";
-import { IBuroBrand } from "@/components/platform/IBuroBrand";
-import { SignOutButton } from "@/components/platform/auth/SignOutButton";
+import { PortalFrame } from "@/components/portal/PortalFrame";
 import { MarkNotificationReadButton } from "@/components/platform/notifications/MarkNotificationReadButton";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
+import { getCurrentPlatformActor } from "@/server/client-cases/operations";
 import { listNotifications } from "@/server/notifications/operations";
 
 export const dynamic = "force-dynamic";
@@ -13,26 +13,20 @@ export const dynamic = "force-dynamic";
 export default async function PortalNotificationsPage() {
   const sessionProvider = createProductionSessionProvider();
 
+  let actor;
   let notifications;
   try {
+    actor = await getCurrentPlatformActor(sessionProvider);
     notifications = await listNotifications(sessionProvider, 100);
   } catch (error) {
-    if (error instanceof Error && error.message === UNAUTHENTICATED) {
-      redirect("/auth/sign-in");
-    }
+    if (error instanceof Error && error.message === UNAUTHENTICATED) redirect("/auth/sign-in");
     throw error;
   }
 
-  return (
-    <div className="mx-auto min-h-screen w-full max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
-      <header className="flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <IBuroBrand dot className="font-[var(--font-iburo-display)] text-4xl font-semibold tracking-tight" />
-          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Уведомления</p>
-        </div>
-        <SignOutButton />
-      </header>
+  const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
 
+  return (
+    <PortalFrame sectionLabel="Уведомления" showStaffTasks={isStaff}>
       <main className="py-10">
         <Link href="/portal" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900">
           <ArrowLeft className="size-4" aria-hidden="true" />
@@ -40,9 +34,7 @@ export default async function PortalNotificationsPage() {
         </Link>
 
         <div className="mt-8 flex items-center gap-3">
-          <span className="grid size-11 place-items-center rounded-2xl bg-white text-slate-700 shadow-sm">
-            <Bell className="size-5" aria-hidden="true" />
-          </span>
+          <span className="grid size-11 place-items-center rounded-2xl bg-white text-slate-700 shadow-sm"><Bell className="size-5" aria-hidden="true" /></span>
           <div>
             <h1 className="font-[var(--font-iburo-display)] text-4xl font-semibold text-slate-900">Уведомления</h1>
             <p className="mt-1 text-sm text-slate-500">Только уведомления текущего внутреннего пользователя.</p>
@@ -73,11 +65,9 @@ export default async function PortalNotificationsPage() {
             ))}
           </div>
         ) : (
-          <div className="mt-8 rounded-[28px] border border-dashed border-slate-300 bg-white/70 p-8 text-sm text-slate-500">
-            Новых уведомлений пока нет.
-          </div>
+          <div className="mt-8 rounded-[28px] border border-dashed border-slate-300 bg-white/70 p-8 text-sm text-slate-500">Новых уведомлений пока нет.</div>
         )}
       </main>
-    </div>
+    </PortalFrame>
   );
 }
