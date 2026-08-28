@@ -80,4 +80,20 @@ assert.match(
   "AuthIdentity confirmation must bind both staging database and internal user id",
 );
 
+const packageJson = JSON.parse(
+  await readFile(resolve("package.json"), "utf8"),
+) as { scripts?: Record<string, string> };
+for (const scriptName of [
+  "db:seed:reference:staging",
+  "db:seed:demo:staging",
+  "auth:link:staging",
+]) {
+  const script = packageJson.scripts?.[scriptName];
+  assert.ok(script, `missing ${scriptName} package script`);
+  assert.ok(
+    script.startsWith("npm run db:check:migrations &&"),
+    `${scriptName} must fail locally on unreviewed migration history before staging access`,
+  );
+}
+
 console.log("STAGING_MUTATION_PREFLIGHT_CONTRACT_TEST_PASS");
