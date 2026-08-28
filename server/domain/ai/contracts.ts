@@ -70,15 +70,20 @@ export interface AiModelGateway {
 
 export type AiAuditOutcome = "completed" | "restricted" | "failed";
 
+export type AiUsageReservation = {
+  auditId: string;
+};
+
 export interface AiUsageLedger {
   reserveRequest(input: {
     clientCaseId: string;
     actorUserId: string;
     now: Date;
-  }): Promise<boolean>;
+  }): Promise<AiUsageReservation | null>;
   recordOutcome(input: {
     clientCaseId: string;
     actorUserId: string;
+    auditId: string;
     outcome: AiAuditOutcome;
   }): Promise<void>;
 }
