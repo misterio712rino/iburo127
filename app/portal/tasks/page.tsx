@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowLeft, ClipboardList, Clock3 } from "lucide-react";
 import { IBuroBrand } from "@/components/platform/IBuroBrand";
 import { SignOutButton } from "@/components/platform/auth/SignOutButton";
+import { TaskStatusControl } from "@/components/platform/tasks/TaskStatusControl";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { getCurrentPlatformActor } from "@/server/client-cases/operations";
@@ -83,6 +84,7 @@ export default async function PortalTasksPage() {
                     </span>
                   ) : null}
                 </div>
+                <TaskStatusControl taskId={task.id} status={task.status} version={task.version} />
               </article>
             ))}
           </div>
