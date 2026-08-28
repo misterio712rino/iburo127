@@ -1,12 +1,19 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
+import { buildAiAuditMetadata } from "@/server/ai/audit-correlation";
 import { getPrismaClient } from "@/server/database/prisma";
-import { AI_AUDIT_FAILED, type AiAuditOutcome, type AiUsageLedger } from "@/server/domain/ai/contracts";
+import {
+  AI_AUDIT_FAILED,
+  type AiAuditOutcome,
+  type AiUsageLedger,
+  type AiUsageReservation,
+} from "@/server/domain/ai/contracts";
 import { buildCaseActivityWrite } from "@/server/repositories/prisma/case-activity-write";
 import type { AiUsageRuntimeConfig } from "@/server/ai/usage-config";
 
-const REQUEST_ACTIVITY_TYPE = "ai.request.accepted";
-const OUTCOME_ACTIVITY_TYPES: Record<AiAuditOutcome, string> = {
+export const AI_REQUEST_ACTIVITY_TYPE = "ai.request.accepted";
+export const AI_OUTCOME_ACTIVITY_TYPES: Record<AiAuditOutcome, string> = {
   completed: "ai.response.completed",
   restricted: "ai.response.restricted",
   failed: "ai.response.failed",
@@ -19,11 +26,12 @@ export class PrismaAiUsageLedger implements AiUsageLedger {
     clientCaseId: string;
     actorUserId: string;
     now: Date;
-  }): Promise<boolean> {
+  }): Promise<AiUsageReservation | null> {
     const prisma = getPrismaClient();
     const minuteStart = new Date(input.now.getTime() - 60_000);
     const dayStart = new Date(input.now.getTime() - 24 * 60 * 60_000);
     const lockKey = `ai-rate:${input.actorUserId}:${input.clientCaseId}`;
+    const auditId = randomUUID();
 
     try {
       return await prisma.$transaction(async (tx) => {
@@ -37,31 +45,31 @@ export class PrismaAiUsageLedger implements AiUsageLedger {
           where: {
             clientCaseId: input.clientCaseId,
             actorUserId: input.actorUserId,
-            type: REQUEST_ACTIVITY_TYPE,
+            type: AI_REQUEST_ACTIVITY_TYPE,
             createdAt: { gte: dayStart },
           },
         });
-        if (dayCount >= this.config.perDay) return false;
+        if (dayCount >= this.config.perDay) return null;
 
         const minuteCount = await tx.caseActivityEvent.count({
           where: {
             clientCaseId: input.clientCaseId,
             actorUserId: input.actorUserId,
-            type: REQUEST_ACTIVITY_TYPE,
+            type: AI_REQUEST_ACTIVITY_TYPE,
             createdAt: { gte: minuteStart },
           },
         });
-        if (minuteCount >= this.config.perMinute) return false;
+        if (minuteCount >= this.config.perMinute) return null;
 
         await tx.caseActivityEvent.create({
           data: buildCaseActivityWrite({
             clientCaseId: input.clientCaseId,
             actorUserId: input.actorUserId,
-            type: REQUEST_ACTIVITY_TYPE,
-            metadata: { schemaVersion: 1 },
+            type: AI_REQUEST_ACTIVITY_TYPE,
+            metadata: buildAiAuditMetadata(auditId),
           }),
         });
-        return true;
+        return { auditId };
       });
     } catch {
       throw new Error(AI_AUDIT_FAILED);
@@ -71,6 +79,7 @@ export class PrismaAiUsageLedger implements AiUsageLedger {
   async recordOutcome(input: {
     clientCaseId: string;
     actorUserId: string;
+    auditId: string;
     outcome: AiAuditOutcome;
   }): Promise<void> {
     try {
@@ -78,8 +87,8 @@ export class PrismaAiUsageLedger implements AiUsageLedger {
         data: buildCaseActivityWrite({
           clientCaseId: input.clientCaseId,
           actorUserId: input.actorUserId,
-          type: OUTCOME_ACTIVITY_TYPES[input.outcome],
-          metadata: { schemaVersion: 1 },
+          type: AI_OUTCOME_ACTIVITY_TYPES[input.outcome],
+          metadata: buildAiAuditMetadata(input.auditId),
         }),
       });
     } catch {
