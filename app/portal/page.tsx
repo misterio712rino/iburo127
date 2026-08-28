@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BriefcaseBusiness, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, BriefcaseBusiness, ShieldCheck } from "lucide-react";
 import { IBuroBrand } from "@/components/platform/IBuroBrand";
 import { SignOutButton } from "@/components/platform/auth/SignOutButton";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
@@ -95,6 +96,13 @@ export default async function PortalPage() {
                     <dd className="mt-1 font-semibold text-emerald-700">Разрешён сервером</dd>
                   </div>
                 </dl>
+                <Link
+                  href={`/portal/cases/${clientCase.id}`}
+                  className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-[#17202a] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#263342]"
+                >
+                  Открыть дело
+                  <ArrowUpRight className="size-4" aria-hidden="true" />
+                </Link>
               </article>
             ))}
           </div>
