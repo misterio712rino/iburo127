@@ -24,8 +24,8 @@ function toRecord(row: {
   return row;
 }
 
-function assertExpectedVersion(currentVersion: number, expectedVersion?: number) {
-  if (expectedVersion !== undefined && currentVersion !== expectedVersion) {
+function assertExpectedVersion(currentVersion: number, expectedVersion: number) {
+  if (currentVersion !== expectedVersion) {
     throw new Error(DOCUMENT_VERSION_CONFLICT);
   }
 }
@@ -62,7 +62,7 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
     clientCaseId: string;
     documentCode: string;
     status: CaseDocumentStatus;
-    expectedVersion?: number;
+    expectedVersion: number;
   }) {
     const prisma = getPrismaClient();
     return prisma.$transaction(async (tx) => {
@@ -78,7 +78,7 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
       assertExpectedVersion(current.version, input.expectedVersion);
 
       const updated = await tx.caseDocument.updateMany({
-        where: { id: current.id, version: current.version },
+        where: { id: current.id, version: input.expectedVersion },
         data: {
           status: input.status,
           regeneratedAt: new Date(),
@@ -98,7 +98,7 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
   async sendForReview(input: {
     clientCaseId: string;
     documentCode: string;
-    expectedVersion?: number;
+    expectedVersion: number;
   }) {
     const prisma = getPrismaClient();
     return prisma.$transaction(async (tx) => {
@@ -114,7 +114,7 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
       assertExpectedVersion(current.version, input.expectedVersion);
 
       const updated = await tx.caseDocument.updateMany({
-        where: { id: current.id, version: current.version },
+        where: { id: current.id, version: input.expectedVersion },
         data: {
           status: "SENT_FOR_REVIEW",
           sentForReviewAt: new Date(),
@@ -132,7 +132,7 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
   async markReviewed(input: {
     clientCaseId: string;
     documentCode: string;
-    expectedVersion?: number;
+    expectedVersion: number;
   }) {
     const prisma = getPrismaClient();
     return prisma.$transaction(async (tx) => {
@@ -148,7 +148,7 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
       assertExpectedVersion(current.version, input.expectedVersion);
 
       const updated = await tx.caseDocument.updateMany({
-        where: { id: current.id, version: current.version },
+        where: { id: current.id, version: input.expectedVersion },
         data: {
           status: "REVIEWED",
           reviewedAt: new Date(),
