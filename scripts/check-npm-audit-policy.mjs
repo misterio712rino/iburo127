@@ -51,10 +51,16 @@ for (const [name, vulnerability] of entries) {
     process.exit(1);
   }
 
-  const packagePath = `node_modules/${name}`;
-  const installedVersion = lockfile?.packages?.[packagePath]?.version;
-  if (installedVersion !== allowed.version) {
-    console.error(`DEPENDENCY_AUDIT_POLICY_FAIL: unreviewed vulnerable version for ${name}`);
+  const candidatePaths =
+    name === "prisma"
+      ? ["node_modules/prisma", "node_modules/prisma-cli"]
+      : [`node_modules/${name}`];
+  const installedVersions = candidatePaths
+    .map((packagePath) => lockfile?.packages?.[packagePath]?.version)
+    .filter(Boolean);
+
+  if (installedVersions.length !== 1 || installedVersions[0] !== allowed.version) {
+    console.error(`DEPENDENCY_AUDIT_POLICY_FAIL: unreviewed vulnerable version or layout for ${name}`);
     process.exit(1);
   }
 }
