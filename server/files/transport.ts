@@ -9,12 +9,16 @@ export type StoredFileTransportRecord = {
   clientCaseId: string;
   uploadedById: string | null;
   storageProvider: string;
-  objectKey: string;
   fileName: string;
   mimeType: string;
   sizeBytes: string;
   checksumSha256: string | null;
   createdAt: Date;
+};
+
+export type StoredFileDownloadTransport = {
+  url: string;
+  expiresAt: Date;
 };
 
 export type StoredFileOperationResult<T> =
@@ -39,7 +43,17 @@ export function toStoredFileTransportRecord(file: {
   checksumSha256: string | null;
   createdAt: Date;
 }): StoredFileTransportRecord {
-  return { ...file, sizeBytes: file.sizeBytes.toString() };
+  return {
+    id: file.id,
+    clientCaseId: file.clientCaseId,
+    uploadedById: file.uploadedById,
+    storageProvider: file.storageProvider,
+    fileName: file.fileName,
+    mimeType: file.mimeType,
+    sizeBytes: file.sizeBytes.toString(),
+    checksumSha256: file.checksumSha256,
+    createdAt: file.createdAt,
+  };
 }
 
 export async function executeStoredFileOperation<T>(
