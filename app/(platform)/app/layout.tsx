@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
 import { DemoIdentityProvider } from "@/components/platform/DemoIdentityProvider";
+import { isDemoPortalEnabled } from "@/server/demo/access";
 
 const iburoSans = Manrope({
   variable: "--font-iburo-sans",
@@ -18,9 +20,11 @@ const iburoDisplay = Cormorant_Garamond({
   display: "swap",
 });
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
-  title: "iБюро — Личный кабинет",
-  description: "Платформа сопровождения процедуры банкротства",
+  title: "iБюро — Демонстрационный кабинет",
+  description: "Демонстрационный интерфейс платформы сопровождения процедуры банкротства",
   robots: {
     index: false,
     follow: false,
@@ -32,6 +36,8 @@ export default function PlatformLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  if (!isDemoPortalEnabled()) notFound();
+
   return (
     <DemoIdentityProvider>
       <div
