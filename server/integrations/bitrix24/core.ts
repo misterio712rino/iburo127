@@ -24,6 +24,13 @@ export type Bitrix24Fetch = (
   init?: RequestInit,
 ) => Promise<Response>;
 
+export type Bitrix24ItemFieldDescription = {
+  type: string;
+  isRequired: boolean;
+  isReadOnly: boolean;
+  isImmutable: boolean;
+};
+
 const METHOD_SET = new Set<string>(BITRIX24_METHODS);
 const MAX_REQUEST_BYTES = 512 * 1024;
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
@@ -178,4 +185,47 @@ export async function getBitrix24MethodAvailability(
     isExisting: record.isExisting,
     isAvailable: record.isAvailable,
   };
+}
+
+export async function getBitrix24ItemFields(
+  config: Bitrix24WebhookConfig,
+  entityTypeId: number,
+  fetchImpl: Bitrix24Fetch = fetch,
+): Promise<Record<string, Bitrix24ItemFieldDescription>> {
+  if (!Number.isSafeInteger(entityTypeId) || entityTypeId < 1 || entityTypeId > 2_147_483_647) {
+    fail("INVALID_REQUEST");
+  }
+
+  const response = await callBitrix24Webhook(
+    config,
+    "crm.item.fields",
+    { entityTypeId, useOriginalUfNames: "N" },
+    fetchImpl,
+  );
+  const result = response.result;
+  if (!result || typeof result !== "object" || Array.isArray(result)) fail("INVALID_RESPONSE");
+  const fields = (result as Record<string, unknown>).fields;
+  if (!fields || typeof fields !== "object" || Array.isArray(fields)) fail("INVALID_RESPONSE");
+
+  const safeFields: Record<string, Bitrix24ItemFieldDescription> = {};
+  for (const [name, value] of Object.entries(fields as Record<string, unknown>)) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) fail("INVALID_RESPONSE");
+    const field = value as Record<string, unknown>;
+    if (
+      typeof field.type !== "string" ||
+      typeof field.isRequired !== "boolean" ||
+      typeof field.isReadOnly !== "boolean" ||
+      typeof field.isImmutable !== "boolean"
+    ) {
+      fail("INVALID_RESPONSE");
+    }
+    safeFields[name] = {
+      type: field.type,
+      isRequired: field.isRequired,
+      isReadOnly: field.isReadOnly,
+      isImmutable: field.isImmutable,
+    };
+  }
+
+  return safeFields;
 }
