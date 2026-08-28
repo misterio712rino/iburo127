@@ -28,32 +28,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Dependency audit report
+      - name: Dependency audit policy
         shell: bash
         run: |
           npm audit --json > "$RUNNER_TEMP/npm-audit.json" || true
           node scripts/report-npm-audit.mjs "$RUNNER_TEMP/npm-audit.json"
+          node scripts/check-npm-audit-policy.mjs "$RUNNER_TEMP/npm-audit.json" package-lock.json
 
-      - name: Dependency path diagnostics
-        shell: bash
-        run: |
-          for package in \
-            '@prisma/config' \
-            'brace-expansion' \
-            'deepmerge-ts' \
-            'fast-uri' \
-            'ip-address' \
-            'js-yaml' \
-            'nanoid' \
-            'prisma' \
-            'undici' \
-            '@hono/node-server' \
-            'hono'
-          do
-            echo "DEPENDENCY_EXPLAIN_BEGIN: $package"
-            npm explain "$package" || true
-            echo "DEPENDENCY_EXPLAIN_END: $package"
-          done
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=moderate
 
       - name: Runtime PII logging gate
         run: npm run check:runtime-logging
@@ -75,17 +58,3 @@ jobs:
 
       - name: Build
         run: npm run build
-
-      - name: Compatible dependency remediation preview
-        shell: bash
-        run: |
-          npm audit fix --package-lock-only --ignore-scripts || true
-          if ! git diff --exit-code -- package.json; then
-            echo "DEPENDENCY_REMEDIATION_PREVIEW_PACKAGE_JSON_CHANGED"
-            exit 1
-          fi
-          npm audit --json > "$RUNNER_TEMP/npm-audit-after-compatible-fix.json" || true
-          node scripts/report-npm-audit.mjs "$RUNNER_TEMP/npm-audit-after-compatible-fix.json"
-          echo "DEPENDENCY_REMEDIATION_PREVIEW_LOCKFILE_DIFF:"
-          git diff --numstat -- package-lock.json
-          git checkout -- package-lock.json
