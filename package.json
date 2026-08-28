@@ -9,7 +9,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:foundation": "tsx tests/production-foundation.test.ts",
+    "test:foundation": "tsx tests/production-foundation.test.ts && tsx tests/questionnaire-domain.test.ts",
     "check:staging": "tsx scripts/check-staging-readiness.ts",
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",
