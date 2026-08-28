@@ -1,18 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
-
 export default function PlatformError({
-  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    console.error("Platform route error", error);
-  }, [error]);
-
   return (
     <main className="grid min-h-screen place-items-center bg-background px-5 py-10 text-foreground">
       <section className="w-full max-w-xl rounded-[2rem] border border-border bg-card p-7 shadow-sm sm:p-10">
