@@ -1,6 +1,6 @@
 import "server-only";
 
-import { DOCUMENT_DEFINITIONS } from "@/lib/platform/demo/documents";
+import { DOCUMENT_DEFINITIONS } from "@/lib/platform/document-definitions";
 import { ClientCaseService } from "@/server/domain/client-cases/service";
 import {
   CaseDocumentService,
