@@ -18,7 +18,9 @@ This checklist defines the conditions for switching any platform workflow from i
 - [x] Real Better Auth server instance wired into that bridge.
 - [x] External `(provider, subject)` -> internal `User.id` mapping architecture implemented through `AuthIdentity`.
 - [x] Guarded server-side `AuthIdentity` provisioning primitive and CLI implemented without exposing a public provisioning endpoint.
-- [ ] Account enrollment, recovery and MFA policy implemented end-to-end; staff MFA mandatory.
+- [x] Staff TOTP enrollment, backup-code issuance and mandatory staff MFA policy implemented at the server authorization boundary.
+- [x] Password-reset/email-verification delivery foundation and recovery UI implemented with dedicated Yandex Cloud Postbox credentials.
+- [ ] Account enrollment/recovery verified end-to-end against migrated staging identities and actual Postbox delivery.
 - [x] Production infrastructure environment readers/template implemented without committing secrets.
 - [x] Production server architecture does not use `DemoIdentityProvider`, localStorage identity, browser role or browser user ID as authorization sources.
 - [x] Repository CI gate includes Prisma validate/generate, foundation tests, TypeScript, ESLint and production build.
@@ -88,7 +90,8 @@ Repository/server foundation is complete; activation still requires:
 - [x] Upload input enforces allowlisted MIME types, a 50 MiB limit and UUID-scoped opaque keys.
 - [x] Browser-supplied checksum values are not persisted as trusted integrity metadata; checksum support remains reserved for a future server-verified flow.
 - [x] Stale `PENDING_UPLOAD` cleanup service/repository foundation implemented with bounded batches and conditional metadata deletion.
-- [ ] Private staging bucket/service account configured.
+- [x] Read-only staging Object Storage metadata verifier implemented as `npm run check:staging:storage`; it checks bucket identity/ACL/policy/CORS without listing, reading, writing or deleting objects.
+- [ ] Private staging bucket/service account configured and verified with staging credentials.
 - [ ] Schedule/operate stale `PENDING_UPLOAD` cleanup only after staging storage policy is available.
 - [ ] Document/file migrations reviewed and applied to staging.
 - [ ] No generated document or uploaded file exposed by a guessable public URL in staging E2E.
@@ -133,10 +136,12 @@ Architecture decision: see `docs/AUTH_PROVIDER_DECISION.md`.
 - [x] TOTP/2FA plugin configured at the server layer.
 - [x] Standalone `/auth/sign-in` UI implemented outside `DemoIdentityProvider`; self-sign-up remains disabled.
 - [x] TOTP verification and one-time backup-code verification UI implemented with `trustDevice: false`.
+- [x] TOTP enrollment/backup-code issuance UX implemented and MFA enforced server-side for LAWYER/MANAGER accounts.
 - [x] Sign-out control implemented in the authenticated production portal shell.
 - [x] Controlled `AuthIdentity` provisioning command documented in `docs/AUTH_IDENTITY_PROVISIONING.md`; it requires an active internal user and explicit confirmation.
-- [ ] Add password reset/email verification delivery and UI after an outbound email provider is selected.
-- [ ] Add TOTP enrollment/backup-code issuance UX and enforce MFA for staff accounts.
+- [x] Yandex Cloud Postbox selected and password reset/email-verification delivery callbacks plus forgot/reset-password UI implemented.
+- [ ] Verify actual Postbox receipt, reset-token flow, session revocation and provider-side delivery health against staging.
+- [ ] Decide whether to require email verification only after existing staging identities and mail delivery are reviewed.
 - [ ] Execute and verify controlled `AuthIdentity` linking against migrated staging data.
 - [ ] Replace platform demo identity selection with authenticated shell in the production-enabled deployment only.
 
@@ -148,6 +153,8 @@ Architecture decision: see `docs/AUTH_PROVIDER_DECISION.md`.
 - [x] Migration SQL review gate documented in `docs/MIGRATION_SQL_REVIEW_GATE.md` and implemented as `npm run db:review:sql`.
 - [x] Guarded staging migration deployment documented in `docs/STAGING_MIGRATION_DEPLOY.md` and implemented as `npm run db:deploy:staging`; no production deploy command exists.
 - [x] Read-only post-migration schema verification documented in `docs/STAGING_POST_MIGRATION_VERIFICATION.md` and implemented as `npm run db:verify:staging`.
+- [x] Read-only Better Auth schema verification documented in `docs/STAGING_BETTER_AUTH_SCHEMA_VERIFICATION.md` and implemented as `npm run check:staging:auth-schema`.
+- [x] Read-only staging Object Storage verification documented in `docs/STAGING_OBJECT_STORAGE_VERIFICATION.md` and implemented as `npm run check:staging:storage`.
 - [x] Read-only staging authorization fixture verification documented in `docs/STAGING_AUTHZ_VERIFICATION.md` and implemented as `npm run check:staging:authz`.
 
 ## Release safety
