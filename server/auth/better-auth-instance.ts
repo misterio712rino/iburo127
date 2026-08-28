@@ -8,21 +8,16 @@ import {
   readProductionDatabaseConfig,
 } from "@/server/config/production";
 
-let authInstance: ReturnType<typeof betterAuth> | undefined;
-let authPool: Pool | undefined;
-
-export function getBetterAuthInstance() {
-  if (authInstance) return authInstance;
-
+function createBetterAuthInstance() {
   const database = readProductionDatabaseConfig();
   const runtime = readBetterAuthRuntimeConfig();
+  const pool = new Pool({ connectionString: database.databaseUrl });
 
-  authPool = new Pool({ connectionString: database.databaseUrl });
-  authInstance = betterAuth({
+  return betterAuth({
     appName: "iБюро",
     secret: runtime.secret,
     baseURL: runtime.baseUrl,
-    database: authPool,
+    database: pool,
     emailAndPassword: {
       enabled: true,
       disableSignUp: true,
@@ -42,6 +37,13 @@ export function getBetterAuthInstance() {
       },
     },
   });
+}
 
+type BetterAuthInstance = ReturnType<typeof createBetterAuthInstance>;
+
+let authInstance: BetterAuthInstance | undefined;
+
+export function getBetterAuthInstance(): BetterAuthInstance {
+  authInstance ??= createBetterAuthInstance();
   return authInstance;
 }
