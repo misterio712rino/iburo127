@@ -1,0 +1,92 @@
+import assert from "node:assert/strict";
+
+import {
+  assertStagingSchemaContract,
+  REQUIRED_STAGING_DOMAIN_TABLES,
+  REQUIRED_STAGING_ENUMS,
+  StagingSchemaContractError,
+} from "@/scripts/staging-schema-contract";
+
+const validInput = {
+  tables: [...REQUIRED_STAGING_DOMAIN_TABLES, "_prisma_migrations"],
+  enums: [...REQUIRED_STAGING_ENUMS],
+  prismaMigrationHistory: {
+    tablePresent: true,
+    appliedCount: 1,
+    unfinishedCount: 0,
+  },
+};
+
+assert.doesNotThrow(() => assertStagingSchemaContract(validInput));
+
+assert.throws(
+  () =>
+    assertStagingSchemaContract({
+      ...validInput,
+      tables: validInput.tables.filter((tableName) => tableName !== "ClientCase"),
+    }),
+  (error: unknown) => {
+    assert.ok(error instanceof StagingSchemaContractError);
+    assert.match(error.message, /missing required domain tables: ClientCase/);
+    return true;
+  },
+);
+
+assert.throws(
+  () =>
+    assertStagingSchemaContract({
+      ...validInput,
+      enums: validInput.enums.filter((enumName) => enumName !== "ClientCaseStatus"),
+    }),
+  /missing required domain enums: ClientCaseStatus/,
+);
+
+assert.throws(
+  () =>
+    assertStagingSchemaContract({
+      ...validInput,
+      prismaMigrationHistory: {
+        ...validInput.prismaMigrationHistory,
+        tablePresent: false,
+      },
+    }),
+  /_prisma_migrations table is required/,
+);
+
+assert.throws(
+  () =>
+    assertStagingSchemaContract({
+      ...validInput,
+      prismaMigrationHistory: {
+        ...validInput.prismaMigrationHistory,
+        appliedCount: 0,
+      },
+    }),
+  /no successfully applied migration/,
+);
+
+assert.throws(
+  () =>
+    assertStagingSchemaContract({
+      ...validInput,
+      prismaMigrationHistory: {
+        ...validInput.prismaMigrationHistory,
+        unfinishedCount: 2,
+      },
+    }),
+  /contains 2 unfinished migration/,
+);
+
+assert.throws(
+  () =>
+    assertStagingSchemaContract({
+      ...validInput,
+      prismaMigrationHistory: {
+        ...validInput.prismaMigrationHistory,
+        appliedCount: -1,
+      },
+    }),
+  /applied migration count must be a non-negative integer/,
+);
+
+console.log("STAGING_SCHEMA_CONTRACT_TEST_PASS");
