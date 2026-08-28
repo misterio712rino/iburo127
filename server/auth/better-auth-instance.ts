@@ -2,13 +2,14 @@ import "server-only";
 
 import { betterAuth } from "better-auth";
 import { twoFactor } from "better-auth/plugins";
+import { after } from "next/server";
 import { Pool } from "pg";
 import {
   readBetterAuthRuntimeConfig,
   readProductionDatabaseConfig,
 } from "@/server/config/production";
+import { createNonBlockingEmailDispatcher } from "@/server/email/background-dispatch";
 import { getTransactionalEmailDelivery } from "@/server/email/runtime";
-import type { TransactionalEmailInput } from "@/server/email/yandex-postbox";
 
 function assertTrustedAuthUrl(value: string, expectedOrigin: string) {
   let parsed: URL;
@@ -23,16 +24,10 @@ function assertTrustedAuthUrl(value: string, expectedOrigin: string) {
   return parsed.toString();
 }
 
-function dispatchAuthEmail(input: TransactionalEmailInput) {
-  try {
-    const delivery = getTransactionalEmailDelivery();
-    void delivery.send(input).catch(() => undefined);
-  } catch {
-    // Better Auth recommends not awaiting recovery email delivery because doing so can
-    // create account-enumeration timing differences. Provider-side delivery must be
-    // verified and monitored separately; runtime payloads are never written to logs.
-  }
-}
+const dispatchAuthEmail = createNonBlockingEmailDispatcher(
+  getTransactionalEmailDelivery,
+  (work) => after(work),
+);
 
 function createBetterAuthInstance() {
   const database = readProductionDatabaseConfig();
