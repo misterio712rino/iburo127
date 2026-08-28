@@ -34,6 +34,9 @@ export function readProductionDatabaseConfig(
 export function readBetterAuthRuntimeConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): BetterAuthRuntimeConfig {
+  const secret = requireEnv(env, "BETTER_AUTH_SECRET");
+  if (secret.length < 32) throw new Error(`${PRODUCTION_CONFIG_ERROR}:BETTER_AUTH_SECRET`);
+
   const baseUrl = requireEnv(env, "BETTER_AUTH_URL");
   let parsed: URL;
   try {
@@ -41,13 +44,21 @@ export function readBetterAuthRuntimeConfig(
   } catch {
     throw new Error(`${PRODUCTION_CONFIG_ERROR}:BETTER_AUTH_URL`);
   }
-  if (parsed.protocol !== "https:" && parsed.hostname !== "localhost") {
+
+  const secureProtocol = parsed.protocol === "https:" || parsed.hostname === "localhost";
+  const originOnly =
+    (parsed.pathname === "/" || parsed.pathname === "") &&
+    !parsed.search &&
+    !parsed.hash &&
+    !parsed.username &&
+    !parsed.password;
+  if (!secureProtocol || !originOnly) {
     throw new Error(`${PRODUCTION_CONFIG_ERROR}:BETTER_AUTH_URL`);
   }
 
   return {
-    secret: requireEnv(env, "BETTER_AUTH_SECRET"),
-    baseUrl: parsed.toString().replace(/\/$/, ""),
+    secret,
+    baseUrl: parsed.origin,
   };
 }
 
