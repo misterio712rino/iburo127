@@ -1,3 +1,5 @@
+import { pathToFileURL } from "node:url";
+
 const JOB_PATHS = Object.freeze({
   "notification-deliveries": "/api/internal/maintenance/notification-deliveries",
   "stale-uploads": "/api/internal/maintenance/stale-uploads",
@@ -130,7 +132,7 @@ async function main() {
 }
 
 const invokedAsScript = process.argv[1]
-  ? import.meta.url === new URL(`file://${process.argv[1].replace(/\\/g, "/")}`).href
+  ? import.meta.url === pathToFileURL(process.argv[1]).href
   : false;
 
 if (invokedAsScript) {
