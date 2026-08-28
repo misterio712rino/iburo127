@@ -1,11 +1,12 @@
 import "server-only";
 
 import type { ActivityOperationResult } from "@/server/activity/transport";
+import { privateJsonResponse } from "@/server/http/private-json";
 
 export function toActivityHttpResponse<T>(result: ActivityOperationResult<T>): Response {
-  if (result.ok) return Response.json({ ok: true, data: result.data }, { status: 200 });
-  return Response.json(
+  if (result.ok) return privateJsonResponse({ ok: true, data: result.data });
+  return privateJsonResponse(
     { ok: false, error: { code: result.error.code } },
-    { status: result.error.status },
+    result.error.status,
   );
 }
