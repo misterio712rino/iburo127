@@ -2,17 +2,22 @@ import "dotenv/config";
 
 import { createHash } from "node:crypto";
 import { Pool } from "pg";
+import { requireStagingDatabaseTarget } from "./staging-target-guard";
 
 function fail(message: string): never {
   console.error(`DATABASE_BASELINE_FAIL: ${message}`);
   process.exit(1);
 }
 
-const connectionString = process.env.DATABASE_URL?.trim();
-if (!connectionString) fail("missing DATABASE_URL");
+let target: ReturnType<typeof requireStagingDatabaseTarget>;
+try {
+  target = requireStagingDatabaseTarget();
+} catch (error) {
+  fail(error instanceof Error ? error.message : "invalid staging database target");
+}
 
 const pool = new Pool({
-  connectionString,
+  connectionString: target.databaseUrl,
   connectionTimeoutMillis: 10_000,
   statement_timeout: 15_000,
   max: 1,
@@ -37,6 +42,19 @@ try {
         current_setting('server_version_num') as server_version_num,
         current_schema() as current_schema
     `);
+
+    const databaseIdentity = identityResult.rows[0];
+    if (!databaseIdentity) fail("database identity query returned no rows");
+    if (databaseIdentity.database_name !== target.expectedDatabaseName) {
+      fail(
+        `connected database ${databaseIdentity.database_name} does not match IB_STAGING_DATABASE_NAME ${target.expectedDatabaseName}`,
+      );
+    }
+    if (databaseIdentity.database_user !== target.expectedUser) {
+      fail(
+        `connected database user ${databaseIdentity.database_user} does not match IB_STAGING_DATABASE_USER ${target.expectedUser}`,
+      );
+    }
 
     const schemasResult = await client.query<{ schema_name: string }>(`
       select schema_name
@@ -158,7 +176,11 @@ try {
       const migrationCountResult = await client.query<{ count: string }>(
         'select count(*)::text as count from public."_prisma_migrations"',
       );
-      prismaMigrationCount = Number(migrationCountResult.rows[0]?.count ?? "0");
+      const parsedMigrationCount = Number(migrationCountResult.rows[0]?.count ?? "NaN");
+      if (!Number.isSafeInteger(parsedMigrationCount) || parsedMigrationCount < 0) {
+        fail("could not evaluate Prisma migration count");
+      }
+      prismaMigrationCount = parsedMigrationCount;
     }
 
     const structuralSnapshot = {
@@ -176,7 +198,7 @@ try {
 
     const output = {
       inspectedAt: new Date().toISOString(),
-      database: identityResult.rows[0] ?? null,
+      database: databaseIdentity,
       prismaMigrations: {
         tableExists: prismaMigrationTableResult.rows[0]?.exists ?? false,
         rowCount: prismaMigrationCount,
