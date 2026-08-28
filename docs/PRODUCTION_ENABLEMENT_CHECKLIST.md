@@ -21,6 +21,7 @@ This checklist defines the conditions for switching any platform workflow from i
 - [ ] Security review confirms case-scoped authorization for every enabled real-data endpoint against a real staging database.
 - [x] Transport foundations return normalized public error codes instead of raw internal exception text.
 - [x] Private workflow JSON responses use `private, no-store` cache policy.
+- [x] Questionnaire, practicum and document create-on-first-use repositories recover safely from concurrent unique-key creation races.
 - [ ] Production logs verified not to contain questionnaire answers, document contents or other sensitive payloads.
 
 ## Questionnaire gates
@@ -34,7 +35,8 @@ Repository/server foundation is complete; activation still requires:
 - [ ] `CaseQuestionnaire` migration SQL generated and reviewed against the authoritative DB baseline.
 - [ ] Migration applied to a non-production environment first.
 - [x] Production portal route resolves authenticated `ClientCase.id`, not demo identity IDs.
-- [ ] Optimistic concurrency conflict (`409`) handled in editable questionnaire UI.
+- [x] Editable production questionnaire UI uses authenticated APIs and handles optimistic-concurrency `409` by refreshing authoritative state.
+- [x] Domain validation enforces field types/options, conditional required fields, section completeness and immutable completed state.
 - [ ] Empty/loading/retry states verified with real server data.
 - [ ] DB-backed cross-role E2E verifies CLIENT owner write, LAWYER assigned read, MANAGER read and unauthorized denial.
 - [ ] Questionnaire schema-version upgrade strategy exercised before changing questionnaire fields in production.
@@ -45,8 +47,9 @@ Repository/server foundation is complete; activation still requires:
 - [x] Case-scoped progress repository/service implemented.
 - [x] Authenticated operations and transport/route-adapter foundation implemented.
 - [x] Authenticated Next.js practicum API routes implemented.
+- [x] Production portal uses authenticated server transport for start/progress/lesson completion with required concurrency tokens.
+- [x] Canonical practicum content is separated from demo seed state.
 - [ ] Migration SQL reviewed and applied to staging.
-- [ ] Demo workflow service swapped to authenticated server transport after parity validation.
 - [ ] Real-data loading/error/conflict states verified.
 
 ## Tasks gates
@@ -66,6 +69,8 @@ Repository/server foundation is complete; activation still requires:
 - [x] Case-scoped document repository/service/transport foundation implemented.
 - [x] Review actions modeled as server-authorized lifecycle changes.
 - [x] Authenticated document list/get/create/regenerate/review routes implemented.
+- [x] Production portal exposes client create/regenerate/send-for-review and staff review actions through authenticated APIs.
+- [x] Canonical document definitions are separated from demo seed/preview state.
 - [x] Private stored-file metadata model/repository/service foundation implemented.
 - [x] Private object storage product direction selected: Yandex Object Storage.
 - [x] Provider-neutral short-lived signed URL contract implemented.
@@ -73,6 +78,7 @@ Repository/server foundation is complete; activation still requires:
 - [x] AWS SDK S3 signer/client dependencies added with controlled lockfile changes.
 - [x] Authorized private file list/metadata/download-URL API routes implemented.
 - [x] Signed private upload preparation + HEAD-verified completion flow implemented.
+- [x] Production portal supports direct signed upload, server verification and signed download without exposing object keys.
 - [x] Pending uploads remain hidden from normal file list/get/download operations until verification succeeds.
 - [x] Upload input enforces allowlisted MIME types, a 50 MiB limit and UUID-scoped opaque keys.
 - [x] Browser-supplied checksum values are not persisted as trusted integrity metadata; checksum support remains reserved for a future server-verified flow.
@@ -92,7 +98,7 @@ Repository/server foundation is complete; activation still requires:
 - [x] Activity metadata allowlist rejects unapproved fields and long values to reduce sensitive-data leakage risk.
 - [x] Authenticated case activity is exposed in the production portal without raw sensitive payloads.
 - [ ] Approve the final audit retention period before production data is enabled.
-- [ ] Wire critical questionnaire/task/document/file/auth events into the audit trail.
+- [ ] Wire critical questionnaire/task/document/file/auth events into the audit trail with transaction/failure semantics that cannot report a failed workflow after its business mutation already committed.
 - [ ] Verify production logs and stored audit metadata contain no sensitive payloads during DB-backed E2E.
 
 ## Notifications gates
