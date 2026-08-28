@@ -4,9 +4,12 @@ import { ClientCaseService } from "@/server/domain/client-cases/service";
 import {
   AI_ACCESS_DENIED,
   AI_FEATURE_NOT_AVAILABLE,
+  AI_RATE_LIMITED,
+  type AiAuditOutcome,
   type AiCaseContext,
   type AiCaseContextRepository,
   type AiModelGateway,
+  type AiUsageLedger,
 } from "@/server/domain/ai/contracts";
 import {
   buildAiInstructions,
@@ -67,6 +70,18 @@ function createContextRepository(
   };
 }
 
+let reserveCalls = 0;
+const outcomes: AiAuditOutcome[] = [];
+const usageLedger: AiUsageLedger = {
+  async reserveRequest() {
+    reserveCalls += 1;
+    return true;
+  },
+  async recordOutcome(input) {
+    outcomes.push(input.outcome);
+  },
+};
+
 let modelCalls = 0;
 let capturedInstructions = "";
 let capturedMessages: readonly { role: "user" | "assistant"; content: string }[] = [];
@@ -83,6 +98,7 @@ const service = new AiAssistantService(
   new ClientCaseService(createCaseRepository()),
   createContextRepository(),
   gateway,
+  usageLedger,
 );
 
 const described = await service.describe(clientActor, clientCase.id);
@@ -92,12 +108,15 @@ assert.equal(described.questionnaireCompletedSections, 3);
 assert.equal(described.readyFileCount, 5);
 assert.equal("featureCodes" in described, false);
 assert.equal(modelCalls, 0);
+assert.equal(reserveCalls, 0);
 
 const response = await service.reply(clientActor, clientCase.id, {
   message: "Что мне делать дальше?",
   history: [{ role: "assistant", content: "Чем помочь?" }],
 });
 assert.equal(modelCalls, 1);
+assert.equal(reserveCalls, 1);
+assert.deepEqual(outcomes, ["completed"]);
 assert.match(response.content, /этап заполнения анкеты/i);
 assert.deepEqual(capturedMessages, [
   { role: "assistant", content: "Чем помочь?" },
@@ -114,19 +133,65 @@ const restricted = await service.reply(clientActor, clientCase.id, {
 assert.equal(restricted.content, RESTRICTED_LEGAL_ACTION_REPLY);
 assert.equal(restricted.restrictedAction, true);
 assert.equal(modelCalls, callsBeforeRestricted);
+assert.equal(reserveCalls, 2);
+assert.deepEqual(outcomes, ["completed", "restricted"]);
 
 const noFeatureService = new AiAssistantService(
   new ClientCaseService(createCaseRepository()),
   createContextRepository({ ...context, featureCodes: ["QUESTIONNAIRE"] }),
   gateway,
+  usageLedger,
 );
 const noFeatureDescription = await noFeatureService.describe(clientActor, clientCase.id);
 assert.equal(noFeatureDescription.enabled, false);
-assert.equal(modelCalls, callsBeforeRestricted);
 await assert.rejects(
   () => noFeatureService.reply(clientActor, clientCase.id, { message: "Что дальше?" }),
   new RegExp(AI_FEATURE_NOT_AVAILABLE),
 );
+assert.equal(reserveCalls, 2);
+
+const rateLimitedService = new AiAssistantService(
+  new ClientCaseService(createCaseRepository()),
+  createContextRepository(),
+  gateway,
+  {
+    async reserveRequest() {
+      return false;
+    },
+    async recordOutcome() {
+      throw new Error("outcome must not be recorded for rejected reservation");
+    },
+  },
+);
+await assert.rejects(
+  () => rateLimitedService.reply(clientActor, clientCase.id, { message: "Что дальше?" }),
+  new RegExp(AI_RATE_LIMITED),
+);
+assert.equal(modelCalls, callsBeforeRestricted);
+
+const failedOutcomes: AiAuditOutcome[] = [];
+const providerFailureService = new AiAssistantService(
+  new ClientCaseService(createCaseRepository()),
+  createContextRepository(),
+  {
+    async reply() {
+      throw new Error("provider failure");
+    },
+  },
+  {
+    async reserveRequest() {
+      return true;
+    },
+    async recordOutcome(input) {
+      failedOutcomes.push(input.outcome);
+    },
+  },
+);
+await assert.rejects(
+  () => providerFailureService.reply(clientActor, clientCase.id, { message: "Что дальше?" }),
+  /provider failure/,
+);
+assert.deepEqual(failedOutcomes, ["failed"]);
 
 await assert.rejects(
   () =>

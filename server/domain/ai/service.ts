@@ -5,11 +5,12 @@ import {
   AI_ASSISTANT_FEATURE_CODE,
   AI_CASE_NOT_FOUND,
   AI_FEATURE_NOT_AVAILABLE,
+  AI_RATE_LIMITED,
   type AiAssistantCaseState,
   type AiAssistantReply,
-  type AiCaseContext,
   type AiCaseContextRepository,
   type AiModelGateway,
+  type AiUsageLedger,
 } from "./contracts";
 import {
   buildAiInstructions,
@@ -24,6 +25,7 @@ export class AiAssistantService {
     private readonly clientCaseService: ClientCaseService,
     private readonly contextRepository: AiCaseContextRepository,
     private readonly modelGateway: AiModelGateway,
+    private readonly usageLedger: AiUsageLedger,
   ) {}
 
   private async requireClientCaseContext(
@@ -70,24 +72,48 @@ export class AiAssistantService {
     requestBody: unknown,
   ): Promise<AiAssistantReply> {
     const request = parseAiReplyRequest(requestBody);
-    const { context } = await this.requireClientCaseContext(actor, clientCaseId);
+    const { clientCase, context } = await this.requireClientCaseContext(actor, clientCaseId);
     if (!context.featureCodes.includes(AI_ASSISTANT_FEATURE_CODE)) {
       throw new Error(AI_FEATURE_NOT_AVAILABLE);
     }
 
+    const reserved = await this.usageLedger.reserveRequest({
+      clientCaseId: clientCase.id,
+      actorUserId: actor.userId,
+      now: new Date(),
+    });
+    if (!reserved) throw new Error(AI_RATE_LIMITED);
+
     if (isDirectRestrictedLegalActionRequest(request.message)) {
+      await this.usageLedger.recordOutcome({
+        clientCaseId: clientCase.id,
+        actorUserId: actor.userId,
+        outcome: "restricted",
+      });
       return { content: RESTRICTED_LEGAL_ACTION_REPLY, restrictedAction: true };
     }
 
-    const response = await this.modelGateway.reply({
-      instructions: buildAiInstructions(context as AiCaseContext),
-      messages: [...request.history, { role: "user", content: request.message }],
-    });
+    try {
+      const response = await this.modelGateway.reply({
+        instructions: buildAiInstructions(context),
+        messages: [...request.history, { role: "user", content: request.message }],
+      });
 
-    const content = sanitizeAiModelReply(response);
-    return {
-      content,
-      restrictedAction: content === RESTRICTED_LEGAL_ACTION_REPLY,
-    };
+      const content = sanitizeAiModelReply(response);
+      const restrictedAction = content === RESTRICTED_LEGAL_ACTION_REPLY;
+      await this.usageLedger.recordOutcome({
+        clientCaseId: clientCase.id,
+        actorUserId: actor.userId,
+        outcome: restrictedAction ? "restricted" : "completed",
+      });
+      return { content, restrictedAction };
+    } catch (error) {
+      await this.usageLedger.recordOutcome({
+        clientCaseId: clientCase.id,
+        actorUserId: actor.userId,
+        outcome: "failed",
+      });
+      throw error;
+    }
   }
 }

@@ -4,12 +4,15 @@ import type { SessionProvider } from "@/server/auth/contracts";
 import { requireServerActor, UNAUTHENTICATED } from "@/server/auth/runtime";
 import { AI_PROVIDER_ERROR } from "@/server/ai/openai-responses-core";
 import { getAiAssistantService } from "@/server/ai/runtime";
+import { AI_USAGE_CONFIG_ERROR } from "@/server/ai/usage-config";
 import {
   AI_ACCESS_DENIED,
+  AI_AUDIT_FAILED,
   AI_CASE_NOT_FOUND,
   AI_FEATURE_NOT_AVAILABLE,
   AI_INVALID_REQUEST,
   AI_MODEL_RESPONSE_INVALID,
+  AI_RATE_LIMITED,
 } from "@/server/domain/ai/contracts";
 import { PRODUCTION_CONFIG_ERROR } from "@/server/config/production";
 import { privateJsonResponse } from "@/server/http/private-json";
@@ -43,12 +46,17 @@ function toAiErrorResponse(error: unknown): Response {
       403,
     );
   }
+  if (code === AI_RATE_LIMITED) {
+    return privateJsonResponse({ ok: false, error: { code: "AI_RATE_LIMITED" } }, 429);
+  }
   if (code === AI_INVALID_REQUEST) {
     return privateJsonResponse({ ok: false, error: { code: "INVALID_REQUEST" } }, 400);
   }
   if (
+    code === AI_AUDIT_FAILED ||
     code === AI_MODEL_RESPONSE_INVALID ||
     code.startsWith(`${AI_PROVIDER_ERROR}:`) ||
+    code.startsWith(`${AI_USAGE_CONFIG_ERROR}:`) ||
     code.startsWith(`${PRODUCTION_CONFIG_ERROR}:`)
   ) {
     return privateJsonResponse(

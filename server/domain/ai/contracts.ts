@@ -4,6 +4,8 @@ export const AI_CASE_NOT_FOUND = "AI_CASE_NOT_FOUND";
 export const AI_ACCESS_DENIED = "AI_ACCESS_DENIED";
 export const AI_FEATURE_NOT_AVAILABLE = "AI_FEATURE_NOT_AVAILABLE";
 export const AI_MODEL_RESPONSE_INVALID = "AI_MODEL_RESPONSE_INVALID";
+export const AI_RATE_LIMITED = "AI_RATE_LIMITED";
+export const AI_AUDIT_FAILED = "AI_AUDIT_FAILED";
 
 export type AiConversationRole = "user" | "assistant";
 
@@ -63,6 +65,21 @@ export type AiModelInput = {
 
 export interface AiModelGateway {
   reply(input: AiModelInput): Promise<string>;
+}
+
+export type AiAuditOutcome = "completed" | "restricted" | "failed";
+
+export interface AiUsageLedger {
+  reserveRequest(input: {
+    clientCaseId: string;
+    actorUserId: string;
+    now: Date;
+  }): Promise<boolean>;
+  recordOutcome(input: {
+    clientCaseId: string;
+    actorUserId: string;
+    outcome: AiAuditOutcome;
+  }): Promise<void>;
 }
 
 export type AiAssistantReply = {

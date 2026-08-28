@@ -20,6 +20,10 @@ export const CASE_ACTIVITY_TYPES = [
   "file.upload.completed",
   "file.download.authorized",
   "notification.created",
+  "ai.request.accepted",
+  "ai.response.completed",
+  "ai.response.restricted",
+  "ai.response.failed",
 ] as const;
 
 export type CaseActivityType = (typeof CASE_ACTIVITY_TYPES)[number];
