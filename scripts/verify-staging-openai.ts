@@ -1,5 +1,6 @@
 import "dotenv/config";
 
+import { createHash } from "node:crypto";
 import {
   AI_PROVIDER_ERROR,
   OpenAiResponsesGateway,
@@ -11,6 +12,9 @@ import {
 
 const STAGING_AI_VERIFY_FAIL = "STAGING_AI_VERIFY_FAIL";
 const EXPECTED_MARKER = "IB_AI_STAGING_OK";
+const STAGING_SAFETY_IDENTIFIER = createHash("sha256")
+  .update("iburo-staging-openai-connectivity-check", "utf8")
+  .digest("hex");
 
 function fail(message: string): never {
   console.error(`${STAGING_AI_VERIFY_FAIL}: ${message}`);
@@ -54,6 +58,7 @@ try {
       "Do not request or output any personal, legal-case, authentication, or secret data.",
     ].join("\n"),
     messages: [{ role: "user", content: "Run the staging connectivity check." }],
+    safetyIdentifier: STAGING_SAFETY_IDENTIFIER,
   });
 
   if (response.trim() !== EXPECTED_MARKER) {
