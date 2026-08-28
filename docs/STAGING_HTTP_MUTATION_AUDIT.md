@@ -1,0 +1,58 @@
+# iБюро — Staging HTTP mutation + audit verification
+
+This gate wraps the authenticated staging mutation harness and verifies that the same dedicated staging case receives the expected `CaseActivityEvent` records.
+
+Run:
+
+```bash
+npm run check:staging:http-mutations:audit
+```
+
+It inherits every safety requirement and fixture variable from `docs/STAGING_HTTP_MUTATION_E2E.md`, including:
+
+```text
+IB_STAGING_BASE_URL=https://<staging-host>
+IB_STAGING_MUTATION_TARGET=staging
+IB_STAGING_MUTATION_CONFIRM=MUTATE:<staging-host>
+IB_STAGING_CLIENT_COOKIE=<secret staging CLIENT cookie>
+IB_STAGING_LAWYER_COOKIE=<secret staging LAWYER cookie>
+IB_STAGING_MANAGER_COOKIE=<secret staging MANAGER cookie>
+IB_STAGING_MUTATION_CASE_NUMBER=<dedicated shared staging case>
+IB_STAGING_MUTATION_TASK_ID=<dedicated NEW staging task>
+```
+
+The wrapper independently applies the staging target/confirmation gate **before its first HTTP request**. `iburo127.ru` and `www.iburo127.ru` are explicitly blocked.
+
+## What it proves
+
+Before the mutation harness starts, the wrapper reads up to 200 current activity event IDs for the dedicated case. After the mutation harness succeeds it reads the activity stream again and evaluates only events that were not present in the baseline.
+
+The run requires new events for:
+
+- `questionnaire.answer.updated`;
+- `practicum.lesson.completed`;
+- `document.regenerated`;
+- `document.sent_for_review`;
+- `document.reviewed`;
+- `task.status.changed`.
+
+When `IB_STAGING_FILES_E2E=1` is explicitly enabled after a private staging bucket exists, it additionally requires:
+
+- `file.upload.registered`;
+- `file.download.authorized`.
+
+`questionnaire.started` is intentionally not mandatory because the harness is repeatable and a questionnaire may already exist from an earlier successful run.
+
+## Metadata privacy assertion
+
+For every event created during the run, the wrapper rejects suspicious metadata keys that could carry business payloads or secrets, including questionnaire answer values, document content, object keys, signed URLs, cookies, passwords, sessions and tokens.
+
+The harness itself does not print event metadata, cookies, signed URLs, object keys, questionnaire values, document content or response bodies.
+
+## Transaction boundary
+
+For PostgreSQL-backed workflow mutations, the production repositories write the business mutation and corresponding `CaseActivityEvent` inside the same Prisma transaction. An audit insert failure therefore rolls the business mutation back instead of returning an API error after a committed business state change.
+
+File download authorization is a different external-boundary case: the storage URL is signed first, the audit event is persisted second, and only then is the signed URL returned to the caller. If audit persistence fails, the generated capability is not exposed through the API response.
+
+This staging gate verifies successful integration behavior. It does not inject database faults; rollback-on-audit-failure remains an architectural transaction guarantee and should also be covered by repository/integration fault-injection tests once a disposable DB test runtime is available.

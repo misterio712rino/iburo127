@@ -14,6 +14,7 @@
     "check:staging:authz": "tsx scripts/verify-staging-authz-fixtures.ts",
     "check:staging:http-authz": "tsx scripts/verify-staging-http-authz.ts",
     "check:staging:http-mutations": "tsx scripts/verify-staging-http-mutations.ts",
+    "check:staging:http-mutations:audit": "tsx scripts/verify-staging-http-mutation-audit.ts",
     "db:inspect:baseline": "tsx scripts/inspect-database-baseline.ts",
     "db:review:sql": "tsx scripts/review-migration-sql.ts",
     "db:deploy:staging": "tsx scripts/apply-staging-migrations.ts",
