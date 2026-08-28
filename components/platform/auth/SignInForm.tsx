@@ -31,7 +31,7 @@ export function SignInForm() {
         return;
       }
       if (!requiresSecondFactor(result.data)) {
-        window.location.assign("/app");
+        window.location.assign("/portal");
       }
     } catch {
       setError("Сервис входа временно недоступен. Повторите попытку позже.");
