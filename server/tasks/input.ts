@@ -20,9 +20,8 @@ function parseNonEmptyString(value: unknown): string {
   return normalized;
 }
 
-function parseExpectedVersion(value: unknown): number | undefined {
-  if (value === undefined) return undefined;
-  if (!Number.isInteger(value) || (value as number) < 0) invalidInput();
+function parseExpectedVersion(value: unknown): number {
+  if (!Number.isInteger(value) || (value as number) < 1) invalidInput();
   return value as number;
 }
 
