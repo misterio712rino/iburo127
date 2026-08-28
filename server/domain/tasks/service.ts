@@ -31,7 +31,7 @@ export class TaskService {
 
   async updateStatus(
     actor: AuthenticatedActor,
-    input: { taskId: string; status: TaskStatus; expectedVersion?: number },
+    input: { taskId: string; status: TaskStatus; expectedVersion: number },
   ) {
     assertTaskStatus(input.status);
     const task = await this.get(actor, input.taskId);
