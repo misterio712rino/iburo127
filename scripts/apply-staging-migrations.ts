@@ -2,12 +2,32 @@ import "dotenv/config";
 
 import { spawn } from "node:child_process";
 import { Pool } from "pg";
+import {
+  assertPinnedMigrationHistory,
+  inspectMigrationHistory,
+} from "./migration-history-guard";
 import { requireStagingDatabaseTarget } from "./staging-target-guard";
 
 function fail(message: string): never {
   console.error(`STAGING_MIGRATION_FAIL: ${message}`);
   process.exit(1);
 }
+
+// Fail before any database connection unless a reviewed migration history exists
+// and its exact fingerprint is pinned for this staging operation.
+let migrationHistory;
+try {
+  migrationHistory = await inspectMigrationHistory();
+  assertPinnedMigrationHistory(
+    migrationHistory,
+    process.env.IB_STAGING_MIGRATION_HISTORY_SHA256,
+  );
+} catch (error) {
+  fail(error instanceof Error ? error.message : "invalid or unpinned migration history");
+}
+console.log(
+  `Reviewed migration history verified: count=${migrationHistory.migrationCount} sha256=${migrationHistory.fingerprint}`,
+);
 
 let target: ReturnType<typeof requireStagingDatabaseTarget>;
 try {
