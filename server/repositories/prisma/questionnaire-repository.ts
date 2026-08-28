@@ -50,12 +50,6 @@ function toRecord(row: {
   };
 }
 
-function assertExpectedVersion(currentVersion: number, expectedVersion?: number) {
-  if (expectedVersion !== undefined && currentVersion !== expectedVersion) {
-    throw new Error(QUESTIONNAIRE_VERSION_CONFLICT);
-  }
-}
-
 export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
   async getByClientCaseId(clientCaseId: string): Promise<QuestionnaireRecord | null> {
     const prisma = getPrismaClient();
@@ -82,10 +76,12 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
     return prisma.$transaction(async (tx) => {
       const current = await tx.caseQuestionnaire.findUnique({ where: { clientCaseId: input.clientCaseId } });
       if (!current) throw new Error(QUESTIONNAIRE_NOT_FOUND);
-      assertExpectedVersion(current.version, input.expectedVersion);
 
-      const row = await tx.caseQuestionnaire.update({
-        where: { clientCaseId: input.clientCaseId },
+      const updated = await tx.caseQuestionnaire.updateMany({
+        where: {
+          clientCaseId: input.clientCaseId,
+          version: input.expectedVersion,
+        },
         data: {
           answers: {
             ...normalizeAnswers(current.answers),
@@ -97,6 +93,10 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
         },
       });
 
+      if (updated.count !== 1) throw new Error(QUESTIONNAIRE_VERSION_CONFLICT);
+
+      const row = await tx.caseQuestionnaire.findUnique({ where: { clientCaseId: input.clientCaseId } });
+      if (!row) throw new Error(QUESTIONNAIRE_NOT_FOUND);
       return toRecord(row);
     });
   }
@@ -107,14 +107,16 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
     return prisma.$transaction(async (tx) => {
       const current = await tx.caseQuestionnaire.findUnique({ where: { clientCaseId: input.clientCaseId } });
       if (!current) throw new Error(QUESTIONNAIRE_NOT_FOUND);
-      assertExpectedVersion(current.version, input.expectedVersion);
 
       const completedSectionIds = current.completedSectionIds.includes(input.sectionId)
         ? current.completedSectionIds
         : [...current.completedSectionIds, input.sectionId];
 
-      const row = await tx.caseQuestionnaire.update({
-        where: { clientCaseId: input.clientCaseId },
+      const updated = await tx.caseQuestionnaire.updateMany({
+        where: {
+          clientCaseId: input.clientCaseId,
+          version: input.expectedVersion,
+        },
         data: {
           completedSectionIds,
           status: current.status === "COMPLETED" ? "COMPLETED" : "IN_PROGRESS",
@@ -123,6 +125,10 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
         },
       });
 
+      if (updated.count !== 1) throw new Error(QUESTIONNAIRE_VERSION_CONFLICT);
+
+      const row = await tx.caseQuestionnaire.findUnique({ where: { clientCaseId: input.clientCaseId } });
+      if (!row) throw new Error(QUESTIONNAIRE_NOT_FOUND);
       return toRecord(row);
     });
   }
@@ -133,10 +139,12 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
     return prisma.$transaction(async (tx) => {
       const current = await tx.caseQuestionnaire.findUnique({ where: { clientCaseId: input.clientCaseId } });
       if (!current) throw new Error(QUESTIONNAIRE_NOT_FOUND);
-      assertExpectedVersion(current.version, input.expectedVersion);
 
-      const row = await tx.caseQuestionnaire.update({
-        where: { clientCaseId: input.clientCaseId },
+      const updated = await tx.caseQuestionnaire.updateMany({
+        where: {
+          clientCaseId: input.clientCaseId,
+          version: input.expectedVersion,
+        },
         data: {
           status: "COMPLETED",
           startedAt: current.startedAt ?? new Date(),
@@ -145,6 +153,10 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
         },
       });
 
+      if (updated.count !== 1) throw new Error(QUESTIONNAIRE_VERSION_CONFLICT);
+
+      const row = await tx.caseQuestionnaire.findUnique({ where: { clientCaseId: input.clientCaseId } });
+      if (!row) throw new Error(QUESTIONNAIRE_NOT_FOUND);
       return toRecord(row);
     });
   }
