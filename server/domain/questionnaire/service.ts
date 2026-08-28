@@ -7,9 +7,10 @@ import type {
 import { isQuestionnaireFieldVisible } from "@/lib/platform/questionnaire-content";
 import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
 import { ClientCaseService } from "@/server/domain/client-cases/service";
-import type {
-  QuestionnaireRecord,
-  QuestionnaireRepository,
+import {
+  QUESTIONNAIRE_NOT_FOUND,
+  type QuestionnaireRecord,
+  type QuestionnaireRepository,
 } from "./contracts";
 
 export const QUESTIONNAIRE_FORBIDDEN = "QUESTIONNAIRE_FORBIDDEN";
@@ -51,10 +52,7 @@ function assertFieldAnswer(field: QuestionnaireField, value: QuestionnaireAnswer
       return;
     case "select":
     case "radio":
-      if (
-        typeof value !== "string" ||
-        !field.options?.includes(value)
-      ) {
+      if (typeof value !== "string" || !field.options?.includes(value)) {
         throw new Error(QUESTIONNAIRE_INVALID_FIELD);
       }
       return;
@@ -117,7 +115,7 @@ export class QuestionnaireService {
 
   private async requireQuestionnaire(clientCaseId: string) {
     const record = await this.repository.getByClientCaseId(clientCaseId);
-    if (!record) throw new Error("QUESTIONNAIRE_NOT_FOUND");
+    if (!record) throw new Error(QUESTIONNAIRE_NOT_FOUND);
     return record;
   }
 
