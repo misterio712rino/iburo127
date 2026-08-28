@@ -32,7 +32,7 @@ export async function getOrCreateCaseDocumentForClient(
 
 export async function regenerateCaseDocument(
   sessionProvider: SessionProvider,
-  input: { clientCaseId: string; documentCode: string; expectedVersion?: number },
+  input: { clientCaseId: string; documentCode: string; expectedVersion: number },
 ) {
   const actor = await requireServerActor(sessionProvider);
   return caseDocumentService.regenerate(actor, input);
@@ -40,7 +40,7 @@ export async function regenerateCaseDocument(
 
 export async function sendCaseDocumentForReview(
   sessionProvider: SessionProvider,
-  input: { clientCaseId: string; documentCode: string; expectedVersion?: number },
+  input: { clientCaseId: string; documentCode: string; expectedVersion: number },
 ) {
   const actor = await requireServerActor(sessionProvider);
   return caseDocumentService.sendForReview(actor, input);
@@ -48,7 +48,7 @@ export async function sendCaseDocumentForReview(
 
 export async function markCaseDocumentReviewed(
   sessionProvider: SessionProvider,
-  input: { clientCaseId: string; documentCode: string; expectedVersion?: number },
+  input: { clientCaseId: string; documentCode: string; expectedVersion: number },
 ) {
   const actor = await requireServerActor(sessionProvider);
   return caseDocumentService.markReviewed(actor, input);
