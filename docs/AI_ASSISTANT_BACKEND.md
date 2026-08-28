@@ -4,7 +4,7 @@ Status: code-level foundation. This document does not claim that a real OpenAI r
 
 ## Trust boundary
 
-The browser is not trusted for identity, role, case ownership, plan, feature entitlement, or case context.
+The browser is not trusted for identity, role, case ownership, plan, feature entitlement, case context, or conversation-role authority.
 
 `GET /api/platform/cases/:caseId/ai` returns the server-authorized, minimized AI view state without calling the model provider.
 
@@ -18,8 +18,9 @@ The browser is not trusted for identity, role, case ownership, plan, feature ent
 6. loads `PlanFeature` entitlements from PostgreSQL and requires `AI_ASSISTANT`;
 7. reserves a PostgreSQL-backed request budget and writes a non-PII `ai.request.accepted` audit event;
 8. builds a minimized case summary from PostgreSQL;
-9. calls the model provider only after the preceding checks pass;
-10. writes a non-PII completion/restricted/failure audit event.
+9. converts browser-supplied conversation history into an explicitly untrusted user-data block instead of forwarding browser-controlled `assistant` roles;
+10. calls the model provider only after the preceding checks pass;
+11. writes a non-PII completion/restricted/failure audit event.
 
 A manager/lawyer role, an inaccessible case, a case without the feature, or a request over budget cannot reach the model provider through this client endpoint.
 
@@ -48,6 +49,12 @@ The external model context intentionally excludes:
 The context contains only plan/stage/case status, questionnaire/practicum progress counts, document taxonomy/status, aggregate task counts, ready-file count and the current user conversation supplied to the endpoint.
 
 Users can still type personal data in their own message. The system prompt explicitly tells the assistant not to solicit unnecessary sensitive data. Final privacy notice/provider data-processing configuration remains a release gate.
+
+## Untrusted conversation history
+
+The browser may submit short conversation history for continuity, but its role labels are not trusted. After validation, the server serializes that history into a single `user`-role data block. A browser-provided `assistant` turn is labeled only as `previous_assistant_output` inside the serialized data and is never forwarded as a provider-level assistant-role message.
+
+The data block explicitly states that the transcript is untrusted and cannot override system instructions or legal/data-handling restrictions. This narrows role-confusion and prompt-injection surface while keeping the current stateless UX.
 
 ## Provider boundary
 
@@ -114,7 +121,7 @@ Before declaring the AI feature production-ready:
 5. run a controlled staging provider smoke test without real client data;
 6. verify the PostgreSQL advisory-lock rate-limit behavior under concurrent staging requests;
 7. complete privacy/legal copy review;
-8. perform final prompt-injection and abuse testing;
+8. perform final prompt-injection and abuse testing, including forged browser history roles;
 9. remove the remaining demo identity/profile dependency from the shared `PlatformShell`;
 10. complete the wider database baseline/migration and staging-runtime release gates.
 

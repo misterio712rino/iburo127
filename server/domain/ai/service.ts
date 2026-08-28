@@ -14,6 +14,7 @@ import {
 } from "./contracts";
 import {
   buildAiInstructions,
+  buildUntrustedHistoryContext,
   isDirectRestrictedLegalActionRequest,
   parseAiReplyRequest,
   RESTRICTED_LEGAL_ACTION_REPLY,
@@ -94,9 +95,13 @@ export class AiAssistantService {
     }
 
     try {
+      const untrustedHistory = buildUntrustedHistoryContext(request.history);
       const response = await this.modelGateway.reply({
         instructions: buildAiInstructions(context),
-        messages: [...request.history, { role: "user", content: request.message }],
+        messages: [
+          ...(untrustedHistory ? [{ role: "user" as const, content: untrustedHistory }] : []),
+          { role: "user", content: request.message },
+        ],
       });
 
       const content = sanitizeAiModelReply(response);
