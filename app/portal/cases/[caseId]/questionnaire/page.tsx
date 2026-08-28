@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, CheckCircle2, ListChecks, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ListChecks, ShieldCheck } from "lucide-react";
 import { IBuroBrand } from "@/components/platform/IBuroBrand";
 import { SignOutButton } from "@/components/platform/auth/SignOutButton";
+import { ProductionQuestionnaire } from "@/components/platform/questionnaire/ProductionQuestionnaire";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { getCurrentPlatformActor } from "@/server/client-cases/operations";
@@ -10,12 +11,6 @@ import { clientCaseService } from "@/server/client-cases/runtime";
 import { getQuestionnaire } from "@/server/questionnaire/operations";
 
 export const dynamic = "force-dynamic";
-
-const STATUS_LABELS = {
-  NOT_STARTED: "Не начата",
-  IN_PROGRESS: "Заполняется",
-  COMPLETED: "Завершена",
-} as const;
 
 export default async function PortalQuestionnairePage({
   params,
@@ -37,8 +32,7 @@ export default async function PortalQuestionnairePage({
   if (!clientCase) notFound();
 
   const questionnaire = await getQuestionnaire(sessionProvider, clientCase.id);
-  const answerCount = questionnaire ? Object.keys(questionnaire.answers).length : 0;
-  const sectionCount = questionnaire?.completedSectionIds.length ?? 0;
+  const canEdit = actor.roles.includes("CLIENT") && clientCase.clientId === actor.userId;
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
@@ -71,44 +65,24 @@ export default async function PortalQuestionnairePage({
               <p className="font-mono text-xs font-semibold tracking-[0.08em] text-slate-400">{clientCase.caseNumber}</p>
               <h1 className="mt-2 font-[var(--font-iburo-display)] text-5xl font-semibold leading-none text-slate-900">Анкета</h1>
               <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">
-                Это первый экран production-портала, который читает реальное состояние workflow через server-side service, а не через demo/localStorage adapter.
+                Ответы сохраняются через авторизованный серверный workflow с контролем версии. Изменение ответа автоматически снимает подтверждение соответствующего раздела и итоговой проверки.
               </p>
             </div>
           </div>
 
-          {questionnaire ? (
-            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Metric label="Статус" value={STATUS_LABELS[questionnaire.status]} />
-              <Metric label="Ответов сохранено" value={String(answerCount)} />
-              <Metric label="Разделов завершено" value={String(sectionCount)} />
-              <Metric label="Версия" value={String(questionnaire.version)} />
-            </div>
-          ) : (
-            <div className="mt-8 rounded-[24px] border border-dashed border-slate-300 bg-slate-50/70 p-6">
-              <p className="font-semibold text-slate-900">Анкета ещё не создана</p>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                Запись `CaseQuestionnaire` для этого дела отсутствует. Этот read-only экран намеренно не создаёт данные автоматически.
-              </p>
-            </div>
-          )}
-
-          {questionnaire?.status === "COMPLETED" ? (
-            <div className="mt-6 flex items-center gap-3 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
-              <CheckCircle2 className="size-5" aria-hidden="true" />
-              Анкета завершена и зафиксирована в серверном состоянии.
-            </div>
-          ) : null}
+          <ProductionQuestionnaire
+            caseId={clientCase.id}
+            canEdit={canEdit}
+            initialState={questionnaire ? {
+              status: questionnaire.status,
+              answers: questionnaire.answers,
+              completedSectionIds: [...questionnaire.completedSectionIds],
+              version: questionnaire.version,
+              completedAt: questionnaire.completedAt?.toISOString() ?? null,
+            } : null}
+          />
         </section>
       </main>
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">{label}</p>
-      <p className="mt-2 text-lg font-bold text-slate-900">{value}</p>
     </div>
   );
 }
