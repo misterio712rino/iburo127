@@ -1,68 +1,66 @@
 import "dotenv/config";
 
-import { HeadBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import { Pool } from "pg";
-
-const REQUIRED_ENV = [
-  "DATABASE_URL",
-  "BETTER_AUTH_SECRET",
-  "BETTER_AUTH_URL",
-  "YANDEX_STORAGE_BUCKET",
-  "YANDEX_STORAGE_ACCESS_KEY_ID",
-  "YANDEX_STORAGE_SECRET_ACCESS_KEY",
-] as const;
+import { requireStagingDatabaseTarget } from "./staging-target-guard";
 
 function fail(message: string): never {
   console.error(`STAGING_READINESS_FAIL: ${message}`);
   process.exit(1);
 }
 
-for (const name of REQUIRED_ENV) {
-  if (!process.env[name]?.trim()) fail(`missing ${name}`);
+let target: ReturnType<typeof requireStagingDatabaseTarget>;
+try {
+  target = requireStagingDatabaseTarget();
+} catch (error) {
+  fail(error instanceof Error ? error.message : "invalid staging database target");
 }
 
-const authUrl = new URL(process.env.BETTER_AUTH_URL!);
+const authSecret = process.env.BETTER_AUTH_SECRET?.trim();
+const authUrlValue = process.env.BETTER_AUTH_URL?.trim();
+if (!authSecret) fail("missing BETTER_AUTH_SECRET");
+if (!authUrlValue) fail("missing BETTER_AUTH_URL");
+if (authSecret.length < 32) fail("BETTER_AUTH_SECRET must be at least 32 characters");
+
+let authUrl: URL;
+try {
+  authUrl = new URL(authUrlValue);
+} catch {
+  fail("BETTER_AUTH_URL must be an absolute URL");
+}
 if (authUrl.protocol !== "https:" && authUrl.hostname !== "localhost") {
   fail("BETTER_AUTH_URL must use HTTPS outside localhost");
 }
 
-if (process.env.BETTER_AUTH_SECRET!.trim().length < 32) {
-  fail("BETTER_AUTH_SECRET must be at least 32 characters");
-}
-
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: target.databaseUrl,
   connectionTimeoutMillis: 10_000,
   statement_timeout: 10_000,
   max: 1,
 });
 
+const client = await pool.connect();
 try {
-  const result = await pool.query<{
-    database_name: string;
-    database_user: string;
-    postgres_version: string;
-  }>(
-    "select current_database() as database_name, current_user as database_user, version() as postgres_version",
+  await client.query("BEGIN READ ONLY");
+  const result = await client.query<{ database_name: string }>(
+    "select current_database() as database_name",
   );
-  const row = result.rows[0];
-  if (!row) fail("PostgreSQL health query returned no rows");
-  console.log(`PostgreSQL: reachable (${row.database_name}, user=${row.database_user})`);
-  console.log(`PostgreSQL version: ${row.postgres_version.split(",")[0]}`);
+  const databaseName = result.rows[0]?.database_name;
+  if (!databaseName) fail("PostgreSQL identity query returned no rows");
+  if (databaseName !== target.expectedDatabaseName) {
+    fail("connected database does not match the preflight staging database identity");
+  }
+  console.log(`Staging PostgreSQL identity verified: ${target.expectedDatabaseName}`);
+  console.log("Better Auth runtime config: present and structurally valid");
+  console.log("STAGING_CORE_READINESS_PASS");
+  await client.query("ROLLBACK");
+} catch (error) {
+  try {
+    await client.query("ROLLBACK");
+  } catch {
+    // Preserve the original failure.
+  }
+  throw error;
 } finally {
+  client.release();
   await pool.end();
 }
-
-const s3 = new S3Client({
-  endpoint: "https://storage.yandexcloud.net",
-  region: "ru-central1",
-  credentials: {
-    accessKeyId: process.env.YANDEX_STORAGE_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.YANDEX_STORAGE_SECRET_ACCESS_KEY!,
-  },
-});
-
-await s3.send(new HeadBucketCommand({ Bucket: process.env.YANDEX_STORAGE_BUCKET! }));
-console.log(`Yandex Object Storage: private bucket credentials accepted (${process.env.YANDEX_STORAGE_BUCKET})`);
-console.log("Better Auth runtime config: present and structurally valid");
-console.log("STAGING_READINESS_PASS");

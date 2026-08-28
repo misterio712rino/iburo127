@@ -15,47 +15,59 @@ Better Auth verified session
 
 Email matching is intentionally not part of runtime authorization and must not be used as an implicit fallback.
 
-## Guarded provisioning command
+## Staging-only provisioning command
 
-The repository exposes:
+During production-readiness work, identity provisioning is intentionally exposed only as a staging command:
 
 ```bash
-npm run auth:link
+npm run auth:link:staging
 ```
 
-The command requires all of the following:
+It requires the normal staging database identity guard:
 
-- `DATABASE_URL`
-- `IB_AUTH_LINK_USER_ID` — existing internal `User.id`
-- `IB_AUTH_LINK_SUBJECT` — verified Better Auth user subject
-- optional `IB_AUTH_LINK_PROVIDER` — defaults to `better-auth`
-- `IB_AUTH_LINK_CONFIRM=LINK:<IB_AUTH_LINK_USER_ID>`
+- `IB_DB_TARGET=staging`
+- `IB_STAGING_DATABASE_HOST`
+- `IB_STAGING_DATABASE_NAME`
+- `IB_STAGING_DATABASE_USER`
+- matching `DATABASE_URL`
 
-Example shape only (do not commit real values):
+The URL identity is validated before any DB-backed provisioning logic runs.
+
+The command additionally requires:
+
+- `IB_AUTH_LINK_USER_ID` — existing internal `User.id`;
+- `IB_AUTH_LINK_SUBJECT` — verified Better Auth user subject;
+- optional `IB_AUTH_LINK_PROVIDER` — defaults to `better-auth`;
+- `IB_AUTH_LINK_CONFIRM=LINK:<IB_AUTH_LINK_USER_ID>`.
+
+Example shape only; never commit real values:
 
 ```bash
 IB_AUTH_LINK_USER_ID=<internal-uuid> \
 IB_AUTH_LINK_SUBJECT=<verified-better-auth-subject> \
 IB_AUTH_LINK_CONFIRM=LINK:<internal-uuid> \
-npm run auth:link
+npm run auth:link:staging
 ```
 
 ## Safety properties
 
+- staging target identity fails closed before the provisioning call;
 - the target internal user must already exist and be `ACTIVE`;
 - an existing `(provider, subject)` mapping to the same user is idempotent;
-- an existing `(provider, subject)` mapping to a different user fails closed with `AUTH_IDENTITY_PROVISIONING_CONFLICT`;
+- a mapping conflict fails closed with `AUTH_IDENTITY_PROVISIONING_CONFLICT`;
 - the command does not create users, roles or cases;
 - no public HTTP provisioning endpoint exists;
-- do not derive the link from browser-supplied user ids or roles;
-- do not use this against production until database baseline, backup and migration history are confirmed.
+- browser-supplied user ids or roles are never trusted;
+- the CLI success marker does not echo the external subject or mapping details.
+
+A separate production provisioning procedure must not be introduced or used without an explicit production release decision, verified backup/baseline, and production-specific safeguards.
 
 ## Staging activation sequence
 
 1. Establish staging PostgreSQL baseline and reviewed migrations.
-2. Create/verify the internal `User` and its internal roles.
-3. Create the Better Auth account using the controlled enrollment flow.
+2. Create/verify the internal `User` and roles.
+3. Create the Better Auth account through controlled enrollment.
 4. Obtain the verified Better Auth subject from trusted server/admin tooling.
-5. Run `npm run auth:link` with the explicit confirmation token.
-6. Sign in through Better Auth and verify that the session resolves through `AuthIdentity` to the expected internal actor.
+5. Run `npm run auth:link:staging` with the explicit confirmation token.
+6. Sign in through Better Auth and verify session -> `AuthIdentity` -> internal actor resolution.
 7. Run cross-role authorization E2E before enabling real client data.

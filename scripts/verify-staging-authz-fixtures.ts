@@ -1,14 +1,19 @@
 import "dotenv/config";
 
 import { Pool } from "pg";
+import { requireStagingDatabaseTarget } from "./staging-target-guard";
 
 function fail(message: string): never {
   console.error(`STAGING_AUTHZ_VERIFY_FAIL: ${message}`);
   process.exit(1);
 }
 
-const databaseUrl = process.env.DATABASE_URL?.trim();
-if (!databaseUrl) fail("missing DATABASE_URL");
+let target: ReturnType<typeof requireStagingDatabaseTarget>;
+try {
+  target = requireStagingDatabaseTarget();
+} catch (error) {
+  fail(error instanceof Error ? error.message : "invalid staging database target");
+}
 
 const fixtures = [
   {
@@ -37,7 +42,7 @@ for (const fixture of fixtures) {
 }
 
 const pool = new Pool({
-  connectionString: databaseUrl,
+  connectionString: target.databaseUrl,
   connectionTimeoutMillis: 10_000,
   statement_timeout: 10_000,
   max: 1,
@@ -46,6 +51,13 @@ const pool = new Pool({
 const client = await pool.connect();
 try {
   await client.query("BEGIN READ ONLY");
+
+  const identity = await client.query<{ database_name: string }>(
+    "select current_database() as database_name",
+  );
+  if (identity.rows[0]?.database_name !== target.expectedDatabaseName) {
+    fail("connected database does not match the preflight staging database identity");
+  }
 
   for (const fixture of fixtures) {
     const result = await client.query<{
