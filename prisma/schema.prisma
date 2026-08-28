@@ -76,6 +76,7 @@ model User {
   clientCases           ClientCase[]         @relation("ClientCases")
   assignedCases         ClientCase[]         @relation("AssignedLawyerCases")
   authIdentities        AuthIdentity[]
+  securityEvents        UserSecurityEvent[]   @relation("UserSecurityEvents")
   assignedTasks         CaseTask[]            @relation("AssignedTasks")
   taskStatusEvents      TaskStatusEvent[]     @relation("TaskStatusEventActors")
   activityEvents        CaseActivityEvent[]   @relation("CaseActivityActors")
@@ -118,6 +119,18 @@ model AuthIdentity {
 
   @@unique([provider, subject])
   @@index([userId])
+}
+
+model UserSecurityEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  type      String
+  createdAt DateTime @default(now())
+
+  user User @relation("UserSecurityEvents", fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([type, createdAt])
 }
 
 model Plan {
