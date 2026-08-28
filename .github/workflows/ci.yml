@@ -48,6 +48,14 @@ jobs:
           delete packageJson.devDependencies.prisma;
           packageJson.devDependencies["prisma-cli"] = "npm:prisma@7.9.1";
           writeFileSync("package.json", `${JSON.stringify(packageJson, null, 2)}\n`);
+
+          const config = readFileSync("prisma.config.ts", "utf8");
+          const expectedImport = 'from "prisma/config"';
+          if (!config.includes(expectedImport)) {
+            console.error("PRISMA_ALIAS_PREVIEW_FAIL: unexpected Prisma config import");
+            process.exit(1);
+          }
+          writeFileSync("prisma.config.ts", config.replace(expectedImport, 'from "prisma-cli/config"'));
           NODE
           npm install --package-lock-only --ignore-scripts --audit=false --fund=false
           npm ci
@@ -72,7 +80,7 @@ jobs:
           )
           node scripts/check-production-install.mjs "$production_root"
           echo "PRISMA_ALIAS_PREVIEW_DIFF:"
-          git diff --numstat -- package.json package-lock.json
+          git diff --numstat -- package.json package-lock.json prisma.config.ts
 
       - name: Runtime PII logging gate
         run: npm run check:runtime-logging
