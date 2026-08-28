@@ -1,9 +1,11 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
 export function SignOutButton() {
+  const router = useRouter();
   const [pending, setPending] = useState(false);
 
   async function signOut() {
@@ -12,7 +14,8 @@ export function SignOutButton() {
     try {
       await authClient.signOut();
     } finally {
-      window.location.assign("/auth/sign-in");
+      router.replace("/auth/sign-in");
+      router.refresh();
     }
   }
 

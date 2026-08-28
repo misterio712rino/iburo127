@@ -1,11 +1,13 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
 type VerificationMode = "totp" | "backup";
 
 export function TwoFactorForm() {
+  const router = useRouter();
   const [mode, setMode] = useState<VerificationMode>("totp");
   const [code, setCode] = useState("");
   const [pending, setPending] = useState(false);
@@ -41,7 +43,8 @@ export function TwoFactorForm() {
         );
         return;
       }
-      window.location.assign("/portal");
+      router.replace("/portal");
+      router.refresh();
     } catch {
       setError("Не удалось проверить код. Повторите попытку позже.");
     } finally {

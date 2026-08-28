@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
@@ -13,6 +14,7 @@ function requiresSecondFactor(data: unknown) {
 }
 
 export function SignInForm() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
@@ -31,7 +33,8 @@ export function SignInForm() {
         return;
       }
       if (!requiresSecondFactor(result.data)) {
-        window.location.assign("/portal");
+        router.replace("/portal");
+        router.refresh();
       }
     } catch {
       setError("Сервис входа временно недоступен. Повторите попытку позже.");

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
@@ -27,6 +28,7 @@ function readSecret(totpUri: string) {
 }
 
 export function MfaEnrollmentForm() {
+  const router = useRouter();
   const [password, setPassword] = useState("");
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
   const [code, setCode] = useState("");
@@ -93,7 +95,8 @@ export function MfaEnrollmentForm() {
         setError("Код не принят. Проверьте время на устройстве и текущий код в приложении-аутентификаторе.");
         return;
       }
-      window.location.assign("/portal");
+      router.replace("/portal");
+      router.refresh();
     } catch {
       setError("Не удалось подтвердить TOTP-код. Повторите попытку позже.");
     } finally {
