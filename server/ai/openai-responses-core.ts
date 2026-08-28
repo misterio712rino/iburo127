@@ -40,18 +40,39 @@ function assertConfig(config: OpenAiResponsesConfig) {
   return { ...config, apiKey: config.apiKey.trim(), model: config.model.trim() };
 }
 
+function assertSafetyIdentifier(value: string): string {
+  const normalized = value.trim();
+  if (!/^[a-f0-9]{64}$/.test(normalized)) {
+    throw new Error(`${AI_PROVIDER_ERROR}:INVALID_SAFETY_IDENTIFIER`);
+  }
+  return normalized;
+}
+
 function extractOutputText(value: unknown): string {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${AI_PROVIDER_ERROR}:INVALID_RESPONSE`);
   }
 
-  const output = (value as { output?: unknown }).output;
-  if (!Array.isArray(output)) {
+  const response = value as { status?: unknown; output?: unknown };
+  if (response.status !== "completed") {
+    if (
+      response.status === "incomplete" ||
+      response.status === "failed" ||
+      response.status === "cancelled" ||
+      response.status === "queued" ||
+      response.status === "in_progress"
+    ) {
+      throw new Error(`${AI_PROVIDER_ERROR}:RESPONSE_${response.status.toUpperCase()}`);
+    }
+    throw new Error(`${AI_PROVIDER_ERROR}:INVALID_RESPONSE`);
+  }
+
+  if (!Array.isArray(response.output)) {
     throw new Error(`${AI_PROVIDER_ERROR}:INVALID_RESPONSE`);
   }
 
   const parts: string[] = [];
-  for (const item of output) {
+  for (const item of response.output) {
     if (!item || typeof item !== "object" || Array.isArray(item)) continue;
     const content = (item as { content?: unknown }).content;
     if (!Array.isArray(content)) continue;
@@ -85,6 +106,7 @@ export class OpenAiResponsesGateway implements AiModelGateway {
       store: false,
       tools: [],
       max_output_tokens: this.config.maxOutputTokens,
+      safety_identifier: assertSafetyIdentifier(input.safetyIdentifier),
       instructions: input.instructions,
       input: input.messages.map((message) => ({
         role: message.role,
