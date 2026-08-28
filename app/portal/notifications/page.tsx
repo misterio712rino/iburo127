@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowLeft, Bell, CheckCircle2 } from "lucide-react";
 import { IBuroBrand } from "@/components/platform/IBuroBrand";
 import { SignOutButton } from "@/components/platform/auth/SignOutButton";
+import { MarkNotificationReadButton } from "@/components/platform/notifications/MarkNotificationReadButton";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { listNotifications } from "@/server/notifications/operations";
@@ -67,6 +68,7 @@ export default async function PortalNotificationsPage() {
                   )}
                 </div>
                 <p className="mt-4 text-xs text-slate-400">{notification.createdAt.toLocaleString("ru-RU")}</p>
+                {!notification.readAt ? <MarkNotificationReadButton notificationId={notification.id} /> : null}
               </article>
             ))}
           </div>
