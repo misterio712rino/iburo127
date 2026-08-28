@@ -52,17 +52,10 @@ export function parsePrepareStoredFileUploadInput(value: unknown, clientCaseId: 
 
   if (typeof input.sizeBytes !== "number" || !Number.isSafeInteger(input.sizeBytes) || input.sizeBytes <= 0 || input.sizeBytes > MAX_PRIVATE_UPLOAD_BYTES) invalid();
 
-  let checksumSha256: string | null = null;
-  if (input.checksumSha256 !== undefined && input.checksumSha256 !== null && input.checksumSha256 !== "") {
-    checksumSha256 = parseNonEmptyString(input.checksumSha256, 64).toLowerCase();
-    if (!/^[0-9a-f]{64}$/.test(checksumSha256)) invalid();
-  }
-
   return {
     clientCaseId: parseStoredFileClientCaseId(clientCaseId),
     fileName,
     mimeType,
     sizeBytes: BigInt(input.sizeBytes),
-    checksumSha256,
   };
 }
