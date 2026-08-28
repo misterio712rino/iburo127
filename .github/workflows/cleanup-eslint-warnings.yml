@@ -1,0 +1,155 @@
+name: Cleanup ESLint warnings
+
+on:
+  push:
+    branches:
+      - audit/production-readiness
+    paths:
+      - .github/workflows/cleanup-eslint-warnings.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Guard source commit and branch head
+        shell: bash
+        run: |
+          expected_parent="0ddc2cd25b693e93e0910f8f4abb87219055643e"
+          actual_parent="$(git rev-parse HEAD^)"
+          if [ "$actual_parent" != "$expected_parent" ]; then
+            echo "ESLINT_CLEANUP_GUARD_FAIL: unexpected parent commit"
+            exit 1
+          fi
+          changed_from_parent="$(git diff --name-only HEAD^ HEAD)"
+          if [ "$changed_from_parent" != ".github/workflows/cleanup-eslint-warnings.yml" ]; then
+            echo "ESLINT_CLEANUP_GUARD_FAIL: writer commit changed unexpected files"
+            exit 1
+          fi
+          git fetch origin audit/production-readiness
+          if [ "$(git rev-parse origin/audit/production-readiness)" != "$(git rev-parse HEAD)" ]; then
+            echo "ESLINT_CLEANUP_GUARD_FAIL: remote branch moved before validation"
+            exit 1
+          fi
+
+      - name: Apply exact warning cleanup
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from "node:fs";
+
+          const replacements = [
+            {
+              path: "components/platform/lawyer/LawyerTasks.tsx",
+              from: '  const state = tasks.state;\n',
+              to: '',
+            },
+            {
+              path: "components/sections/Reviews.tsx",
+              from: '  ChevronLeft,\n',
+              to: '',
+            },
+            {
+              path: "tests/pending-upload-cleanup.test.ts",
+              from: '  async createUploadUrl(_input: CreateUploadUrlInput) {\n    return { url: "https://example.invalid/upload", expiresAt: new Date() };\n  }\n\n  async createDownloadUrl(_input: CreateDownloadUrlInput) {\n    return { url: "https://example.invalid/download", expiresAt: new Date() };\n  }',
+              to: '  async createUploadUrl(_input: CreateUploadUrlInput) {\n    void _input;\n    return { url: "https://example.invalid/upload", expiresAt: new Date() };\n  }\n\n  async createDownloadUrl(_input: CreateDownloadUrlInput) {\n    void _input;\n    return { url: "https://example.invalid/download", expiresAt: new Date() };\n  }',
+            },
+            {
+              path: "tests/production-foundation.test.ts",
+              from: '  async getAccessible(_actor: AuthenticatedActor, taskId: string) {\n    return taskId === this.current.id ? this.current : null;\n  }\n\n  async listAccessible(_actor: AuthenticatedActor) {\n    return [this.current];\n  }',
+              to: '  async getAccessible(_actor: AuthenticatedActor, taskId: string) {\n    void _actor;\n    return taskId === this.current.id ? this.current : null;\n  }\n\n  async listAccessible(_actor: AuthenticatedActor) {\n    void _actor;\n    return [this.current];\n  }',
+            },
+          ];
+
+          for (const replacement of replacements) {
+            const current = readFileSync(replacement.path, "utf8");
+            const occurrences = current.split(replacement.from).length - 1;
+            if (occurrences !== 1) {
+              console.error(`ESLINT_CLEANUP_GUARD_FAIL: expected exactly one match in ${replacement.path}, got ${occurrences}`);
+              process.exit(1);
+            }
+            writeFileSync(replacement.path, current.replace(replacement.from, replacement.to));
+          }
+          NODE
+
+      - name: Guard exact working-tree diff
+        shell: bash
+        run: |
+          actual="$(git diff --name-only | sort)"
+          expected="$(printf '%s\n' \
+            components/platform/lawyer/LawyerTasks.tsx \
+            components/sections/Reviews.tsx \
+            tests/pending-upload-cleanup.test.ts \
+            tests/production-foundation.test.ts | sort)"
+          if [ "$actual" != "$expected" ]; then
+            echo "ESLINT_CLEANUP_GUARD_FAIL: unexpected working-tree changes"
+            printf 'Actual:\n%s\n' "$actual"
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Dependency audit policy
+        shell: bash
+        run: |
+          npm audit --json > "$RUNNER_TEMP/npm-audit.json" || true
+          node scripts/report-npm-audit.mjs "$RUNNER_TEMP/npm-audit.json"
+          node scripts/check-npm-audit-policy.mjs "$RUNNER_TEMP/npm-audit.json" package-lock.json
+
+      - name: Runtime PII logging gate
+        run: npm run check:runtime-logging
+
+      - name: Validate Prisma schema
+        run: npm run db:validate
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Production foundation tests
+        run: npm run test:foundation
+
+      - name: TypeScript
+        run: npx tsc --noEmit
+
+      - name: Lint warnings must be zero
+        shell: bash
+        run: |
+          npm run lint 2>&1 | tee "$RUNNER_TEMP/eslint.log"
+          if grep -Eq '[0-9]+ problems? \([0-9]+ errors?, [1-9][0-9]* warnings?\)|warning  .*@typescript-eslint' "$RUNNER_TEMP/eslint.log"; then
+            echo "ESLINT_CLEANUP_GUARD_FAIL: ESLint warnings remain"
+            exit 1
+          fi
+          echo "ESLINT_ZERO_WARNINGS_PASS"
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit validated cleanup
+        shell: bash
+        run: |
+          git fetch origin audit/production-readiness
+          if [ "$(git rev-parse origin/audit/production-readiness)" != "$(git rev-parse HEAD)" ]; then
+            echo "ESLINT_CLEANUP_GUARD_FAIL: remote branch moved during validation"
+            exit 1
+          fi
+          git config user.name "iBuro CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add components/platform/lawyer/LawyerTasks.tsx components/sections/Reviews.tsx tests/pending-upload-cleanup.test.ts tests/production-foundation.test.ts
+          git commit -m "clean remaining ESLint warnings"
+          git push origin HEAD:audit/production-readiness
