@@ -21,6 +21,7 @@
     "check:staging:email-delivery": "tsx scripts/verify-staging-postbox-delivery.ts",
     "check:staging:ai-provider": "tsx scripts/verify-staging-openai.ts",
     "check:staging:http-authz": "tsx scripts/verify-staging-http-authz.ts",
+    "check:staging:http-ai-authz": "tsx scripts/verify-staging-ai-http-authz.ts",
     "check:staging:http-mutations": "tsx scripts/verify-staging-http-mutations.ts",
     "check:staging:http-mutations:audit": "tsx scripts/verify-staging-http-mutation-audit.ts",
     "db:inspect:baseline": "tsx scripts/inspect-database-baseline.ts",
