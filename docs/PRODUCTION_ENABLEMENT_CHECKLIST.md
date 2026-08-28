@@ -10,9 +10,11 @@ This checklist defines the conditions for switching any platform workflow from i
 - [x] Authentication product direction selected: Better Auth, self-hosted against PostgreSQL.
 - [ ] Better Auth dependency/configuration installed on the release branch with reviewed lockfile changes.
 - [x] Provider-specific Better Auth session-reader boundary implemented.
-- [ ] Real Better Auth server session loader wired into that boundary.
+- [x] Next.js `headers()` -> Better Auth `auth.api.getSession` bridge contract implemented.
+- [ ] Real Better Auth server instance wired into that bridge.
 - [x] External `(provider, subject)` -> internal `User.id` mapping architecture implemented through `AuthIdentity`.
 - [ ] Account enrollment, recovery and MFA policy implemented; staff MFA mandatory.
+- [x] Production infrastructure environment readers/template implemented without committing secrets.
 - [x] Production server architecture does not use `DemoIdentityProvider`, localStorage identity, browser role or browser user ID as authorization sources.
 - [x] Repository CI gate includes Prisma validate/generate, foundation tests, TypeScript, ESLint and production build.
 - [ ] CI is green on the exact future production release commit after infrastructure wiring.
@@ -63,7 +65,8 @@ Repository/server foundation is complete; activation still requires:
 - [x] Private stored-file metadata model/repository/service foundation implemented.
 - [x] Private object storage product direction selected: Yandex Object Storage.
 - [x] Provider-neutral short-lived signed URL contract implemented.
-- [ ] Yandex S3-compatible storage adapter implemented with reviewed dependency/lockfile changes.
+- [x] Yandex-specific private storage policy adapter implemented: bucket scoping, safe object keys, 30–900 second TTL policy.
+- [ ] AWS SDK S3 signer/client dependency binding added with reviewed lockfile changes.
 - [ ] Private staging bucket/service account configured.
 - [ ] Signed/private upload/download flow wired through server authorization.
 - [ ] Document/file migrations reviewed and applied to staging.
@@ -94,14 +97,19 @@ Architecture decision: see `docs/AUTH_PROVIDER_DECISION.md`.
 - [x] Active internal user + internal role resolution implemented.
 - [x] Better Auth selected as preferred self-hosted provider.
 - [x] Better Auth external identity/session-reader boundary implemented without trusting provider IDs as internal IDs.
+- [x] Provider-neutral Next.js server-session bridge implemented against the documented `auth.api.getSession({ headers })` shape.
 - [ ] Add Better Auth dependency with controlled lockfile update.
 - [ ] Configure Better Auth PostgreSQL schema without auto-migrating production.
 - [ ] Add `/api/auth/[...all]` route handler.
-- [ ] Wire actual Better Auth server session validation into `BetterAuthExternalSessionReader`.
+- [ ] Wire actual Better Auth server instance into the session bridge.
 - [ ] Add sign-in/sign-out/recovery/verification UI.
 - [ ] Add TOTP 2FA and backup-code flow; require it for staff.
 - [ ] Implement controlled `AuthIdentity` linking/provisioning.
 - [ ] Replace platform demo identity selection with authenticated shell in the production-enabled deployment only.
+
+## Staging runbook
+
+- [x] Staging activation sequence documented in `docs/STAGING_ACTIVATION_RUNBOOK.md`.
 
 ## Release safety
 
