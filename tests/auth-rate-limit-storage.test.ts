@@ -42,8 +42,11 @@ assert.match(
   stagingVerifier,
   /rateLimit:\s*\["id",\s*"key",\s*"count",\s*"lastRequest"\]/,
 );
-assert.match(stagingVerifier, /requireType\("rateLimit", "count", INTEGER_TYPES\)/);
-assert.match(stagingVerifier, /requireType\("rateLimit", "lastRequest", INTEGER_TYPES\)/);
+const integerColumns = stagingVerifier.match(
+  /const INTEGER_COLUMNS = \[([\s\S]*?)\] as const;/,
+)?.[1] ?? "";
+assert.match(integerColumns, /\["rateLimit", "count"\]/);
+assert.match(integerColumns, /\["rateLimit", "lastRequest"\]/);
 assert.match(stagingVerifier, /hasUniqueIndex\("rateLimit", \["key"\]\)/);
 assert.match(stagingVerifier, /for \(const tableName of REQUIRED_TABLES\)/);
 
