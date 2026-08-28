@@ -1,9 +1,10 @@
 import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
 import { ClientCaseService } from "@/server/domain/client-cases/service";
-import type {
-  CaseDocumentRecord,
-  CaseDocumentRepository,
-  CaseDocumentStatus,
+import {
+  DOCUMENT_NOT_FOUND,
+  type CaseDocumentRecord,
+  type CaseDocumentRepository,
+  type CaseDocumentStatus,
 } from "@/server/domain/documents/contracts";
 import { QuestionnaireService } from "@/server/domain/questionnaire/service";
 
@@ -98,7 +99,7 @@ export class CaseDocumentService {
 
   async regenerate(
     actor: AuthenticatedActor,
-    input: { clientCaseId: string; documentCode: string; expectedVersion?: number },
+    input: { clientCaseId: string; documentCode: string; expectedVersion: number },
   ) {
     await this.requireClientEditor(actor, input.clientCaseId);
     const definition = this.definition(input.documentCode);
@@ -109,20 +110,14 @@ export class CaseDocumentService {
       input.clientCaseId,
       input.documentCode,
     );
-    if (!existing) {
-      return this.repository.createForCase({
-        clientCaseId: input.clientCaseId,
-        documentCode: input.documentCode,
-        status,
-      });
-    }
+    if (!existing) throw new Error(DOCUMENT_NOT_FOUND);
 
     return this.repository.regenerate({ ...input, status });
   }
 
   async sendForReview(
     actor: AuthenticatedActor,
-    input: { clientCaseId: string; documentCode: string; expectedVersion?: number },
+    input: { clientCaseId: string; documentCode: string; expectedVersion: number },
   ) {
     await this.requireClientEditor(actor, input.clientCaseId);
     this.definition(input.documentCode);
@@ -138,7 +133,7 @@ export class CaseDocumentService {
 
   async markReviewed(
     actor: AuthenticatedActor,
-    input: { clientCaseId: string; documentCode: string; expectedVersion?: number },
+    input: { clientCaseId: string; documentCode: string; expectedVersion: number },
   ) {
     await this.requireReviewer(actor, input.clientCaseId);
     this.definition(input.documentCode);
