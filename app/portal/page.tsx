@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowUpRight, BriefcaseBusiness, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, Bell, BriefcaseBusiness, ClipboardList, ShieldCheck } from "lucide-react";
 import { IBuroBrand } from "@/components/platform/IBuroBrand";
 import { SignOutButton } from "@/components/platform/auth/SignOutButton";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
@@ -30,6 +30,7 @@ export default async function PortalPage() {
   }
 
   const cases = await clientCaseService.listCases(actor);
+  const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-7xl px-5 py-6 sm:px-8 sm:py-8">
@@ -65,6 +66,19 @@ export default async function PortalPage() {
             </span>
           ))}
         </div>
+
+        <nav aria-label="Разделы кабинета" className="mt-7 flex flex-wrap gap-3">
+          <Link href="/portal/notifications" className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:shadow-sm">
+            <Bell className="size-4" aria-hidden="true" />
+            Уведомления
+          </Link>
+          {isStaff ? (
+            <Link href="/portal/tasks" className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:shadow-sm">
+              <ClipboardList className="size-4" aria-hidden="true" />
+              Задачи
+            </Link>
+          ) : null}
+        </nav>
       </section>
 
       <section aria-labelledby="cases-heading" className="pb-12">
