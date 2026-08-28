@@ -1,0 +1,118 @@
+name: One-time compatible dependency remediation
+
+on:
+  push:
+    branches:
+      - audit/production-readiness
+    paths:
+      - .github/workflows/dependency-remediation.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dependency-remediation-audit-production-readiness
+  cancel-in-progress: false
+
+jobs:
+  remediate-lockfile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout exact branch HEAD
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install committed dependency graph
+        run: npm ci
+
+      - name: Apply compatible lockfile-only audit fixes
+        shell: bash
+        run: |
+          npm audit fix --package-lock-only --ignore-scripts || true
+          git diff --exit-code -- package.json
+          if git diff --quiet -- package-lock.json; then
+            echo "DEPENDENCY_REMEDIATION_NO_LOCKFILE_CHANGE"
+            exit 1
+          fi
+
+      - name: Verify only Prisma upstream findings remain
+        shell: bash
+        run: |
+          npm audit --json > "$RUNNER_TEMP/npm-audit-remediated.json" || true
+          node scripts/report-npm-audit.mjs "$RUNNER_TEMP/npm-audit-remediated.json"
+          node --input-type=module - "$RUNNER_TEMP/npm-audit-remediated.json" <<'NODE'
+          import { readFileSync } from "node:fs";
+          const report = JSON.parse(readFileSync(process.argv[2], "utf8"));
+          const actual = Object.keys(report.vulnerabilities ?? {}).sort();
+          const expected = ["@prisma/config", "deepmerge-ts", "prisma"].sort();
+          const counts = report.metadata?.vulnerabilities ?? {};
+          if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+            console.error(`DEPENDENCY_REMEDIATION_UNEXPECTED_FINDINGS: ${actual.join(",")}`);
+            process.exit(1);
+          }
+          if (Number(counts.critical ?? 0) !== 0 || Number(counts.high ?? 0) !== 3 || Number(counts.moderate ?? 0) !== 0 || Number(counts.low ?? 0) !== 0) {
+            console.error("DEPENDENCY_REMEDIATION_UNEXPECTED_COUNTS");
+            process.exit(1);
+          }
+          console.log("DEPENDENCY_REMEDIATION_EXPECTED_PRISMA_RESIDUAL_PASS");
+          NODE
+
+      - name: Reinstall from remediated lockfile
+        run: npm ci
+
+      - name: Runtime PII logging gate
+        run: npm run check:runtime-logging
+
+      - name: Validate Prisma schema
+        run: npm run db:validate
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Production foundation tests
+        run: npm run test:foundation
+
+      - name: TypeScript
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify lockfile-only repository diff
+        shell: bash
+        run: |
+          changed="$(git diff --name-only)"
+          if [ "$changed" != "package-lock.json" ]; then
+            echo "DEPENDENCY_REMEDIATION_UNEXPECTED_REPOSITORY_DIFF"
+            printf '%s\n' "$changed"
+            exit 1
+          fi
+          git diff --check -- package-lock.json
+          git diff --numstat -- package-lock.json
+
+      - name: Commit compatible lockfile remediation
+        shell: bash
+        run: |
+          git fetch origin audit/production-readiness --depth=1
+          remote_head="$(git rev-parse origin/audit/production-readiness)"
+          if [ "$remote_head" != "$GITHUB_SHA" ]; then
+            echo "DEPENDENCY_REMEDIATION_REMOTE_HEAD_MOVED"
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "apply compatible dependency security fixes"
+          git push origin HEAD:audit/production-readiness
