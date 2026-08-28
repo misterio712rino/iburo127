@@ -110,21 +110,33 @@ try {
   assert.equal(requests.at(-1)?.url, "/api/internal/maintenance/stale-uploads");
   assert.equal(requests.at(-1)?.authorization, `Bearer ${secret}`);
 
+  const aiAuditHealthResult = await runRunner("ai-audit-health");
+  assert.equal(aiAuditHealthResult.code, 0);
+  assert.match(
+    aiAuditHealthResult.stdout,
+    /MAINTENANCE_SCHEDULER_PASS job=ai-audit-health status=200/,
+  );
+  assert.equal(requests.at(-1)?.method, "POST");
+  assert.equal(requests.at(-1)?.url, "/api/internal/maintenance/ai-audit-health");
+  assert.equal(requests.at(-1)?.authorization, `Bearer ${secret}`);
+
   for (const output of [
     notificationResult.stdout,
     notificationResult.stderr,
     staleUploadResult.stdout,
     staleUploadResult.stderr,
+    aiAuditHealthResult.stdout,
+    aiAuditHealthResult.stderr,
   ]) {
     assert.doesNotMatch(output, new RegExp(secret));
   }
 
   responseMode = "unhealthy";
-  const unhealthyResult = await runRunner("notification-deliveries");
+  const unhealthyResult = await runRunner("ai-audit-health");
   assert.equal(unhealthyResult.code, 1);
   assert.match(
     unhealthyResult.stderr,
-    /MAINTENANCE_SCHEDULER_FAIL:unhealthy response for notification-deliveries status=503/,
+    /MAINTENANCE_SCHEDULER_FAIL:unhealthy response for ai-audit-health status=503/,
   );
   assert.doesNotMatch(unhealthyResult.stderr, new RegExp(secret));
 
@@ -140,7 +152,10 @@ try {
   const requestCountBeforeInvalidJob = requests.length;
   const invalidJobResult = await runRunner("unknown-job");
   assert.equal(invalidJobResult.code, 1);
-  assert.match(invalidJobResult.stderr, /job must be notification-deliveries or stale-uploads/);
+  assert.match(
+    invalidJobResult.stderr,
+    /job must be notification-deliveries, stale-uploads, or ai-audit-health/,
+  );
   assert.equal(requests.length, requestCountBeforeInvalidJob);
 
   const insecureOriginResult = await runRunner("notification-deliveries", {
@@ -174,6 +189,21 @@ try {
   assert.ok(staleUploadAuth >= 0 && staleUploadCleanup > staleUploadAuth);
   assert.match(staleUploadRoute, /config\.staleUploadBatchLimit/);
   assert.match(staleUploadRoute, /Cache-Control": "no-store"/);
+
+  const aiAuditHealthRoute = await readFile(
+    resolve("app/api/internal/maintenance/ai-audit-health/route.ts"),
+    "utf8",
+  );
+  const aiAuditHealthAuth = aiAuditHealthRoute.indexOf("isAuthorizedMaintenanceRequest(");
+  const aiAuditHealthService = aiAuditHealthRoute.indexOf("getAiAuditHealthService()");
+  assert.ok(aiAuditHealthAuth >= 0 && aiAuditHealthService > aiAuditHealthAuth);
+  assert.match(aiAuditHealthRoute, /config\.aiAuditGraceMinutes/);
+  assert.match(aiAuditHealthRoute, /config\.aiAuditBatchLimit/);
+  assert.match(aiAuditHealthRoute, /AI_AUDIT_OUTCOME_MISSING/);
+  assert.match(aiAuditHealthRoute, /Cache-Control": "no-store"/);
+  assert.doesNotMatch(aiAuditHealthRoute, /auditId\s*:/);
+  assert.doesNotMatch(aiAuditHealthRoute, /clientCaseId\s*:/);
+  assert.doesNotMatch(aiAuditHealthRoute, /actorUserId\s*:/);
 
   console.log("MAINTENANCE_SCHEDULER_RUNNER_TEST_PASS");
 } finally {
