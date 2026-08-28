@@ -7,6 +7,7 @@ import {
   type PracticumProgressRecord,
   type PracticumProgressRepository,
 } from "@/server/domain/practicum/contracts";
+import { isPrismaUniqueConstraintError } from "@/server/repositories/prisma/errors";
 
 function toRecord(row: {
   clientCaseId: string;
@@ -29,10 +30,17 @@ export class PrismaPracticumProgressRepository implements PracticumProgressRepos
 
   async createForCase(clientCaseId: string) {
     const prisma = getPrismaClient();
-    const row = await prisma.casePracticumProgress.create({
-      data: { clientCaseId, completedLessonIds: [] },
-    });
-    return toRecord(row);
+    try {
+      const row = await prisma.casePracticumProgress.create({
+        data: { clientCaseId, completedLessonIds: [] },
+      });
+      return toRecord(row);
+    } catch (error) {
+      if (!isPrismaUniqueConstraintError(error)) throw error;
+      const existing = await prisma.casePracticumProgress.findUnique({ where: { clientCaseId } });
+      if (!existing) throw error;
+      return toRecord(existing);
+    }
   }
 
   async completeLesson(input: {
