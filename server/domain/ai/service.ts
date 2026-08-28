@@ -14,9 +14,13 @@ import {
   type AiUsageLedger,
 } from "./contracts";
 import {
+  AI_POLICY_BOUNDARY_REPLY,
   buildAiInstructions,
+  buildAiSafetyIdentifier,
   buildUntrustedHistoryContext,
   isDirectRestrictedLegalActionRequest,
+  isPromptInjectionAttempt,
+  isRestrictedAiReply,
   parseAiReplyRequest,
   RESTRICTED_LEGAL_ACTION_REPLY,
   sanitizeAiModelReply,
@@ -60,6 +64,19 @@ export class AiAssistantService {
     }
   }
 
+  private async restrictedReply(input: {
+    clientCaseId: string;
+    actorUserId: string;
+    content: string;
+  }): Promise<AiAssistantReply> {
+    await this.recordOutcomeBestEffort({
+      clientCaseId: input.clientCaseId,
+      actorUserId: input.actorUserId,
+      outcome: "restricted",
+    });
+    return { content: input.content, restrictedAction: true };
+  }
+
   async describe(
     actor: AuthenticatedActor,
     clientCaseId: string,
@@ -100,13 +117,20 @@ export class AiAssistantService {
     });
     if (!reserved) throw new Error(AI_RATE_LIMITED);
 
-    if (isDirectRestrictedLegalActionRequest(request.message)) {
-      await this.recordOutcomeBestEffort({
+    if (isPromptInjectionAttempt(request.message)) {
+      return this.restrictedReply({
         clientCaseId: clientCase.id,
         actorUserId: actor.userId,
-        outcome: "restricted",
+        content: AI_POLICY_BOUNDARY_REPLY,
       });
-      return { content: RESTRICTED_LEGAL_ACTION_REPLY, restrictedAction: true };
+    }
+
+    if (isDirectRestrictedLegalActionRequest(request.message)) {
+      return this.restrictedReply({
+        clientCaseId: clientCase.id,
+        actorUserId: actor.userId,
+        content: RESTRICTED_LEGAL_ACTION_REPLY,
+      });
     }
 
     let response: string;
@@ -118,6 +142,7 @@ export class AiAssistantService {
           ...(untrustedHistory ? [{ role: "user" as const, content: untrustedHistory }] : []),
           { role: "user", content: request.message },
         ],
+        safetyIdentifier: buildAiSafetyIdentifier(actor.userId),
       });
     } catch (error) {
       await this.recordOutcomeBestEffort({
@@ -140,7 +165,7 @@ export class AiAssistantService {
       throw error;
     }
 
-    const restrictedAction = content === RESTRICTED_LEGAL_ACTION_REPLY;
+    const restrictedAction = isRestrictedAiReply(content);
     await this.recordOutcomeBestEffort({
       clientCaseId: clientCase.id,
       actorUserId: actor.userId,
