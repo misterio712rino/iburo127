@@ -1,14 +1,15 @@
 import "server-only";
 
 import type { TaskOperationResult } from "@/server/tasks/transport";
+import { privateJsonResponse } from "@/server/http/private-json";
 
 export function toTaskHttpResponse<T>(result: TaskOperationResult<T>): Response {
   if (result.ok) {
-    return Response.json({ ok: true, data: result.data }, { status: 200 });
+    return privateJsonResponse({ ok: true, data: result.data });
   }
 
-  return Response.json(
+  return privateJsonResponse(
     { ok: false, error: { code: result.error.code } },
-    { status: result.error.status },
+    result.error.status,
   );
 }
