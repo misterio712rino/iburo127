@@ -8,6 +8,7 @@ The authoritative database baseline is not resolved yet. The repository currentl
 
 - PostgreSQL remains the source of truth.
 - Production database mutation is not supported by repository scripts.
+- `db:inspect:baseline` is staging-only even though it is read-only: the full staging host/database/user target guard must pass before a PostgreSQL connection is created.
 - Never use `prisma db push` against production or staging as a replacement for reviewed migrations.
 - Never use Better Auth auto-migration against production.
 - Staging mutations require the existing exact database target guard and an operation-specific confirmation.
@@ -15,7 +16,7 @@ The authoritative database baseline is not resolved yet. The repository currentl
 
 ## Required sequence
 
-1. Run `npm run db:inspect:baseline` against the intended database using read-only access where possible. Preserve the structural fingerprint and review the complete structural snapshot.
+1. Configure the exact staging target identity and run `npm run db:inspect:baseline`. The inspector validates staging host/database/user before connection, opens an explicit read-only transaction, then verifies `current_database()` and `current_user`. Preserve the structural fingerprint and review the complete structural snapshot.
 2. Determine whether the database is empty, already contains application tables, contains Better Auth tables, or contains legacy/unmanaged structures. Do not assume an empty database.
 3. Reconcile the inspected structure with `prisma/schema.prisma` and decide the baseline strategy before creating migration files.
 4. Generate migration SQL only from the reviewed baseline strategy. Do not apply it yet.
@@ -52,4 +53,4 @@ This prevents an unmanaged or partially migrated schema from being treated as re
 
 ## Current blocker
 
-Until the authoritative database has been inspected and the migration/baseline strategy has been reviewed, staging migration status is **BLOCKED_BASELINE**. This is expected and must not be bypassed.
+Until the authoritative staging database has been inspected and the migration/baseline strategy has been reviewed, staging migration status is **BLOCKED_BASELINE**. This is expected and must not be bypassed.
