@@ -12,6 +12,7 @@
     "test:foundation": "tsx tests/production-foundation.test.ts && tsx tests/questionnaire-domain.test.ts",
     "check:staging": "tsx scripts/check-staging-readiness.ts",
     "db:inspect:baseline": "tsx scripts/inspect-database-baseline.ts",
+    "auth:link": "tsx scripts/provision-auth-identity.ts",
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",
     "db:migrate": "prisma migrate dev",
