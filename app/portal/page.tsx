@@ -7,6 +7,8 @@ import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { getCurrentPlatformActor } from "@/server/client-cases/operations";
 import { clientCaseService } from "@/server/client-cases/runtime";
 
+export const dynamic = "force-dynamic";
+
 const ROLE_LABELS = {
   CLIENT: "Клиент",
   LAWYER: "Юрист",
