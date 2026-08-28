@@ -27,6 +27,12 @@ enum QuestionnaireStatus {
   COMPLETED
 }
 
+enum PracticumProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
 enum TaskStatus {
   NEW
   WORKING
@@ -41,38 +47,29 @@ enum CaseDocumentStatus {
   REVIEWED
 }
 
+enum StoredFileStatus {
+  PENDING_UPLOAD
+  READY
+}
+
 model User {
   id          String     @id @default(uuid()) @db.Uuid
   email       String?    @unique
-  phone       String?    @unique
+  phone       String?
   displayName String?
   status      UserStatus @default(ACTIVE)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  roles            UserRole[]
-  clientCases      ClientCase[]       @relation("ClientCases")
-  assignedCases    ClientCase[]       @relation("AssignedLawyerCases")
-  authIdentities   AuthIdentity[]
-  assignedTasks    CaseTask[]         @relation("AssignedTasks")
-  taskStatusEvents TaskStatusEvent[]  @relation("TaskStatusEventActors")
-  activityEvents   CaseActivityEvent[] @relation("CaseActivityActors")
-  notifications    Notification[]
-  uploadedFiles    StoredFile[]       @relation("StoredFileUploaders")
-}
-
-model AuthIdentity {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @db.Uuid
-  provider  String
-  subject   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-
-  @@unique([provider, subject])
-  @@index([userId])
+  roles                 UserRole[]
+  clientCases           ClientCase[]         @relation("ClientCases")
+  assignedCases         ClientCase[]         @relation("AssignedLawyerCases")
+  authIdentities        AuthIdentity[]
+  assignedTasks         CaseTask[]            @relation("AssignedTasks")
+  taskStatusEvents      TaskStatusEvent[]     @relation("TaskStatusEventActors")
+  activityEvents        CaseActivityEvent[]   @relation("CaseActivityActors")
+  notifications         Notification[]
+  uploadedFiles         StoredFile[]          @relation("StoredFileUploaders")
 }
 
 model Role {
@@ -91,11 +88,25 @@ model UserRole {
   roleId     String   @db.Uuid
   assignedAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  role Role @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   @@id([userId, roleId])
   @@index([roleId])
+}
+
+model AuthIdentity {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  provider  String
+  subject   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([provider, subject])
+  @@index([userId])
 }
 
 model Plan {
@@ -127,8 +138,8 @@ model PlanFeature {
   featureId String   @db.Uuid
   createdAt DateTime @default(now())
 
-  plan    Plan    @relation(fields: [planId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  feature Feature @relation(fields: [featureId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  plan    Plan    @relation(fields: [planId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  feature Feature @relation(fields: [featureId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   @@id([planId, featureId])
   @@index([featureId])
@@ -162,22 +173,23 @@ model ClientCase {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
-  client            User                   @relation("ClientCases", fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  assignedLawyer    User?                  @relation("AssignedLawyerCases", fields: [assignedLawyerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  plan              Plan                   @relation(fields: [planId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  stage             CaseStage              @relation(fields: [stageId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  client         User  @relation("ClientCases", fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  plan           Plan  @relation(fields: [planId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  stage          CaseStage @relation(fields: [stageId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  assignedLawyer User? @relation("AssignedLawyerCases", fields: [assignedLawyerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
   questionnaire     CaseQuestionnaire?
   practicumProgress CasePracticumProgress?
-  tasks             CaseTask[]
-  documents         CaseDocument[]
-  activityEvents    CaseActivityEvent[]
-  notifications     Notification[]
-  files             StoredFile[]
+  tasks              CaseTask[]
+  documents          CaseDocument[]
+  activityEvents     CaseActivityEvent[]
+  notifications      Notification[]
+  storedFiles         StoredFile[]
 
   @@index([clientId])
-  @@index([assignedLawyerId])
   @@index([planId])
   @@index([stageId])
+  @@index([assignedLawyerId])
   @@index([status])
 }
 
@@ -197,13 +209,14 @@ model CaseQuestionnaire {
 }
 
 model CasePracticumProgress {
-  clientCaseId       String   @id @db.Uuid
+  clientCaseId       String                  @id @db.Uuid
+  status             PracticumProgressStatus @default(NOT_STARTED)
   completedLessonIds String[]
   startedAt          DateTime?
   completedAt        DateTime?
-  version            Int      @default(1)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  version            Int                     @default(1)
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
 
   clientCase ClientCase @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 }
@@ -222,14 +235,12 @@ model CaseTask {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  clientCase ClientCase        @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  assignee   User              @relation("AssignedTasks", fields: [assigneeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  clientCase ClientCase @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  assignee   User       @relation("AssignedTasks", fields: [assigneeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   events     TaskStatusEvent[]
 
   @@index([clientCaseId])
-  @@index([assigneeId])
-  @@index([status])
-  @@index([dueAt])
+  @@index([assigneeId, status, dueAt])
 }
 
 model TaskStatusEvent {
@@ -299,20 +310,22 @@ model Notification {
 }
 
 model StoredFile {
-  id              String   @id @default(uuid()) @db.Uuid
-  clientCaseId    String   @db.Uuid
-  uploadedById    String?  @db.Uuid
+  id              String           @id @default(uuid()) @db.Uuid
+  clientCaseId    String           @db.Uuid
+  uploadedById    String?          @db.Uuid
+  status          StoredFileStatus @default(PENDING_UPLOAD)
   storageProvider String
-  objectKey       String   @unique
+  objectKey       String           @unique
   fileName        String
   mimeType        String
   sizeBytes       BigInt
   checksumSha256  String?
-  createdAt       DateTime @default(now())
+  readyAt          DateTime?
+  createdAt       DateTime         @default(now())
 
   clientCase ClientCase @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   uploadedBy User?      @relation("StoredFileUploaders", fields: [uploadedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
-  @@index([clientCaseId, createdAt])
+  @@index([clientCaseId, status, createdAt])
   @@index([uploadedById])
 }
