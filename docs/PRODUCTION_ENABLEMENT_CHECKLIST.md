@@ -76,8 +76,9 @@ Repository/server foundation is complete; activation still requires:
 - [x] Pending uploads remain hidden from normal file list/get/download operations until verification succeeds.
 - [x] Upload input enforces allowlisted MIME types, a 50 MiB limit and UUID-scoped opaque keys.
 - [x] Browser-supplied checksum values are not persisted as trusted integrity metadata; checksum support remains reserved for a future server-verified flow.
+- [x] Stale `PENDING_UPLOAD` cleanup service/repository foundation implemented with bounded batches and conditional metadata deletion.
 - [ ] Private staging bucket/service account configured.
-- [ ] Add stale `PENDING_UPLOAD` cleanup after staging storage policy is available.
+- [ ] Schedule/operate stale `PENDING_UPLOAD` cleanup only after staging storage policy is available.
 - [ ] Document/file migrations reviewed and applied to staging.
 - [ ] No generated document or uploaded file exposed by a guessable public URL in staging E2E.
 - [ ] DB-backed upload/download/review/audit E2E completed.
