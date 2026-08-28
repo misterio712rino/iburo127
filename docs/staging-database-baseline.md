@@ -11,7 +11,7 @@ The authoritative database baseline is not resolved yet. The repository currentl
 - `db:inspect:baseline` is staging-only even though it is read-only: the full staging host/database/user target guard must pass before a PostgreSQL connection is created.
 - Never use `prisma db push` against production or staging as a replacement for reviewed migrations.
 - Never use Better Auth auto-migration against production.
-- Staging mutations require the existing exact database target guard and an operation-specific confirmation.
+- Staging mutations require reviewed repository migration history, the exact staging target guard, a mutation-specific confirmation, and a read-only verification of the actual staging schema/migration state before any write-capable client is created or invoked.
 - A staging migration additionally requires an exact SHA-256 fingerprint of the reviewed repository migration history.
 
 ## Required sequence
@@ -47,9 +47,29 @@ After those repository-level checks pass, the existing staging database target g
 - a real `_prisma_migrations` table in the staging database;
 - at least one successfully applied Prisma migration;
 - zero unfinished, non-rolled-back migrations;
-- the full staging database target guard, including host, database name and user, before connection.
+- the full staging database target guard, including host, database name and user, before connection;
+- post-connect verification of both `current_database()` and `current_user`.
 
 This prevents an unmanaged or partially migrated schema from being treated as release-ready.
+
+## Guarded staging mutations
+
+The following mutation entrypoints share the same reviewed staging mutation preflight:
+
+- `npm run db:seed:reference:staging`;
+- `npm run db:seed:demo:staging`;
+- `npm run auth:link:staging`.
+
+Before mutation they require, in order:
+
+1. a committed migration history whose exact SHA-256 matches `IB_STAGING_MIGRATION_HISTORY_SHA256`;
+2. exact staging host/database/user validation;
+3. the operation-specific confirmation;
+4. a read-only staging schema verification proving the required tables/enums, `_prisma_migrations`, at least one applied migration, zero unfinished migrations, and matching connected database/user identity.
+
+Reference seed confirmation remains `REFERENCE-SEED:<database-name>`. Demo seed confirmation remains `DEMO-SEED:<database-name>`. AuthIdentity provisioning is more narrowly bound and requires `LINK:<database-name>:<internal-user-id>`.
+
+Because the repository currently has no reviewed `prisma/migrations/` history, all three mutation entrypoints are intentionally blocked before staging database access.
 
 ## Current blocker
 
