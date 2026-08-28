@@ -27,6 +27,8 @@ export type QuestionnaireDefinition = {
   sectionIds: ReadonlySet<string>;
   fieldsById: ReadonlyMap<string, QuestionnaireField>;
   sectionsById: ReadonlyMap<string, QuestionnaireSection>;
+  fieldSectionIds: ReadonlyMap<string, string>;
+  reviewSectionIds: readonly string[];
   sections: readonly QuestionnaireSection[];
 };
 
@@ -142,10 +144,14 @@ export class QuestionnaireService {
     assertMutable(current);
 
     const field = this.definition.fieldsById.get(input.fieldId);
-    if (!field) throw new Error(QUESTIONNAIRE_INVALID_FIELD);
+    const sectionId = this.definition.fieldSectionIds.get(input.fieldId);
+    if (!field || !sectionId) throw new Error(QUESTIONNAIRE_INVALID_FIELD);
     assertFieldAnswer(field, input.value);
 
-    return this.repository.saveAnswer(input);
+    return this.repository.saveAnswer({
+      ...input,
+      invalidatedSectionIds: [sectionId, ...this.definition.reviewSectionIds],
+    });
   }
 
   async completeSection(
