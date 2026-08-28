@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Activity, ArrowLeft, ArrowUpRight, FileLock2, FileText, GraduationCap, ListChecks, ShieldCheck } from "lucide-react";
+import { Activity, ArrowLeft, ArrowUpRight, FileLock2, FileText, GraduationCap, ListChecks, ShieldCheck, Sparkles } from "lucide-react";
 import { IBuroBrand } from "@/components/platform/IBuroBrand";
 import { SignOutButton } from "@/components/platform/auth/SignOutButton";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
@@ -43,6 +43,13 @@ const MODULES = [
   },
 ] as const;
 
+const CLIENT_AI_MODULE = {
+  code: "ai",
+  title: "AI-помощник",
+  description: "Информационная поддержка по текущему этапу с серверной проверкой тарифа и доступа.",
+  icon: Sparkles,
+} as const;
+
 export default async function PortalCasePage({ params }: { params: Promise<{ caseId: string }> }) {
   const { caseId } = await params;
   const sessionProvider = createProductionSessionProvider();
@@ -57,6 +64,10 @@ export default async function PortalCasePage({ params }: { params: Promise<{ cas
 
   const clientCase = await clientCaseService.getCase(actor, { caseId });
   if (!clientCase) notFound();
+
+  const modules = actor.roles.includes("CLIENT")
+    ? [...MODULES, CLIENT_AI_MODULE]
+    : MODULES;
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-7xl px-5 py-6 sm:px-8 sm:py-8">
@@ -99,8 +110,8 @@ export default async function PortalCasePage({ params }: { params: Promise<{ cas
 
         <section className="mt-8" aria-labelledby="modules-heading">
           <h2 id="modules-heading" className="text-lg font-bold text-slate-900">Модули дела</h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            {MODULES.map((module) => {
+          <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+            {modules.map((module) => {
               const Icon = module.icon;
               return (
                 <Link key={module.code} href={`/portal/cases/${clientCase.id}/${module.code}`} className="rounded-[28px] border border-slate-200 bg-white/80 p-6 transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg">

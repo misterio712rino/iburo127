@@ -36,7 +36,16 @@ type LoadState =
   | { status: "no-case" }
   | { status: "unavailable" };
 
-async function resolveClientAiCase(): Promise<AiCaseState | null> {
+type AiAssistantProps = {
+  caseId?: string;
+  withShell?: boolean;
+};
+
+async function resolveClientAiCase(requestedCaseId?: string): Promise<AiCaseState | null> {
+  if (requestedCaseId) {
+    return getAiCaseState(requestedCaseId);
+  }
+
   const cases = await listPlatformCases();
   if (cases.length === 0) return null;
 
@@ -83,12 +92,13 @@ function AccessState({ state }: { state: Exclude<LoadState["status"], "loading" 
   );
 }
 
-export function AiAssistant() {
+export function AiAssistant({ caseId, withShell = true }: AiAssistantProps = {}) {
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
 
   useEffect(() => {
     let active = true;
-    void resolveClientAiCase()
+    setLoadState({ status: "loading" });
+    void resolveClientAiCase(caseId)
       .then((caseState) => {
         if (!active) return;
         setLoadState(caseState ? { status: "ready", caseState } : { status: "no-case" });
@@ -99,6 +109,8 @@ export function AiAssistant() {
           setLoadState({ status: "unauthenticated" });
         } else if (error instanceof AiApiError && error.status === 403) {
           setLoadState({ status: "forbidden" });
+        } else if (error instanceof AiApiError && error.status === 404) {
+          setLoadState({ status: "no-case" });
         } else {
           setLoadState({ status: "unavailable" });
         }
@@ -106,24 +118,24 @@ export function AiAssistant() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [caseId]);
 
-  return (
-    <PlatformShell>
-      <div className="flex min-w-0 flex-col gap-6 pt-6 sm:gap-8 sm:pt-0">
-        {loadState.status === "loading" ? <LoadingCard /> : null}
-        {loadState.status !== "loading" && loadState.status !== "ready" ? (
-          <AccessState state={loadState.status} />
-        ) : null}
-        {loadState.status === "ready" && !loadState.caseState.enabled ? (
-          <AiLockedState planCode={loadState.caseState.planCode} />
-        ) : null}
-        {loadState.status === "ready" && loadState.caseState.enabled ? (
-          <AiChat caseState={loadState.caseState} onCaseStateChange={(caseState) => setLoadState({ status: "ready", caseState })} />
-        ) : null}
-      </div>
-    </PlatformShell>
+  const content = (
+    <div className="flex min-w-0 flex-col gap-6 pt-6 sm:gap-8 sm:pt-0">
+      {loadState.status === "loading" ? <LoadingCard /> : null}
+      {loadState.status !== "loading" && loadState.status !== "ready" ? (
+        <AccessState state={loadState.status} />
+      ) : null}
+      {loadState.status === "ready" && !loadState.caseState.enabled ? (
+        <AiLockedState planCode={loadState.caseState.planCode} />
+      ) : null}
+      {loadState.status === "ready" && loadState.caseState.enabled ? (
+        <AiChat caseState={loadState.caseState} onCaseStateChange={(caseState) => setLoadState({ status: "ready", caseState })} />
+      ) : null}
+    </div>
   );
+
+  return withShell ? <PlatformShell>{content}</PlatformShell> : content;
 }
 
 function AiChat({
@@ -163,6 +175,8 @@ function AiChat({
       }
       if (error instanceof AiApiError && error.status === 401) {
         setRequestError("Сессия завершена. Войдите в личный кабинет повторно.");
+      } else if (error instanceof AiApiError && error.status === 429) {
+        setRequestError("Лимит запросов временно исчерпан. Попробуйте позже.");
       } else if (error instanceof AiApiError && error.status === 503) {
         setRequestError("AI-помощник временно недоступен. Ваше сообщение не было сохранено сервером.");
       } else {
