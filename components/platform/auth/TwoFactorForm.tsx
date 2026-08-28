@@ -26,7 +26,7 @@ export function TwoFactorForm() {
 
     try {
       const result = mode === "totp"
-        ? await authClient.twoFactor.verifyTOTP({ code: normalized, trustDevice: false })
+        ? await authClient.twoFactor.verifyTotp({ code: normalized, trustDevice: false })
         : await authClient.twoFactor.verifyBackupCode({
             code: normalized,
             disableSession: false,
