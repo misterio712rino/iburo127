@@ -26,6 +26,10 @@ import {
 } from "@/server/domain/ai/policy";
 import { AiAssistantService } from "@/server/domain/ai/service";
 
+function auditId(sequence: number) {
+  return `00000000-0000-4000-8000-${String(sequence).padStart(12, "0")}`;
+}
+
 const clientActor: AuthenticatedActor = {
   userId: "22222222-2222-4222-8222-222222222222",
   roles: ["CLIENT"],
@@ -79,13 +83,15 @@ function createContextRepository(
 
 let reserveCalls = 0;
 const outcomes: AiAuditOutcome[] = [];
+const outcomeAuditIds: string[] = [];
 const usageLedger: AiUsageLedger = {
   async reserveRequest() {
     reserveCalls += 1;
-    return true;
+    return { auditId: auditId(reserveCalls) };
   },
   async recordOutcome(input) {
     outcomes.push(input.outcome);
+    outcomeAuditIds.push(input.auditId);
   },
 };
 
@@ -131,6 +137,7 @@ const response = await service.reply(clientActor, clientCase.id, {
 assert.equal(modelCalls, 1);
 assert.equal(reserveCalls, 1);
 assert.deepEqual(outcomes, ["completed"]);
+assert.deepEqual(outcomeAuditIds, [auditId(1)]);
 assert.match(response.content, /этап заполнения анкеты/i);
 assert.equal(capturedMessages.length, 2);
 assert.equal(capturedMessages[0]?.role, "user");
@@ -158,6 +165,7 @@ assert.equal(sensitive.restrictedAction, true);
 assert.equal(modelCalls, callsBeforeSensitive);
 assert.equal(reserveCalls, 2);
 assert.deepEqual(outcomes, ["completed", "restricted"]);
+assert.deepEqual(outcomeAuditIds, [auditId(1), auditId(2)]);
 
 const callsBeforeInjection = modelCalls;
 const injection = await service.reply(clientActor, clientCase.id, {
@@ -168,6 +176,7 @@ assert.equal(injection.restrictedAction, true);
 assert.equal(modelCalls, callsBeforeInjection);
 assert.equal(reserveCalls, 3);
 assert.deepEqual(outcomes, ["completed", "restricted", "restricted"]);
+assert.deepEqual(outcomeAuditIds, [auditId(1), auditId(2), auditId(3)]);
 
 const callsBeforeRestricted = modelCalls;
 const restricted = await service.reply(clientActor, clientCase.id, {
@@ -178,6 +187,7 @@ assert.equal(restricted.restrictedAction, true);
 assert.equal(modelCalls, callsBeforeRestricted);
 assert.equal(reserveCalls, 4);
 assert.deepEqual(outcomes, ["completed", "restricted", "restricted", "restricted"]);
+assert.deepEqual(outcomeAuditIds, [auditId(1), auditId(2), auditId(3), auditId(4)]);
 
 const noFeatureService = new AiAssistantService(
   new ClientCaseService(createCaseRepository()),
@@ -199,7 +209,7 @@ const rateLimitedService = new AiAssistantService(
   gateway,
   {
     async reserveRequest() {
-      return false;
+      return null;
     },
     async recordOutcome() {
       throw new Error("outcome must not be recorded for rejected reservation");
@@ -213,6 +223,7 @@ await assert.rejects(
 assert.equal(modelCalls, callsBeforeRestricted);
 
 const failedOutcomes: AiAuditOutcome[] = [];
+const failedOutcomeAuditIds: string[] = [];
 const providerFailureService = new AiAssistantService(
   new ClientCaseService(createCaseRepository()),
   createContextRepository(),
@@ -223,10 +234,11 @@ const providerFailureService = new AiAssistantService(
   },
   {
     async reserveRequest() {
-      return true;
+      return { auditId: auditId(101) };
     },
     async recordOutcome(input) {
       failedOutcomes.push(input.outcome);
+      failedOutcomeAuditIds.push(input.auditId);
     },
   },
 );
@@ -235,10 +247,11 @@ await assert.rejects(
   /provider failure/,
 );
 assert.deepEqual(failedOutcomes, ["failed"]);
+assert.deepEqual(failedOutcomeAuditIds, [auditId(101)]);
 
 const auditFailureLedger: AiUsageLedger = {
   async reserveRequest() {
-    return true;
+    return { auditId: auditId(201) };
   },
   async recordOutcome() {
     throw new Error("secondary audit unavailable");
@@ -307,6 +320,7 @@ await assert.rejects(
 );
 
 const modelBoundaryOutcomes: AiAuditOutcome[] = [];
+const modelBoundaryAuditIds: string[] = [];
 const modelBoundaryService = new AiAssistantService(
   new ClientCaseService(createCaseRepository()),
   createContextRepository(),
@@ -317,10 +331,11 @@ const modelBoundaryService = new AiAssistantService(
   },
   {
     async reserveRequest() {
-      return true;
+      return { auditId: auditId(301) };
     },
     async recordOutcome(input) {
       modelBoundaryOutcomes.push(input.outcome);
+      modelBoundaryAuditIds.push(input.auditId);
     },
   },
 );
@@ -330,6 +345,7 @@ const modelBoundaryReply = await modelBoundaryService.reply(clientActor, clientC
 assert.equal(modelBoundaryReply.content, RESTRICTED_LEGAL_ACTION_REPLY);
 assert.equal(modelBoundaryReply.restrictedAction, true);
 assert.deepEqual(modelBoundaryOutcomes, ["restricted"]);
+assert.deepEqual(modelBoundaryAuditIds, [auditId(301)]);
 
 await assert.rejects(
   () =>
