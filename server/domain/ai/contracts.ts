@@ -61,6 +61,7 @@ export interface AiCaseContextRepository {
 export type AiModelInput = {
   instructions: string;
   messages: readonly AiConversationTurn[];
+  safetyIdentifier: string;
 };
 
 export interface AiModelGateway {
