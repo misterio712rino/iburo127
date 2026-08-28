@@ -1,55 +1,35 @@
 import "dotenv/config";
 
 import { Pool } from "pg";
+import {
+  assertStagingSchemaContract,
+  REQUIRED_STAGING_DOMAIN_TABLES,
+  REQUIRED_STAGING_ENUMS,
+} from "./staging-schema-contract";
+import { requireStagingDatabaseTarget } from "./staging-target-guard";
 
 function fail(message: string): never {
   console.error(`STAGING_SCHEMA_VERIFY_FAIL: ${message}`);
   process.exit(1);
 }
 
-const databaseUrl = process.env.DATABASE_URL?.trim();
-const expectedDatabaseName = process.env.IB_STAGING_DATABASE_NAME?.trim();
-const target = process.env.IB_DB_TARGET?.trim();
+function parseCount(value: string | undefined, label: string): number {
+  const parsed = Number(value ?? "NaN");
+  if (!Number.isSafeInteger(parsed) || parsed < 0) {
+    fail(`could not evaluate ${label}`);
+  }
+  return parsed;
+}
 
-if (!databaseUrl) fail("missing DATABASE_URL");
-if (!expectedDatabaseName) fail("missing IB_STAGING_DATABASE_NAME");
-if (target !== "staging") fail('IB_DB_TARGET must be exactly "staging"');
-
-const REQUIRED_TABLES = [
-  "User",
-  "Role",
-  "UserRole",
-  "AuthIdentity",
-  "Plan",
-  "Feature",
-  "PlanFeature",
-  "CaseStage",
-  "ClientCase",
-  "CaseQuestionnaire",
-  "CasePracticumProgress",
-  "CaseTask",
-  "TaskStatusEvent",
-  "CaseDocument",
-  "CaseActivityEvent",
-  "Notification",
-  "NotificationDelivery",
-  "StoredFile",
-] as const;
-
-const REQUIRED_ENUMS = [
-  "UserStatus",
-  "ClientCaseStatus",
-  "QuestionnaireStatus",
-  "PracticumProgressStatus",
-  "TaskStatus",
-  "CaseDocumentStatus",
-  "StoredFileStatus",
-  "NotificationDeliveryChannel",
-  "NotificationDeliveryStatus",
-] as const;
+let target: ReturnType<typeof requireStagingDatabaseTarget>;
+try {
+  target = requireStagingDatabaseTarget();
+} catch (error) {
+  fail(error instanceof Error ? error.message : "invalid staging database target");
+}
 
 const pool = new Pool({
-  connectionString: databaseUrl,
+  connectionString: target.databaseUrl,
   connectionTimeoutMillis: 10_000,
   statement_timeout: 10_000,
   max: 1,
@@ -64,9 +44,9 @@ try {
   );
   const databaseName = identity.rows[0]?.database_name;
   if (!databaseName) fail("database identity query returned no rows");
-  if (databaseName !== expectedDatabaseName) {
+  if (databaseName !== target.expectedDatabaseName) {
     fail(
-      `connected database ${databaseName} does not match IB_STAGING_DATABASE_NAME ${expectedDatabaseName}`,
+      `connected database ${databaseName} does not match IB_STAGING_DATABASE_NAME ${target.expectedDatabaseName}`,
     );
   }
 
@@ -79,10 +59,6 @@ try {
     `,
   );
   const existingTables = new Set(tableResult.rows.map((row) => row.table_name));
-  const missingTables = REQUIRED_TABLES.filter((tableName) => !existingTables.has(tableName));
-  if (missingTables.length > 0) {
-    fail(`missing required domain tables: ${missingTables.join(", ")}`);
-  }
 
   const enumResult = await client.query<{ type_name: string }>(
     `
@@ -94,32 +70,59 @@ try {
     `,
   );
   const existingEnums = new Set(enumResult.rows.map((row) => row.type_name));
-  const missingEnums = REQUIRED_ENUMS.filter((enumName) => !existingEnums.has(enumName));
-  if (missingEnums.length > 0) {
-    fail(`missing required domain enums: ${missingEnums.join(", ")}`);
-  }
 
-  if (existingTables.has("_prisma_migrations")) {
-    const migrationResult = await client.query<{ unfinished_count: string }>(
+  const prismaMigrationsTablePresent = existingTables.has("_prisma_migrations");
+  let appliedMigrationCount = 0;
+  let unfinishedMigrationCount = 0;
+
+  if (prismaMigrationsTablePresent) {
+    const migrationResult = await client.query<{
+      applied_count: string;
+      unfinished_count: string;
+    }>(
       `
-        select count(*)::text as unfinished_count
+        select
+          count(*) filter (
+            where finished_at is not null
+              and rolled_back_at is null
+          )::text as applied_count,
+          count(*) filter (
+            where finished_at is null
+              and rolled_back_at is null
+          )::text as unfinished_count
         from "_prisma_migrations"
-        where finished_at is null
-          and rolled_back_at is null
       `,
     );
-    const unfinishedCount = Number(migrationResult.rows[0]?.unfinished_count ?? "0");
-    if (!Number.isFinite(unfinishedCount)) fail("could not evaluate Prisma migration state");
-    if (unfinishedCount > 0) {
-      fail(`Prisma migration history contains ${unfinishedCount} unfinished migration(s)`);
-    }
-  } else {
-    console.warn("STAGING_SCHEMA_VERIFY_WARN: _prisma_migrations table not found; migration history baseline still requires review");
+    appliedMigrationCount = parseCount(
+      migrationResult.rows[0]?.applied_count,
+      "Prisma applied migration count",
+    );
+    unfinishedMigrationCount = parseCount(
+      migrationResult.rows[0]?.unfinished_count,
+      "Prisma unfinished migration count",
+    );
+  }
+
+  try {
+    assertStagingSchemaContract({
+      tables: existingTables,
+      enums: existingEnums,
+      prismaMigrationHistory: {
+        tablePresent: prismaMigrationsTablePresent,
+        appliedCount: appliedMigrationCount,
+        unfinishedCount: unfinishedMigrationCount,
+      },
+    });
+  } catch (error) {
+    fail(error instanceof Error ? error.message : "staging schema contract failed");
   }
 
   console.log(`Staging database identity verified: ${databaseName}`);
-  console.log(`Required domain tables verified: ${REQUIRED_TABLES.length}`);
-  console.log(`Required PostgreSQL enums verified: ${REQUIRED_ENUMS.length}`);
+  console.log(
+    `Required domain tables verified: ${REQUIRED_STAGING_DOMAIN_TABLES.length}`,
+  );
+  console.log(`Required PostgreSQL enums verified: ${REQUIRED_STAGING_ENUMS.length}`);
+  console.log(`Applied Prisma migrations verified: ${appliedMigrationCount}`);
   console.log("STAGING_SCHEMA_VERIFY_PASS");
 
   await client.query("ROLLBACK");
