@@ -33,8 +33,8 @@ Repository/server foundation is complete; activation still requires:
 - [x] Real Better Auth-backed `SessionProvider` wired into Next.js questionnaire API route handlers.
 - [ ] `CaseQuestionnaire` migration SQL generated and reviewed against the authoritative DB baseline.
 - [ ] Migration applied to a non-production environment first.
-- [ ] Client UI route uses authenticated `ClientCase.id`, not demo identity IDs.
-- [ ] Optimistic concurrency conflict (`409`) handled in UI.
+- [x] Production portal route resolves authenticated `ClientCase.id`, not demo identity IDs.
+- [ ] Optimistic concurrency conflict (`409`) handled in editable questionnaire UI.
 - [ ] Empty/loading/retry states verified with real server data.
 - [ ] DB-backed cross-role E2E verifies CLIENT owner write, LAWYER assigned read, MANAGER read and unauthorized denial.
 - [ ] Questionnaire schema-version upgrade strategy exercised before changing questionnaire fields in production.
@@ -56,8 +56,8 @@ Repository/server foundation is complete; activation still requires:
 - [x] Server task repository/service/transport foundation implemented.
 - [x] Foundation tests cover lawyer/manager/client authorization behavior.
 - [x] Authenticated task list/get/status API routes implemented.
+- [x] Authenticated staff portal reads authoritative server tasks and updates lifecycle with required concurrency tokens.
 - [ ] Migration SQL reviewed and applied to staging.
-- [ ] Browser task state replaced as authoritative state in real-data routes.
 - [ ] DB-backed cross-role assignment tests completed.
 
 ## Documents gates
@@ -90,6 +90,7 @@ Repository/server foundation is complete; activation still requires:
 - [x] Authenticated case activity API route implemented.
 - [x] Controlled event taxonomy implemented.
 - [x] Activity metadata allowlist rejects unapproved fields and long values to reduce sensitive-data leakage risk.
+- [x] Authenticated case activity is exposed in the production portal without raw sensitive payloads.
 - [ ] Approve the final audit retention period before production data is enabled.
 - [ ] Wire critical questionnaire/task/document/file/auth events into the audit trail.
 - [ ] Verify production logs and stored audit metadata contain no sensitive payloads during DB-backed E2E.
@@ -99,6 +100,7 @@ Repository/server foundation is complete; activation still requires:
 - [x] Notification persistence/service/transport foundation implemented.
 - [x] Controlled in-app notification taxonomy implemented.
 - [x] Authenticated notification list/mark-read API routes implemented.
+- [x] Production portal lists only the current user's notifications and supports mark-read through authenticated transport.
 - [ ] Define external notification delivery channels and provider(s).
 - [ ] Add idempotency/delivery-attempt semantics before external dispatch.
 - [ ] Verify recipient scoping and no cross-user notification exposure with DB-backed tests.
@@ -120,7 +122,7 @@ Architecture decision: see `docs/AUTH_PROVIDER_DECISION.md`.
 - [x] TOTP/2FA plugin configured at the server layer.
 - [x] Standalone `/auth/sign-in` UI implemented outside `DemoIdentityProvider`; self-sign-up remains disabled.
 - [x] TOTP verification and one-time backup-code verification UI implemented with `trustDevice: false`.
-- [ ] Add sign-out control in the authenticated production shell.
+- [x] Sign-out control implemented in the authenticated production portal shell.
 - [ ] Add password reset/email verification delivery and UI after an outbound email provider is selected.
 - [ ] Add TOTP enrollment/backup-code issuance UX and enforce MFA for staff accounts.
 - [ ] Implement controlled `AuthIdentity` linking/provisioning against staging data.
