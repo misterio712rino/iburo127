@@ -32,109 +32,112 @@ export async function verifyStagingDatabaseSchema(
     max: 1,
   });
 
-  const client = await pool.connect();
   try {
-    await client.query("BEGIN READ ONLY");
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN READ ONLY");
 
-    const identity = await client.query<{
-      database_name: string;
-      database_user: string;
-    }>("select current_database() as database_name, current_user as database_user");
-    const databaseIdentity = identity.rows[0];
-    if (!databaseIdentity) {
-      throw new Error("database identity query returned no rows");
-    }
-    if (databaseIdentity.database_name !== target.expectedDatabaseName) {
-      throw new Error(
-        `connected database ${databaseIdentity.database_name} does not match IB_STAGING_DATABASE_NAME ${target.expectedDatabaseName}`,
-      );
-    }
-    if (databaseIdentity.database_user !== target.expectedUser) {
-      throw new Error(
-        `connected database user ${databaseIdentity.database_user} does not match IB_STAGING_DATABASE_USER ${target.expectedUser}`,
-      );
-    }
+      const identity = await client.query<{
+        database_name: string;
+        database_user: string;
+      }>("select current_database() as database_name, current_user as database_user");
+      const databaseIdentity = identity.rows[0];
+      if (!databaseIdentity) {
+        throw new Error("database identity query returned no rows");
+      }
+      if (databaseIdentity.database_name !== target.expectedDatabaseName) {
+        throw new Error(
+          `connected database ${databaseIdentity.database_name} does not match IB_STAGING_DATABASE_NAME ${target.expectedDatabaseName}`,
+        );
+      }
+      if (databaseIdentity.database_user !== target.expectedUser) {
+        throw new Error(
+          `connected database user ${databaseIdentity.database_user} does not match IB_STAGING_DATABASE_USER ${target.expectedUser}`,
+        );
+      }
 
-    const tableResult = await client.query<{ table_name: string }>(
-      `
-        select table_name
-        from information_schema.tables
-        where table_schema = 'public'
-          and table_type = 'BASE TABLE'
-      `,
-    );
-    const existingTables = new Set(tableResult.rows.map((row) => row.table_name));
-
-    const enumResult = await client.query<{ type_name: string }>(
-      `
-        select t.typname as type_name
-        from pg_type t
-        join pg_namespace n on n.oid = t.typnamespace
-        where n.nspname = 'public'
-          and t.typtype = 'e'
-      `,
-    );
-    const existingEnums = new Set(enumResult.rows.map((row) => row.type_name));
-
-    const prismaMigrationsTablePresent = existingTables.has("_prisma_migrations");
-    let appliedMigrationCount = 0;
-    let unfinishedMigrationCount = 0;
-
-    if (prismaMigrationsTablePresent) {
-      const migrationResult = await client.query<{
-        applied_count: string;
-        unfinished_count: string;
-      }>(
+      const tableResult = await client.query<{ table_name: string }>(
         `
-          select
-            count(*) filter (
-              where finished_at is not null
-                and rolled_back_at is null
-            )::text as applied_count,
-            count(*) filter (
-              where finished_at is null
-                and rolled_back_at is null
-            )::text as unfinished_count
-          from "_prisma_migrations"
+          select table_name
+          from information_schema.tables
+          where table_schema = 'public'
+            and table_type = 'BASE TABLE'
         `,
       );
-      appliedMigrationCount = parseCount(
-        migrationResult.rows[0]?.applied_count,
-        "Prisma applied migration count",
-      );
-      unfinishedMigrationCount = parseCount(
-        migrationResult.rows[0]?.unfinished_count,
-        "Prisma unfinished migration count",
-      );
-    }
+      const existingTables = new Set(tableResult.rows.map((row) => row.table_name));
 
-    assertStagingSchemaContract({
-      tables: existingTables,
-      enums: existingEnums,
-      prismaMigrationHistory: {
-        tablePresent: prismaMigrationsTablePresent,
-        appliedCount: appliedMigrationCount,
-        unfinishedCount: unfinishedMigrationCount,
-      },
-    });
+      const enumResult = await client.query<{ type_name: string }>(
+        `
+          select t.typname as type_name
+          from pg_type t
+          join pg_namespace n on n.oid = t.typnamespace
+          where n.nspname = 'public'
+            and t.typtype = 'e'
+        `,
+      );
+      const existingEnums = new Set(enumResult.rows.map((row) => row.type_name));
 
-    await client.query("ROLLBACK");
-    return {
-      databaseName: databaseIdentity.database_name,
-      databaseUser: databaseIdentity.database_user,
-      requiredTableCount: REQUIRED_STAGING_DOMAIN_TABLES.length,
-      requiredEnumCount: REQUIRED_STAGING_ENUMS.length,
-      appliedMigrationCount,
-    };
-  } catch (error) {
-    try {
+      const prismaMigrationsTablePresent = existingTables.has("_prisma_migrations");
+      let appliedMigrationCount = 0;
+      let unfinishedMigrationCount = 0;
+
+      if (prismaMigrationsTablePresent) {
+        const migrationResult = await client.query<{
+          applied_count: string;
+          unfinished_count: string;
+        }>(
+          `
+            select
+              count(*) filter (
+                where finished_at is not null
+                  and rolled_back_at is null
+              )::text as applied_count,
+              count(*) filter (
+                where finished_at is null
+                  and rolled_back_at is null
+              )::text as unfinished_count
+            from "_prisma_migrations"
+          `,
+        );
+        appliedMigrationCount = parseCount(
+          migrationResult.rows[0]?.applied_count,
+          "Prisma applied migration count",
+        );
+        unfinishedMigrationCount = parseCount(
+          migrationResult.rows[0]?.unfinished_count,
+          "Prisma unfinished migration count",
+        );
+      }
+
+      assertStagingSchemaContract({
+        tables: existingTables,
+        enums: existingEnums,
+        prismaMigrationHistory: {
+          tablePresent: prismaMigrationsTablePresent,
+          appliedCount: appliedMigrationCount,
+          unfinishedCount: unfinishedMigrationCount,
+        },
+      });
+
       await client.query("ROLLBACK");
-    } catch {
-      // Preserve the original failure.
+      return {
+        databaseName: databaseIdentity.database_name,
+        databaseUser: databaseIdentity.database_user,
+        requiredTableCount: REQUIRED_STAGING_DOMAIN_TABLES.length,
+        requiredEnumCount: REQUIRED_STAGING_ENUMS.length,
+        appliedMigrationCount,
+      };
+    } catch (error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        // Preserve the original failure.
+      }
+      throw error;
+    } finally {
+      client.release();
     }
-    throw error;
   } finally {
-    client.release();
     await pool.end();
   }
 }
