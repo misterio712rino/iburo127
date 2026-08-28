@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { canAccessClientCase } from "@/server/domain/client-cases/access-policy";
 import { createQuestionnaireDefinition } from "@/server/domain/questionnaire/definition";
 import { TaskService } from "@/server/domain/tasks/service";
+import {
+  requireCaseActivityType,
+  sanitizeActivityMetadata,
+} from "@/server/domain/activity/taxonomy";
+import { requireNotificationType } from "@/server/domain/notifications/taxonomy";
 import type { AuthenticatedActor, ClientCaseRecord } from "@/server/domain/client-cases/contracts";
 import type { TaskRecord, TaskRepository, TaskStatus } from "@/server/domain/tasks/contracts";
 import type { QuestionnaireSection } from "@/lib/platform/types";
@@ -74,6 +79,19 @@ assert.throws(
   () => createQuestionnaireDefinition(duplicateFieldSections, 1),
   /QUESTIONNAIRE_DUPLICATE_FIELD:name/,
 );
+
+assert.equal(requireCaseActivityType("task.status.changed"), "task.status.changed");
+assert.throws(() => requireCaseActivityType("custom.raw.event"), /ACTIVITY_INVALID_TYPE/);
+assert.deepEqual(
+  sanitizeActivityMetadata({ taskId: "task-1", fromStatus: "NEW", toStatus: "WORKING" }),
+  { taskId: "task-1", fromStatus: "NEW", toStatus: "WORKING" },
+);
+assert.throws(
+  () => sanitizeActivityMetadata({ password: "must-not-be-logged" }),
+  /ACTIVITY_INVALID_METADATA/,
+);
+assert.equal(requireNotificationType("document.reviewed"), "document.reviewed");
+assert.throws(() => requireNotificationType("free-form"), /NOTIFICATION_INVALID_TYPE/);
 
 const now = new Date("2026-08-28T00:00:00.000Z");
 const task: TaskRecord = {
