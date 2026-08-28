@@ -1,6 +1,6 @@
 import "server-only";
 
-import { QUESTIONNAIRE_SECTIONS } from "@/lib/platform/demo/questionnaire";
+import { QUESTIONNAIRE_SECTIONS } from "@/lib/platform/questionnaire-content";
 import { ClientCaseService } from "@/server/domain/client-cases/service";
 import { createQuestionnaireDefinition } from "@/server/domain/questionnaire/definition";
 import { QuestionnaireService } from "@/server/domain/questionnaire/service";
