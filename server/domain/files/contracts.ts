@@ -18,6 +18,7 @@ export type StoredFileRecord = {
 export interface StoredFileRepository {
   listByCase(clientCaseId: string): Promise<readonly StoredFileRecord[]>;
   getById(fileId: string): Promise<StoredFileRecord | null>;
+  listPendingBefore(before: Date, limit: number): Promise<readonly StoredFileRecord[]>;
   create(input: {
     id: string;
     clientCaseId: string;
@@ -31,4 +32,5 @@ export interface StoredFileRepository {
     checksumSha256?: string | null;
   }): Promise<StoredFileRecord>;
   markReady(fileId: string, readyAt: Date): Promise<StoredFileRecord>;
+  deletePending(fileId: string): Promise<boolean>;
 }
