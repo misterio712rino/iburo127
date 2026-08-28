@@ -33,16 +33,16 @@ export interface CaseDocumentRepository {
     clientCaseId: string;
     documentCode: string;
     status: CaseDocumentStatus;
-    expectedVersion?: number;
+    expectedVersion: number;
   }): Promise<CaseDocumentRecord>;
   sendForReview(input: {
     clientCaseId: string;
     documentCode: string;
-    expectedVersion?: number;
+    expectedVersion: number;
   }): Promise<CaseDocumentRecord>;
   markReviewed(input: {
     clientCaseId: string;
     documentCode: string;
-    expectedVersion?: number;
+    expectedVersion: number;
   }): Promise<CaseDocumentRecord>;
 }
