@@ -35,8 +35,17 @@ jobs:
           node scripts/report-npm-audit.mjs "$RUNNER_TEMP/npm-audit.json"
           node scripts/check-npm-audit-policy.mjs "$RUNNER_TEMP/npm-audit.json" package-lock.json
 
-      - name: Production dependency audit
-        run: npm audit --omit=dev --audit-level=moderate
+      - name: Production dependency graph policy
+        shell: bash
+        run: |
+          production_root="$RUNNER_TEMP/iburo-production-install"
+          mkdir -p "$production_root"
+          cp package.json package-lock.json "$production_root/"
+          (
+            cd "$production_root"
+            npm ci --omit=dev --ignore-scripts --audit=false --fund=false
+          )
+          node scripts/check-production-install.mjs "$production_root"
 
       - name: Runtime PII logging gate
         run: npm run check:runtime-logging
