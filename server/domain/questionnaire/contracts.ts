@@ -23,6 +23,7 @@ export type SaveQuestionnaireAnswerInput = {
   fieldId: string;
   value: QuestionnaireAnswer;
   expectedVersion: number;
+  invalidatedSectionIds?: readonly string[];
 };
 
 export type CompleteQuestionnaireSectionInput = {
