@@ -117,8 +117,11 @@ Architecture decision: see `docs/AUTH_PROVIDER_DECISION.md`.
 - [x] `/api/auth/[...all]` route handler added.
 - [x] Actual Better Auth server instance wired into the session bridge.
 - [x] TOTP/2FA plugin configured at the server layer.
-- [ ] Add sign-in/sign-out/recovery/verification UI.
-- [ ] Complete backup-code/recovery UX and enforce MFA for staff accounts.
+- [x] Standalone `/auth/sign-in` UI implemented outside `DemoIdentityProvider`; self-sign-up remains disabled.
+- [x] TOTP verification and one-time backup-code verification UI implemented with `trustDevice: false`.
+- [ ] Add sign-out control in the authenticated production shell.
+- [ ] Add password reset/email verification delivery and UI after an outbound email provider is selected.
+- [ ] Add TOTP enrollment/backup-code issuance UX and enforce MFA for staff accounts.
 - [ ] Implement controlled `AuthIdentity` linking/provisioning against staging data.
 - [ ] Replace platform demo identity selection with authenticated shell in the production-enabled deployment only.
 
