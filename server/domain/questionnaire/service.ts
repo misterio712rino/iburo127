@@ -1,10 +1,10 @@
+import type { QuestionnaireAnswer } from "@/lib/platform/types";
 import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
 import { ClientCaseService } from "@/server/domain/client-cases/service";
 import type {
   QuestionnaireRecord,
   QuestionnaireRepository,
 } from "./contracts";
-import type { QuestionnaireAnswer } from "@/lib/platform/types";
 
 export const QUESTIONNAIRE_FORBIDDEN = "QUESTIONNAIRE_FORBIDDEN";
 export const QUESTIONNAIRE_INVALID_FIELD = "QUESTIONNAIRE_INVALID_FIELD";
@@ -59,7 +59,7 @@ export class QuestionnaireService {
 
   async saveAnswer(
     actor: AuthenticatedActor,
-    input: { clientCaseId: string; fieldId: string; value: QuestionnaireAnswer; expectedVersion?: number },
+    input: { clientCaseId: string; fieldId: string; value: QuestionnaireAnswer; expectedVersion: number },
   ): Promise<QuestionnaireRecord> {
     await this.requireClientEditor(actor, input.clientCaseId);
     assertPrimitiveAnswer(input.value);
@@ -73,7 +73,7 @@ export class QuestionnaireService {
 
   async completeSection(
     actor: AuthenticatedActor,
-    input: { clientCaseId: string; sectionId: string; expectedVersion?: number },
+    input: { clientCaseId: string; sectionId: string; expectedVersion: number },
   ): Promise<QuestionnaireRecord> {
     await this.requireClientEditor(actor, input.clientCaseId);
 
@@ -86,7 +86,7 @@ export class QuestionnaireService {
 
   async markCompleted(
     actor: AuthenticatedActor,
-    input: { clientCaseId: string; expectedVersion?: number },
+    input: { clientCaseId: string; expectedVersion: number },
   ): Promise<QuestionnaireRecord> {
     await this.requireClientEditor(actor, input.clientCaseId);
     return this.repository.markCompleted(input);
