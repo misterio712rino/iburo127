@@ -31,7 +31,7 @@ export class PrismaAiAuditHealthRepository implements AiAuditHealthRepository {
                 'ai.response.failed'
               )
               AND jsonb_typeof(outcome.metadata) = 'object'
-              AND outcome.metadata ->> 'auditId' = accepted.metadata ->> 'auditId'
+              AND (outcome.metadata ->> 'auditId') = (accepted.metadata ->> 'auditId')
           )
         ORDER BY accepted."createdAt" ASC
         LIMIT ${input.limit}
