@@ -13,6 +13,8 @@ export function createQuestionnaireDefinition(
   const fieldIds = new Set<string>();
   const sectionsById = new Map<string, QuestionnaireSection>();
   const fieldsById = new Map<string, QuestionnaireField>();
+  const fieldSectionIds = new Map<string, string>();
+  const reviewSectionIds: string[] = [];
 
   for (const section of sections) {
     if (sectionIds.has(section.id)) {
@@ -20,6 +22,7 @@ export function createQuestionnaireDefinition(
     }
     sectionIds.add(section.id);
     sectionsById.set(section.id, section);
+    if (section.review) reviewSectionIds.push(section.id);
 
     for (const field of section.fields) {
       if (fieldIds.has(field.id)) {
@@ -27,6 +30,7 @@ export function createQuestionnaireDefinition(
       }
       fieldIds.add(field.id);
       fieldsById.set(field.id, field);
+      fieldSectionIds.set(field.id, section.id);
     }
   }
 
@@ -36,6 +40,8 @@ export function createQuestionnaireDefinition(
     sectionIds,
     fieldsById,
     sectionsById,
+    fieldSectionIds,
+    reviewSectionIds,
     sections,
   };
 }
