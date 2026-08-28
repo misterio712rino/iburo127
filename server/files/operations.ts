@@ -37,7 +37,6 @@ export async function prepareStoredFileUpload(
     fileName: string;
     mimeType: string;
     sizeBytes: bigint;
-    checksumSha256?: string | null;
   },
 ) {
   const actor = await requireServerActor(sessionProvider);
@@ -57,7 +56,6 @@ export async function prepareStoredFileUpload(
     fileName: input.fileName,
     mimeType: input.mimeType,
     sizeBytes: input.sizeBytes,
-    checksumSha256: input.checksumSha256,
   });
 
   const signed = await storage.createUploadUrl({
