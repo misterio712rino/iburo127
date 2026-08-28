@@ -71,6 +71,8 @@ export type MaintenanceRuntimeConfig = {
   secret: string;
   staleUploadMaxAgeMinutes: number;
   staleUploadBatchLimit: number;
+  aiAuditGraceMinutes: number;
+  aiAuditBatchLimit: number;
 };
 
 export function readProductionDatabaseConfig(
@@ -192,5 +194,13 @@ export function readMaintenanceRuntimeConfig(
       10_080,
     ),
     staleUploadBatchLimit: readIntegerEnv(env, "IB_STALE_UPLOAD_BATCH_LIMIT", 100, 1, 500),
+    aiAuditGraceMinutes: readIntegerEnv(
+      env,
+      "IB_AI_AUDIT_GRACE_MINUTES",
+      10,
+      2,
+      1_440,
+    ),
+    aiAuditBatchLimit: readIntegerEnv(env, "IB_AI_AUDIT_BATCH_LIMIT", 50, 1, 200),
   };
 }
