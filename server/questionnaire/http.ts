@@ -1,6 +1,9 @@
 import "server-only";
 
-import type { QuestionnaireOperationResult } from "@/server/questionnaire/transport";
+import type {
+  QuestionnaireOperationResult,
+  QuestionnaireTransportErrorCode,
+} from "@/server/questionnaire/transport";
 import { privateJsonResponse } from "@/server/http/private-json";
 
 export type QuestionnaireHttpSuccessBody<T> = {
@@ -11,7 +14,7 @@ export type QuestionnaireHttpSuccessBody<T> = {
 export type QuestionnaireHttpErrorBody = {
   ok: false;
   error: {
-    code: "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "INVALID_INPUT" | "VERSION_CONFLICT" | "INTERNAL_ERROR";
+    code: QuestionnaireTransportErrorCode;
   };
 };
 
