@@ -6,6 +6,7 @@ import {
   type NotificationRecord,
   type NotificationRepository,
 } from "@/server/domain/notifications/contracts";
+import { buildCaseActivityWrite } from "@/server/repositories/prisma/case-activity-write";
 
 function toRecord(row: NotificationRecord): NotificationRecord {
   return row;
@@ -43,15 +44,32 @@ export class PrismaNotificationRepository implements NotificationRepository {
     body: string;
   }) {
     const prisma = getPrismaClient();
-    const row = await prisma.notification.create({
-      data: {
-        userId: input.userId,
-        clientCaseId: input.clientCaseId ?? null,
-        type: input.type,
-        title: input.title,
-        body: input.body,
-      },
+    return prisma.$transaction(async (tx) => {
+      const row = await tx.notification.create({
+        data: {
+          userId: input.userId,
+          clientCaseId: input.clientCaseId ?? null,
+          type: input.type,
+          title: input.title,
+          body: input.body,
+        },
+      });
+
+      if (row.clientCaseId) {
+        await tx.caseActivityEvent.create({
+          data: buildCaseActivityWrite({
+            clientCaseId: row.clientCaseId,
+            actorUserId: null,
+            type: "notification.created",
+            metadata: {
+              notificationId: row.id,
+              notificationType: row.type,
+            },
+          }),
+        });
+      }
+
+      return toRecord(row);
     });
-    return toRecord(row);
   }
 }

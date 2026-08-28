@@ -6,6 +6,7 @@ import type {
   StoredFileRepository,
   StoredFileStatus,
 } from "@/server/domain/files/contracts";
+import { buildCaseActivityWrite } from "@/server/repositories/prisma/case-activity-write";
 
 function toRecord(row: StoredFileRecord): StoredFileRecord {
   return row;
@@ -53,13 +54,30 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
     checksumSha256?: string | null;
   }) {
     const prisma = getPrismaClient();
-    const row = await prisma.storedFile.create({
-      data: {
-        ...input,
-        checksumSha256: input.checksumSha256 ?? null,
-      },
+    return prisma.$transaction(async (tx) => {
+      const row = await tx.storedFile.create({
+        data: {
+          ...input,
+          checksumSha256: input.checksumSha256 ?? null,
+        },
+      });
+
+      if (input.status === "PENDING_UPLOAD" && input.uploadedById) {
+        await tx.caseActivityEvent.create({
+          data: buildCaseActivityWrite({
+            clientCaseId: input.clientCaseId,
+            actorUserId: input.uploadedById,
+            type: "file.upload.registered",
+            metadata: {
+              fileId: input.id,
+              storageProvider: input.storageProvider,
+            },
+          }),
+        });
+      }
+
+      return toRecord(row);
     });
-    return toRecord(row);
   }
 
   async markReady(fileId: string, readyAt: Date) {

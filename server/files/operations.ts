@@ -1,6 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
+import { caseActivityService } from "@/server/activity/runtime";
 import type { SessionProvider } from "@/server/auth/contracts";
 import { requireServerActor } from "@/server/auth/runtime";
 import { storedFileService } from "@/server/files/runtime";
@@ -101,9 +102,20 @@ export async function createStoredFileDownloadUrl(
 
   if (file.storageProvider !== storage.providerCode) throw new Error(FILE_STORAGE_PROVIDER_MISMATCH);
 
-  return storage.createDownloadUrl({
+  const signed = await storage.createDownloadUrl({
     objectKey: file.objectKey,
     fileName: file.fileName,
     expiresInSeconds,
   });
+
+  await caseActivityService.appendForActor(actor, {
+    clientCaseId: file.clientCaseId,
+    type: "file.download.authorized",
+    metadata: {
+      fileId: file.id,
+      storageProvider: file.storageProvider,
+    },
+  });
+
+  return signed;
 }
