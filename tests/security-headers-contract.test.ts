@@ -43,13 +43,16 @@ assert.match(source, /Referrer-Policy", value: "strict-origin-when-cross-origin"
 assert.match(source, /Permissions-Policy", value: "camera=\(\), microphone=\(\), geolocation=\(\)"/);
 assert.match(source, /Cache-Control", value: "private, no-store, max-age=0"/);
 
-assert.match(
-  source,
-  /const privateApiHeaders = \[[\s\S]*?\.\.\.platformSecurityHeaders,[\s\S]*?Cache-Control/,
+const privateApiHeadersMatch = source.match(
+  /const privateApiHeaders = \[([\s\S]*?)\n\] as const;/,
 );
+assert.ok(privateApiHeadersMatch, "privateApiHeaders declaration must remain explicit");
+const privateApiHeadersBody = privateApiHeadersMatch[1] ?? "";
+assert.match(privateApiHeadersBody, /\.\.\.platformSecurityHeaders/);
+assert.match(privateApiHeadersBody, /Cache-Control/);
 assert.doesNotMatch(
-  source,
-  /const privateApiHeaders = \[[\s\S]*?platformPageSecurityHeaders/,
+  privateApiHeadersBody,
+  /platformPageSecurityHeaders|Content-Security-Policy/,
   "API responses should not carry the HTML CSP bundle",
 );
 
