@@ -22,6 +22,10 @@ const nextConfig: NextConfig = {
         headers: [...platformSecurityHeaders],
       },
       {
+        source: "/portal/:path*",
+        headers: [...privateApiHeaders],
+      },
+      {
         source: "/api/platform/:path*",
         headers: [...privateApiHeaders],
       },
