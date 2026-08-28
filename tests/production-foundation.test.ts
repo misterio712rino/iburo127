@@ -257,6 +257,12 @@ class InMemoryStoredFileRepository implements StoredFileRepository {
     this.current = null;
     return true;
   }
+
+  async restorePending(file: StoredFileRecord) {
+    if (this.current) return false;
+    this.current = { ...file };
+    return true;
+  }
 }
 
 async function testStoredFileLifecycle() {

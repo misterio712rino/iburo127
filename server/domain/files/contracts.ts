@@ -33,4 +33,5 @@ export interface StoredFileRepository {
   }): Promise<StoredFileRecord>;
   markReady(fileId: string, readyAt: Date): Promise<StoredFileRecord>;
   deletePending(fileId: string): Promise<boolean>;
+  restorePending(file: StoredFileRecord): Promise<boolean>;
 }

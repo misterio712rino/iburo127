@@ -5,11 +5,13 @@ import type { PrivateObjectStorage } from "@/server/files/object-storage-contrac
 
 export const FILE_CLEANUP_INVALID_INPUT = "FILE_CLEANUP_INVALID_INPUT";
 export const FILE_CLEANUP_PROVIDER_MISMATCH = "FILE_CLEANUP_PROVIDER_MISMATCH";
+export const FILE_CLEANUP_RESTORE_FAILED = "FILE_CLEANUP_RESTORE_FAILED";
 
 export type PendingUploadCleanupResult = {
   inspected: number;
   deleted: number;
   skipped: number;
+  failed: number;
 };
 
 function assertPositiveInteger(value: number) {
@@ -19,12 +21,13 @@ function assertPositiveInteger(value: number) {
 }
 
 /**
- * Deletes stale PENDING_UPLOAD objects from private storage first and removes
- * their metadata only after object deletion succeeds. READY rows are protected
- * again by the repository's conditional delete.
+ * Claims stale metadata with a conditional PENDING_UPLOAD delete before touching
+ * private storage. This ordering prevents a cleanup worker from deleting an
+ * object after another request has already promoted the row to READY.
  *
- * The cleanup is intentionally batch-limited so it can later be invoked by a
- * controlled cron/job without unbounded work in a single execution.
+ * If storage deletion fails after the claim, the original PENDING_UPLOAD row is
+ * restored so a later maintenance run can retry safely. The stale threshold
+ * must remain comfortably longer than the signed upload URL lifetime.
  */
 export class PendingUploadCleanupService {
   constructor(
@@ -47,6 +50,7 @@ export class PendingUploadCleanupService {
     const pending = await this.repository.listPendingBefore(input.before, limit);
     let deleted = 0;
     let skipped = 0;
+    let failed = 0;
 
     for (const file of pending) {
       if (file.storageProvider !== this.storage.providerCode) {
@@ -54,16 +58,27 @@ export class PendingUploadCleanupService {
         continue;
       }
 
-      await this.storage.deleteObject(file.objectKey);
-      const metadataDeleted = await this.repository.deletePending(file.id);
-      if (metadataDeleted) deleted += 1;
-      else skipped += 1;
+      const claimed = await this.repository.deletePending(file.id);
+      if (!claimed) {
+        skipped += 1;
+        continue;
+      }
+
+      try {
+        await this.storage.deleteObject(file.objectKey);
+        deleted += 1;
+      } catch {
+        const restored = await this.repository.restorePending(file);
+        if (!restored) throw new Error(FILE_CLEANUP_RESTORE_FAILED);
+        failed += 1;
+      }
     }
 
     return {
       inspected: pending.length,
       deleted,
       skipped,
+      failed,
     };
   }
 }

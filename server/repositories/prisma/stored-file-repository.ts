@@ -7,6 +7,7 @@ import type {
   StoredFileStatus,
 } from "@/server/domain/files/contracts";
 import { buildCaseActivityWrite } from "@/server/repositories/prisma/case-activity-write";
+import { isPrismaUniqueConstraintError } from "@/server/repositories/prisma/errors";
 
 function toRecord(row: StoredFileRecord): StoredFileRecord {
   return row;
@@ -98,5 +99,38 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
       },
     });
     return result.count === 1;
+  }
+
+  async restorePending(file: StoredFileRecord) {
+    if (file.status !== "PENDING_UPLOAD" || file.readyAt !== null) return false;
+    const prisma = getPrismaClient();
+
+    try {
+      await prisma.storedFile.create({
+        data: {
+          id: file.id,
+          clientCaseId: file.clientCaseId,
+          uploadedById: file.uploadedById,
+          status: "PENDING_UPLOAD",
+          storageProvider: file.storageProvider,
+          objectKey: file.objectKey,
+          fileName: file.fileName,
+          mimeType: file.mimeType,
+          sizeBytes: file.sizeBytes,
+          checksumSha256: file.checksumSha256,
+          readyAt: null,
+          createdAt: file.createdAt,
+        },
+      });
+      return true;
+    } catch (error) {
+      if (!isPrismaUniqueConstraintError(error)) throw error;
+      const existing = await prisma.storedFile.findUnique({ where: { id: file.id } });
+      return Boolean(
+        existing &&
+          existing.clientCaseId === file.clientCaseId &&
+          existing.objectKey === file.objectKey,
+      );
+    }
   }
 }

@@ -8,6 +8,22 @@ function requireEnv(env: NodeJS.ProcessEnv, name: string) {
   return value;
 }
 
+function readIntegerEnv(
+  env: NodeJS.ProcessEnv,
+  name: string,
+  fallback: number,
+  min: number,
+  max: number,
+) {
+  const raw = env[name]?.trim();
+  if (!raw) return fallback;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < min || value > max) {
+    throw new Error(`${PRODUCTION_CONFIG_ERROR}:${name}`);
+  }
+  return value;
+}
+
 export type ProductionDatabaseConfig = {
   databaseUrl: string;
 };
@@ -23,6 +39,12 @@ export type YandexObjectStorageConfig = {
   endpoint: "https://storage.yandexcloud.net";
   accessKeyId: string;
   secretAccessKey: string;
+};
+
+export type MaintenanceRuntimeConfig = {
+  secret: string;
+  staleUploadMaxAgeMinutes: number;
+  staleUploadBatchLimit: number;
 };
 
 export function readProductionDatabaseConfig(
@@ -71,5 +93,24 @@ export function readYandexObjectStorageConfig(
     endpoint: "https://storage.yandexcloud.net",
     accessKeyId: requireEnv(env, "YANDEX_STORAGE_ACCESS_KEY_ID"),
     secretAccessKey: requireEnv(env, "YANDEX_STORAGE_SECRET_ACCESS_KEY"),
+  };
+}
+
+export function readMaintenanceRuntimeConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): MaintenanceRuntimeConfig {
+  const secret = requireEnv(env, "IB_MAINTENANCE_SECRET");
+  if (secret.length < 32) throw new Error(`${PRODUCTION_CONFIG_ERROR}:IB_MAINTENANCE_SECRET`);
+
+  return {
+    secret,
+    staleUploadMaxAgeMinutes: readIntegerEnv(
+      env,
+      "IB_STALE_UPLOAD_MAX_AGE_MINUTES",
+      60,
+      15,
+      10_080,
+    ),
+    staleUploadBatchLimit: readIntegerEnv(env, "IB_STALE_UPLOAD_BATCH_LIMIT", 100, 1, 500),
   };
 }
