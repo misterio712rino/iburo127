@@ -12,6 +12,7 @@
     "test:foundation": "tsx tests/production-foundation.test.ts && tsx tests/questionnaire-domain.test.ts",
     "check:staging": "tsx scripts/check-staging-readiness.ts",
     "check:staging:authz": "tsx scripts/verify-staging-authz-fixtures.ts",
+    "check:staging:http-authz": "tsx scripts/verify-staging-http-authz.ts",
     "db:inspect:baseline": "tsx scripts/inspect-database-baseline.ts",
     "db:review:sql": "tsx scripts/review-migration-sql.ts",
     "db:deploy:staging": "tsx scripts/apply-staging-migrations.ts",
