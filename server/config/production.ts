@@ -56,6 +56,7 @@ export type YandexPostboxConfig = {
   host: "postbox.cloud.yandex.net";
   accessKeyId: string;
   secretAccessKey: string;
+  requestTimeoutMs: number;
 };
 
 export type MaintenanceRuntimeConfig = {
@@ -123,6 +124,13 @@ export function readYandexPostboxConfig(
     host: "postbox.cloud.yandex.net",
     accessKeyId: requireEnv(env, "YANDEX_POSTBOX_ACCESS_KEY_ID"),
     secretAccessKey: requireEnv(env, "YANDEX_POSTBOX_SECRET_ACCESS_KEY"),
+    requestTimeoutMs: readIntegerEnv(
+      env,
+      "YANDEX_POSTBOX_REQUEST_TIMEOUT_MS",
+      10_000,
+      1_000,
+      30_000,
+    ),
   };
 }
 

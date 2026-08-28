@@ -10,7 +10,8 @@ Do not proceed if any of these are unknown:
 - verified backup/snapshot point;
 - staging deployment hostname;
 - Better Auth secret and base URL configuration;
-- private Yandex Object Storage staging bucket and service-account credentials.
+- private Yandex Object Storage staging bucket and service-account credentials;
+- dedicated Yandex Cloud Postbox staging sender and service-account/static-key credentials.
 
 Never substitute production credentials while validating staging.
 
@@ -48,7 +49,7 @@ This gate is read-only. It:
 3. validates Better Auth runtime configuration structurally;
 4. runs the staging Object Storage security verifier, which reads bucket metadata only and checks ACL, bucket policy and CORS.
 
-It does not run migrations, provision identities, enumerate/download/upload/delete objects, or mutate bucket configuration.
+It does not run migrations, provision identities, enumerate/download/upload/delete objects, mutate bucket configuration, or send email.
 
 Expected terminal marker:
 
@@ -111,7 +112,28 @@ The verifier is read-only and checks:
 
 A green repository CI proves only that the verifier compiles. The remote staging bucket is not verified until the command is actually executed with staging credentials.
 
-## Phase 4 — Workflow activation
+## Phase 4 — Postbox delivery simulator
+
+Postbox verification is an active provider-side send and therefore remains separate from the read-only aggregate gates.
+
+Use only a dedicated staging sender/service account/static key. Configure the exact sender and key-id guards, then set:
+
+```text
+IB_EMAIL_TARGET=staging
+IB_STAGING_POSTBOX_CONFIRM=SIMULATOR:<IB_STAGING_POSTBOX_FROM_EMAIL>
+```
+
+Run:
+
+```bash
+npm run check:staging:email-delivery
+```
+
+The recipient is hardcoded to `success@simulator.pstbx.ru`; it cannot be replaced through environment variables. A successful run sends no message to a real user. Clear `IB_STAGING_POSTBOX_CONFIRM` after the check.
+
+See `docs/STAGING_POSTBOX_VERIFICATION.md` for the exact target-identity guard and timeout/error-handling contract.
+
+## Phase 5 — Workflow activation
 
 Activate one workflow at a time:
 
@@ -125,7 +147,7 @@ Activate one workflow at a time:
 
 For each workflow, use server-derived actor identity, authoritative `ClientCase.id`, explicit optimistic concurrency, and cross-role authorization checks.
 
-## Phase 5 — Security E2E matrix
+## Phase 6 — Security E2E matrix
 
 Minimum matrix:
 
@@ -141,7 +163,7 @@ Minimum matrix:
 - upload completion rejects missing or size/type-mismatched objects;
 - questionnaire/document contents are absent from runtime logs/error responses.
 
-## Phase 6 — Full staging release gate
+## Phase 7 — Full staging release gate
 
 After schema, Better Auth tables and controlled staging fixtures exist, run:
 
@@ -157,12 +179,14 @@ This aggregate read-only gate runs:
 - Object Storage security verification;
 - staging AuthIdentity/role/case fixture verification.
 
+It intentionally does not send a Postbox simulator message; run `check:staging:email-delivery` separately when validating the staging mail transport.
+
 Expected terminal marker:
 
 ```text
 STAGING_RELEASE_READINESS_PASS
 ```
 
-A staging candidate is acceptable only when the exact commit also has green GitHub Actions CI, reviewed migration SQL, successful staging migration, real DB-backed cross-role E2E, runtime error review, and a documented rollback point.
+A staging candidate is acceptable only when the exact commit also has green GitHub Actions CI, reviewed migration SQL, successful staging migration, real DB-backed cross-role E2E, runtime error review, a successful dedicated staging Postbox simulator check, and a documented rollback point.
 
-This runbook does not authorize merging to `main`, migrating production, changing DNS, changing the production bucket, or deploying production traffic.
+This runbook does not authorize merging to `main`, migrating production, changing DNS, changing the production bucket, using production Postbox credentials, or deploying production traffic.
