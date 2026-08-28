@@ -13,6 +13,7 @@
     "check:staging": "tsx scripts/check-staging-readiness.ts",
     "check:staging:authz": "tsx scripts/verify-staging-authz-fixtures.ts",
     "db:inspect:baseline": "tsx scripts/inspect-database-baseline.ts",
+    "db:review:sql": "tsx scripts/review-migration-sql.ts",
     "auth:link": "tsx scripts/provision-auth-identity.ts",
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",
