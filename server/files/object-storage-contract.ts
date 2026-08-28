@@ -5,6 +5,11 @@ export type SignedObjectUrl = {
   expiresAt: Date;
 };
 
+export type StoredObjectMetadata = {
+  sizeBytes: bigint;
+  mimeType: string | null;
+};
+
 export type CreateUploadUrlInput = {
   objectKey: string;
   mimeType: string;
@@ -17,15 +22,12 @@ export type CreateDownloadUrlInput = {
   expiresInSeconds: number;
 };
 
-/**
- * Provider-neutral private object storage boundary.
- * Implementations must keep buckets private and return short-lived signed URLs.
- */
+/** Provider-neutral private object storage boundary. */
 export interface PrivateObjectStorage {
   providerCode: string;
-
   createUploadUrl(input: CreateUploadUrlInput): Promise<SignedObjectUrl>;
   createDownloadUrl(input: CreateDownloadUrlInput): Promise<SignedObjectUrl>;
+  statObject(objectKey: string): Promise<StoredObjectMetadata | null>;
   deleteObject(objectKey: string): Promise<void>;
 }
 
