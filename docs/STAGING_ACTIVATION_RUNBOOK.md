@@ -14,6 +14,24 @@ Do not proceed to the next phase if any of these are unknown:
 
 Never substitute production credentials while validating staging.
 
+## Phase 0 — Read-only infrastructure preflight
+
+Before generating or applying any migration, configure staging-only environment variables from `.env.example` and run:
+
+```bash
+npm run check:staging
+```
+
+The check is intentionally read-only. It validates required environment values, executes a PostgreSQL health query and performs `HeadBucket` against the configured Yandex Object Storage bucket. It does not print credentials, mutate database state, upload objects, run Prisma migrations or create auth tables.
+
+Expected terminal marker:
+
+```text
+STAGING_READINESS_PASS
+```
+
+If it fails, stop and fix connectivity/credentials before any DDL or auth provisioning.
+
 ## Phase 1 — Database baseline
 
 1. Confirm the authoritative PostgreSQL target.
@@ -28,15 +46,15 @@ Never substitute production credentials while validating staging.
 
 ## Phase 2 — Better Auth wiring
 
-1. Add Better Auth with a controlled package-lock change.
-2. Configure a server-only auth instance against the staging PostgreSQL database.
+1. Confirm the already-installed Better Auth package and reviewed lockfile on the staging candidate.
+2. Configure the server-only auth instance against the staging PostgreSQL database.
 3. Generate Better Auth schema SQL; do not auto-migrate production.
 4. Review and apply Better Auth schema changes to staging.
-5. Enable email/password and verification/recovery flows.
-6. Enable TOTP 2FA and backup codes; staff accounts must enroll before staff routes are considered production-ready.
-7. Add the Better Auth Next.js route handler.
-8. Bind `auth.api.getSession({ headers })` through `createBetterAuthNextSessionLoader` and `BetterAuthExternalSessionReader`.
-9. Link the verified Better Auth subject to the internal `User.id` through `AuthIdentity`.
+5. Enable email/password verification/recovery only after the delivery channel is configured.
+6. Enroll TOTP 2FA and preserve backup codes; staff accounts must enroll before staff routes are considered production-ready.
+7. Verify `/api/auth/[...all]` against the staging hostname.
+8. Verify `auth.api.getSession({ headers })` through `createBetterAuthNextSessionLoader` and `BetterAuthExternalSessionReader`.
+9. Link the verified Better Auth subject to internal `User.id` through `AuthIdentity`.
 10. Verify that a valid Better Auth session for a suspended internal user still resolves to no platform access.
 
 ## Phase 3 — Private object storage
@@ -44,12 +62,15 @@ Never substitute production credentials while validating staging.
 1. Create a private Yandex Object Storage bucket.
 2. Create a dedicated service account with the minimum bucket permissions needed by the application.
 3. Configure staging environment variables only; never commit credentials.
-4. Bind the S3-compatible signer/client to `YandexPrivateObjectStorage`.
+4. Verify the S3-compatible signer/client through `npm run check:staging`.
 5. Keep generated object keys opaque: `cases/<caseUuid>/<fileUuid>/object.<ext>`.
 6. Use short-lived signed URLs only; current application policy allows 30–900 seconds.
-7. Verify upload MIME/type/size policy before issuing an upload URL and verify the uploaded object metadata before registering it as trusted.
-8. Verify download authorization through `StoredFileService` before generating a signed download URL.
-9. Confirm bucket/list/public ACL access is disabled.
+7. Upload preparation creates a `PENDING_UPLOAD` metadata row and a five-minute signed PUT URL.
+8. Upload completion verifies the object with `HEAD`; exact size and content type must match before the row becomes `READY`.
+9. `PENDING_UPLOAD` rows are excluded from normal list/get/download operations.
+10. Verify download authorization through `StoredFileService` before generating a signed download URL.
+11. Confirm bucket/list/public ACL access is disabled.
+12. Define cleanup for stale `PENDING_UPLOAD` metadata and orphan objects before production traffic.
 
 ## Phase 4 — Workflow activation order
 
@@ -83,6 +104,8 @@ Minimum matrix:
 - roleless/suspended users receive no case data;
 - browser-supplied user ID, role, tariff or ownership claims have no effect;
 - object download URLs cannot be obtained for inaccessible cases;
+- pending uploads cannot be listed or downloaded before verification;
+- upload completion rejects missing or size/type-mismatched objects;
 - raw questionnaire/document contents are absent from logs and error responses.
 
 ## Phase 6 — Release gate
@@ -91,6 +114,7 @@ A staging candidate is acceptable only when the exact commit has:
 
 - green CI;
 - green production build;
+- `STAGING_READINESS_PASS` against staging-only infrastructure;
 - reviewed migration SQL;
 - successful staging migration;
 - successful auth/session tests;
