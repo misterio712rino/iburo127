@@ -1,0 +1,165 @@
+name: Commit Prisma CLI isolation
+
+on:
+  push:
+    branches:
+      - audit/production-readiness
+    paths:
+      - .github/workflows/commit-prisma-cli-isolation.yml
+
+permissions:
+  contents: write
+
+jobs:
+  commit-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Guard source commit and branch head
+        shell: bash
+        run: |
+          expected_parent="740a5ad09ac3d81e41cd9525c7a018640adffa3d"
+          actual_parent="$(git rev-parse HEAD^)"
+          if [ "$actual_parent" != "$expected_parent" ]; then
+            echo "PRISMA_COMMIT_GUARD_FAIL: unexpected parent commit"
+            exit 1
+          fi
+
+          changed_from_parent="$(git diff --name-only HEAD^ HEAD)"
+          if [ "$changed_from_parent" != ".github/workflows/commit-prisma-cli-isolation.yml" ]; then
+            echo "PRISMA_COMMIT_GUARD_FAIL: writer commit changed unexpected files"
+            exit 1
+          fi
+
+          git fetch origin audit/production-readiness
+          if [ "$(git rev-parse origin/audit/production-readiness)" != "$(git rev-parse HEAD)" ]; then
+            echo "PRISMA_COMMIT_GUARD_FAIL: remote branch moved before validation"
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Apply pinned Prisma CLI alias
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from "node:fs";
+
+          const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
+          if (
+            packageJson.devDependencies?.prisma !== "7.9.1" ||
+            packageJson.devDependencies?.["prisma-cli"] !== undefined
+          ) {
+            console.error("PRISMA_COMMIT_GUARD_FAIL: unexpected package.json Prisma state");
+            process.exit(1);
+          }
+
+          const config = readFileSync("prisma.config.ts", "utf8");
+          if (!config.includes('from "prisma/config"') || config.includes('from "prisma-cli/config"')) {
+            console.error("PRISMA_COMMIT_GUARD_FAIL: unexpected prisma.config.ts state");
+            process.exit(1);
+          }
+
+          delete packageJson.devDependencies.prisma;
+          packageJson.devDependencies["prisma-cli"] = "npm:prisma@7.9.1";
+          writeFileSync("package.json", `${JSON.stringify(packageJson, null, 2)}\n`);
+          writeFileSync(
+            "prisma.config.ts",
+            config.replace('from "prisma/config"', 'from "prisma-cli/config"'),
+          );
+          NODE
+          npm install --package-lock-only --ignore-scripts --audit=false --fund=false
+
+      - name: Install remediated dependency graph
+        run: npm ci
+
+      - name: Verify dependency audit policy
+        shell: bash
+        run: |
+          npm audit --json > "$RUNNER_TEMP/npm-audit.json" || true
+          node scripts/report-npm-audit.mjs "$RUNNER_TEMP/npm-audit.json"
+          node scripts/check-npm-audit-policy.mjs "$RUNNER_TEMP/npm-audit.json" package-lock.json
+
+      - name: Verify Prisma CLI alias
+        shell: bash
+        run: |
+          test -x node_modules/.bin/prisma
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const aliased = JSON.parse(readFileSync("node_modules/prisma-cli/package.json", "utf8"));
+          if (aliased.name !== "prisma" || aliased.version !== "7.9.1") {
+            console.error("PRISMA_COMMIT_GUARD_FAIL: pinned Prisma CLI alias not installed");
+            process.exit(1);
+          }
+          console.log("PRISMA_COMMIT_ALIAS_PASS");
+          NODE
+
+      - name: Verify isolated production dependency graph
+        shell: bash
+        run: |
+          production_root="$RUNNER_TEMP/iburo-production-install"
+          rm -rf "$production_root"
+          mkdir -p "$production_root"
+          cp package.json package-lock.json "$production_root/"
+          (
+            cd "$production_root"
+            npm ci --omit=dev --ignore-scripts --audit=false --fund=false
+          )
+          node scripts/check-production-install.mjs "$production_root"
+
+      - name: Runtime PII logging gate
+        run: npm run check:runtime-logging
+
+      - name: Validate Prisma schema
+        run: npm run db:validate
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Production foundation tests
+        run: npm run test:foundation
+
+      - name: TypeScript
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Guard exact working-tree diff
+        shell: bash
+        run: |
+          actual="$(git diff --name-only | sort)"
+          expected="$(printf '%s\n' package-lock.json package.json prisma.config.ts | sort)"
+          if [ "$actual" != "$expected" ]; then
+            echo "PRISMA_COMMIT_GUARD_FAIL: unexpected working-tree changes"
+            printf 'Actual:\n%s\n' "$actual"
+            exit 1
+          fi
+
+      - name: Commit validated alias graph
+        shell: bash
+        run: |
+          git fetch origin audit/production-readiness
+          if [ "$(git rev-parse origin/audit/production-readiness)" != "$(git rev-parse HEAD)" ]; then
+            echo "PRISMA_COMMIT_GUARD_FAIL: remote branch moved during validation"
+            exit 1
+          fi
+
+          git config user.name "iBuro CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add package.json package-lock.json prisma.config.ts
+          git commit -m "isolate Prisma CLI from production dependency graph"
+          git push origin HEAD:audit/production-readiness
