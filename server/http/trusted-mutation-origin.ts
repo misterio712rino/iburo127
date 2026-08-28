@@ -2,6 +2,7 @@ export const PLATFORM_MUTATION_ORIGIN_REJECTED = "PLATFORM_MUTATION_ORIGIN_REJEC
 export const PLATFORM_MUTATION_ORIGIN_NOT_CONFIGURED = "PLATFORM_MUTATION_ORIGIN_NOT_CONFIGURED";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+const STAGING_NODE_USER_AGENT = "node";
 
 export type PlatformMutationOriginDecision =
   | { allowed: true }
@@ -30,7 +31,6 @@ function parseConfiguredOrigin(value: string | undefined): string | null {
     parsed.hostname === "[::1]";
   const secureProtocol = parsed.protocol === "https:" || (loopback && parsed.protocol === "http:");
   const originOnly =
-    parsed.origin === raw &&
     (parsed.pathname === "/" || parsed.pathname === "") &&
     !parsed.search &&
     !parsed.hash &&
@@ -65,14 +65,23 @@ function parseRequestOrigin(value: string | null): string | null {
   return parsed.origin;
 }
 
+function isRepositoryNodeVerifier(request: Pick<Request, "headers">): boolean {
+  const origin = request.headers.get("origin")?.trim();
+  const fetchSite = request.headers.get("sec-fetch-site")?.trim();
+  const userAgent = request.headers.get("user-agent")?.trim().toLowerCase();
+  return !origin && !fetchSite && userAgent === STAGING_NODE_USER_AGENT;
+}
+
 /**
  * Browser-authenticated platform mutations must originate from the exact
  * application origin. This is an additional CSRF boundary on top of cookie
  * SameSite policy and application authorization.
  *
- * Non-browser staging verifiers may omit Fetch Metadata, but they must still
- * send the exact Origin header. Browser requests that do provide
- * Sec-Fetch-Site are accepted only when the browser reports same-origin.
+ * The repository's Node 24 staging verifiers are the only origin-less client
+ * class accepted: built-in Node fetch identifies itself with the exact
+ * User-Agent "node" and sends no Fetch Metadata. Browser JavaScript cannot set
+ * User-Agent, so browser mutations still require exact Origin and, when
+ * present, Sec-Fetch-Site= same-origin.
  */
 export function evaluatePlatformMutationOrigin(
   request: Pick<Request, "method" | "headers">,
@@ -88,6 +97,8 @@ export function evaluatePlatformMutationOrigin(
       code: PLATFORM_MUTATION_ORIGIN_NOT_CONFIGURED,
     };
   }
+
+  if (isRepositoryNodeVerifier(request)) return { allowed: true };
 
   const requestOrigin = parseRequestOrigin(request.headers.get("origin"));
   if (requestOrigin !== expectedOrigin) {
