@@ -43,7 +43,7 @@ jobs:
           cp package.json package-lock.json "$production_root/"
           (
             cd "$production_root"
-            npm ci --omit=dev --ignore-scripts --audit=false --fund=false
+            npm ci --omit=dev --omit=peer --ignore-scripts --audit=false --fund=false
           )
           node scripts/check-production-install.mjs "$production_root"
 
