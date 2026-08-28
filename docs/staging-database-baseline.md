@@ -30,15 +30,25 @@ The authoritative database baseline is not resolved yet. The repository currentl
 
 ## Fail-closed behavior
 
-`db:deploy:staging` now refuses to connect to PostgreSQL when any of the following is true:
+`db:deploy:staging` refuses to connect to PostgreSQL when any of the following is true:
 
 - `prisma/migrations/` is missing;
 - `migration_lock.toml` is missing or is not PostgreSQL;
 - no migration directory exists;
 - a migration is missing `migration.sql` or has empty SQL;
+- migration directories contain unexpected files;
 - `IB_STAGING_MIGRATION_HISTORY_SHA256` is absent, malformed or does not exactly match the committed history.
 
 After those repository-level checks pass, the existing staging database target guard and `MIGRATE:<database>` confirmation still apply before `prisma migrate deploy` is executed.
+
+`db:verify:staging` is also fail-closed. It cannot report `STAGING_SCHEMA_VERIFY_PASS` merely because the expected domain tables and enums exist. It additionally requires:
+
+- a real `_prisma_migrations` table in the staging database;
+- at least one successfully applied Prisma migration;
+- zero unfinished, non-rolled-back migrations;
+- the full staging database target guard, including host, database name and user, before connection.
+
+This prevents an unmanaged or partially migrated schema from being treated as release-ready.
 
 ## Current blocker
 
