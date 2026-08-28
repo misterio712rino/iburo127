@@ -1,10 +1,5 @@
 import type { ClientPracticumState } from "../types";
-import {
-  PRACTICUM_LESSONS,
-  PRACTICUM_MODULES,
-  getLessonModule,
-  getPracticumLesson,
-} from "../practicum-content";
+import { PRACTICUM_LESSONS } from "../practicum-content";
 
 export {
   PRACTICUM_LESSONS,
