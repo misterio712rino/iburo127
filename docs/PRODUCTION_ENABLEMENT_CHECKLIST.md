@@ -28,6 +28,7 @@ This checklist defines the conditions for switching any platform workflow from i
 - [ ] Security review confirms case-scoped authorization for every enabled real-data endpoint against a real staging database.
 - [x] Transport foundations return normalized public error codes instead of raw internal exception text.
 - [x] Private workflow JSON responses use `private, no-store` cache policy.
+- [x] Cookie-authenticated `/api/platform/*` mutations are protected by a centralized Next.js `proxy.ts` origin policy: browser mutations require the exact configured application `Origin`, contradictory Fetch Metadata is rejected, and the repository Node staging verifier has only a narrow non-browser compatibility path.
 - [x] Questionnaire, practicum and document create-on-first-use repositories recover safely from concurrent unique-key creation races.
 - [ ] Production logs verified not to contain questionnaire answers, document contents or other sensitive payloads.
 
@@ -108,6 +109,7 @@ Repository/server foundation is complete; activation still requires:
 - [x] Authenticated case activity is exposed in the production portal without raw sensitive payloads.
 - [x] Critical questionnaire/task/document/file mutations that currently emit case activity write the business mutation and corresponding `CaseActivityEvent` in the same Prisma transaction.
 - [x] Separate user-scoped auth security audit foundation implemented for successful sign-in, TOTP verification, backup-code use and password-reset request/completion; it stores only internal `User.id`, controlled event type and timestamp.
+- [x] AI requests use a server-generated opaque UUIDv4 `auditId` to correlate `ai.request.accepted` with exactly the corresponding completion/restricted/failure outcome, and a bounded read-only maintenance health check detects accepted requests that remain without an outcome after the configured grace period.
 - [ ] Apply/review the `UserSecurityEvent` migration in staging and verify Better Auth lifecycle events against mapped test identities.
 - [ ] Approve the final audit retention period before production data is enabled.
 - [ ] Verify production logs and stored audit metadata contain no sensitive payloads during DB-backed E2E.
@@ -118,9 +120,10 @@ Repository/server foundation is complete; activation still requires:
 - [x] Controlled in-app notification taxonomy implemented.
 - [x] Authenticated notification list/mark-read API routes implemented.
 - [x] Production portal lists only the current user's notifications and supports mark-read through authenticated transport.
-- [ ] Define external notification delivery channels and provider(s).
-- [ ] Add idempotency/delivery-attempt semantics before external dispatch.
+- [x] External email delivery provider selected and implemented through Yandex Cloud Postbox with dedicated server-side credentials.
+- [x] Durable transactional notification-delivery outbox implements stable dedupe keys, delivery attempts, optimistic leases, retry/backoff and terminal `DEAD` state; delivery is explicitly documented as at-least-once rather than exactly-once.
 - [ ] Verify recipient scoping and no cross-user notification exposure with DB-backed tests.
+- [ ] Configure and observe the external notification scheduler against staging, including retry/dead-state alerting.
 
 ## Authentication implementation gates
 
@@ -144,10 +147,10 @@ Architecture decision: see `docs/AUTH_PROVIDER_DECISION.md`.
 - [x] Controlled `AuthIdentity` provisioning command documented in `docs/AUTH_IDENTITY_PROVISIONING.md`; it requires an active internal user and explicit confirmation.
 - [x] Yandex Cloud Postbox selected and password reset/email-verification delivery callbacks plus forgot/reset-password UI implemented.
 - [x] Better Auth lifecycle hooks/callbacks wired to the non-blocking user-scoped `UserSecurityEvent` audit foundation without storing auth secrets or browser PII.
+- [x] Production-enabled routes use the authenticated `/portal` shell; the separate `/app` investor demo remains isolated and fail-closed unless `IB_DEMO_PORTAL_MODE=enabled` exactly.
 - [ ] Verify actual Postbox receipt, reset-token flow, session revocation and provider-side delivery health against staging.
 - [ ] Decide whether to require email verification only after existing staging identities and mail delivery are reviewed.
 - [ ] Execute and verify controlled `AuthIdentity` linking against migrated staging data.
-- [ ] Replace platform demo identity selection with authenticated shell in the production-enabled deployment only.
 
 ## Staging runbook
 
