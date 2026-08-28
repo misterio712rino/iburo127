@@ -8,6 +8,7 @@ This checklist defines the conditions for switching any platform workflow from i
 - [ ] Current database schema inspected and backed up.
 - [ ] Prisma migration baseline established without destructive drift.
 - [x] Read-only PostgreSQL baseline inspection command implemented as `npm run db:inspect:baseline`; it does not run migrations, DDL, DML or read user table contents.
+- [x] Migration SQL review gate implemented as `npm run db:review:sql`; destructive/high-risk SQL is fingerprinted and automatically blocked or flagged before staging application.
 - [x] Authentication product direction selected: Better Auth, self-hosted against PostgreSQL.
 - [x] Better Auth dependency/configuration installed on the audit branch with controlled lockfile changes.
 - [x] Provider-specific Better Auth session-reader boundary implemented.
@@ -142,6 +143,7 @@ Architecture decision: see `docs/AUTH_PROVIDER_DECISION.md`.
 - [x] Staging activation sequence documented in `docs/STAGING_ACTIVATION_RUNBOOK.md`.
 - [x] Read-only staging preflight script implemented as `npm run check:staging`.
 - [x] Read-only authoritative database structure inspection documented in `docs/DATABASE_BASELINE_INSPECTION.md` and implemented as `npm run db:inspect:baseline`.
+- [x] Migration SQL review gate documented in `docs/MIGRATION_SQL_REVIEW_GATE.md` and implemented as `npm run db:review:sql`.
 
 ## Release safety
 
