@@ -42,7 +42,6 @@ export function useLawyerTaskSnapshot() {
 
 function TasksContent() {
   const tasks = useTaskState();
-  const state = tasks.state;
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const statusOf = tasks.statusOf;

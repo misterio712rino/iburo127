@@ -125,10 +125,12 @@ class InMemoryTaskRepository implements TaskRepository {
   current = task;
 
   async getAccessible(_actor: AuthenticatedActor, taskId: string) {
+    void _actor;
     return taskId === this.current.id ? this.current : null;
   }
 
   async listAccessible(_actor: AuthenticatedActor) {
+    void _actor;
     return [this.current];
   }
 

@@ -96,10 +96,12 @@ class FakeStorage implements PrivateObjectStorage {
   failDelete = false;
 
   async createUploadUrl(_input: CreateUploadUrlInput) {
+    void _input;
     return { url: "https://example.invalid/upload", expiresAt: new Date() };
   }
 
   async createDownloadUrl(_input: CreateDownloadUrlInput) {
+    void _input;
     return { url: "https://example.invalid/download", expiresAt: new Date() };
   }
 
