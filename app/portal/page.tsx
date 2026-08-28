@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowUpRight, Bell, BriefcaseBusiness, ClipboardList, ShieldCheck } from "lucide-react";
-import { IBuroBrand } from "@/components/platform/IBuroBrand";
-import { SignOutButton } from "@/components/platform/auth/SignOutButton";
+import { ArrowUpRight, BriefcaseBusiness } from "lucide-react";
+import { PortalFrame } from "@/components/portal/PortalFrame";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { getCurrentPlatformActor } from "@/server/client-cases/operations";
@@ -33,21 +32,7 @@ export default async function PortalPage() {
   const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
 
   return (
-    <div className="mx-auto min-h-screen w-full max-w-7xl px-5 py-6 sm:px-8 sm:py-8">
-      <header className="flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <IBuroBrand dot className="font-[var(--font-iburo-display)] text-4xl font-semibold tracking-tight" />
-          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Защищённый кабинет</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
-            <ShieldCheck className="size-4" aria-hidden="true" />
-            Сессия подтверждена
-          </span>
-          <SignOutButton />
-        </div>
-      </header>
-
+    <PortalFrame sectionLabel="Защищённый кабинет" showStaffTasks={isStaff}>
       <section className="py-10 sm:py-14">
         <div className="max-w-3xl">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#7B2330]">Production bootstrap</p>
@@ -66,19 +51,6 @@ export default async function PortalPage() {
             </span>
           ))}
         </div>
-
-        <nav aria-label="Разделы кабинета" className="mt-7 flex flex-wrap gap-3">
-          <Link href="/portal/notifications" className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:shadow-sm">
-            <Bell className="size-4" aria-hidden="true" />
-            Уведомления
-          </Link>
-          {isStaff ? (
-            <Link href="/portal/tasks" className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:shadow-sm">
-              <ClipboardList className="size-4" aria-hidden="true" />
-              Задачи
-            </Link>
-          ) : null}
-        </nav>
       </section>
 
       <section aria-labelledby="cases-heading" className="pb-12">
@@ -126,6 +98,6 @@ export default async function PortalPage() {
           </div>
         )}
       </section>
-    </div>
+    </PortalFrame>
   );
 }

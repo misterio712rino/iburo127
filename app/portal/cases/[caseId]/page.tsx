@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Activity, ArrowLeft, ArrowUpRight, FileLock2, FileText, GraduationCap, ListChecks, ShieldCheck, Sparkles } from "lucide-react";
-import { IBuroBrand } from "@/components/platform/IBuroBrand";
-import { SignOutButton } from "@/components/platform/auth/SignOutButton";
+import { Activity, ArrowLeft, ArrowUpRight, FileLock2, FileText, GraduationCap, ListChecks, Sparkles } from "lucide-react";
+import { PortalFrame } from "@/components/portal/PortalFrame";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { getCurrentPlatformActor } from "@/server/client-cases/operations";
@@ -11,36 +10,11 @@ import { clientCaseService } from "@/server/client-cases/runtime";
 export const dynamic = "force-dynamic";
 
 const MODULES = [
-  {
-    code: "questionnaire",
-    title: "Анкета",
-    description: "Серверное хранение ответов, проверка доступа и контроль версий.",
-    icon: ListChecks,
-  },
-  {
-    code: "practicum",
-    title: "Практикум",
-    description: "Прогресс обучения хранится в PostgreSQL и доступен только в рамках дела.",
-    icon: GraduationCap,
-  },
-  {
-    code: "documents",
-    title: "Документы",
-    description: "Подготовка и проверка документов с server-side authorization.",
-    icon: FileText,
-  },
-  {
-    code: "files",
-    title: "Файлы",
-    description: "Приватные READY-файлы без раскрытия object key и внутренних storage-путей.",
-    icon: FileLock2,
-  },
-  {
-    code: "activity",
-    title: "История",
-    description: "Контролируемый журнал действий по делу без чувствительных payload-данных.",
-    icon: Activity,
-  },
+  { code: "questionnaire", title: "Анкета", description: "Серверное хранение ответов, проверка доступа и контроль версий.", icon: ListChecks },
+  { code: "practicum", title: "Практикум", description: "Прогресс обучения хранится в PostgreSQL и доступен только в рамках дела.", icon: GraduationCap },
+  { code: "documents", title: "Документы", description: "Подготовка и проверка документов с server-side authorization.", icon: FileText },
+  { code: "files", title: "Файлы", description: "Приватные READY-файлы без раскрытия object key и внутренних storage-путей.", icon: FileLock2 },
+  { code: "activity", title: "История", description: "Контролируемый журнал действий по делу без чувствительных payload-данных.", icon: Activity },
 ] as const;
 
 const CLIENT_AI_MODULE = {
@@ -65,26 +39,11 @@ export default async function PortalCasePage({ params }: { params: Promise<{ cas
   const clientCase = await clientCaseService.getCase(actor, { caseId });
   if (!clientCase) notFound();
 
-  const modules = actor.roles.includes("CLIENT")
-    ? [...MODULES, CLIENT_AI_MODULE]
-    : MODULES;
+  const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
+  const modules = actor.roles.includes("CLIENT") ? [...MODULES, CLIENT_AI_MODULE] : MODULES;
 
   return (
-    <div className="mx-auto min-h-screen w-full max-w-7xl px-5 py-6 sm:px-8 sm:py-8">
-      <header className="flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <IBuroBrand dot className="font-[var(--font-iburo-display)] text-4xl font-semibold tracking-tight" />
-          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Защищённое дело</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
-            <ShieldCheck className="size-4" aria-hidden="true" />
-            Доступ подтверждён
-          </span>
-          <SignOutButton />
-        </div>
-      </header>
-
+    <PortalFrame sectionLabel="Защищённое дело" accessLabel="Доступ подтверждён" showStaffTasks={isStaff}>
       <main className="py-10 sm:py-14">
         <Link href="/portal" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900">
           <ArrowLeft className="size-4" aria-hidden="true" />
@@ -125,6 +84,6 @@ export default async function PortalCasePage({ params }: { params: Promise<{ cas
           </div>
         </section>
       </main>
-    </div>
+    </PortalFrame>
   );
 }
