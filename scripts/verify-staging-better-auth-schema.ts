@@ -4,9 +4,42 @@ import { createHash } from "node:crypto";
 import { Pool } from "pg";
 
 const REQUIRED_COLUMNS = {
-  user: ["id", "name", "email", "emailVerified", "createdAt", "updatedAt", "twoFactorEnabled"],
-  session: ["id", "userId", "token", "expiresAt", "createdAt", "updatedAt"],
-  account: ["id", "userId", "issuer", "accountId", "providerId", "password", "createdAt", "updatedAt"],
+  user: [
+    "id",
+    "name",
+    "email",
+    "emailVerified",
+    "image",
+    "createdAt",
+    "updatedAt",
+    "twoFactorEnabled",
+  ],
+  session: [
+    "id",
+    "userId",
+    "token",
+    "expiresAt",
+    "ipAddress",
+    "userAgent",
+    "createdAt",
+    "updatedAt",
+  ],
+  account: [
+    "id",
+    "userId",
+    "issuer",
+    "accountId",
+    "providerId",
+    "accessToken",
+    "refreshToken",
+    "accessTokenExpiresAt",
+    "refreshTokenExpiresAt",
+    "scope",
+    "idToken",
+    "password",
+    "createdAt",
+    "updatedAt",
+  ],
   verification: ["id", "identifier", "value", "expiresAt", "createdAt", "updatedAt"],
   twoFactor: [
     "id",
@@ -24,6 +57,66 @@ const REQUIRED_TABLES = Object.keys(REQUIRED_COLUMNS);
 const STRING_TYPES = new Set(["text", "character varying", "character", "uuid"]);
 const TIMESTAMP_TYPES = new Set(["timestamp with time zone", "timestamp without time zone"]);
 const INTEGER_TYPES = new Set(["smallint", "integer", "bigint", "numeric"]);
+const BOOLEAN_TYPES = new Set(["boolean"]);
+
+const STRING_COLUMNS = [
+  ["user", "id"],
+  ["user", "name"],
+  ["user", "email"],
+  ["user", "image"],
+  ["session", "id"],
+  ["session", "userId"],
+  ["session", "token"],
+  ["session", "ipAddress"],
+  ["session", "userAgent"],
+  ["account", "id"],
+  ["account", "userId"],
+  ["account", "issuer"],
+  ["account", "accountId"],
+  ["account", "providerId"],
+  ["account", "accessToken"],
+  ["account", "refreshToken"],
+  ["account", "scope"],
+  ["account", "idToken"],
+  ["account", "password"],
+  ["verification", "id"],
+  ["verification", "identifier"],
+  ["verification", "value"],
+  ["twoFactor", "id"],
+  ["twoFactor", "userId"],
+  ["twoFactor", "secret"],
+  ["twoFactor", "backupCodes"],
+  ["rateLimit", "id"],
+  ["rateLimit", "key"],
+] as const;
+
+const TIMESTAMP_COLUMNS = [
+  ["user", "createdAt"],
+  ["user", "updatedAt"],
+  ["session", "expiresAt"],
+  ["session", "createdAt"],
+  ["session", "updatedAt"],
+  ["account", "accessTokenExpiresAt"],
+  ["account", "refreshTokenExpiresAt"],
+  ["account", "createdAt"],
+  ["account", "updatedAt"],
+  ["verification", "expiresAt"],
+  ["verification", "createdAt"],
+  ["verification", "updatedAt"],
+  ["twoFactor", "lockedUntil"],
+] as const;
+
+const BOOLEAN_COLUMNS = [
+  ["user", "emailVerified"],
+  ["user", "twoFactorEnabled"],
+  ["twoFactor", "verified"],
+] as const;
+
+const INTEGER_COLUMNS = [
+  ["twoFactor", "failedVerificationCount"],
+  ["rateLimit", "count"],
+  ["rateLimit", "lastRequest"],
+] as const;
 
 function fail(message: string): never {
   console.error(`STAGING_BETTER_AUTH_SCHEMA_VERIFY_FAIL: ${message}`);
@@ -119,33 +212,18 @@ try {
     }
   }
 
-  for (const [tableName, columnName] of [
-    ["user", "id"],
-    ["user", "email"],
-    ["session", "id"],
-    ["session", "userId"],
-    ["session", "token"],
-    ["account", "id"],
-    ["account", "userId"],
-    ["account", "issuer"],
-    ["account", "accountId"],
-    ["account", "providerId"],
-    ["verification", "id"],
-    ["twoFactor", "id"],
-    ["twoFactor", "userId"],
-    ["rateLimit", "id"],
-    ["rateLimit", "key"],
-  ] as const) {
+  for (const [tableName, columnName] of STRING_COLUMNS) {
     requireType(tableName, columnName, STRING_TYPES);
   }
-  requireType("user", "twoFactorEnabled", new Set(["boolean"]));
-  requireType("twoFactor", "verified", new Set(["boolean"]));
-  requireType("twoFactor", "failedVerificationCount", INTEGER_TYPES);
-  requireType("rateLimit", "count", INTEGER_TYPES);
-  requireType("rateLimit", "lastRequest", INTEGER_TYPES);
-  requireType("session", "expiresAt", TIMESTAMP_TYPES);
-  requireType("verification", "expiresAt", TIMESTAMP_TYPES);
-  requireType("twoFactor", "lockedUntil", TIMESTAMP_TYPES);
+  for (const [tableName, columnName] of TIMESTAMP_COLUMNS) {
+    requireType(tableName, columnName, TIMESTAMP_TYPES);
+  }
+  for (const [tableName, columnName] of BOOLEAN_COLUMNS) {
+    requireType(tableName, columnName, BOOLEAN_TYPES);
+  }
+  for (const [tableName, columnName] of INTEGER_COLUMNS) {
+    requireType(tableName, columnName, INTEGER_TYPES);
+  }
 
   const indexResult = await client.query<{
     table_name: string;
@@ -275,8 +353,8 @@ try {
 
   console.log(`Staging database identity verified: ${identityRow.database_name}`);
   console.log(`Better Auth schema/search_path verified: ${expectedSchema}`);
-  console.log(`Better Auth core + 2FA + rate-limit tables verified: ${REQUIRED_TABLES.length}`);
-  console.log("Better Auth required unique indexes and user foreign keys verified");
+  console.log(`Better Auth 1.7 core + 2FA + rate-limit tables verified: ${REQUIRED_TABLES.length}`);
+  console.log("Better Auth required columns, types, unique indexes and user foreign keys verified");
   console.log(`Better Auth structural SHA-256: ${fingerprint}`);
   console.log("STAGING_BETTER_AUTH_SCHEMA_VERIFY_PASS");
 
