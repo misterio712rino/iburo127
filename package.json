@@ -13,6 +13,7 @@
     "check:runtime-logging": "tsx scripts/check-runtime-logging.ts",
     "check:staging": "tsx scripts/check-staging-readiness.ts",
     "check:staging:auth-schema": "tsx scripts/verify-staging-better-auth-schema.ts",
+    "check:staging:storage": "tsx scripts/verify-staging-object-storage.ts",
     "check:staging:authz": "tsx scripts/verify-staging-authz-fixtures.ts",
     "check:staging:http-authz": "tsx scripts/verify-staging-http-authz.ts",
     "check:staging:http-mutations": "tsx scripts/verify-staging-http-mutations.ts",
