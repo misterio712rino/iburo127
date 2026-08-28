@@ -8,6 +8,7 @@ import {
   type CaseDocumentRepository,
   type CaseDocumentStatus,
 } from "@/server/domain/documents/contracts";
+import { buildCaseActivityWrite } from "@/server/repositories/prisma/case-activity-write";
 import { isPrismaUniqueConstraintError } from "@/server/repositories/prisma/errors";
 
 function toRecord(row: {
@@ -78,6 +79,7 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
     documentCode: string;
     status: CaseDocumentStatus;
     expectedVersion: number;
+    auditActorUserId: string;
   }) {
     const prisma = getPrismaClient();
     return prisma.$transaction(async (tx) => {
@@ -104,6 +106,18 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
       });
       if (updated.count !== 1) throw new Error(DOCUMENT_VERSION_CONFLICT);
 
+      await tx.caseActivityEvent.create({
+        data: buildCaseActivityWrite({
+          clientCaseId: input.clientCaseId,
+          actorUserId: input.auditActorUserId,
+          type: "document.regenerated",
+          metadata: {
+            documentCode: input.documentCode,
+            documentStatus: input.status,
+          },
+        }),
+      });
+
       const row = await tx.caseDocument.findUnique({ where: { id: current.id } });
       if (!row) throw new Error(DOCUMENT_NOT_FOUND);
       return toRecord(row);
@@ -114,6 +128,7 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
     clientCaseId: string;
     documentCode: string;
     expectedVersion: number;
+    auditActorUserId: string;
   }) {
     const prisma = getPrismaClient();
     return prisma.$transaction(async (tx) => {
@@ -138,6 +153,18 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
       });
       if (updated.count !== 1) throw new Error(DOCUMENT_VERSION_CONFLICT);
 
+      await tx.caseActivityEvent.create({
+        data: buildCaseActivityWrite({
+          clientCaseId: input.clientCaseId,
+          actorUserId: input.auditActorUserId,
+          type: "document.sent_for_review",
+          metadata: {
+            documentCode: input.documentCode,
+            documentStatus: "SENT_FOR_REVIEW",
+          },
+        }),
+      });
+
       const row = await tx.caseDocument.findUnique({ where: { id: current.id } });
       if (!row) throw new Error(DOCUMENT_NOT_FOUND);
       return toRecord(row);
@@ -148,6 +175,7 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
     clientCaseId: string;
     documentCode: string;
     expectedVersion: number;
+    auditActorUserId: string;
   }) {
     const prisma = getPrismaClient();
     return prisma.$transaction(async (tx) => {
@@ -171,6 +199,18 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
         },
       });
       if (updated.count !== 1) throw new Error(DOCUMENT_VERSION_CONFLICT);
+
+      await tx.caseActivityEvent.create({
+        data: buildCaseActivityWrite({
+          clientCaseId: input.clientCaseId,
+          actorUserId: input.auditActorUserId,
+          type: "document.reviewed",
+          metadata: {
+            documentCode: input.documentCode,
+            documentStatus: "REVIEWED",
+          },
+        }),
+      });
 
       const row = await tx.caseDocument.findUnique({ where: { id: current.id } });
       if (!row) throw new Error(DOCUMENT_NOT_FOUND);

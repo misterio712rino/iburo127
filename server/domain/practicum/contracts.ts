@@ -19,5 +19,6 @@ export interface PracticumProgressRepository {
     lessonId: string;
     expectedVersion: number;
     isFinalLesson?: boolean;
+    auditActorUserId: string;
   }): Promise<PracticumProgressRecord>;
 }

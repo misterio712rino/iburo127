@@ -7,6 +7,7 @@ import {
   type PracticumProgressRecord,
   type PracticumProgressRepository,
 } from "@/server/domain/practicum/contracts";
+import { buildCaseActivityWrite } from "@/server/repositories/prisma/case-activity-write";
 import { isPrismaUniqueConstraintError } from "@/server/repositories/prisma/errors";
 
 function toRecord(row: {
@@ -48,6 +49,7 @@ export class PrismaPracticumProgressRepository implements PracticumProgressRepos
     lessonId: string;
     expectedVersion: number;
     isFinalLesson?: boolean;
+    auditActorUserId: string;
   }) {
     const prisma = getPrismaClient();
 
@@ -76,6 +78,25 @@ export class PrismaPracticumProgressRepository implements PracticumProgressRepos
       });
 
       if (updated.count !== 1) throw new Error(PRACTICUM_VERSION_CONFLICT);
+
+      await tx.caseActivityEvent.create({
+        data: buildCaseActivityWrite({
+          clientCaseId: input.clientCaseId,
+          actorUserId: input.auditActorUserId,
+          type: "practicum.lesson.completed",
+          metadata: { lessonId: input.lessonId },
+        }),
+      });
+      if (input.isFinalLesson) {
+        await tx.caseActivityEvent.create({
+          data: buildCaseActivityWrite({
+            clientCaseId: input.clientCaseId,
+            actorUserId: input.auditActorUserId,
+            type: "practicum.completed",
+            metadata: { lessonId: input.lessonId },
+          }),
+        });
+      }
 
       const row = await tx.casePracticumProgress.findUnique({
         where: { clientCaseId: input.clientCaseId },

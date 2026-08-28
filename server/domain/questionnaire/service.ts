@@ -132,7 +132,7 @@ export class QuestionnaireService {
     const existing = await this.repository.getByClientCaseId(clientCaseId);
     if (existing) return existing;
 
-    return this.repository.createForCase(clientCaseId, this.definition.schemaVersion);
+    return this.repository.createForCase(clientCaseId, this.definition.schemaVersion, actor.userId);
   }
 
   async saveAnswer(
@@ -151,6 +151,7 @@ export class QuestionnaireService {
     return this.repository.saveAnswer({
       ...input,
       invalidatedSectionIds: [sectionId, ...this.definition.reviewSectionIds],
+      auditActorUserId: actor.userId,
     });
   }
 
@@ -173,7 +174,7 @@ export class QuestionnaireService {
     }
 
     assertSectionComplete(section, current.answers);
-    return this.repository.completeSection(input);
+    return this.repository.completeSection({ ...input, auditActorUserId: actor.userId });
   }
 
   async markCompleted(
@@ -191,6 +192,6 @@ export class QuestionnaireService {
       assertSectionComplete(section, current.answers);
     }
 
-    return this.repository.markCompleted(input);
+    return this.repository.markCompleted({ ...input, auditActorUserId: actor.userId });
   }
 }

@@ -59,6 +59,7 @@ export class PracticumService {
     return this.repository.completeLesson({
       ...input,
       isFinalLesson: input.lessonId === finalLessonId,
+      auditActorUserId: actor.userId,
     });
   }
 }

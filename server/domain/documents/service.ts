@@ -112,7 +112,7 @@ export class CaseDocumentService {
     );
     if (!existing) throw new Error(DOCUMENT_NOT_FOUND);
 
-    return this.repository.regenerate({ ...input, status });
+    return this.repository.regenerate({ ...input, status, auditActorUserId: actor.userId });
   }
 
   async sendForReview(
@@ -128,7 +128,7 @@ export class CaseDocumentService {
     if (!current || current.status !== "READY_FOR_REVIEW") {
       throw new Error(DOCUMENT_INVALID_TRANSITION);
     }
-    return this.repository.sendForReview(input);
+    return this.repository.sendForReview({ ...input, auditActorUserId: actor.userId });
   }
 
   async markReviewed(
@@ -144,6 +144,6 @@ export class CaseDocumentService {
     if (!current || current.status !== "SENT_FOR_REVIEW") {
       throw new Error(DOCUMENT_INVALID_TRANSITION);
     }
-    return this.repository.markReviewed(input);
+    return this.repository.markReviewed({ ...input, auditActorUserId: actor.userId });
   }
 }

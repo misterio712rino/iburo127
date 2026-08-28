@@ -9,6 +9,7 @@ import {
   type TaskRepository,
   type TaskStatus,
 } from "@/server/domain/tasks/contracts";
+import { buildCaseActivityWrite } from "@/server/repositories/prisma/case-activity-write";
 
 function actorTaskWhere(actor: AuthenticatedActor) {
   if (actor.roles.includes("MANAGER")) return {};
@@ -98,6 +99,18 @@ export class PrismaTaskRepository implements TaskRepository {
           fromStatus: current.status,
           toStatus: input.status,
         },
+      });
+      await tx.caseActivityEvent.create({
+        data: buildCaseActivityWrite({
+          clientCaseId: current.clientCaseId,
+          actorUserId: input.actor.userId,
+          type: "task.status.changed",
+          metadata: {
+            taskId: current.id,
+            fromStatus: current.status,
+            toStatus: input.status,
+          },
+        }),
       });
 
       const row = await tx.caseTask.findUnique({ where: { id: current.id } });

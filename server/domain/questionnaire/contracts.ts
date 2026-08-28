@@ -24,22 +24,29 @@ export type SaveQuestionnaireAnswerInput = {
   value: QuestionnaireAnswer;
   expectedVersion: number;
   invalidatedSectionIds?: readonly string[];
+  auditActorUserId: string;
 };
 
 export type CompleteQuestionnaireSectionInput = {
   clientCaseId: string;
   sectionId: string;
   expectedVersion: number;
+  auditActorUserId: string;
 };
 
 export type CompleteQuestionnaireInput = {
   clientCaseId: string;
   expectedVersion: number;
+  auditActorUserId: string;
 };
 
 export interface QuestionnaireRepository {
   getByClientCaseId(clientCaseId: string): Promise<QuestionnaireRecord | null>;
-  createForCase(clientCaseId: string, schemaVersion: number): Promise<QuestionnaireRecord>;
+  createForCase(
+    clientCaseId: string,
+    schemaVersion: number,
+    auditActorUserId: string,
+  ): Promise<QuestionnaireRecord>;
   saveAnswer(input: SaveQuestionnaireAnswerInput): Promise<QuestionnaireRecord>;
   completeSection(input: CompleteQuestionnaireSectionInput): Promise<QuestionnaireRecord>;
   markCompleted(input: CompleteQuestionnaireInput): Promise<QuestionnaireRecord>;

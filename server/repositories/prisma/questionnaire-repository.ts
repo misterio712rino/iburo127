@@ -11,6 +11,7 @@ import {
   type QuestionnaireRepository,
   type SaveQuestionnaireAnswerInput,
 } from "@/server/domain/questionnaire/contracts";
+import { buildCaseActivityWrite } from "@/server/repositories/prisma/case-activity-write";
 import { isPrismaUniqueConstraintError } from "@/server/repositories/prisma/errors";
 
 function normalizeAnswers(value: unknown): QuestionnaireAnswers {
@@ -58,18 +59,32 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
     return row ? toRecord(row) : null;
   }
 
-  async createForCase(clientCaseId: string, schemaVersion: number): Promise<QuestionnaireRecord> {
+  async createForCase(
+    clientCaseId: string,
+    schemaVersion: number,
+    auditActorUserId: string,
+  ): Promise<QuestionnaireRecord> {
     const prisma = getPrismaClient();
     try {
-      const row = await prisma.caseQuestionnaire.create({
-        data: {
-          clientCaseId,
-          schemaVersion,
-          answers: {},
-          completedSectionIds: [],
-        },
+      return await prisma.$transaction(async (tx) => {
+        const row = await tx.caseQuestionnaire.create({
+          data: {
+            clientCaseId,
+            schemaVersion,
+            answers: {},
+            completedSectionIds: [],
+          },
+        });
+        await tx.caseActivityEvent.create({
+          data: buildCaseActivityWrite({
+            clientCaseId,
+            actorUserId: auditActorUserId,
+            type: "questionnaire.started",
+            metadata: { schemaVersion },
+          }),
+        });
+        return toRecord(row);
       });
-      return toRecord(row);
     } catch (error) {
       if (!isPrismaUniqueConstraintError(error)) throw error;
       const existing = await prisma.caseQuestionnaire.findUnique({ where: { clientCaseId } });
@@ -109,6 +124,18 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
 
       if (updated.count !== 1) throw new Error(QUESTIONNAIRE_VERSION_CONFLICT);
 
+      await tx.caseActivityEvent.create({
+        data: buildCaseActivityWrite({
+          clientCaseId: input.clientCaseId,
+          actorUserId: input.auditActorUserId,
+          type: "questionnaire.answer.updated",
+          metadata: {
+            fieldId: input.fieldId,
+            questionnaireVersion: input.expectedVersion + 1,
+          },
+        }),
+      });
+
       const row = await tx.caseQuestionnaire.findUnique({ where: { clientCaseId: input.clientCaseId } });
       if (!row) throw new Error(QUESTIONNAIRE_NOT_FOUND);
       return toRecord(row);
@@ -141,6 +168,18 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
 
       if (updated.count !== 1) throw new Error(QUESTIONNAIRE_VERSION_CONFLICT);
 
+      await tx.caseActivityEvent.create({
+        data: buildCaseActivityWrite({
+          clientCaseId: input.clientCaseId,
+          actorUserId: input.auditActorUserId,
+          type: "questionnaire.section.completed",
+          metadata: {
+            sectionId: input.sectionId,
+            questionnaireVersion: input.expectedVersion + 1,
+          },
+        }),
+      });
+
       const row = await tx.caseQuestionnaire.findUnique({ where: { clientCaseId: input.clientCaseId } });
       if (!row) throw new Error(QUESTIONNAIRE_NOT_FOUND);
       return toRecord(row);
@@ -168,6 +207,15 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
       });
 
       if (updated.count !== 1) throw new Error(QUESTIONNAIRE_VERSION_CONFLICT);
+
+      await tx.caseActivityEvent.create({
+        data: buildCaseActivityWrite({
+          clientCaseId: input.clientCaseId,
+          actorUserId: input.auditActorUserId,
+          type: "questionnaire.completed",
+          metadata: { questionnaireVersion: input.expectedVersion + 1 },
+        }),
+      });
 
       const row = await tx.caseQuestionnaire.findUnique({ where: { clientCaseId: input.clientCaseId } });
       if (!row) throw new Error(QUESTIONNAIRE_NOT_FOUND);
