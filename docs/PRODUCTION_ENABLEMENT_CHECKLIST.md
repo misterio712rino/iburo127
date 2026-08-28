@@ -74,7 +74,8 @@ Repository/server foundation is complete; activation still requires:
 - [x] Authorized private file list/metadata/download-URL API routes implemented.
 - [x] Signed private upload preparation + HEAD-verified completion flow implemented.
 - [x] Pending uploads remain hidden from normal file list/get/download operations until verification succeeds.
-- [x] Upload input enforces allowlisted MIME types, a 50 MiB limit, UUID-scoped opaque keys and optional SHA-256 syntax validation.
+- [x] Upload input enforces allowlisted MIME types, a 50 MiB limit and UUID-scoped opaque keys.
+- [x] Browser-supplied checksum values are not persisted as trusted integrity metadata; checksum support remains reserved for a future server-verified flow.
 - [ ] Private staging bucket/service account configured.
 - [ ] Add stale `PENDING_UPLOAD` cleanup after staging storage policy is available.
 - [ ] Document/file migrations reviewed and applied to staging.
@@ -124,6 +125,7 @@ Architecture decision: see `docs/AUTH_PROVIDER_DECISION.md`.
 ## Staging runbook
 
 - [x] Staging activation sequence documented in `docs/STAGING_ACTIVATION_RUNBOOK.md`.
+- [x] Read-only staging preflight script implemented as `npm run check:staging`.
 
 ## Release safety
 
