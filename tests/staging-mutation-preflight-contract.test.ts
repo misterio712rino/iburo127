@@ -96,4 +96,23 @@ for (const scriptName of [
   );
 }
 
+const envExample = await readFile(resolve(".env.example"), "utf8");
+for (const variableName of [
+  "IB_AUTH_LINK_USER_ID",
+  "IB_AUTH_LINK_SUBJECT",
+  "IB_AUTH_LINK_PROVIDER",
+  "IB_AUTH_LINK_CONFIRM",
+]) {
+  assert.match(
+    envExample,
+    new RegExp(`^${variableName}=`, "m"),
+    `${variableName} must be documented in .env.example`,
+  );
+}
+assert.match(
+  envExample,
+  /LINK:<staging-database-name>:<IB_AUTH_LINK_USER_ID>/,
+  "AuthIdentity confirmation format must be documented",
+);
+
 console.log("STAGING_MUTATION_PREFLIGHT_CONTRACT_TEST_PASS");
