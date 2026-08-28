@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { canAccessClientCase } from "@/server/domain/client-cases/access-policy";
+import { ClientCaseService } from "@/server/domain/client-cases/service";
+import { StoredFileService } from "@/server/domain/files/service";
 import { createQuestionnaireDefinition } from "@/server/domain/questionnaire/definition";
 import { TaskService } from "@/server/domain/tasks/service";
 import {
@@ -7,7 +9,17 @@ import {
   sanitizeActivityMetadata,
 } from "@/server/domain/activity/taxonomy";
 import { requireNotificationType } from "@/server/domain/notifications/taxonomy";
-import type { AuthenticatedActor, ClientCaseRecord } from "@/server/domain/client-cases/contracts";
+import type {
+  AuthenticatedActor,
+  ClientCaseAccessScope,
+  ClientCaseRecord,
+  ClientCaseRepository,
+} from "@/server/domain/client-cases/contracts";
+import type {
+  StoredFileRecord,
+  StoredFileRepository,
+  StoredFileStatus,
+} from "@/server/domain/files/contracts";
 import type { TaskRecord, TaskRepository, TaskStatus } from "@/server/domain/tasks/contracts";
 import type { QuestionnaireSection } from "@/lib/platform/types";
 
@@ -176,6 +188,88 @@ async function testTaskAuthorization() {
   assert.equal(done.version, 3);
 }
 
+class InMemoryCaseRepository implements ClientCaseRepository {
+  async findAccessibleCase(scope: ClientCaseAccessScope) {
+    if (scope.caseId && scope.caseId !== clientCase.id) return null;
+    if (scope.caseNumber && scope.caseNumber !== clientCase.caseNumber) return null;
+    return clientCase;
+  }
+
+  async listAccessibleCases() {
+    return [clientCase];
+  }
+}
+
+class InMemoryStoredFileRepository implements StoredFileRepository {
+  current: StoredFileRecord | null = null;
+
+  async listByCase(clientCaseId: string) {
+    return this.current && this.current.clientCaseId === clientCaseId && this.current.status === "READY"
+      ? [this.current]
+      : [];
+  }
+
+  async getById(fileId: string) {
+    return this.current?.id === fileId ? this.current : null;
+  }
+
+  async create(input: {
+    id: string;
+    clientCaseId: string;
+    uploadedById: string | null;
+    status: StoredFileStatus;
+    storageProvider: string;
+    objectKey: string;
+    fileName: string;
+    mimeType: string;
+    sizeBytes: bigint;
+    checksumSha256?: string | null;
+  }) {
+    this.current = {
+      ...input,
+      checksumSha256: input.checksumSha256 ?? null,
+      readyAt: null,
+      createdAt: now,
+    };
+    return this.current;
+  }
+
+  async markReady(fileId: string, readyAt: Date) {
+    assert.equal(this.current?.id, fileId);
+    this.current = { ...this.current!, status: "READY", readyAt };
+    return this.current;
+  }
+}
+
+async function testStoredFileLifecycle() {
+  const repository = new InMemoryStoredFileRepository();
+  const cases = new ClientCaseService(new InMemoryCaseRepository());
+  const service = new StoredFileService(cases, repository);
+
+  const pending = await service.registerPendingUpload(actors.client, {
+    id: "file-1",
+    clientCaseId: clientCase.id,
+    storageProvider: "yandex-object-storage",
+    objectKey: "cases/case-1/file-1/object.pdf",
+    fileName: "document.pdf",
+    mimeType: "application/pdf",
+    sizeBytes: BigInt(1024),
+  });
+  assert.equal(pending.status, "PENDING_UPLOAD");
+  assert.equal((await service.list(actors.client, clientCase.id)).length, 0);
+  await assert.rejects(service.get(actors.client, pending.id), /FILE_NOT_FOUND/);
+  await assert.rejects(service.getPendingUpload(actors.otherClient, pending.id), /FILE_CASE_NOT_FOUND/);
+  assert.equal((await service.getPendingUpload(actors.client, pending.id)).id, pending.id);
+
+  const ready = await service.markUploadReady(actors.client, pending.id);
+  assert.equal(ready.status, "READY");
+  assert.ok(ready.readyAt);
+  assert.equal((await service.list(actors.client, clientCase.id)).length, 1);
+  assert.equal((await service.get(actors.lawyer, pending.id)).id, pending.id);
+  await assert.rejects(service.getPendingUpload(actors.client, pending.id), /FILE_UPLOAD_NOT_PENDING/);
+}
+
 await testTaskAuthorization();
+await testStoredFileLifecycle();
 
 console.log("production foundation tests: PASS");
