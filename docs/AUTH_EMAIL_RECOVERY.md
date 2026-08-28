@@ -13,7 +13,7 @@ Self-sign-up remains disabled. Email verification delivery is wired, but mandato
 - Static access keys stay outside the repository.
 - AWS Signature Version 4 is implemented with Node `crypto`; the implementation is regression-tested against the published AWS IAM SigV4 example signature.
 - Password-reset delivery callbacks return without awaiting the provider call, following Better Auth guidance to reduce account-enumeration timing differences.
-- Delivery failures log only the constant `AUTH_EMAIL_DELIVERY_FAILED`; recipient address, token and recovery URL are never logged.
+- Runtime delivery errors are not written directly to console/stdout/stderr. Recipient address, token and recovery URL are never logged by this transport. Delivery health must be verified through the staging exercise and provider-side monitoring before production enablement.
 - Recovery URLs are rejected unless their origin exactly matches `BETTER_AUTH_URL`.
 - Password reset revokes existing sessions through Better Auth `revokeSessionsOnPasswordReset: true`.
 
@@ -44,7 +44,7 @@ Before calling recovery production-ready:
 5. Verify receipt, link origin, token handling and successful password reset.
 6. Verify old sessions are revoked after reset.
 7. Exercise invalid/expired links and confirm no internal error text or token is exposed.
-8. Verify delivery/error logs contain no recipient address, token or URL.
+8. Verify application runtime output contains no recipient address, token or recovery URL and review provider-side delivery metrics/errors.
 9. Only after existing staging accounts are reviewed, decide whether to enable mandatory email verification.
 
 A green repository CI run proves the transport, UI and SigV4 test compile and build. It does **not** prove that Yandex Cloud accepted or delivered a real message.

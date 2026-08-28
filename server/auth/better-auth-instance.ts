@@ -10,8 +10,6 @@ import {
 import { getTransactionalEmailDelivery } from "@/server/email/runtime";
 import type { TransactionalEmailInput } from "@/server/email/yandex-postbox";
 
-const AUTH_EMAIL_DELIVERY_FAILED = "AUTH_EMAIL_DELIVERY_FAILED";
-
 function assertTrustedAuthUrl(value: string, expectedOrigin: string) {
   let parsed: URL;
   try {
@@ -19,7 +17,7 @@ function assertTrustedAuthUrl(value: string, expectedOrigin: string) {
   } catch {
     throw new Error("AUTH_EMAIL_INVALID_URL");
   }
-  if (parsed.origin !== expectedOrigin || parsed.protocol !== new URL(expectedOrigin).protocol) {
+  if (parsed.origin !== expectedOrigin) {
     throw new Error("AUTH_EMAIL_INVALID_URL");
   }
   return parsed.toString();
@@ -28,11 +26,11 @@ function assertTrustedAuthUrl(value: string, expectedOrigin: string) {
 function dispatchAuthEmail(input: TransactionalEmailInput) {
   try {
     const delivery = getTransactionalEmailDelivery();
-    void delivery.send(input).catch(() => {
-      console.error(AUTH_EMAIL_DELIVERY_FAILED);
-    });
+    void delivery.send(input).catch(() => undefined);
   } catch {
-    console.error(AUTH_EMAIL_DELIVERY_FAILED);
+    // Better Auth recommends not awaiting recovery email delivery because doing so can
+    // create account-enumeration timing differences. Provider-side delivery must be
+    // verified and monitored separately; runtime payloads are never written to logs.
   }
 }
 
