@@ -3,6 +3,7 @@ export const REQUIRED_STAGING_DOMAIN_TABLES = [
   "Role",
   "UserRole",
   "AuthIdentity",
+  "UserSecurityEvent",
   "Plan",
   "Feature",
   "PlanFeature",
