@@ -22,18 +22,18 @@ export type SaveQuestionnaireAnswerInput = {
   clientCaseId: string;
   fieldId: string;
   value: QuestionnaireAnswer;
-  expectedVersion?: number;
+  expectedVersion: number;
 };
 
 export type CompleteQuestionnaireSectionInput = {
   clientCaseId: string;
   sectionId: string;
-  expectedVersion?: number;
+  expectedVersion: number;
 };
 
 export type CompleteQuestionnaireInput = {
   clientCaseId: string;
-  expectedVersion?: number;
+  expectedVersion: number;
 };
 
 export interface QuestionnaireRepository {
