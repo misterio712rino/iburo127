@@ -59,6 +59,14 @@ export type YandexPostboxConfig = {
   requestTimeoutMs: number;
 };
 
+export type OpenAiRuntimeConfig = {
+  apiKey: string;
+  model: string;
+  endpoint: "https://api.openai.com/v1/responses";
+  requestTimeoutMs: number;
+  maxOutputTokens: number;
+};
+
 export type MaintenanceRuntimeConfig = {
   secret: string;
   staleUploadMaxAgeMinutes: number;
@@ -130,6 +138,40 @@ export function readYandexPostboxConfig(
       10_000,
       1_000,
       30_000,
+    ),
+  };
+}
+
+export function readOpenAiRuntimeConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): OpenAiRuntimeConfig {
+  const apiKey = requireEnv(env, "OPENAI_API_KEY");
+  if (apiKey.length < 20 || /[\r\n\0]/.test(apiKey)) {
+    throw new Error(`${PRODUCTION_CONFIG_ERROR}:OPENAI_API_KEY`);
+  }
+
+  const model = requireEnv(env, "IB_AI_OPENAI_MODEL");
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(model)) {
+    throw new Error(`${PRODUCTION_CONFIG_ERROR}:IB_AI_OPENAI_MODEL`);
+  }
+
+  return {
+    apiKey,
+    model,
+    endpoint: "https://api.openai.com/v1/responses",
+    requestTimeoutMs: readIntegerEnv(
+      env,
+      "IB_AI_OPENAI_REQUEST_TIMEOUT_MS",
+      20_000,
+      1_000,
+      60_000,
+    ),
+    maxOutputTokens: readIntegerEnv(
+      env,
+      "IB_AI_OPENAI_MAX_OUTPUT_TOKENS",
+      1_200,
+      128,
+      4_000,
     ),
   };
 }
