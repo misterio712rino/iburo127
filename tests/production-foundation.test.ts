@@ -213,6 +213,18 @@ class InMemoryStoredFileRepository implements StoredFileRepository {
     return this.current?.id === fileId ? this.current : null;
   }
 
+  async listPendingBefore(before: Date, limit: number) {
+    if (
+      this.current &&
+      this.current.status === "PENDING_UPLOAD" &&
+      this.current.createdAt < before &&
+      limit > 0
+    ) {
+      return [this.current];
+    }
+    return [];
+  }
+
   async create(input: {
     id: string;
     clientCaseId: string;
@@ -238,6 +250,12 @@ class InMemoryStoredFileRepository implements StoredFileRepository {
     assert.equal(this.current?.id, fileId);
     this.current = { ...this.current!, status: "READY", readyAt };
     return this.current;
+  }
+
+  async deletePending(fileId: string) {
+    if (this.current?.id !== fileId || this.current.status !== "PENDING_UPLOAD") return false;
+    this.current = null;
+    return true;
   }
 }
 
