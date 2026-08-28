@@ -75,3 +75,17 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Compatible dependency remediation preview
+        shell: bash
+        run: |
+          npm audit fix --package-lock-only --ignore-scripts || true
+          if ! git diff --exit-code -- package.json; then
+            echo "DEPENDENCY_REMEDIATION_PREVIEW_PACKAGE_JSON_CHANGED"
+            exit 1
+          fi
+          npm audit --json > "$RUNNER_TEMP/npm-audit-after-compatible-fix.json" || true
+          node scripts/report-npm-audit.mjs "$RUNNER_TEMP/npm-audit-after-compatible-fix.json"
+          echo "DEPENDENCY_REMEDIATION_PREVIEW_LOCKFILE_DIFF:"
+          git diff --numstat -- package-lock.json
+          git checkout -- package-lock.json
