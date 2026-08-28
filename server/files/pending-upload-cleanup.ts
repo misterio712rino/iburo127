@@ -1,5 +1,3 @@
-import "server-only";
-
 import type { StoredFileRepository } from "@/server/domain/files/contracts";
 import type { PrivateObjectStorage } from "@/server/files/object-storage-contract";
 
@@ -21,6 +19,10 @@ function assertPositiveInteger(value: number) {
 }
 
 /**
+ * Pure cleanup service. Server-only infrastructure is injected by
+ * pending-upload-cleanup-runtime.ts; keeping this module environment-neutral
+ * makes the concurrency contract directly unit-testable.
+ *
  * Claims stale metadata with a conditional PENDING_UPLOAD delete before touching
  * private storage. This ordering prevents a cleanup worker from deleting an
  * object after another request has already promoted the row to READY.
