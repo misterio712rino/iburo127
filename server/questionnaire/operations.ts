@@ -27,7 +27,7 @@ export async function saveQuestionnaireAnswer(
     clientCaseId: string;
     fieldId: string;
     value: QuestionnaireAnswer;
-    expectedVersion?: number;
+    expectedVersion: number;
   },
 ) {
   const actor = await requireServerActor(sessionProvider);
@@ -39,7 +39,7 @@ export async function completeQuestionnaireSection(
   input: {
     clientCaseId: string;
     sectionId: string;
-    expectedVersion?: number;
+    expectedVersion: number;
   },
 ) {
   const actor = await requireServerActor(sessionProvider);
@@ -50,7 +50,7 @@ export async function completeQuestionnaire(
   sessionProvider: SessionProvider,
   input: {
     clientCaseId: string;
-    expectedVersion?: number;
+    expectedVersion: number;
   },
 ) {
   const actor = await requireServerActor(sessionProvider);
