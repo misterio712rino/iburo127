@@ -11,6 +11,7 @@ import {
   type QuestionnaireRepository,
   type SaveQuestionnaireAnswerInput,
 } from "@/server/domain/questionnaire/contracts";
+import { isPrismaUniqueConstraintError } from "@/server/repositories/prisma/errors";
 
 function normalizeAnswers(value: unknown): QuestionnaireAnswers {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -59,15 +60,22 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
 
   async createForCase(clientCaseId: string, schemaVersion: number): Promise<QuestionnaireRecord> {
     const prisma = getPrismaClient();
-    const row = await prisma.caseQuestionnaire.create({
-      data: {
-        clientCaseId,
-        schemaVersion,
-        answers: {},
-        completedSectionIds: [],
-      },
-    });
-    return toRecord(row);
+    try {
+      const row = await prisma.caseQuestionnaire.create({
+        data: {
+          clientCaseId,
+          schemaVersion,
+          answers: {},
+          completedSectionIds: [],
+        },
+      });
+      return toRecord(row);
+    } catch (error) {
+      if (!isPrismaUniqueConstraintError(error)) throw error;
+      const existing = await prisma.caseQuestionnaire.findUnique({ where: { clientCaseId } });
+      if (!existing) throw error;
+      return toRecord(existing);
+    }
   }
 
   async saveAnswer(input: SaveQuestionnaireAnswerInput): Promise<QuestionnaireRecord> {
