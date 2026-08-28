@@ -52,6 +52,17 @@ enum StoredFileStatus {
   READY
 }
 
+enum NotificationDeliveryChannel {
+  EMAIL
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  PROCESSING
+  SENT
+  DEAD
+}
+
 model User {
   id          String     @id @default(uuid()) @db.Uuid
   email       String?    @unique
@@ -173,10 +184,10 @@ model ClientCase {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
-  client         User  @relation("ClientCases", fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  plan           Plan  @relation(fields: [planId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  client         User      @relation("ClientCases", fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  plan           Plan      @relation(fields: [planId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   stage          CaseStage @relation(fields: [stageId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  assignedLawyer User? @relation("AssignedLawyerCases", fields: [assignedLawyerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  assignedLawyer User?     @relation("AssignedLawyerCases", fields: [assignedLawyerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   questionnaire     CaseQuestionnaire?
   practicumProgress CasePracticumProgress?
@@ -209,14 +220,14 @@ model CaseQuestionnaire {
 }
 
 model CasePracticumProgress {
-  clientCaseId       String                  @id @db.Uuid
+  clientCaseId       String                   @id @db.Uuid
   status             PracticumProgressStatus @default(NOT_STARTED)
   completedLessonIds String[]
   startedAt          DateTime?
   completedAt        DateTime?
-  version            Int                     @default(1)
-  createdAt          DateTime                @default(now())
-  updatedAt          DateTime                @updatedAt
+  version            Int                      @default(1)
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
 
   clientCase ClientCase @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 }
@@ -296,17 +307,42 @@ model Notification {
   id           String   @id @default(uuid()) @db.Uuid
   userId       String   @db.Uuid
   clientCaseId String?  @db.Uuid
+  dedupeKey    String?
   type         String
   title        String
   body         String
   readAt       DateTime?
   createdAt    DateTime @default(now())
 
-  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  clientCase ClientCase? @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  clientCase ClientCase?            @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  deliveries NotificationDelivery[]
 
+  @@unique([userId, dedupeKey])
   @@index([userId, readAt, createdAt])
   @@index([clientCaseId])
+}
+
+model NotificationDelivery {
+  id                String                      @id @default(uuid()) @db.Uuid
+  notificationId    String                      @db.Uuid
+  channel           NotificationDeliveryChannel
+  status            NotificationDeliveryStatus @default(PENDING)
+  attemptCount      Int                         @default(0)
+  nextAttemptAt     DateTime                    @default(now())
+  leaseUntil        DateTime?
+  leaseToken        String?                     @db.Uuid
+  providerMessageId String?
+  lastErrorCode     String?
+  sentAt            DateTime?
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([notificationId, channel])
+  @@index([channel, status, nextAttemptAt])
+  @@index([status, leaseUntil])
 }
 
 model StoredFile {
@@ -320,11 +356,11 @@ model StoredFile {
   mimeType        String
   sizeBytes       BigInt
   checksumSha256  String?
-  readyAt          DateTime?
+  readyAt         DateTime?
   createdAt       DateTime         @default(now())
 
   clientCase ClientCase @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  uploadedBy User?      @relation("StoredFileUploaders", fields: [uploadedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  uploadedBy User?       @relation("StoredFileUploaders", fields: [uploadedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   @@index([clientCaseId, status, createdAt])
   @@index([uploadedById])

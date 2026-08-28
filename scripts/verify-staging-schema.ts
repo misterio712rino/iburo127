@@ -32,6 +32,7 @@ const REQUIRED_TABLES = [
   "CaseDocument",
   "CaseActivityEvent",
   "Notification",
+  "NotificationDelivery",
   "StoredFile",
 ] as const;
 
@@ -43,6 +44,8 @@ const REQUIRED_ENUMS = [
   "TaskStatus",
   "CaseDocumentStatus",
   "StoredFileStatus",
+  "NotificationDeliveryChannel",
+  "NotificationDeliveryStatus",
 ] as const;
 
 const pool = new Pool({
