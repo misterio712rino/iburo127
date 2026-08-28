@@ -54,9 +54,12 @@ It does **not**:
 Run, in order:
 
 ```text
+npm run db:verify:staging
 npm run check:staging
 npm run check:staging:authz
 ```
+
+`db:verify:staging` is read-only and verifies that the expected iБюро domain tables and PostgreSQL enums exist and that Prisma does not report an unfinished, non-rolled-back migration record.
 
 Then execute DB-backed authenticated E2E scenarios for CLIENT, LAWYER and MANAGER before any production rollout is discussed.
 
