@@ -38,7 +38,7 @@ export class PrismaPracticumProgressRepository implements PracticumProgressRepos
   async completeLesson(input: {
     clientCaseId: string;
     lessonId: string;
-    expectedVersion?: number;
+    expectedVersion: number;
     isFinalLesson?: boolean;
   }) {
     const prisma = getPrismaClient();
@@ -48,17 +48,17 @@ export class PrismaPracticumProgressRepository implements PracticumProgressRepos
         where: { clientCaseId: input.clientCaseId },
       });
       if (!current) throw new Error(PRACTICUM_NOT_FOUND);
-      if (input.expectedVersion !== undefined && current.version !== input.expectedVersion) {
-        throw new Error(PRACTICUM_VERSION_CONFLICT);
-      }
 
       const completedLessonIds = current.completedLessonIds.includes(input.lessonId)
         ? current.completedLessonIds
         : [...current.completedLessonIds, input.lessonId];
       const now = new Date();
 
-      const row = await tx.casePracticumProgress.update({
-        where: { clientCaseId: input.clientCaseId },
+      const updated = await tx.casePracticumProgress.updateMany({
+        where: {
+          clientCaseId: input.clientCaseId,
+          version: input.expectedVersion,
+        },
         data: {
           completedLessonIds,
           startedAt: current.startedAt ?? now,
@@ -67,6 +67,12 @@ export class PrismaPracticumProgressRepository implements PracticumProgressRepos
         },
       });
 
+      if (updated.count !== 1) throw new Error(PRACTICUM_VERSION_CONFLICT);
+
+      const row = await tx.casePracticumProgress.findUnique({
+        where: { clientCaseId: input.clientCaseId },
+      });
+      if (!row) throw new Error(PRACTICUM_NOT_FOUND);
       return toRecord(row);
     });
   }
