@@ -4,20 +4,17 @@ import type {
   ActivityMetadata,
   CaseActivityRepository,
 } from "@/server/domain/activity/contracts";
+import {
+  requireCaseActivityType,
+  sanitizeActivityMetadata,
+} from "@/server/domain/activity/taxonomy";
 
 export const ACTIVITY_CASE_NOT_FOUND = "ACTIVITY_CASE_NOT_FOUND";
-export const ACTIVITY_INVALID_TYPE = "ACTIVITY_INVALID_TYPE";
 
 function normalizeLimit(limit?: number) {
   if (limit === undefined) return 50;
   if (!Number.isInteger(limit) || limit < 1 || limit > 200) return 50;
   return limit;
-}
-
-function requireType(type: string) {
-  const normalized = type.trim();
-  if (!normalized || normalized.length > 100) throw new Error(ACTIVITY_INVALID_TYPE);
-  return normalized;
 }
 
 export class CaseActivityService {
@@ -45,8 +42,8 @@ export class CaseActivityService {
     return this.repository.append({
       clientCaseId: input.clientCaseId,
       actorUserId: actor.userId,
-      type: requireType(input.type),
-      metadata: input.metadata,
+      type: requireCaseActivityType(input.type),
+      metadata: sanitizeActivityMetadata(input.metadata),
     });
   }
 
@@ -58,8 +55,8 @@ export class CaseActivityService {
     return this.repository.append({
       clientCaseId: input.clientCaseId,
       actorUserId: null,
-      type: requireType(input.type),
-      metadata: input.metadata,
+      type: requireCaseActivityType(input.type),
+      metadata: sanitizeActivityMetadata(input.metadata),
     });
   }
 }
