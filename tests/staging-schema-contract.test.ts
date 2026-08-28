@@ -17,6 +17,7 @@ const validInput = {
   },
 };
 
+assert.ok(REQUIRED_STAGING_DOMAIN_TABLES.includes("UserSecurityEvent"));
 assert.doesNotThrow(() => assertStagingSchemaContract(validInput));
 
 assert.throws(
@@ -30,6 +31,15 @@ assert.throws(
     assert.match(error.message, /missing required domain tables: ClientCase/);
     return true;
   },
+);
+
+assert.throws(
+  () =>
+    assertStagingSchemaContract({
+      ...validInput,
+      tables: validInput.tables.filter((tableName) => tableName !== "UserSecurityEvent"),
+    }),
+  /missing required domain tables: UserSecurityEvent/,
 );
 
 assert.throws(
