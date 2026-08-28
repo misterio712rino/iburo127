@@ -1,10 +1,14 @@
 import "server-only";
 
 import type { ActorRepository } from "@/server/auth/contracts";
-import type { ActorRole, AuthenticatedActor } from "@/server/domain/client-cases/contracts";
+import {
+  PLATFORM_ROLE_CODES,
+  type ActorRole,
+  type AuthenticatedActor,
+} from "@/server/domain/client-cases/contracts";
 import { getPrismaClient } from "@/server/database/prisma";
 
-const PLATFORM_ROLES = new Set<ActorRole>(["CLIENT", "LAWYER", "MANAGER"]);
+const PLATFORM_ROLES = new Set<ActorRole>(PLATFORM_ROLE_CODES);
 
 export class PrismaActorRepository implements ActorRepository {
   async getActiveActor(userId: string): Promise<AuthenticatedActor | null> {
