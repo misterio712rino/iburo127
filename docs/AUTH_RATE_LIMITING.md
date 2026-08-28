@@ -16,18 +16,18 @@ rateLimit: {
 
 This keeps rate-limit state shared across application instances through PostgreSQL instead of resetting or diverging per Node.js process.
 
-## Database contract
+## Provider schema boundary
 
-The provider-owned physical table is `rateLimit` and contains only rate-limit infrastructure state:
+The physical `rateLimit` table belongs to the Better Auth provider schema together with the lowercase Better Auth tables `user`, `session`, `account`, `verification` and `twoFactor`. These provider-owned tables are deliberately kept out of the legal-domain Prisma schema so the application does not partially duplicate or accidentally rename Better Auth's database contract.
+
+The `rateLimit` table contains only rate-limit infrastructure state:
 
 - `id` — primary key;
 - `key` — unique rate-limit key;
 - `count` — request count in the active window;
 - `lastRequest` — epoch-millisecond timestamp used by Better Auth.
 
-`prisma/schema.prisma` models this table as `AuthRateLimit` with `@@map("rateLimit")` so the future reviewed Prisma migration can include the provider table without renaming Better Auth's expected database object.
-
-The read-only staging Better Auth verifier requires the table, column types, primary key and unique `key` constraint before it can report PASS.
+The read-only staging Better Auth verifier is the repository gate for this provider schema. It requires `rateLimit`, its column types, primary key and unique `key` constraint before it can report PASS.
 
 ## Migration safety boundary
 
@@ -38,11 +38,12 @@ Do not run Better Auth automatic migrations, `prisma db push`, `prisma migrate d
 Activation order remains:
 
 1. inspect the authoritative PostgreSQL baseline;
-2. establish the reviewed Prisma migration history;
-3. generate and manually review the migration SQL containing `rateLimit`;
-4. apply it only through the guarded staging migration path;
-5. run `npm run check:staging:auth-schema` and confirm the `rateLimit` contract;
-6. exercise controlled staging authentication traffic and verify HTTP 429 behavior under repeated client requests;
-7. only after staging evidence, include the change in a future production release review.
+2. establish the reviewed migration strategy for legal-domain Prisma objects and Better Auth provider objects;
+3. generate the Better Auth 1.7 provider schema/SQL for the pinned application configuration without applying it automatically;
+4. manually review the generated SQL together with the authoritative database baseline and backup/rollback plan;
+5. apply only the reviewed staging change through an explicitly approved staging mutation procedure;
+6. run `npm run check:staging:auth-schema` and confirm the full Better Auth core + 2FA + rate-limit contract;
+7. exercise controlled staging authentication traffic and verify HTTP 429 behavior under repeated requests and concurrent application instances;
+8. only after staging evidence, include the change in a future production release review.
 
-Until steps 1–6 are complete, database-backed rate limiting is **code-complete foundation only**, not a claim that staging or production brute-force protection has been runtime-verified.
+Until those runtime checks are complete, database-backed rate limiting is **code-complete foundation only**, not a claim that staging or production brute-force protection has been runtime-verified.
