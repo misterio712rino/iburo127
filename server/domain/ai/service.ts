@@ -55,6 +55,7 @@ export class AiAssistantService {
   private async recordOutcomeBestEffort(input: {
     clientCaseId: string;
     actorUserId: string;
+    auditId: string;
     outcome: AiAuditOutcome;
   }): Promise<void> {
     try {
@@ -69,11 +70,13 @@ export class AiAssistantService {
   private async restrictedReply(input: {
     clientCaseId: string;
     actorUserId: string;
+    auditId: string;
     content: string;
   }): Promise<AiAssistantReply> {
     await this.recordOutcomeBestEffort({
       clientCaseId: input.clientCaseId,
       actorUserId: input.actorUserId,
+      auditId: input.auditId,
       outcome: "restricted",
     });
     return { content: input.content, restrictedAction: true };
@@ -112,17 +115,18 @@ export class AiAssistantService {
       throw new Error(AI_FEATURE_NOT_AVAILABLE);
     }
 
-    const reserved = await this.usageLedger.reserveRequest({
+    const reservation = await this.usageLedger.reserveRequest({
       clientCaseId: clientCase.id,
       actorUserId: actor.userId,
       now: new Date(),
     });
-    if (!reserved) throw new Error(AI_RATE_LIMITED);
+    if (!reservation) throw new Error(AI_RATE_LIMITED);
 
     if (containsSensitivePersonalData(request.message)) {
       return this.restrictedReply({
         clientCaseId: clientCase.id,
         actorUserId: actor.userId,
+        auditId: reservation.auditId,
         content: AI_SENSITIVE_DATA_REPLY,
       });
     }
@@ -131,6 +135,7 @@ export class AiAssistantService {
       return this.restrictedReply({
         clientCaseId: clientCase.id,
         actorUserId: actor.userId,
+        auditId: reservation.auditId,
         content: AI_POLICY_BOUNDARY_REPLY,
       });
     }
@@ -139,6 +144,7 @@ export class AiAssistantService {
       return this.restrictedReply({
         clientCaseId: clientCase.id,
         actorUserId: actor.userId,
+        auditId: reservation.auditId,
         content: RESTRICTED_LEGAL_ACTION_REPLY,
       });
     }
@@ -158,6 +164,7 @@ export class AiAssistantService {
       await this.recordOutcomeBestEffort({
         clientCaseId: clientCase.id,
         actorUserId: actor.userId,
+        auditId: reservation.auditId,
         outcome: "failed",
       });
       throw error;
@@ -170,6 +177,7 @@ export class AiAssistantService {
       await this.recordOutcomeBestEffort({
         clientCaseId: clientCase.id,
         actorUserId: actor.userId,
+        auditId: reservation.auditId,
         outcome: "failed",
       });
       throw error;
@@ -179,6 +187,7 @@ export class AiAssistantService {
     await this.recordOutcomeBestEffort({
       clientCaseId: clientCase.id,
       actorUserId: actor.userId,
+      auditId: reservation.auditId,
       outcome: restrictedAction ? "restricted" : "completed",
     });
     return { content, restrictedAction };
