@@ -27,6 +27,6 @@ export interface TaskRepository {
     actor: AuthenticatedActor;
     taskId: string;
     status: TaskStatus;
-    expectedVersion?: number;
+    expectedVersion: number;
   }): Promise<TaskRecord>;
 }
