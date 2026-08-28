@@ -74,6 +74,21 @@ The current provider transport uses the OpenAI Responses API over server-side `f
 
 No OpenAI SDK dependency is required, so this foundation does not modify the dependency lockfile.
 
+## Staging provider smoke verifier
+
+`npm run check:staging:ai-provider` performs one intentionally small real provider request using only a hardcoded synthetic connectivity prompt. It never loads PostgreSQL, a client case, questionnaire data, documents or files.
+
+The verifier fails closed unless all of these conditions hold before the network call:
+
+- `IB_AI_TARGET` is exactly `staging`;
+- `IB_AI_OPENAI_MODEL` exactly matches `IB_STAGING_OPENAI_MODEL`;
+- SHA-256 of the supplied `OPENAI_API_KEY` exactly matches `IB_STAGING_OPENAI_KEY_SHA256`;
+- `IB_STAGING_AI_CONFIRM` exactly equals `AI-SMOKE:<model>:<sha256>`.
+
+The model must reply with the exact marker `IB_AI_STAGING_OK`. Neither the API key, its fingerprint nor the model response is printed. The command is deliberately **not** part of `check:staging:release`, because it is an active external provider call with billing impact and must remain an explicit operator action.
+
+This verifier has been added at code level only. A real OpenAI staging smoke request has not been executed by this work.
+
 ## Legal guardrails
 
 The assistant is informational. It cannot:
@@ -118,7 +133,7 @@ Before declaring the AI feature production-ready:
 2. select and pin the production model intentionally;
 3. validate provider billing/limits and data controls;
 4. run authenticated staging HTTP authorization/rate-limit tests against a non-production fixture case;
-5. run a controlled staging provider smoke test without real client data;
+5. execute the guarded staging provider smoke verifier and retain its PASS evidence;
 6. verify the PostgreSQL advisory-lock rate-limit behavior under concurrent staging requests;
 7. complete privacy/legal copy review;
 8. perform final prompt-injection and abuse testing, including forged browser history roles;
