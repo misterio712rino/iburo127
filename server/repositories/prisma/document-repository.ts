@@ -8,6 +8,7 @@ import {
   type CaseDocumentRepository,
   type CaseDocumentStatus,
 } from "@/server/domain/documents/contracts";
+import { isPrismaUniqueConstraintError } from "@/server/repositories/prisma/errors";
 
 function toRecord(row: {
   id: string;
@@ -54,8 +55,22 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
     status: CaseDocumentStatus;
   }) {
     const prisma = getPrismaClient();
-    const row = await prisma.caseDocument.create({ data: input });
-    return toRecord(row);
+    try {
+      const row = await prisma.caseDocument.create({ data: input });
+      return toRecord(row);
+    } catch (error) {
+      if (!isPrismaUniqueConstraintError(error)) throw error;
+      const existing = await prisma.caseDocument.findUnique({
+        where: {
+          clientCaseId_documentCode: {
+            clientCaseId: input.clientCaseId,
+            documentCode: input.documentCode,
+          },
+        },
+      });
+      if (!existing) throw error;
+      return toRecord(existing);
+    }
   }
 
   async regenerate(input: {
