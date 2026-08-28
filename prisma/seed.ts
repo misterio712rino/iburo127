@@ -6,6 +6,10 @@ import {
   requireStagingDatabaseTarget,
   requireStagingMutationConfirmation,
 } from "../scripts/staging-target-guard";
+import {
+  PLATFORM_ROLE_CODES,
+  type ActorRole,
+} from "../server/domain/client-cases/contracts";
 
 const target = requireStagingDatabaseTarget();
 requireStagingMutationConfirmation(
@@ -18,12 +22,16 @@ requireStagingMutationConfirmation(
 const adapter = new PrismaPg({ connectionString: target.databaseUrl });
 const prisma = new PrismaClient({ adapter });
 
-const roles = [
-  { code: "CLIENT", name: "Клиент", description: "Клиент платформы" },
-  { code: "LAWYER", name: "Юрист", description: "Юрист, сопровождающий дела" },
-  { code: "MANAGER", name: "Менеджер", description: "Менеджер клиентского сопровождения" },
-  { code: "ADMIN", name: "Администратор", description: "Администратор платформы" },
-] as const;
+const roleMetadata: Record<ActorRole, { name: string; description: string }> = {
+  CLIENT: { name: "Клиент", description: "Клиент платформы" },
+  LAWYER: { name: "Юрист", description: "Юрист, сопровождающий дела" },
+  MANAGER: { name: "Менеджер", description: "Менеджер клиентского сопровождения" },
+};
+
+const roles = PLATFORM_ROLE_CODES.map((code) => ({
+  code,
+  ...roleMetadata[code],
+}));
 
 const plans = [
   { code: "LITE", name: "Lite", description: "Базовый набор возможностей платформы" },
