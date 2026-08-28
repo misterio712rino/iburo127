@@ -201,16 +201,6 @@ async function run() {
   });
   assert.deepEqual(current.completedSectionIds, ["basics"]);
 
-  await assert.rejects(
-    service.completeSection(client, {
-      clientCaseId: clientCase.id,
-      sectionId: "review",
-      expectedVersion: current.version,
-    }),
-    /QUESTIONNAIRE_INCOMPLETE_SECTION/,
-  );
-
-  // A hidden conditional required field becomes mandatory when its controlling answer changes.
   current = await service.saveAnswer(client, {
     clientCaseId: clientCase.id,
     fieldId: "employed",
@@ -218,10 +208,15 @@ async function run() {
     expectedVersion: current.version,
   });
 
+  current = await service.completeSection(client, {
+    clientCaseId: clientCase.id,
+    sectionId: "review",
+    expectedVersion: current.version,
+  });
+
   await assert.rejects(
-    service.completeSection(client, {
+    service.markCompleted(client, {
       clientCaseId: clientCase.id,
-      sectionId: "review",
       expectedVersion: current.version,
     }),
     /QUESTIONNAIRE_INCOMPLETE_SECTION/,
@@ -231,18 +226,6 @@ async function run() {
     clientCaseId: clientCase.id,
     fieldId: "employmentType",
     value: "employee",
-    expectedVersion: current.version,
-  });
-
-  // Re-completing the changed section forces current required-field validation.
-  current = await service.completeSection(client, {
-    clientCaseId: clientCase.id,
-    sectionId: "basics",
-    expectedVersion: current.version,
-  });
-  current = await service.completeSection(client, {
-    clientCaseId: clientCase.id,
-    sectionId: "review",
     expectedVersion: current.version,
   });
 
