@@ -1,7 +1,11 @@
 import "server-only";
 
 import type { SessionProvider } from "@/server/auth/contracts";
-import { handleGetStoredFile, handleListStoredFiles } from "@/server/files/handlers";
+import {
+  handleCreateStoredFileDownloadUrl,
+  handleGetStoredFile,
+  handleListStoredFiles,
+} from "@/server/files/handlers";
 import { toStoredFileHttpResponse } from "@/server/files/http";
 
 export function createStoredFileRouteAdapter(sessionProvider: SessionProvider) {
@@ -15,6 +19,18 @@ export function createStoredFileRouteAdapter(sessionProvider: SessionProvider) {
     async get(fileId: unknown): Promise<Response> {
       return toStoredFileHttpResponse(
         await handleGetStoredFile(sessionProvider, fileId),
+      );
+    },
+
+    async createDownloadUrl(
+      fileId: unknown,
+      expiresInSeconds?: unknown,
+    ): Promise<Response> {
+      return toStoredFileHttpResponse(
+        await handleCreateStoredFileDownloadUrl(sessionProvider, {
+          fileId,
+          expiresInSeconds,
+        }),
       );
     },
   };
