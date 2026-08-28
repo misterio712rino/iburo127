@@ -11,11 +11,12 @@ const productionEnv = { BETTER_AUTH_URL: "https://app.example.com" };
 
 function request(
   method: string,
-  options: { origin?: string; fetchSite?: string } = {},
+  options: { origin?: string; fetchSite?: string; userAgent?: string } = {},
 ): Pick<Request, "method" | "headers"> {
   const headers = new Headers();
   if (options.origin !== undefined) headers.set("origin", options.origin);
   if (options.fetchSite !== undefined) headers.set("sec-fetch-site", options.fetchSite);
+  if (options.userAgent !== undefined) headers.set("user-agent", options.userAgent);
   return { method, headers };
 }
 
@@ -39,11 +40,23 @@ assert.deepEqual(
     productionEnv,
   ),
   { allowed: true },
-  "non-browser staging verifier may omit Fetch Metadata when exact Origin is present",
+  "same-origin non-browser client may omit Fetch Metadata",
+);
+
+assert.deepEqual(
+  evaluatePlatformMutationOrigin(
+    request("POST", { userAgent: "node" }),
+    productionEnv,
+  ),
+  { allowed: true },
+  "repository Node staging verifier remains compatible without browser Origin headers",
 );
 
 for (const invalidRequest of [
   request("POST"),
+  request("POST", { userAgent: "Node.js" }),
+  request("POST", { userAgent: "node", fetchSite: "cross-site" }),
+  request("POST", { userAgent: "node", origin: "https://evil.example" }),
   request("POST", { origin: "null" }),
   request("POST", { origin: "https://evil.example" }),
   request("POST", { origin: "https://sub.app.example.com" }),
@@ -81,6 +94,14 @@ for (const invalidEnv of [
   );
 }
 
+assert.deepEqual(
+  evaluatePlatformMutationOrigin(
+    request("POST", { origin: "https://app.example.com" }),
+    { BETTER_AUTH_URL: "https://app.example.com/" },
+  ),
+  { allowed: true },
+  "configured application origin may include a conventional trailing slash",
+);
 assert.deepEqual(
   evaluatePlatformMutationOrigin(
     request("POST", { origin: "http://localhost:3000" }),
