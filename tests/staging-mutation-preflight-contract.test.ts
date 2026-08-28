@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { readFile } from "node:fs/promises";
 
 import { requireReviewedStagingMutationPreflight } from "@/scripts/staging-mutation-preflight";
 
