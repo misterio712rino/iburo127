@@ -3,6 +3,15 @@
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
+function requiresSecondFactor(data: unknown) {
+  return Boolean(
+    data &&
+      typeof data === "object" &&
+      "twoFactorRedirect" in data &&
+      (data as { twoFactorRedirect?: unknown }).twoFactorRedirect === true,
+  );
+}
+
 export function SignInForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,7 +30,7 @@ export function SignInForm() {
         setError("Не удалось войти. Проверьте данные и повторите попытку.");
         return;
       }
-      if (!result.data?.twoFactorRedirect) {
+      if (!requiresSecondFactor(result.data)) {
         window.location.assign("/app");
       }
     } catch {
