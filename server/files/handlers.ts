@@ -1,8 +1,16 @@
 import "server-only";
 
 import type { SessionProvider } from "@/server/auth/contracts";
-import { getStoredFile, listStoredFiles } from "@/server/files/operations";
-import { parseStoredFileClientCaseId, parseStoredFileId } from "@/server/files/input";
+import {
+  createStoredFileDownloadUrl,
+  getStoredFile,
+  listStoredFiles,
+} from "@/server/files/operations";
+import {
+  parseStoredFileClientCaseId,
+  parseStoredFileId,
+  parseStoredFileSignedUrlTtl,
+} from "@/server/files/input";
 import {
   executeStoredFileOperation,
   toStoredFileTransportRecord,
@@ -22,6 +30,19 @@ export function handleGetStoredFile(sessionProvider: SessionProvider, fileId: un
   return executeStoredFileOperation(async () =>
     toStoredFileTransportRecord(
       await getStoredFile(sessionProvider, parseStoredFileId(fileId)),
+    ),
+  );
+}
+
+export function handleCreateStoredFileDownloadUrl(
+  sessionProvider: SessionProvider,
+  input: { fileId: unknown; expiresInSeconds?: unknown },
+) {
+  return executeStoredFileOperation(() =>
+    createStoredFileDownloadUrl(
+      sessionProvider,
+      parseStoredFileId(input.fileId),
+      parseStoredFileSignedUrlTtl(input.expiresInSeconds),
     ),
   );
 }
