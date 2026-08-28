@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, GraduationCap, ShieldCheck } from "lucide-react";
 import { IBuroBrand } from "@/components/platform/IBuroBrand";
 import { SignOutButton } from "@/components/platform/auth/SignOutButton";
+import { ProductionPracticum } from "@/components/platform/practicum/ProductionPracticum";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { getCurrentPlatformActor } from "@/server/client-cases/operations";
@@ -27,6 +28,7 @@ export default async function PortalPracticumPage({ params }: { params: Promise<
   if (!clientCase) notFound();
 
   const progress = await getPracticumProgress(sessionProvider, caseId);
+  const canEdit = actor.roles.includes("CLIENT") && clientCase.clientId === actor.userId;
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
@@ -58,16 +60,21 @@ export default async function PortalPracticumPage({ params }: { params: Promise<
             <div>
               <p className="font-mono text-xs font-semibold tracking-[0.08em] text-slate-400">{clientCase.caseNumber}</p>
               <h1 className="mt-2 font-[var(--font-iburo-display)] text-5xl font-semibold leading-none text-slate-900">Практикум</h1>
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">Состояние загружается из PostgreSQL через server-side authorization. Экран пока предназначен для безопасной проверки реальных данных.</p>
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">
+                Прогресс хранится в PostgreSQL и изменяется только через авторизованный серверный workflow. При параллельном изменении используется контроль версии.
+              </p>
             </div>
           </div>
 
-          <dl className="mt-8 grid gap-5 border-t border-slate-100 pt-6 sm:grid-cols-4">
-            <div><dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Состояние</dt><dd className="mt-2 text-lg font-bold text-slate-900">{progress ? "Создан" : "Не начат"}</dd></div>
-            <div><dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Уроков завершено</dt><dd className="mt-2 text-lg font-bold text-slate-900">{progress?.completedLessonIds.length ?? 0}</dd></div>
-            <div><dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Версия</dt><dd className="mt-2 text-lg font-bold text-slate-900">{progress?.version ?? "—"}</dd></div>
-            <div><dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Завершён</dt><dd className="mt-2 text-lg font-bold text-slate-900">{progress?.completedAt ? "Да" : "Нет"}</dd></div>
-          </dl>
+          <ProductionPracticum
+            caseId={clientCase.id}
+            canEdit={canEdit}
+            initialState={progress ? {
+              completedLessonIds: [...progress.completedLessonIds],
+              version: progress.version,
+              completedAt: progress.completedAt?.toISOString() ?? null,
+            } : null}
+          />
         </section>
       </main>
     </div>
