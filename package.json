@@ -13,6 +13,7 @@
     "check:staging": "tsx scripts/check-staging-readiness.ts",
     "check:staging:authz": "tsx scripts/verify-staging-authz-fixtures.ts",
     "check:staging:http-authz": "tsx scripts/verify-staging-http-authz.ts",
+    "check:staging:http-mutations": "tsx scripts/verify-staging-http-mutations.ts",
     "db:inspect:baseline": "tsx scripts/inspect-database-baseline.ts",
     "db:review:sql": "tsx scripts/review-migration-sql.ts",
     "db:deploy:staging": "tsx scripts/apply-staging-migrations.ts",
@@ -52,7 +53,7 @@
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
-    "prisma": "^7.9.1",
+    "prisma": "7.9.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.12",
     "typescript": "^5"
