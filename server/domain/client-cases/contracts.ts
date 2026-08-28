@@ -1,4 +1,6 @@
-export type ActorRole = "CLIENT" | "LAWYER" | "MANAGER";
+export const PLATFORM_ROLE_CODES = ["CLIENT", "LAWYER", "MANAGER"] as const;
+
+export type ActorRole = (typeof PLATFORM_ROLE_CODES)[number];
 
 export type AuthenticatedActor = {
   userId: string;
