@@ -14,6 +14,7 @@ This checklist defines the conditions for switching any platform workflow from i
 - [x] Next.js `headers()` -> Better Auth `auth.api.getSession` bridge contract implemented.
 - [x] Real Better Auth server instance wired into that bridge.
 - [x] External `(provider, subject)` -> internal `User.id` mapping architecture implemented through `AuthIdentity`.
+- [x] Guarded server-side `AuthIdentity` provisioning primitive and CLI implemented without exposing a public provisioning endpoint.
 - [ ] Account enrollment, recovery and MFA policy implemented end-to-end; staff MFA mandatory.
 - [x] Production infrastructure environment readers/template implemented without committing secrets.
 - [x] Production server architecture does not use `DemoIdentityProvider`, localStorage identity, browser role or browser user ID as authorization sources.
@@ -130,9 +131,10 @@ Architecture decision: see `docs/AUTH_PROVIDER_DECISION.md`.
 - [x] Standalone `/auth/sign-in` UI implemented outside `DemoIdentityProvider`; self-sign-up remains disabled.
 - [x] TOTP verification and one-time backup-code verification UI implemented with `trustDevice: false`.
 - [x] Sign-out control implemented in the authenticated production portal shell.
+- [x] Controlled `AuthIdentity` provisioning command documented in `docs/AUTH_IDENTITY_PROVISIONING.md`; it requires an active internal user and explicit confirmation.
 - [ ] Add password reset/email verification delivery and UI after an outbound email provider is selected.
 - [ ] Add TOTP enrollment/backup-code issuance UX and enforce MFA for staff accounts.
-- [ ] Implement controlled `AuthIdentity` linking/provisioning against staging data.
+- [ ] Execute and verify controlled `AuthIdentity` linking against migrated staging data.
 - [ ] Replace platform demo identity selection with authenticated shell in the production-enabled deployment only.
 
 ## Staging runbook
