@@ -107,7 +107,8 @@ Repository/server foundation is complete; activation still requires:
 - [x] Activity metadata allowlist rejects unapproved fields and long values to reduce sensitive-data leakage risk.
 - [x] Authenticated case activity is exposed in the production portal without raw sensitive payloads.
 - [x] Critical questionnaire/task/document/file mutations that currently emit case activity write the business mutation and corresponding `CaseActivityEvent` in the same Prisma transaction.
-- [ ] Add a separate user-scoped auth security audit trail for sign-in/MFA/recovery events; do not attach user-level security events to an arbitrary `ClientCase`.
+- [x] Separate user-scoped auth security audit foundation implemented for successful sign-in, TOTP verification, backup-code use and password-reset request/completion; it stores only internal `User.id`, controlled event type and timestamp.
+- [ ] Apply/review the `UserSecurityEvent` migration in staging and verify Better Auth lifecycle events against mapped test identities.
 - [ ] Approve the final audit retention period before production data is enabled.
 - [ ] Verify production logs and stored audit metadata contain no sensitive payloads during DB-backed E2E.
 
@@ -142,6 +143,7 @@ Architecture decision: see `docs/AUTH_PROVIDER_DECISION.md`.
 - [x] Sign-out control implemented in the authenticated production portal shell.
 - [x] Controlled `AuthIdentity` provisioning command documented in `docs/AUTH_IDENTITY_PROVISIONING.md`; it requires an active internal user and explicit confirmation.
 - [x] Yandex Cloud Postbox selected and password reset/email-verification delivery callbacks plus forgot/reset-password UI implemented.
+- [x] Better Auth lifecycle hooks/callbacks wired to the non-blocking user-scoped `UserSecurityEvent` audit foundation without storing auth secrets or browser PII.
 - [ ] Verify actual Postbox receipt, reset-token flow, session revocation and provider-side delivery health against staging.
 - [ ] Decide whether to require email verification only after existing staging identities and mail delivery are reviewed.
 - [ ] Execute and verify controlled `AuthIdentity` linking against migrated staging data.
