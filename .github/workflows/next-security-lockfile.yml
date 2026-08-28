@@ -1,0 +1,47 @@
+name: One-shot Next security lockfile refresh
+
+on:
+  push:
+    branches:
+      - audit/production-readiness
+    paths:
+      - .github/workflows/next-security-lockfile.yml
+
+permissions:
+  contents: read
+
+jobs:
+  refresh-lockfile:
+    if: contains(github.event.head_commit.message, '[next-lockfile-refresh]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Refresh Next.js production dependency
+        run: npm install --package-lock-only --ignore-scripts --save-exact next@16.3.3
+
+      - name: Refresh matching ESLint config
+        run: npm install --package-lock-only --ignore-scripts --save-dev --save-exact eslint-config-next@16.3.3
+
+      - name: Verify requested versions
+        run: |
+          node -e "const p=require('./package.json'); if(p.dependencies.next!=='16.3.3'||p.devDependencies['eslint-config-next']!=='16.3.3') process.exit(1)"
+          node -e "const p=require('./package-lock.json'); if(p.packages['node_modules/next'].version!=='16.3.3'||p.packages['node_modules/eslint-config-next'].version!=='16.3.3') process.exit(1)"
+
+      - name: Upload deterministic manifest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-security-manifests
+          path: |
+            package.json
+            package-lock.json
+          if-no-files-found: error
+          retention-days: 1
