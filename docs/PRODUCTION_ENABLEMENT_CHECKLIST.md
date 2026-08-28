@@ -77,16 +77,19 @@ Repository/server foundation is complete; activation still requires:
 
 - [x] Activity event persistence foundation implemented.
 - [x] Case-scoped access service/transport foundation implemented.
-- [ ] Define the final event taxonomy and retention policy.
+- [x] Controlled event taxonomy implemented.
+- [x] Activity metadata allowlist rejects unapproved fields and long values to reduce sensitive-data leakage risk.
+- [ ] Approve the final audit retention period before production data is enabled.
 - [ ] Wire critical questionnaire/task/document/file/auth events into the audit trail.
-- [ ] Confirm sensitive payloads are excluded from activity metadata.
+- [ ] Verify production logs and stored audit metadata contain no sensitive payloads during DB-backed E2E.
 
 ## Notifications gates
 
 - [x] Notification persistence/service/transport foundation implemented.
-- [ ] Define notification delivery channels and provider(s).
+- [x] Controlled in-app notification taxonomy implemented.
+- [ ] Define external notification delivery channels and provider(s).
 - [ ] Add idempotency/delivery-attempt semantics before external dispatch.
-- [ ] Verify recipient scoping and no cross-user notification exposure.
+- [ ] Verify recipient scoping and no cross-user notification exposure with DB-backed tests.
 
 ## Authentication implementation gates
 
