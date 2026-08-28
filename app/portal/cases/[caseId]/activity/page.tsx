@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Activity, ArrowLeft } from "lucide-react";
-import { IBuroBrand } from "@/components/platform/IBuroBrand";
-import { SignOutButton } from "@/components/platform/auth/SignOutButton";
+import { PortalFrame } from "@/components/portal/PortalFrame";
 import { listCaseActivity } from "@/server/activity/operations";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
@@ -34,29 +33,20 @@ export default async function PortalCaseActivityPage({ params }: { params: Promi
   const sessionProvider = createProductionSessionProvider();
 
   let actor;
-  let events;
   try {
     actor = await getCurrentPlatformActor(sessionProvider);
-    const clientCase = await clientCaseService.getCase(actor, { caseId });
-    if (!clientCase) notFound();
-    events = await listCaseActivity(sessionProvider, caseId, 100);
   } catch (error) {
-    if (error instanceof Error && error.message === UNAUTHENTICATED) {
-      redirect("/auth/sign-in");
-    }
+    if (error instanceof Error && error.message === UNAUTHENTICATED) redirect("/auth/sign-in");
     throw error;
   }
 
-  return (
-    <div className="mx-auto min-h-screen w-full max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
-      <header className="flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <IBuroBrand dot className="font-[var(--font-iburo-display)] text-4xl font-semibold tracking-tight" />
-          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">История дела</p>
-        </div>
-        <SignOutButton />
-      </header>
+  const clientCase = await clientCaseService.getCase(actor, { caseId });
+  if (!clientCase) notFound();
+  const events = await listCaseActivity(sessionProvider, caseId, 100);
+  const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
 
+  return (
+    <PortalFrame sectionLabel="История дела" accessLabel="Доступ подтверждён" showStaffTasks={isStaff}>
       <main className="py-10">
         <Link href={`/portal/cases/${caseId}`} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900">
           <ArrowLeft className="size-4" aria-hidden="true" />
@@ -64,9 +54,7 @@ export default async function PortalCaseActivityPage({ params }: { params: Promi
         </Link>
 
         <div className="mt-8 flex items-center gap-3">
-          <span className="grid size-11 place-items-center rounded-2xl bg-white text-slate-700 shadow-sm">
-            <Activity className="size-5" aria-hidden="true" />
-          </span>
+          <span className="grid size-11 place-items-center rounded-2xl bg-white text-slate-700 shadow-sm"><Activity className="size-5" aria-hidden="true" /></span>
           <div>
             <h1 className="font-[var(--font-iburo-display)] text-4xl font-semibold text-slate-900">История действий</h1>
             <p className="mt-1 text-sm text-slate-500">Контролируемые события без содержимого документов, ответов анкеты и секретов.</p>
@@ -82,9 +70,7 @@ export default async function PortalCaseActivityPage({ params }: { params: Promi
                     <p className="font-bold text-slate-900">{TYPE_LABELS[event.type] ?? event.type}</p>
                     <p className="mt-1 font-mono text-[11px] text-slate-400">{event.type}</p>
                   </div>
-                  <time className="text-xs text-slate-400" dateTime={event.createdAt.toISOString()}>
-                    {event.createdAt.toLocaleString("ru-RU")}
-                  </time>
+                  <time className="text-xs text-slate-400" dateTime={event.createdAt.toISOString()}>{event.createdAt.toLocaleString("ru-RU")}</time>
                 </div>
                 {event.metadata && Object.keys(event.metadata).length ? (
                   <dl className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
@@ -100,11 +86,9 @@ export default async function PortalCaseActivityPage({ params }: { params: Promi
             ))}
           </ol>
         ) : (
-          <div className="mt-8 rounded-[28px] border border-dashed border-slate-300 bg-white/70 p-8 text-sm text-slate-500">
-            Для этого дела пока нет зарегистрированных событий.
-          </div>
+          <div className="mt-8 rounded-[28px] border border-dashed border-slate-300 bg-white/70 p-8 text-sm text-slate-500">Для этого дела пока нет зарегистрированных событий.</div>
         )}
       </main>
-    </div>
+    </PortalFrame>
   );
 }
