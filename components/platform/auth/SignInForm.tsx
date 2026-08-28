@@ -59,9 +59,14 @@ export function SignInForm() {
       </div>
 
       <div className="space-y-2">
-        <label htmlFor="password" className="block text-sm font-semibold text-slate-700">
-          Пароль
-        </label>
+        <div className="flex items-center justify-between gap-3">
+          <label htmlFor="password" className="block text-sm font-semibold text-slate-700">
+            Пароль
+          </label>
+          <a href="/auth/forgot-password" className="text-xs font-semibold text-slate-500 underline-offset-4 hover:text-slate-800 hover:underline">
+            Забыли пароль?
+          </a>
+        </div>
         <input
           id="password"
           name="password"
@@ -69,6 +74,7 @@ export function SignInForm() {
           autoComplete="current-password"
           required
           minLength={12}
+          maxLength={128}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-base outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
@@ -83,7 +89,7 @@ export function SignInForm() {
 
       <button
         type="submit"
-        disabled={pending || !email.trim() || password.length < 12}
+        disabled={pending || !email.trim() || password.length < 12 || password.length > 128}
         className="h-12 w-full rounded-2xl bg-[#17202a] px-5 text-sm font-bold text-white transition hover:bg-[#263342] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {pending ? "Входим…" : "Войти"}

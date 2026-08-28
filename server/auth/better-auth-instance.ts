@@ -7,6 +7,34 @@ import {
   readBetterAuthRuntimeConfig,
   readProductionDatabaseConfig,
 } from "@/server/config/production";
+import { getTransactionalEmailDelivery } from "@/server/email/runtime";
+import type { TransactionalEmailInput } from "@/server/email/yandex-postbox";
+
+const AUTH_EMAIL_DELIVERY_FAILED = "AUTH_EMAIL_DELIVERY_FAILED";
+
+function assertTrustedAuthUrl(value: string, expectedOrigin: string) {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error("AUTH_EMAIL_INVALID_URL");
+  }
+  if (parsed.origin !== expectedOrigin || parsed.protocol !== new URL(expectedOrigin).protocol) {
+    throw new Error("AUTH_EMAIL_INVALID_URL");
+  }
+  return parsed.toString();
+}
+
+function dispatchAuthEmail(input: TransactionalEmailInput) {
+  try {
+    const delivery = getTransactionalEmailDelivery();
+    void delivery.send(input).catch(() => {
+      console.error(AUTH_EMAIL_DELIVERY_FAILED);
+    });
+  } catch {
+    console.error(AUTH_EMAIL_DELIVERY_FAILED);
+  }
+}
 
 function createBetterAuthInstance() {
   const database = readProductionDatabaseConfig();
@@ -25,6 +53,38 @@ function createBetterAuthInstance() {
       maxPasswordLength: 128,
       autoSignIn: false,
       revokeSessionsOnPasswordReset: true,
+      sendResetPassword: async ({ user, url }) => {
+        const trustedUrl = assertTrustedAuthUrl(url, runtime.baseUrl);
+        dispatchAuthEmail({
+          to: user.email,
+          subject: "Восстановление доступа к iБюро",
+          text: [
+            "Вы запросили восстановление доступа к iБюро.",
+            "",
+            "Чтобы задать новый пароль, откройте ссылку:",
+            trustedUrl,
+            "",
+            "Если вы не запрашивали восстановление, просто проигнорируйте это письмо.",
+          ].join("\n"),
+        });
+      },
+    },
+    emailVerification: {
+      sendVerificationEmail: async ({ user, url }) => {
+        const trustedUrl = assertTrustedAuthUrl(url, runtime.baseUrl);
+        dispatchAuthEmail({
+          to: user.email,
+          subject: "Подтверждение электронной почты iБюро",
+          text: [
+            "Подтвердите адрес электронной почты для учётной записи iБюро.",
+            "",
+            "Откройте ссылку:",
+            trustedUrl,
+            "",
+            "Если вы не ожидали это письмо, свяжитесь с iБюро через официальный канал поддержки.",
+          ].join("\n"),
+        });
+      },
     },
     plugins: [
       twoFactor({

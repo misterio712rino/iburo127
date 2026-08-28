@@ -24,6 +24,14 @@ function readIntegerEnv(
   return value;
 }
 
+function requireSafeEmailAddress(env: NodeJS.ProcessEnv, name: string) {
+  const value = requireEnv(env, name);
+  if (value.length > 254 || /[\r\n\0]/.test(value) || !/^[^\s@]+@[^\s@]+$/.test(value)) {
+    throw new Error(`${PRODUCTION_CONFIG_ERROR}:${name}`);
+  }
+  return value;
+}
+
 export type ProductionDatabaseConfig = {
   databaseUrl: string;
 };
@@ -37,6 +45,15 @@ export type YandexObjectStorageConfig = {
   bucket: string;
   region: "ru-central1";
   endpoint: "https://storage.yandexcloud.net";
+  accessKeyId: string;
+  secretAccessKey: string;
+};
+
+export type YandexPostboxConfig = {
+  fromEmail: string;
+  region: "ru-central1";
+  endpoint: "https://postbox.cloud.yandex.net";
+  host: "postbox.cloud.yandex.net";
   accessKeyId: string;
   secretAccessKey: string;
 };
@@ -93,6 +110,19 @@ export function readYandexObjectStorageConfig(
     endpoint: "https://storage.yandexcloud.net",
     accessKeyId: requireEnv(env, "YANDEX_STORAGE_ACCESS_KEY_ID"),
     secretAccessKey: requireEnv(env, "YANDEX_STORAGE_SECRET_ACCESS_KEY"),
+  };
+}
+
+export function readYandexPostboxConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): YandexPostboxConfig {
+  return {
+    fromEmail: requireSafeEmailAddress(env, "YANDEX_POSTBOX_FROM_EMAIL"),
+    region: "ru-central1",
+    endpoint: "https://postbox.cloud.yandex.net",
+    host: "postbox.cloud.yandex.net",
+    accessKeyId: requireEnv(env, "YANDEX_POSTBOX_ACCESS_KEY_ID"),
+    secretAccessKey: requireEnv(env, "YANDEX_POSTBOX_SECRET_ACCESS_KEY"),
   };
 }
 

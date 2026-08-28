@@ -9,7 +9,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:foundation": "tsx tests/production-foundation.test.ts && tsx tests/questionnaire-domain.test.ts && tsx tests/production-mutation-boundaries.test.ts && tsx tests/auth-mfa-policy.test.ts && tsx tests/pending-upload-cleanup.test.ts",
+    "test:foundation": "tsx tests/production-foundation.test.ts && tsx tests/questionnaire-domain.test.ts && tsx tests/production-mutation-boundaries.test.ts && tsx tests/auth-mfa-policy.test.ts && tsx tests/pending-upload-cleanup.test.ts && tsx tests/aws-sigv4.test.ts",
     "check:runtime-logging": "tsx scripts/check-runtime-logging.ts",
     "check:staging": "tsx scripts/check-staging-readiness.ts",
     "check:staging:auth-schema": "tsx scripts/verify-staging-better-auth-schema.ts",
