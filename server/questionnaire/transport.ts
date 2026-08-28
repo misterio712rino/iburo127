@@ -6,8 +6,11 @@ import {
   QUESTIONNAIRE_VERSION_CONFLICT,
 } from "@/server/domain/questionnaire/contracts";
 import {
+  QUESTIONNAIRE_ALREADY_COMPLETED,
   QUESTIONNAIRE_CASE_NOT_FOUND,
   QUESTIONNAIRE_FORBIDDEN,
+  QUESTIONNAIRE_INCOMPLETE,
+  QUESTIONNAIRE_INCOMPLETE_SECTION,
   QUESTIONNAIRE_INVALID_FIELD,
   QUESTIONNAIRE_INVALID_SECTION,
 } from "@/server/domain/questionnaire/service";
@@ -18,6 +21,7 @@ export type QuestionnaireTransportErrorCode =
   | "FORBIDDEN"
   | "NOT_FOUND"
   | "INVALID_INPUT"
+  | "INVALID_TRANSITION"
   | "VERSION_CONFLICT"
   | "INTERNAL_ERROR";
 
@@ -45,6 +49,10 @@ export function classifyQuestionnaireError(error: unknown): QuestionnaireTranspo
     case QUESTIONNAIRE_INVALID_FIELD:
     case QUESTIONNAIRE_INVALID_SECTION:
       return { code: "INVALID_INPUT", status: 400 };
+    case QUESTIONNAIRE_ALREADY_COMPLETED:
+    case QUESTIONNAIRE_INCOMPLETE_SECTION:
+    case QUESTIONNAIRE_INCOMPLETE:
+      return { code: "INVALID_TRANSITION", status: 409 };
     case QUESTIONNAIRE_VERSION_CONFLICT:
       return { code: "VERSION_CONFLICT", status: 409 };
     default:
