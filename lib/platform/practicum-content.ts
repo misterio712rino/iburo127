@@ -29,7 +29,7 @@ export function getPracticumLesson(lessonId: string): PracticumLesson | undefine
 }
 
 export function getLessonModule(lesson: PracticumLesson): PracticumModule {
-  const module = PRACTICUM_MODULES.find((item) => item.id === lesson.moduleId);
-  if (!module) throw new Error(`PRACTICUM_MODULE_NOT_FOUND:${lesson.moduleId}`);
-  return module;
+  const practicumModule = PRACTICUM_MODULES.find((item) => item.id === lesson.moduleId);
+  if (!practicumModule) throw new Error(`PRACTICUM_MODULE_NOT_FOUND:${lesson.moduleId}`);
+  return practicumModule;
 }
