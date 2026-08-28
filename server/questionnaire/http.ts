@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { QuestionnaireOperationResult } from "@/server/questionnaire/transport";
+import { privateJsonResponse } from "@/server/http/private-json";
 
 export type QuestionnaireHttpSuccessBody<T> = {
   ok: true;
@@ -17,7 +18,7 @@ export type QuestionnaireHttpErrorBody = {
 export function toQuestionnaireHttpResponse<T>(result: QuestionnaireOperationResult<T>): Response {
   if (result.ok) {
     const body: QuestionnaireHttpSuccessBody<T> = { ok: true, data: result.data };
-    return Response.json(body, { status: 200 });
+    return privateJsonResponse(body);
   }
 
   const body: QuestionnaireHttpErrorBody = {
@@ -25,5 +26,5 @@ export function toQuestionnaireHttpResponse<T>(result: QuestionnaireOperationRes
     error: { code: result.error.code },
   };
 
-  return Response.json(body, { status: result.error.status });
+  return privateJsonResponse(body, result.error.status);
 }
