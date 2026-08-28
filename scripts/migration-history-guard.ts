@@ -42,6 +42,22 @@ async function requireRegularFile(path: string, label: string): Promise<string> 
   return readFile(path, "utf8");
 }
 
+function assertMigrationLock(lockContents: string): void {
+  const semanticLines = lockContents
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("#"));
+
+  if (
+    semanticLines.length !== 1 ||
+    !/^provider\s*=\s*"postgresql"$/.test(semanticLines[0] ?? "")
+  ) {
+    throw new MigrationHistoryError(
+      'migration_lock.toml must contain only provider = "postgresql" (comments and blank lines are allowed)',
+    );
+  }
+}
+
 export async function inspectMigrationHistory(
   migrationsDirectory = resolve("prisma/migrations"),
 ): Promise<MigrationHistorySnapshot> {
@@ -49,27 +65,45 @@ export async function inspectMigrationHistory(
   try {
     rootStat = await lstat(migrationsDirectory);
   } catch {
-    throw new MigrationHistoryError("prisma/migrations directory is missing; authoritative database baseline is unresolved");
+    throw new MigrationHistoryError(
+      "prisma/migrations directory is missing; authoritative database baseline is unresolved",
+    );
   }
 
   if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) {
     throw new MigrationHistoryError("prisma/migrations must be a real directory");
   }
 
+  const rootEntries = await readdir(migrationsDirectory, { withFileTypes: true });
+  const unexpectedRootEntries = rootEntries
+    .filter(
+      (entry) =>
+        entry.name !== "migration_lock.toml" &&
+        !(entry.isDirectory() && !entry.isSymbolicLink()),
+    )
+    .map((entry) => entry.name)
+    .sort((left, right) => left.localeCompare(right));
+
+  if (unexpectedRootEntries.length > 0) {
+    throw new MigrationHistoryError(
+      `unexpected entry in prisma/migrations: ${unexpectedRootEntries.join(", ")}`,
+    );
+  }
+
   const lockContents = await requireRegularFile(
     join(migrationsDirectory, "migration_lock.toml"),
     "prisma/migrations/migration_lock.toml",
   );
-  if (!/^\s*provider\s*=\s*"postgresql"\s*$/m.test(lockContents)) {
-    throw new MigrationHistoryError('migration_lock.toml must pin provider = "postgresql"');
-  }
+  assertMigrationLock(lockContents);
 
-  const entries = (await readdir(migrationsDirectory, { withFileTypes: true }))
-    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+  const entries = rootEntries
+    .filter((entry) => entry.isDirectory() && !entry.isSymbolicLink())
     .sort((left, right) => left.name.localeCompare(right.name));
 
   if (entries.length === 0) {
-    throw new MigrationHistoryError("migration history contains no migration directories");
+    throw new MigrationHistoryError(
+      "migration history contains no migration directories; no reviewed Prisma migration history exists",
+    );
   }
 
   const migrations: MigrationHistoryEntry[] = [];
@@ -82,6 +116,18 @@ export async function inspectMigrationHistory(
     const directoryStat = await lstat(directoryPath);
     if (!directoryStat.isDirectory() || directoryStat.isSymbolicLink()) {
       throw new MigrationHistoryError(`migration directory must not be a symlink: ${entry.name}`);
+    }
+
+    const migrationEntries = await readdir(directoryPath, { withFileTypes: true });
+    const unexpectedMigrationEntries = migrationEntries
+      .filter((migrationEntry) => migrationEntry.name !== "migration.sql")
+      .map((migrationEntry) => migrationEntry.name)
+      .sort((left, right) => left.localeCompare(right));
+
+    if (unexpectedMigrationEntries.length > 0) {
+      throw new MigrationHistoryError(
+        `unexpected entry in migration ${entry.name}: ${unexpectedMigrationEntries.join(", ")}`,
+      );
     }
 
     const sql = await requireRegularFile(
@@ -101,7 +147,7 @@ export async function inspectMigrationHistory(
 
   const lockSha256 = sha256(lockContents);
   const fingerprintMaterial = [
-    `provider:postgresql`,
+    "provider:postgresql",
     `lock:${lockSha256}`,
     ...migrations.map((migration) => `${migration.name}:${migration.sqlSha256}`),
   ].join("\n");
@@ -124,9 +170,13 @@ export function assertPinnedMigrationHistory(
     throw new MigrationHistoryError("missing IB_STAGING_MIGRATION_HISTORY_SHA256");
   }
   if (!/^[a-f0-9]{64}$/.test(expected)) {
-    throw new MigrationHistoryError("IB_STAGING_MIGRATION_HISTORY_SHA256 must be a lowercase SHA-256 hex digest");
+    throw new MigrationHistoryError(
+      "IB_STAGING_MIGRATION_HISTORY_SHA256 must be a lowercase SHA-256 hex digest",
+    );
   }
   if (snapshot.fingerprint !== expected) {
-    throw new MigrationHistoryError("migration history fingerprint does not match the reviewed staging fingerprint");
+    throw new MigrationHistoryError(
+      "migration history fingerprint does not match the reviewed staging fingerprint",
+    );
   }
 }
