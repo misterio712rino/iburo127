@@ -3,7 +3,9 @@ import { BriefcaseBusiness, ShieldCheck } from "lucide-react";
 import { IBuroBrand } from "@/components/platform/IBuroBrand";
 import { SignOutButton } from "@/components/platform/auth/SignOutButton";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
-import { listAccessibleClientCases, getCurrentPlatformActor } from "@/server/client-cases/operations";
+import { UNAUTHENTICATED } from "@/server/auth/runtime";
+import { getCurrentPlatformActor } from "@/server/client-cases/operations";
+import { clientCaseService } from "@/server/client-cases/runtime";
 
 const ROLE_LABELS = {
   CLIENT: "Клиент",
@@ -15,15 +17,16 @@ export default async function PortalPage() {
   const sessionProvider = createProductionSessionProvider();
 
   let actor;
-  let cases;
   try {
-    [actor, cases] = await Promise.all([
-      getCurrentPlatformActor(sessionProvider),
-      listAccessibleClientCases(sessionProvider),
-    ]);
-  } catch {
-    redirect("/auth/sign-in");
+    actor = await getCurrentPlatformActor(sessionProvider);
+  } catch (error) {
+    if (error instanceof Error && error.message === UNAUTHENTICATED) {
+      redirect("/auth/sign-in");
+    }
+    throw error;
   }
+
+  const cases = await clientCaseService.listCases(actor);
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-7xl px-5 py-6 sm:px-8 sm:py-8">
