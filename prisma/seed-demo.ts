@@ -2,18 +2,15 @@ import "dotenv/config";
 
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client.js";
-import {
-  requireStagingDatabaseTarget,
-  requireStagingMutationConfirmation,
-} from "../scripts/staging-target-guard";
+import { requireReviewedStagingMutationPreflight } from "../scripts/staging-mutation-preflight";
 
-const target = requireStagingDatabaseTarget();
-requireStagingMutationConfirmation(
-  process.env,
-  "IB_STAGING_DEMO_SEED_CONFIRM",
-  "DEMO-SEED",
-  target.expectedDatabaseName,
-);
+const { target } = await requireReviewedStagingMutationPreflight({
+  env: process.env,
+  confirmation: {
+    variableName: "IB_STAGING_DEMO_SEED_CONFIRM",
+    expectedValue: (stagingTarget) => `DEMO-SEED:${stagingTarget.expectedDatabaseName}`,
+  },
+});
 
 const adapter = new PrismaPg({ connectionString: target.databaseUrl });
 const prisma = new PrismaClient({ adapter });
