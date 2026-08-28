@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, ArrowUpRight, FileLock2, FileText, GraduationCap, ListChecks, ShieldCheck } from "lucide-react";
+import { Activity, ArrowLeft, ArrowUpRight, FileLock2, FileText, GraduationCap, ListChecks, ShieldCheck } from "lucide-react";
 import { IBuroBrand } from "@/components/platform/IBuroBrand";
 import { SignOutButton } from "@/components/platform/auth/SignOutButton";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
@@ -34,6 +34,12 @@ const MODULES = [
     title: "Файлы",
     description: "Приватные READY-файлы без раскрытия object key и внутренних storage-путей.",
     icon: FileLock2,
+  },
+  {
+    code: "activity",
+    title: "История",
+    description: "Контролируемый журнал действий по делу без чувствительных payload-данных.",
+    icon: Activity,
   },
 ] as const;
 
@@ -93,7 +99,7 @@ export default async function PortalCasePage({ params }: { params: Promise<{ cas
 
         <section className="mt-8" aria-labelledby="modules-heading">
           <h2 id="modules-heading" className="text-lg font-bold text-slate-900">Модули дела</h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             {MODULES.map((module) => {
               const Icon = module.icon;
               return (
