@@ -23,17 +23,20 @@ assert.doesNotMatch(
   "process-local rate-limit storage must not be reintroduced",
 );
 
-const modelMatch = prismaSchema.match(
-  /model AuthRateLimit \{([\s\S]*?)\n\}/,
-);
-assert.ok(modelMatch, "Prisma schema must model Better Auth rateLimit table");
-const rateLimitModel = modelMatch[1] ?? "";
-assert.match(rateLimitModel, /\bid\s+String\s+@id\b/);
-assert.match(rateLimitModel, /\bkey\s+String\s+@unique\b/);
-assert.match(rateLimitModel, /\bcount\s+Int\b/);
-assert.match(rateLimitModel, /\blastRequest\s+BigInt\b/);
-assert.match(rateLimitModel, /@@map\("rateLimit"\)/);
-assert.doesNotMatch(rateLimitModel, /@default\(/);
+for (const providerModel of [
+  "AuthRateLimit",
+  "BetterAuthUser",
+  "BetterAuthSession",
+  "BetterAuthAccount",
+  "BetterAuthVerification",
+  "BetterAuthTwoFactor",
+]) {
+  assert.doesNotMatch(
+    prismaSchema,
+    new RegExp(`model\\s+${providerModel}\\b`),
+    `${providerModel} must remain outside the legal-domain Prisma schema`,
+  );
+}
 
 assert.match(
   stagingVerifier,
