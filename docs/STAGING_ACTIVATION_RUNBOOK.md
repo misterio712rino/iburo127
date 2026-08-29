@@ -38,9 +38,23 @@ Run the guard directly with:
 npm run check:staging:target
 ```
 
-## Phase 0 — Read-only infrastructure preflight
+## Phase 0 — Environment inventory and read-only infrastructure preflight
 
-Configure staging-only environment variables from `.env.example` and run:
+Before making any staging network request, inspect configuration completeness with:
+
+```bash
+npm run staging:env:inventory
+```
+
+This inventory is network-free and never prints environment values. It prints only phase readiness, variable-name lists for missing/placeholder values, and aggregate counts. To inspect only the database prerequisites:
+
+```bash
+npm run staging:env:inventory -- --phase=database
+```
+
+The inventory is diagnostic only; it does not replace the exact target guards used by the real staging commands.
+
+After the required staging-only values from `.env.example` have been configured, run:
 
 ```bash
 npm run check:staging
@@ -238,7 +252,7 @@ Activate one workflow at a time:
 
 For each workflow, use server-derived actor identity, authoritative `ClientCase.id`, explicit optimistic concurrency, and cross-role authorization checks.
 
-## Phase 7 — Security E2E matrix
+## Phase 7 — Security/application E2E matrix
 
 Minimum matrix:
 
@@ -256,6 +270,24 @@ Minimum matrix:
 - scanner `MALICIOUS` produces `QUARANTINED`;
 - scanner outage/retry does not expose a file;
 - questionnaire/document contents are absent from runtime logs/error responses.
+
+Once migrated staging identities and dedicated mutable fixtures exist, run the explicit application E2E gate:
+
+```bash
+npm run check:staging:application-e2e
+```
+
+This command is intentionally **not read-only**. It performs HTTP authorization checks and controlled staging mutations/audit verification. Its mutation stage is protected by the network-free `check:staging:http-mutation-preflight` and requires the exact `MUTATE:<staging-host>` confirmation plus dedicated staging case/task fixtures. Optional private-file and CLEAN-scan E2E have additional independent opt-ins/confirmations.
+
+It does not deploy migrations, send Postbox mail, call the OpenAI provider, or run the standalone storage/scanner smoke verifiers. Those remain separate target-guarded gates.
+
+Expected terminal marker:
+
+```text
+STAGING_APPLICATION_E2E_PASS
+```
+
+See `docs/STAGING_APPLICATION_E2E.md` for the exact fixture and confirmation contract.
 
 ## Phase 8 — Full staging release gate
 
@@ -278,7 +310,7 @@ This aggregate staging release gate runs:
 
 The scanner portion is active because the scanner fetches two short-lived signed staging fixture URLs. The gate does not mutate the application database or Object Storage.
 
-It intentionally does not send a Postbox simulator message or OpenAI smoke request; run `check:staging:email-delivery` and `check:staging:ai-provider` separately when validating those transports.
+It intentionally does not send a Postbox simulator message, OpenAI smoke request, or run the mutating application E2E command; run `check:staging:email-delivery`, `check:staging:ai-provider`, and `check:staging:application-e2e` separately when validating those paths.
 
 Expected terminal marker:
 
@@ -286,6 +318,6 @@ Expected terminal marker:
 STAGING_RELEASE_READINESS_PASS
 ```
 
-A staging candidate is acceptable only when the exact commit also has green GitHub Actions CI, reviewed migration SQL, successful staging migration, real DB-backed cross-role E2E, runtime error review, a successful dedicated staging Postbox simulator check, required AI/provider checks for enabled AI workflows, and a documented rollback point.
+A staging candidate is acceptable only when the exact commit also has green GitHub Actions CI, reviewed migration SQL, successful staging migration, successful `check:staging:application-e2e`, runtime error review, a successful dedicated staging Postbox simulator check, required AI/provider checks for enabled AI workflows, and a documented rollback point.
 
 This runbook does not authorize merging to `main`, migrating production, changing DNS, changing the production bucket, using production Postbox/scanner/storage credentials, or deploying production traffic.
