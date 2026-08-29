@@ -83,6 +83,7 @@ class InMemoryCaseRepository implements ClientCaseRepository {
   }
 
   async listAccessibleCases(_actor: AuthenticatedActor) {
+    void _actor;
     return cases;
   }
 }
