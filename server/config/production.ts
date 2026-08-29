@@ -103,6 +103,8 @@ export type MaintenanceRuntimeConfig = {
   fileScanMaxAttempts: number;
   fileScanRetryBaseSeconds: number;
   fileScanRetryMaxSeconds: number;
+  fileScanHealthGraceMinutes: number;
+  fileScanHealthBatchLimit: number;
   aiAuditGraceMinutes: number;
   aiAuditBatchLimit: number;
 };
@@ -289,6 +291,20 @@ export function readMaintenanceRuntimeConfig(
     fileScanMaxAttempts: readIntegerEnv(env, "IB_FILE_SCAN_MAX_ATTEMPTS", 5, 1, 20),
     fileScanRetryBaseSeconds,
     fileScanRetryMaxSeconds,
+    fileScanHealthGraceMinutes: readIntegerEnv(
+      env,
+      "IB_FILE_SCAN_HEALTH_GRACE_MINUTES",
+      15,
+      2,
+      1_440,
+    ),
+    fileScanHealthBatchLimit: readIntegerEnv(
+      env,
+      "IB_FILE_SCAN_HEALTH_BATCH_LIMIT",
+      50,
+      1,
+      200,
+    ),
     aiAuditGraceMinutes: readIntegerEnv(
       env,
       "IB_AI_AUDIT_GRACE_MINUTES",
