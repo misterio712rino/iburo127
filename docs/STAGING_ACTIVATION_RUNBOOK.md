@@ -10,7 +10,8 @@ Do not proceed to any **mutation** phase if any of these are unknown:
 - verified backup/snapshot point;
 - staging deployment hostname;
 - Better Auth secret and base URL configuration;
-- private Yandex Object Storage staging bucket and service-account credentials;
+- private Yandex Object Storage staging bucket and dedicated service-account/static-key credentials;
+- controlled HTTPS staging malware scanner and independent scanner secret;
 - dedicated Yandex Cloud Postbox staging sender and service-account/static-key credentials.
 
 Read-only baseline inspection may be used to discover the current staging DB state before DDL, but it must still pass the exact staging target guard below.
@@ -169,6 +170,7 @@ npm run check:staging:storage
 The verifier is read-only and checks:
 
 - exact staging bucket identity guard;
+- exact staging Object Storage access-key ID guard;
 - no public `AllUsers` / `AuthenticatedUsers` ACL grants;
 - bucket policy: absent/deny-only can pass automatically, any `Allow` semantics require manual policy review;
 - exact-origin CORS required by the signed browser `PUT` flow;
@@ -176,9 +178,34 @@ The verifier is read-only and checks:
 
 A green repository CI proves only that the verifier compiles. The remote staging bucket is not verified until the command is actually executed with staging credentials.
 
-## Phase 4 — Postbox delivery simulator
+## Phase 4 — Malware scanner smoke verification
 
-Postbox verification is an active provider-side send and therefore remains separate from the read-only aggregate gates.
+After the private staging bucket has passed Phase 3, prepare two dedicated benign security fixtures under:
+
+```text
+security-fixtures/file-scanner/
+```
+
+One fixture must be known-clean. The second must be a standard benign antivirus-detection artifact such as EICAR or the equivalent supported by the selected scanner; do not use real malware.
+
+Configure the staging scanner origin/secret fingerprint, exact storage bucket/access-key guards, fixture object keys and single-run confirmation described in `docs/STAGING_FILE_SCANNER_VERIFICATION.md`, then run:
+
+```bash
+npm run check:staging:file-scanner
+```
+
+The verifier performs only two `HeadObject` calls, two local short-lived GET signatures and two scanner requests. It does not upload, delete, list or print fixture objects and does not access the application database.
+
+Required outcomes:
+
+- clean fixture -> exactly `CLEAN`;
+- benign detection fixture -> exactly `MALICIOUS`.
+
+Do not continue file-workflow activation if either verdict is wrong or if scanner/storage target identity cannot be proven.
+
+## Phase 5 — Postbox delivery simulator
+
+Postbox verification is an active provider-side send and therefore remains separate from the aggregate release gate.
 
 Use only a dedicated staging sender/service account/static key. Configure the exact sender and key-id guards, then set:
 
@@ -197,7 +224,7 @@ The recipient is hardcoded to `success@simulator.pstbx.ru`; it cannot be replace
 
 See `docs/STAGING_POSTBOX_VERIFICATION.md` for the exact target-identity guard and timeout/error-handling contract.
 
-## Phase 5 — Workflow activation
+## Phase 6 — Workflow activation
 
 Activate one workflow at a time:
 
@@ -205,13 +232,13 @@ Activate one workflow at a time:
 2. Practicum.
 3. Tasks/history.
 4. Documents/review lifecycle.
-5. File metadata/storage.
+5. File metadata/storage/quarantine.
 6. Activity/audit.
 7. Notifications.
 
 For each workflow, use server-derived actor identity, authoritative `ClientCase.id`, explicit optimistic concurrency, and cross-role authorization checks.
 
-## Phase 6 — Security E2E matrix
+## Phase 7 — Security E2E matrix
 
 Minimum matrix:
 
@@ -223,11 +250,14 @@ Minimum matrix:
 - roleless/suspended users receive no case data;
 - browser-supplied user id, role, tariff or ownership claims have no effect;
 - inaccessible cases cannot obtain signed file downloads;
-- pending uploads cannot be listed/downloaded before verification;
-- upload completion rejects missing or size/type-mismatched objects;
+- `PENDING_UPLOAD`, `PENDING_SCAN`, `SCANNING`, `QUARANTINED` and `SCAN_FAILED` files cannot obtain normal file downloads;
+- upload completion rejects missing or size/type-mismatched objects and never sets `READY`;
+- scanner `CLEAN` is the only route to `READY`;
+- scanner `MALICIOUS` produces `QUARANTINED`;
+- scanner outage/retry does not expose a file;
 - questionnaire/document contents are absent from runtime logs/error responses.
 
-## Phase 7 — Full staging release gate
+## Phase 8 — Full staging release gate
 
 After schema, Better Auth tables and controlled staging fixtures exist, run:
 
@@ -235,15 +265,20 @@ After schema, Better Auth tables and controlled staging fixtures exist, run:
 npm run check:staging:release
 ```
 
-This aggregate read-only gate runs:
+This aggregate staging release gate runs:
 
+- pinned migration-history verification;
 - staging core readiness;
 - domain schema verification;
 - Better Auth schema verification;
 - Object Storage security verification;
-- staging AuthIdentity/role/case fixture verification.
+- active CLEAN/MALICIOUS malware-scanner fixture verification;
+- staging AuthIdentity/role/case fixture verification;
+- Bitrix24 target/schema verification.
 
-It intentionally does not send a Postbox simulator message; run `check:staging:email-delivery` separately when validating the staging mail transport.
+The scanner portion is active because the scanner fetches two short-lived signed staging fixture URLs. The gate does not mutate the application database or Object Storage.
+
+It intentionally does not send a Postbox simulator message or OpenAI smoke request; run `check:staging:email-delivery` and `check:staging:ai-provider` separately when validating those transports.
 
 Expected terminal marker:
 
@@ -251,6 +286,6 @@ Expected terminal marker:
 STAGING_RELEASE_READINESS_PASS
 ```
 
-A staging candidate is acceptable only when the exact commit also has green GitHub Actions CI, reviewed migration SQL, successful staging migration, real DB-backed cross-role E2E, runtime error review, a successful dedicated staging Postbox simulator check, and a documented rollback point.
+A staging candidate is acceptable only when the exact commit also has green GitHub Actions CI, reviewed migration SQL, successful staging migration, real DB-backed cross-role E2E, runtime error review, a successful dedicated staging Postbox simulator check, required AI/provider checks for enabled AI workflows, and a documented rollback point.
 
-This runbook does not authorize merging to `main`, migrating production, changing DNS, changing the production bucket, using production Postbox credentials, or deploying production traffic.
+This runbook does not authorize merging to `main`, migrating production, changing DNS, changing the production bucket, using production Postbox/scanner/storage credentials, or deploying production traffic.
