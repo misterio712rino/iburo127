@@ -89,60 +89,49 @@ async function runRunner(
 try {
   const notificationResult = await runRunner("notification-deliveries");
   assert.equal(notificationResult.code, 0);
-  assert.match(
-    notificationResult.stdout,
-    /MAINTENANCE_SCHEDULER_PASS job=notification-deliveries status=200/,
-  );
+  assert.match(notificationResult.stdout, /MAINTENANCE_SCHEDULER_PASS job=notification-deliveries status=200/);
   assert.equal(requests.at(-1)?.method, "POST");
   assert.equal(requests.at(-1)?.url, "/api/internal/maintenance/notification-deliveries");
   assert.equal(requests.at(-1)?.authorization, `Bearer ${secret}`);
 
   const notificationHealthResult = await runRunner("notification-delivery-health");
   assert.equal(notificationHealthResult.code, 0);
-  assert.match(
-    notificationHealthResult.stdout,
-    /MAINTENANCE_SCHEDULER_PASS job=notification-delivery-health status=200/,
-  );
+  assert.match(notificationHealthResult.stdout, /MAINTENANCE_SCHEDULER_PASS job=notification-delivery-health status=200/);
   assert.equal(requests.at(-1)?.method, "POST");
   assert.equal(requests.at(-1)?.url, "/api/internal/maintenance/notification-delivery-health");
   assert.equal(requests.at(-1)?.authorization, `Bearer ${secret}`);
 
   const staleUploadResult = await runRunner("stale-uploads");
   assert.equal(staleUploadResult.code, 0);
-  assert.match(
-    staleUploadResult.stdout,
-    /MAINTENANCE_SCHEDULER_PASS job=stale-uploads status=200/,
-  );
+  assert.match(staleUploadResult.stdout, /MAINTENANCE_SCHEDULER_PASS job=stale-uploads status=200/);
   assert.equal(requests.at(-1)?.method, "POST");
   assert.equal(requests.at(-1)?.url, "/api/internal/maintenance/stale-uploads");
   assert.equal(requests.at(-1)?.authorization, `Bearer ${secret}`);
 
+  const staleUploadHealthResult = await runRunner("stale-upload-health");
+  assert.equal(staleUploadHealthResult.code, 0);
+  assert.match(staleUploadHealthResult.stdout, /MAINTENANCE_SCHEDULER_PASS job=stale-upload-health status=200/);
+  assert.equal(requests.at(-1)?.method, "POST");
+  assert.equal(requests.at(-1)?.url, "/api/internal/maintenance/stale-upload-health");
+  assert.equal(requests.at(-1)?.authorization, `Bearer ${secret}`);
+
   const fileScanResult = await runRunner("file-scans");
   assert.equal(fileScanResult.code, 0);
-  assert.match(
-    fileScanResult.stdout,
-    /MAINTENANCE_SCHEDULER_PASS job=file-scans status=200/,
-  );
+  assert.match(fileScanResult.stdout, /MAINTENANCE_SCHEDULER_PASS job=file-scans status=200/);
   assert.equal(requests.at(-1)?.method, "POST");
   assert.equal(requests.at(-1)?.url, "/api/internal/maintenance/file-scans");
   assert.equal(requests.at(-1)?.authorization, `Bearer ${secret}`);
 
   const fileScanHealthResult = await runRunner("file-scan-health");
   assert.equal(fileScanHealthResult.code, 0);
-  assert.match(
-    fileScanHealthResult.stdout,
-    /MAINTENANCE_SCHEDULER_PASS job=file-scan-health status=200/,
-  );
+  assert.match(fileScanHealthResult.stdout, /MAINTENANCE_SCHEDULER_PASS job=file-scan-health status=200/);
   assert.equal(requests.at(-1)?.method, "POST");
   assert.equal(requests.at(-1)?.url, "/api/internal/maintenance/file-scan-health");
   assert.equal(requests.at(-1)?.authorization, `Bearer ${secret}`);
 
   const aiAuditHealthResult = await runRunner("ai-audit-health");
   assert.equal(aiAuditHealthResult.code, 0);
-  assert.match(
-    aiAuditHealthResult.stdout,
-    /MAINTENANCE_SCHEDULER_PASS job=ai-audit-health status=200/,
-  );
+  assert.match(aiAuditHealthResult.stdout, /MAINTENANCE_SCHEDULER_PASS job=ai-audit-health status=200/);
   assert.equal(requests.at(-1)?.method, "POST");
   assert.equal(requests.at(-1)?.url, "/api/internal/maintenance/ai-audit-health");
   assert.equal(requests.at(-1)?.authorization, `Bearer ${secret}`);
@@ -154,6 +143,8 @@ try {
     notificationHealthResult.stderr,
     staleUploadResult.stdout,
     staleUploadResult.stderr,
+    staleUploadHealthResult.stdout,
+    staleUploadHealthResult.stderr,
     fileScanResult.stdout,
     fileScanResult.stderr,
     fileScanHealthResult.stdout,
@@ -165,21 +156,15 @@ try {
   }
 
   responseMode = "unhealthy";
-  const unhealthyResult = await runRunner("notification-delivery-health");
+  const unhealthyResult = await runRunner("stale-upload-health");
   assert.equal(unhealthyResult.code, 1);
-  assert.match(
-    unhealthyResult.stderr,
-    /MAINTENANCE_SCHEDULER_FAIL:unhealthy response for notification-delivery-health status=503/,
-  );
+  assert.match(unhealthyResult.stderr, /MAINTENANCE_SCHEDULER_FAIL:unhealthy response for stale-upload-health status=503/);
   assert.doesNotMatch(unhealthyResult.stderr, new RegExp(secret));
 
   responseMode = "redirect";
   const redirectResult = await runRunner("stale-uploads");
   assert.equal(redirectResult.code, 1);
-  assert.match(
-    redirectResult.stderr,
-    /MAINTENANCE_SCHEDULER_FAIL:request failed for stale-uploads/,
-  );
+  assert.match(redirectResult.stderr, /MAINTENANCE_SCHEDULER_FAIL:request failed for stale-uploads/);
   assert.doesNotMatch(redirectResult.stderr, new RegExp(secret));
 
   const requestCountBeforeInvalidJob = requests.length;
@@ -187,7 +172,7 @@ try {
   assert.equal(invalidJobResult.code, 1);
   assert.match(
     invalidJobResult.stderr,
-    /job must be notification-deliveries, notification-delivery-health, stale-uploads, file-scans, file-scan-health, or ai-audit-health/,
+    /job must be notification-deliveries, notification-delivery-health, stale-uploads, stale-upload-health, file-scans, file-scan-health, or ai-audit-health/,
   );
   assert.equal(requests.length, requestCountBeforeInvalidJob);
 
@@ -209,20 +194,14 @@ try {
   assert.equal(invalidTimeoutResult.code, 1);
   assert.match(invalidTimeoutResult.stderr, /IB_MAINTENANCE_FILE_SCAN_TIMEOUT_MS/);
 
-  const notificationRoute = await readFile(
-    resolve("app/api/internal/maintenance/notification-deliveries/route.ts"),
-    "utf8",
-  );
+  const notificationRoute = await readFile(resolve("app/api/internal/maintenance/notification-deliveries/route.ts"), "utf8");
   const notificationAuth = notificationRoute.indexOf("isAuthorizedMaintenanceRequest(");
   const notificationWorker = notificationRoute.indexOf("getNotificationDeliveryWorker()");
   assert.ok(notificationAuth >= 0 && notificationWorker > notificationAuth);
   assert.match(notificationRoute, /const DELIVERY_BATCH_LIMIT = 10;/);
   assert.match(notificationRoute, /Cache-Control": "no-store"/);
 
-  const notificationHealthRoute = await readFile(
-    resolve("app/api/internal/maintenance/notification-delivery-health/route.ts"),
-    "utf8",
-  );
+  const notificationHealthRoute = await readFile(resolve("app/api/internal/maintenance/notification-delivery-health/route.ts"), "utf8");
   const notificationHealthAuth = notificationHealthRoute.indexOf("isAuthorizedMaintenanceRequest(");
   const notificationHealthService = notificationHealthRoute.indexOf("getNotificationDeliveryHealthService()");
   assert.ok(notificationHealthAuth >= 0 && notificationHealthService > notificationHealthAuth);
@@ -235,20 +214,28 @@ try {
   assert.doesNotMatch(notificationHealthRoute, /recipientEmail\s*:/);
   assert.doesNotMatch(notificationHealthRoute, /leaseToken\s*:/);
 
-  const staleUploadRoute = await readFile(
-    resolve("app/api/internal/maintenance/stale-uploads/route.ts"),
-    "utf8",
-  );
+  const staleUploadRoute = await readFile(resolve("app/api/internal/maintenance/stale-uploads/route.ts"), "utf8");
   const staleUploadAuth = staleUploadRoute.indexOf("isAuthorizedMaintenanceRequest(");
   const staleUploadCleanup = staleUploadRoute.indexOf("getPendingUploadCleanupService()");
   assert.ok(staleUploadAuth >= 0 && staleUploadCleanup > staleUploadAuth);
   assert.match(staleUploadRoute, /config\.staleUploadBatchLimit/);
   assert.match(staleUploadRoute, /Cache-Control": "no-store"/);
 
-  const fileScanRoute = await readFile(
-    resolve("app/api/internal/maintenance/file-scans/route.ts"),
-    "utf8",
-  );
+  const staleUploadHealthRoute = await readFile(resolve("app/api/internal/maintenance/stale-upload-health/route.ts"), "utf8");
+  const staleUploadHealthAuth = staleUploadHealthRoute.indexOf("isAuthorizedMaintenanceRequest(");
+  const staleUploadHealthService = staleUploadHealthRoute.indexOf("getStaleUploadHealthService()");
+  assert.ok(staleUploadHealthAuth >= 0 && staleUploadHealthService > staleUploadHealthAuth);
+  assert.match(staleUploadHealthRoute, /config\.staleUploadMaxAgeMinutes/);
+  assert.match(staleUploadHealthRoute, /config\.staleUploadHealthGraceMinutes/);
+  assert.match(staleUploadHealthRoute, /config\.staleUploadHealthBatchLimit/);
+  assert.match(staleUploadHealthRoute, /STALE_UPLOAD_BACKLOG_UNHEALTHY/);
+  assert.match(staleUploadHealthRoute, /Cache-Control": "no-store"/);
+  assert.doesNotMatch(staleUploadHealthRoute, /fileId\s*:/);
+  assert.doesNotMatch(staleUploadHealthRoute, /clientCaseId\s*:/);
+  assert.doesNotMatch(staleUploadHealthRoute, /uploadedById\s*:/);
+  assert.doesNotMatch(staleUploadHealthRoute, /objectKey\s*:/);
+
+  const fileScanRoute = await readFile(resolve("app/api/internal/maintenance/file-scans/route.ts"), "utf8");
   const fileScanAuth = fileScanRoute.indexOf("isAuthorizedMaintenanceRequest(");
   const fileScanWorker = fileScanRoute.indexOf("getStoredFileScanWorker()");
   assert.ok(fileScanAuth >= 0 && fileScanWorker > fileScanAuth);
@@ -260,10 +247,7 @@ try {
   assert.doesNotMatch(fileScanRoute, /scanLeaseToken\s*:/);
   assert.doesNotMatch(fileScanRoute, /sourceUrl\s*:/);
 
-  const fileScanHealthRoute = await readFile(
-    resolve("app/api/internal/maintenance/file-scan-health/route.ts"),
-    "utf8",
-  );
+  const fileScanHealthRoute = await readFile(resolve("app/api/internal/maintenance/file-scan-health/route.ts"), "utf8");
   const fileScanHealthAuth = fileScanHealthRoute.indexOf("isAuthorizedMaintenanceRequest(");
   const fileScanHealthService = fileScanHealthRoute.indexOf("getStoredFileScanHealthService()");
   assert.ok(fileScanHealthAuth >= 0 && fileScanHealthService > fileScanHealthAuth);
@@ -277,10 +261,7 @@ try {
   assert.doesNotMatch(fileScanHealthRoute, /objectKey\s*:/);
   assert.doesNotMatch(fileScanHealthRoute, /scanLeaseToken\s*:/);
 
-  const aiAuditHealthRoute = await readFile(
-    resolve("app/api/internal/maintenance/ai-audit-health/route.ts"),
-    "utf8",
-  );
+  const aiAuditHealthRoute = await readFile(resolve("app/api/internal/maintenance/ai-audit-health/route.ts"), "utf8");
   const aiAuditHealthAuth = aiAuditHealthRoute.indexOf("isAuthorizedMaintenanceRequest(");
   const aiAuditHealthService = aiAuditHealthRoute.indexOf("getAiAuditHealthService()");
   assert.ok(aiAuditHealthAuth >= 0 && aiAuditHealthService > aiAuditHealthAuth);
