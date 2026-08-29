@@ -10,6 +10,7 @@ import {
 
 const empty = classifyStagingBaseline({
   totalUserTableCount: 0,
+  totalUserSchemaObjectCount: 0,
   domainTableCount: 0,
   domainEnumCount: 0,
   betterAuthTableCount: 0,
@@ -26,6 +27,7 @@ assert.equal(empty.betterAuthSchemaPresent, false);
 
 const existingDomain = classifyStagingBaseline({
   totalUserTableCount: 4,
+  totalUserSchemaObjectCount: 6,
   domainTableCount: 4,
   domainEnumCount: 2,
   betterAuthTableCount: 0,
@@ -42,6 +44,8 @@ assert.equal(existingDomain.requiresFullStructuralReview, true);
 
 const completeDomainWithHistory = classifyStagingBaseline({
   totalUserTableCount: REQUIRED_STAGING_DOMAIN_TABLES.length + 1,
+  totalUserSchemaObjectCount:
+    REQUIRED_STAGING_DOMAIN_TABLES.length + REQUIRED_STAGING_ENUMS.length + 1,
   domainTableCount: REQUIRED_STAGING_DOMAIN_TABLES.length,
   domainEnumCount: REQUIRED_STAGING_ENUMS.length,
   betterAuthTableCount: 0,
@@ -57,6 +61,7 @@ assert.equal(completeDomainWithHistory.prismaHistoryPresent, true);
 
 const authOnly = classifyStagingBaseline({
   totalUserTableCount: REQUIRED_BETTER_AUTH_TABLES.length,
+  totalUserSchemaObjectCount: REQUIRED_BETTER_AUTH_TABLES.length,
   domainTableCount: 0,
   domainEnumCount: 0,
   betterAuthTableCount: REQUIRED_BETTER_AUTH_TABLES.length,
@@ -73,6 +78,7 @@ assert.equal(authOnly.requiresFullStructuralReview, true);
 
 const domainAndAuth = classifyStagingBaseline({
   totalUserTableCount: 3,
+  totalUserSchemaObjectCount: 3,
   domainTableCount: 1,
   domainEnumCount: 0,
   betterAuthTableCount: 2,
@@ -87,6 +93,7 @@ assert.equal(domainAndAuth.betterAuthSchemaPresent, true);
 
 const unknown = classifyStagingBaseline({
   totalUserTableCount: 2,
+  totalUserSchemaObjectCount: 2,
   domainTableCount: 0,
   domainEnumCount: 0,
   betterAuthTableCount: 0,
@@ -101,6 +108,7 @@ assert.equal(unknown.requiresFullStructuralReview, true);
 
 const partialAuthPlusUnknown = classifyStagingBaseline({
   totalUserTableCount: 3,
+  totalUserSchemaObjectCount: 3,
   domainTableCount: 0,
   domainEnumCount: 0,
   betterAuthTableCount: 2,
@@ -114,10 +122,40 @@ assert.equal(partialAuthPlusUnknown.strategy, "REVIEW_NONEMPTY_OTHER_SCHEMA");
 assert.equal(partialAuthPlusUnknown.betterAuthSchemaPresent, true);
 assert.equal(partialAuthPlusUnknown.betterAuthSchemaComplete, false);
 
+const nonTableObjectOnly = classifyStagingBaseline({
+  totalUserTableCount: 0,
+  totalUserSchemaObjectCount: 1,
+  domainTableCount: 0,
+  domainEnumCount: 0,
+  betterAuthTableCount: 0,
+  prismaMigrationHistory: {
+    tablePresent: false,
+    appliedCount: 0,
+    unfinishedCount: 0,
+  },
+});
+assert.equal(nonTableObjectOnly.strategy, "REVIEW_NONEMPTY_OTHER_SCHEMA");
+assert.equal(nonTableObjectOnly.requiresFullStructuralReview, true);
+
+const authTablesPlusRoutine = classifyStagingBaseline({
+  totalUserTableCount: REQUIRED_BETTER_AUTH_TABLES.length,
+  totalUserSchemaObjectCount: REQUIRED_BETTER_AUTH_TABLES.length + 1,
+  domainTableCount: 0,
+  domainEnumCount: 0,
+  betterAuthTableCount: REQUIRED_BETTER_AUTH_TABLES.length,
+  prismaMigrationHistory: {
+    tablePresent: false,
+    appliedCount: 0,
+    unfinishedCount: 0,
+  },
+});
+assert.equal(authTablesPlusRoutine.strategy, "REVIEW_NONEMPTY_OTHER_SCHEMA");
+
 assert.throws(
   () =>
     classifyStagingBaseline({
       totalUserTableCount: 0,
+      totalUserSchemaObjectCount: 0,
       domainTableCount: 1,
       domainEnumCount: 0,
       betterAuthTableCount: 0,
@@ -133,7 +171,25 @@ assert.throws(
 assert.throws(
   () =>
     classifyStagingBaseline({
+      totalUserTableCount: 2,
+      totalUserSchemaObjectCount: 1,
+      domainTableCount: 0,
+      domainEnumCount: 0,
+      betterAuthTableCount: 0,
+      prismaMigrationHistory: {
+        tablePresent: false,
+        appliedCount: 0,
+        unfinishedCount: 0,
+      },
+    }),
+  /totalUserSchemaObjectCount cannot be smaller than totalUserTableCount/,
+);
+
+assert.throws(
+  () =>
+    classifyStagingBaseline({
       totalUserTableCount: 0,
+      totalUserSchemaObjectCount: 0,
       domainTableCount: -1,
       domainEnumCount: 0,
       betterAuthTableCount: 0,
