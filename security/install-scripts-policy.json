@@ -1,6 +1,18 @@
 {
-  "@prisma/engines": "7.9.1",
-  "esbuild": "0.28.2",
-  "prisma": "7.9.1",
-  "unrs-resolver": "1.12.2"
+  "@prisma/engines": {
+    "version": "7.9.1",
+    "lockfilePath": "node_modules/@prisma/engines"
+  },
+  "esbuild": {
+    "version": "0.28.2",
+    "lockfilePath": "node_modules/esbuild"
+  },
+  "prisma": {
+    "version": "7.9.1",
+    "lockfilePath": "node_modules/prisma-cli"
+  },
+  "unrs-resolver": {
+    "version": "1.12.2",
+    "lockfilePath": "node_modules/unrs-resolver"
+  }
 }
