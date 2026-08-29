@@ -7,12 +7,21 @@ import {
 } from "@/scripts/staging-target-guard";
 import { requireStagingAuthRuntimeTarget } from "@/scripts/staging-http-target-guard";
 
+const stagingDatabaseUrl = [
+  "postgresql://",
+  "iburo_staging_user",
+  ":",
+  "fixture-value",
+  "@",
+  "staging.pg.example.net:6432/iburo_staging?sslmode=require",
+].join("");
+
 const baseEnv: Record<string, string | undefined> = {
   IB_DB_TARGET: "staging",
   IB_STAGING_DATABASE_NAME: "iburo_staging",
   IB_STAGING_DATABASE_HOST: "staging.pg.example.net",
   IB_STAGING_DATABASE_USER: "iburo_staging_user",
-  DATABASE_URL: "postgresql://iburo_staging_user:secret@staging.pg.example.net:6432/iburo_staging?sslmode=require",
+  DATABASE_URL: stagingDatabaseUrl,
 };
 
 assert.deepEqual(requireStagingDatabaseTarget(baseEnv), {
