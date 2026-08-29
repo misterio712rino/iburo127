@@ -33,5 +33,12 @@ assert.ok(fetchIndex > secretIndex, "no network request may occur before target 
 assert.match(runner, /IB_RUNTIME_TARGET must be staging or production/);
 assert.match(runner, /IB_MAINTENANCE_BASE_URL must match BETTER_AUTH_URL origin/);
 assert.match(runner, /IB_MAINTENANCE_BASE_URL must match IB_STAGING_BASE_URL in staging/);
+assert.match(runner, /const expectedConfirmation = `PRODUCTION:\$\{target\.origin\}`/);
+assert.match(runner, /IB_MAINTENANCE_PRODUCTION_CONFIRM/);
+const productionConfirmationIndex = runner.indexOf("IB_MAINTENANCE_PRODUCTION_CONFIRM");
+assert.ok(
+  productionConfirmationIndex >= 0 && productionConfirmationIndex < secretIndex,
+  "production maintenance confirmation must be validated before the maintenance secret is used",
+);
 
 console.log("MAINTENANCE_PACKAGE_SCRIPT_CONTRACT_PASS");

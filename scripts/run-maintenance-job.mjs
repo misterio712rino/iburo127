@@ -68,11 +68,17 @@ function assertMaintenanceEnvironmentTarget(env, target) {
     fail("IB_MAINTENANCE_BASE_URL must match BETTER_AUTH_URL origin");
   }
 
-  if (runtimeTarget === "staging") {
-    const stagingOrigin = parseOrigin(env.IB_STAGING_BASE_URL, "IB_STAGING_BASE_URL");
-    if (stagingOrigin.origin !== target.origin) {
-      fail("IB_MAINTENANCE_BASE_URL must match IB_STAGING_BASE_URL in staging");
+  if (runtimeTarget === "production") {
+    const expectedConfirmation = `PRODUCTION:${target.origin}`;
+    if (env.IB_MAINTENANCE_PRODUCTION_CONFIRM?.trim() !== expectedConfirmation) {
+      fail("IB_MAINTENANCE_PRODUCTION_CONFIRM");
     }
+    return;
+  }
+
+  const stagingOrigin = parseOrigin(env.IB_STAGING_BASE_URL, "IB_STAGING_BASE_URL");
+  if (stagingOrigin.origin !== target.origin) {
+    fail("IB_MAINTENANCE_BASE_URL must match IB_STAGING_BASE_URL in staging");
   }
 }
 
