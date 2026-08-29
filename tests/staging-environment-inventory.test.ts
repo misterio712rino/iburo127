@@ -6,7 +6,8 @@ import {
 } from "../scripts/staging-environment-inventory";
 
 const secretValues = {
-  DATABASE_URL: "postgresql://stage_user:super-secret-db-password@stage.pg.internal:5432/iburo_stage",
+  IB_RUNTIME_TARGET: "staging",
+  DATABASE_URL: "postgresql://stage.pg.internal:5432/iburo_stage",
   IB_DB_TARGET: "staging",
   IB_STAGING_DATABASE_HOST: "stage.pg.internal",
   IB_STAGING_DATABASE_NAME: "iburo_stage",
@@ -25,6 +26,8 @@ const secretValues = {
 const inventory = buildStagingEnvironmentInventory(secretValues);
 assert.equal(inventory.networkAccessed, false);
 assert.equal(inventory.valuesPrinted, false);
+assert.equal(inventory.phases.runtime.ready, true);
+assert.deepEqual(STAGING_ENVIRONMENT_PHASES.runtime, ["IB_RUNTIME_TARGET"]);
 assert.equal(inventory.phases.database.ready, true);
 assert.equal(inventory.phases.database.missingOrPlaceholder.length, 0);
 
@@ -38,7 +41,7 @@ for (const value of Object.values(secretValues)) {
 }
 
 const placeholderInventory = buildStagingEnvironmentInventory({
-  DATABASE_URL: "postgresql://USER:PASSWORD@HOST:5432/DATABASE",
+  DATABASE_URL: "replace-with-staging-database-url",
   IB_DB_TARGET: "staging",
   IB_STAGING_DATABASE_HOST: "staging.pg.example.net",
   IB_STAGING_DATABASE_NAME: "iburo_staging",
@@ -48,6 +51,8 @@ const placeholderInventory = buildStagingEnvironmentInventory({
   BETTER_AUTH_URL: "https://app.example.com",
 });
 
+assert.equal(placeholderInventory.phases.runtime.ready, false);
+assert.deepEqual(placeholderInventory.phases.runtime.missingOrPlaceholder, ["IB_RUNTIME_TARGET"]);
 assert.equal(placeholderInventory.phases.database.ready, false);
 assert.deepEqual(
   placeholderInventory.phases.database.missingOrPlaceholder.sort(),

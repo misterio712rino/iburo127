@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 export type StagingEnvironment = Readonly<Record<string, string | undefined>>;
 
 export const STAGING_ENVIRONMENT_PHASES = {
+  runtime: ["IB_RUNTIME_TARGET"],
   database: [
     "DATABASE_URL",
     "IB_DB_TARGET",
