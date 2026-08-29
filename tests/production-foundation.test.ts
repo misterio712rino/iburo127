@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { canAccessClientCase } from "@/server/domain/client-cases/access-policy";
 import { ClientCaseService } from "@/server/domain/client-cases/service";
 import { StoredFileService } from "@/server/domain/files/service";
@@ -16,6 +17,7 @@ import type {
   ClientCaseRepository,
 } from "@/server/domain/client-cases/contracts";
 import type {
+  ClaimedStoredFileScan,
   StoredFileRecord,
   StoredFileRepository,
   StoredFileStatus,
@@ -93,6 +95,7 @@ assert.throws(
 );
 
 assert.equal(requireCaseActivityType("task.status.changed"), "task.status.changed");
+assert.equal(requireCaseActivityType("file.scan.clean"), "file.scan.clean");
 assert.throws(() => requireCaseActivityType("custom.raw.event"), /ACTIVITY_INVALID_TYPE/);
 assert.deepEqual(
   sanitizeActivityMetadata({ taskId: "task-1", fromStatus: "NEW", toStatus: "WORKING" }),
@@ -242,16 +245,121 @@ class InMemoryStoredFileRepository implements StoredFileRepository {
     this.current = {
       ...input,
       checksumSha256: input.checksumSha256 ?? null,
+      scanAttemptCount: 0,
+      scanNextAttemptAt: null,
+      scanLeaseUntil: null,
+      scanLeaseToken: null,
+      scanProvider: null,
+      scanLastErrorCode: null,
+      scannedAt: null,
+      quarantinedAt: null,
       readyAt: null,
       createdAt: now,
     };
     return this.current;
   }
 
-  async markReady(fileId: string, readyAt: Date) {
-    assert.equal(this.current?.id, fileId);
-    this.current = { ...this.current!, status: "READY", readyAt };
+  async markPendingScan(fileId: string, scanNextAttemptAt: Date) {
+    if (this.current?.id !== fileId || this.current.status !== "PENDING_UPLOAD") return null;
+    this.current = { ...this.current, status: "PENDING_SCAN", scanNextAttemptAt };
     return this.current;
+  }
+
+  async claimDueScan(input: { now: Date; leaseUntil: Date }) {
+    if (
+      !this.current ||
+      (this.current.status !== "PENDING_SCAN" && this.current.status !== "SCANNING") ||
+      (this.current.status === "PENDING_SCAN" &&
+        (!this.current.scanNextAttemptAt || this.current.scanNextAttemptAt > input.now)) ||
+      (this.current.status === "SCANNING" &&
+        (!this.current.scanLeaseUntil || this.current.scanLeaseUntil > input.now))
+    ) {
+      return null;
+    }
+    const leaseToken = randomUUID();
+    this.current = {
+      ...this.current,
+      status: "SCANNING",
+      scanLeaseUntil: input.leaseUntil,
+      scanLeaseToken: leaseToken,
+      scanAttemptCount: this.current.scanAttemptCount + 1,
+    };
+    return this.current as ClaimedStoredFileScan;
+  }
+
+  async markScanClean(input: { fileId: string; leaseToken: string; providerCode: string; scannedAt: Date }) {
+    if (
+      this.current?.id !== input.fileId ||
+      this.current.status !== "SCANNING" ||
+      this.current.scanLeaseToken !== input.leaseToken
+    ) return null;
+    this.current = {
+      ...this.current,
+      status: "READY",
+      scanProvider: input.providerCode,
+      scannedAt: input.scannedAt,
+      readyAt: input.scannedAt,
+      scanNextAttemptAt: null,
+      scanLeaseUntil: null,
+      scanLeaseToken: null,
+    };
+    return this.current;
+  }
+
+  async markScanQuarantined(input: { fileId: string; leaseToken: string; providerCode: string; scannedAt: Date }) {
+    if (
+      this.current?.id !== input.fileId ||
+      this.current.status !== "SCANNING" ||
+      this.current.scanLeaseToken !== input.leaseToken
+    ) return null;
+    this.current = {
+      ...this.current,
+      status: "QUARANTINED",
+      scanProvider: input.providerCode,
+      scannedAt: input.scannedAt,
+      quarantinedAt: input.scannedAt,
+      scanNextAttemptAt: null,
+      scanLeaseUntil: null,
+      scanLeaseToken: null,
+    };
+    return this.current;
+  }
+
+  async rescheduleScan(input: { fileId: string; leaseToken: string; nextAttemptAt: Date; providerCode: string; errorCode: string }) {
+    if (
+      this.current?.id !== input.fileId ||
+      this.current.status !== "SCANNING" ||
+      this.current.scanLeaseToken !== input.leaseToken
+    ) return false;
+    this.current = {
+      ...this.current,
+      status: "PENDING_SCAN",
+      scanProvider: input.providerCode,
+      scanLastErrorCode: input.errorCode,
+      scanNextAttemptAt: input.nextAttemptAt,
+      scanLeaseUntil: null,
+      scanLeaseToken: null,
+    };
+    return true;
+  }
+
+  async markScanFailed(input: { fileId: string; leaseToken: string; providerCode: string; scannedAt: Date; errorCode: string }) {
+    if (
+      this.current?.id !== input.fileId ||
+      this.current.status !== "SCANNING" ||
+      this.current.scanLeaseToken !== input.leaseToken
+    ) return false;
+    this.current = {
+      ...this.current,
+      status: "SCAN_FAILED",
+      scanProvider: input.providerCode,
+      scanLastErrorCode: input.errorCode,
+      scannedAt: input.scannedAt,
+      scanNextAttemptAt: null,
+      scanLeaseUntil: null,
+      scanLeaseToken: null,
+    };
+    return true;
   }
 
   async deletePending(fileId: string) {
@@ -287,12 +395,31 @@ async function testStoredFileLifecycle() {
   await assert.rejects(service.getPendingUpload(actors.otherClient, pending.id), /FILE_CASE_NOT_FOUND/);
   assert.equal((await service.getPendingUpload(actors.client, pending.id)).id, pending.id);
 
-  const ready = await service.markUploadReady(actors.client, pending.id);
+  const pendingScan = await service.markUploadPendingScan(actors.client, pending.id, now);
+  assert.equal(pendingScan.status, "PENDING_SCAN");
+  assert.equal((await service.list(actors.client, clientCase.id)).length, 0);
+  await assert.rejects(service.get(actors.lawyer, pending.id), /FILE_NOT_FOUND/);
+  await assert.rejects(service.getPendingUpload(actors.client, pending.id), /FILE_UPLOAD_NOT_PENDING/);
+
+  const claimed = await repository.claimDueScan({
+    now,
+    leaseUntil: new Date(now.getTime() + 60_000),
+  });
+  assert.ok(claimed);
+  assert.equal(claimed.status, "SCANNING");
+  await assert.rejects(service.get(actors.lawyer, pending.id), /FILE_NOT_FOUND/);
+
+  const ready = await repository.markScanClean({
+    fileId: pending.id,
+    leaseToken: claimed.scanLeaseToken,
+    providerCode: "test-scanner",
+    scannedAt: now,
+  });
+  assert.ok(ready);
   assert.equal(ready.status, "READY");
   assert.ok(ready.readyAt);
   assert.equal((await service.list(actors.client, clientCase.id)).length, 1);
   assert.equal((await service.get(actors.lawyer, pending.id)).id, pending.id);
-  await assert.rejects(service.getPendingUpload(actors.client, pending.id), /FILE_UPLOAD_NOT_PENDING/);
 }
 
 await testTaskAuthorization();
