@@ -21,11 +21,17 @@ IB_STAGING_MUTATION_CASE_NUMBER=<dedicated shared staging case>
 IB_STAGING_MUTATION_TASK_ID=<dedicated NEW staging task>
 ```
 
-The wrapper independently applies the staging target/confirmation gate **before its first HTTP request**. `iburo127.ru` and `www.iburo127.ru` are explicitly blocked.
+## Network-free preflight
+
+The package command first runs `npm run check:staging:http-mutation-preflight`. The audit verifier entrypoint itself repeats the same pure preflight before importing the implementation that can call `fetch`.
+
+Therefore a bad target, confirmation, fixture, file/scan opt-in, second-client cookie, scan-run bound or maintenance secret fails before the wrapper reads the baseline activity stream and before any workflow mutation occurs.
+
+The preflight is network-free and returns/logs only non-secret flags/bounds. It never prints fixture cookies or the maintenance secret. `iburo127.ru` and `www.iburo127.ru` are explicitly blocked.
 
 ## What it proves
 
-Before the mutation harness starts, the wrapper reads up to 200 current activity event IDs for the dedicated case. After the mutation harness succeeds it reads the activity stream again and evaluates only events that were not present in the baseline.
+After the preflight passes, the wrapper reads up to 200 current activity event IDs for the dedicated case. After the mutation harness succeeds it reads the activity stream again and evaluates only events that were not present in the baseline.
 
 The run requires new events for:
 
