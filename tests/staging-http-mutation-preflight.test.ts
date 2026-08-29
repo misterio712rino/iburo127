@@ -9,6 +9,7 @@ import {
 
 const clientCookie = "client-cookie-secret";
 const baseEnv: NodeJS.ProcessEnv = {
+  NODE_ENV: "test",
   IB_STAGING_BASE_URL: "https://staging-app.example.com",
   IB_STAGING_MUTATION_TARGET: "staging",
   IB_STAGING_MUTATION_CONFIRM: "MUTATE:staging-app.example.com",
@@ -22,11 +23,11 @@ const baseEnv: NodeJS.ProcessEnv = {
   IB_STAGING_FILE_SCAN_E2E_MAX_RUNS: "5",
 };
 
-function env(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+function env(overrides: Partial<NodeJS.ProcessEnv> = {}): NodeJS.ProcessEnv {
   return { ...baseEnv, ...overrides };
 }
 
-function expectFail(overrides: NodeJS.ProcessEnv, pattern: RegExp) {
+function expectFail(overrides: Partial<NodeJS.ProcessEnv>, pattern: RegExp) {
   assert.throws(
     () => requireStagingHttpMutationPreflight(env(overrides)),
     (error: unknown) =>
