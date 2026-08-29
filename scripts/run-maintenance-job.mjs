@@ -3,6 +3,7 @@ import { pathToFileURL } from "node:url";
 const JOB_PATHS = Object.freeze({
   "notification-deliveries": "/api/internal/maintenance/notification-deliveries",
   "notification-delivery-health": "/api/internal/maintenance/notification-delivery-health",
+  "task-reminders": "/api/internal/maintenance/task-reminders",
   "stale-uploads": "/api/internal/maintenance/stale-uploads",
   "stale-upload-health": "/api/internal/maintenance/stale-upload-health",
   "file-scans": "/api/internal/maintenance/file-scans",
