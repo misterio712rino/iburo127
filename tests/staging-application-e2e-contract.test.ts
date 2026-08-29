@@ -79,7 +79,12 @@ for (const env of [
   { IB_RUNTIME_TARGET: "staging", IB_STAGING_BASE_URL: "https://user:pass@preview.example.vercel.app" },
   { IB_RUNTIME_TARGET: "staging", IB_STAGING_BASE_URL: "http://preview.example.com" },
 ] satisfies NodeJS.ProcessEnv[]) {
-  assert.throws(() => requireStagingHttpTarget(env), new RegExp(`^${STAGING_HTTP_TARGET_GUARD}:`));
+  assert.throws(
+    () => requireStagingHttpTarget(env),
+    (error: unknown) =>
+      error instanceof Error &&
+      error.message.startsWith(`${STAGING_HTTP_TARGET_GUARD}:`),
+  );
 }
 
 const jar = new StagingCookieJar();
