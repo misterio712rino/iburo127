@@ -18,6 +18,7 @@ export type StagingBaselineStrategy =
 
 export type StagingBaselineSummaryInput = {
   totalUserTableCount: number;
+  totalUserSchemaObjectCount: number;
   domainTableCount: number;
   domainEnumCount: number;
   betterAuthTableCount: number;
@@ -48,6 +49,10 @@ export function classifyStagingBaseline(
   input: StagingBaselineSummaryInput,
 ): StagingBaselineClassification {
   requireNonNegativeInteger(input.totalUserTableCount, "totalUserTableCount");
+  requireNonNegativeInteger(
+    input.totalUserSchemaObjectCount,
+    "totalUserSchemaObjectCount",
+  );
   requireNonNegativeInteger(input.domainTableCount, "domainTableCount");
   requireNonNegativeInteger(input.domainEnumCount, "domainEnumCount");
   requireNonNegativeInteger(input.betterAuthTableCount, "betterAuthTableCount");
@@ -60,6 +65,9 @@ export function classifyStagingBaseline(
     "prismaMigrationHistory.unfinishedCount",
   );
 
+  if (input.totalUserSchemaObjectCount < input.totalUserTableCount) {
+    throw new Error("totalUserSchemaObjectCount cannot be smaller than totalUserTableCount");
+  }
   if (input.domainTableCount > REQUIRED_STAGING_DOMAIN_TABLES.length) {
     throw new Error("domainTableCount exceeds required domain table count");
   }
@@ -87,15 +95,21 @@ export function classifyStagingBaseline(
     input.betterAuthTableCount === REQUIRED_BETTER_AUTH_TABLES.length;
   const prismaHistoryPresent = input.prismaMigrationHistory.tablePresent;
   const unknownTableCount = input.totalUserTableCount - knownTableCount;
+  const hasNonTableSchemaObjects =
+    input.totalUserSchemaObjectCount > input.totalUserTableCount;
 
   let strategy: StagingBaselineStrategy;
   if (prismaHistoryPresent) {
     strategy = "C_PRISMA_HISTORY_PRESENT";
   } else if (domainSchemaPresent) {
     strategy = "B_EXISTING_DOMAIN_SCHEMA";
-  } else if (input.totalUserTableCount === 0) {
+  } else if (input.totalUserSchemaObjectCount === 0) {
     strategy = "A_EMPTY_DATABASE";
-  } else if (betterAuthSchemaPresent && unknownTableCount === 0) {
+  } else if (
+    betterAuthSchemaPresent &&
+    unknownTableCount === 0 &&
+    !hasNonTableSchemaObjects
+  ) {
     strategy = "D_AUTH_SCHEMA_ONLY";
   } else {
     strategy = "REVIEW_NONEMPTY_OTHER_SCHEMA";
