@@ -20,6 +20,20 @@ type DocumentStatus =
   | "SENT_FOR_REVIEW"
   | "REVIEWED";
 
+const CASE_STATUS_LABELS: Record<CaseStatus, string> = {
+  DRAFT: "Подготовка",
+  ACTIVE: "Активное",
+  PAUSED: "Приостановлено",
+  COMPLETED: "Завершено",
+  ARCHIVED: "В архиве",
+};
+
+const PLAN_LABELS: Readonly<Record<string, string>> = {
+  LITE: "Лайт",
+  PRO: "Про",
+  INDIVIDUAL: "Индивидуальный",
+};
+
 export type CaseProgressAudience = "CLIENT" | "STAFF";
 
 export type CaseProgressInput = {
@@ -40,6 +54,18 @@ export type CaseProgressInput = {
   readyFileCount: number;
 };
 
+export function getCaseStageLabel(stageCode: string) {
+  return CASE_STAGE_FLOW.find((stage) => stage.code === stageCode)?.label ?? stageCode;
+}
+
+export function getCaseStatusLabel(status: CaseStatus) {
+  return CASE_STATUS_LABELS[status];
+}
+
+export function getPlanLabel(planCode: string) {
+  return PLAN_LABELS[planCode] ?? planCode;
+}
+
 function percentage(completed: number, total: number, forceComplete: boolean) {
   if (forceComplete) return 100;
   if (total <= 0) return 0;
@@ -48,7 +74,6 @@ function percentage(completed: number, total: number, forceComplete: boolean) {
 
 export function buildCaseProgressSummary(input: CaseProgressInput) {
   const stageIndex = CASE_STAGE_FLOW.findIndex((stage) => stage.code === input.stageCode);
-  const stageDefinition = stageIndex >= 0 ? CASE_STAGE_FLOW[stageIndex] : null;
 
   const questionnairePercent = percentage(
     input.questionnaire?.completedSectionCount ?? 0,
@@ -92,13 +117,13 @@ export function buildCaseProgressSummary(input: CaseProgressInput) {
   } else if (practicumPercent < 100) {
     nextAction = {
       title: input.audience === "CLIENT" ? "Продолжить практикум" : "Проверить прогресс практикума",
-      description: "Базовый практикум ещё не завершён. Прогресс хранится в серверной базе по этому делу.",
+      description: "Базовый практикум ещё не завершён. Прогресс сохраняется в материалах этого дела.",
       segment: "practicum",
     };
   } else if (documents.total === 0) {
     nextAction = {
       title: input.audience === "CLIENT" ? "Перейти к подготовке документов" : "Проверить подготовку документов",
-      description: "По делу ещё нет сформированных документов. Откройте модуль документов для продолжения.",
+      description: "По делу ещё нет сформированных документов. Откройте раздел документов для продолжения.",
       segment: "documents",
     };
   } else if (documents.waitingData + documents.draft + documents.readyForReview > 0) {
@@ -112,14 +137,14 @@ export function buildCaseProgressSummary(input: CaseProgressInput) {
       title: input.audience === "STAFF" ? "Проверить документы клиента" : "Ожидать проверку документов",
       description:
         input.audience === "STAFF"
-          ? "Есть документы, переданные на проверку и требующие staff-действия."
-          : "Документы переданы на проверку юристу. Статус изменится после серверного подтверждения.",
+          ? "Есть документы, переданные на проверку и требующие внимания сотрудника."
+          : "Документы переданы юристу. Здесь появится обновлённый статус после проверки.",
       segment: "documents",
     };
   } else {
     nextAction = {
       title: "Следить за текущим этапом",
-      description: "Основные материалы подготовлены. История дела показывает подтверждённые действия и изменения статуса.",
+      description: "Основные материалы подготовлены. В истории дела отображаются подтверждённые действия и изменения статуса.",
       segment: "activity",
     };
   }
@@ -127,7 +152,7 @@ export function buildCaseProgressSummary(input: CaseProgressInput) {
   return {
     stage: {
       code: input.stageCode,
-      label: stageDefinition?.label ?? input.stageCode,
+      label: getCaseStageLabel(input.stageCode),
       position: stageIndex >= 0 ? stageIndex + 1 : null,
       total: CASE_STAGE_FLOW.length,
     },

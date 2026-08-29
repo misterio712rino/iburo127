@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowUpRight, BriefcaseBusiness } from "lucide-react";
 import { PortalFrame } from "@/components/portal/PortalFrame";
+import { getCaseStageLabel, getCaseStatusLabel, getPlanLabel } from "@/lib/platform/case-progress";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { getCurrentPlatformActor } from "@/server/client-cases/operations";
@@ -32,15 +33,15 @@ export default async function PortalPage() {
   const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
 
   return (
-    <PortalFrame sectionLabel="Защищённый кабинет" showStaffTasks={isStaff}>
+    <PortalFrame sectionLabel="Личный кабинет" showStaffTasks={isStaff}>
       <section className="py-10 sm:py-14">
         <div className="max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#7B2330]">Production bootstrap</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#7B2330]">iБюро · сопровождение дела</p>
           <h1 className="mt-4 font-[var(--font-iburo-display)] text-5xl font-semibold leading-none text-slate-900 sm:text-6xl">
-            Ваш защищённый кабинет
+            Ваш личный кабинет
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-slate-500">
-            Этот экран использует реальную серверную сессию и показывает только те дела, к которым у текущего пользователя есть подтверждённый доступ.
+            Здесь собраны ваши дела, текущие этапы, документы, обучение и уведомления. Состав разделов зависит от вашей роли и доступных дел.
           </p>
         </div>
 
@@ -56,7 +57,7 @@ export default async function PortalPage() {
       <section aria-labelledby="cases-heading" className="pb-12">
         <div className="mb-5 flex items-center gap-3">
           <BriefcaseBusiness className="size-5 text-slate-500" aria-hidden="true" />
-          <h2 id="cases-heading" className="text-lg font-bold text-slate-900">Доступные дела</h2>
+          <h2 id="cases-heading" className="text-lg font-bold text-slate-900">Ваши дела</h2>
         </div>
 
         {cases.length ? (
@@ -66,20 +67,20 @@ export default async function PortalPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="font-mono text-xs font-semibold tracking-[0.08em] text-slate-400">{clientCase.caseNumber}</p>
-                    <h3 className="mt-3 text-2xl font-bold text-slate-900">Тариф {clientCase.planCode}</h3>
+                    <h3 className="mt-3 text-2xl font-bold text-slate-900">Тариф «{getPlanLabel(clientCase.planCode)}»</h3>
                   </div>
-                  <span className="rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">
-                    {clientCase.status}
+                  <span className="rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-bold text-slate-600">
+                    {getCaseStatusLabel(clientCase.status)}
                   </span>
                 </div>
                 <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-slate-100 pt-5 text-sm">
                   <div>
-                    <dt className="text-slate-400">Этап</dt>
-                    <dd className="mt-1 font-semibold text-slate-700">{clientCase.stageCode}</dd>
+                    <dt className="text-slate-400">Текущий этап</dt>
+                    <dd className="mt-1 font-semibold text-slate-700">{getCaseStageLabel(clientCase.stageCode)}</dd>
                   </div>
                   <div>
                     <dt className="text-slate-400">Доступ</dt>
-                    <dd className="mt-1 font-semibold text-emerald-700">Разрешён сервером</dd>
+                    <dd className="mt-1 font-semibold text-emerald-700">Открыт</dd>
                   </div>
                 </dl>
                 <Link
@@ -94,7 +95,7 @@ export default async function PortalPage() {
           </div>
         ) : (
           <div className="rounded-[28px] border border-dashed border-slate-300 bg-white/70 p-8 text-sm leading-6 text-slate-500">
-            Для этой учётной записи пока нет доступных дел. Данные других клиентов не отображаются.
+            В кабинете пока нет доступных дел. Когда дело будет создано или назначено вам, оно появится здесь.
           </div>
         )}
       </section>

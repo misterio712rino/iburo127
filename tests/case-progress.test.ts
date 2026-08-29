@@ -1,5 +1,19 @@
 import assert from "node:assert/strict";
-import { buildCaseProgressSummary } from "@/lib/platform/case-progress";
+import {
+  buildCaseProgressSummary,
+  getCaseStageLabel,
+  getCaseStatusLabel,
+  getPlanLabel,
+} from "@/lib/platform/case-progress";
+
+assert.equal(getPlanLabel("LITE"), "Лайт");
+assert.equal(getPlanLabel("PRO"), "Про");
+assert.equal(getPlanLabel("INDIVIDUAL"), "Индивидуальный");
+assert.equal(getPlanLabel("CUSTOM"), "CUSTOM");
+assert.equal(getCaseStatusLabel("ACTIVE"), "Активное");
+assert.equal(getCaseStatusLabel("PAUSED"), "Приостановлено");
+assert.equal(getCaseStageLabel("LAWYER_REVIEW"), "Проверка юристом");
+assert.equal(getCaseStageLabel("CUSTOM_STAGE"), "CUSTOM_STAGE");
 
 const questionnaireFirst = buildCaseProgressSummary({
   audience: "CLIENT",
