@@ -2,11 +2,12 @@
 
 ## Scope
 
-The application exposes four bounded, authenticated maintenance operations:
+The application exposes five bounded, authenticated maintenance operations:
 
 - `POST /api/internal/maintenance/notification-deliveries` — processes a bounded notification-delivery batch using leases, retry/backoff and dead-state handling;
 - `POST /api/internal/maintenance/stale-uploads` — cleans a bounded batch of stale `PENDING_UPLOAD` objects;
 - `POST /api/internal/maintenance/file-scans` — claims uploaded files from the malware-scan queue using leases and advances only scanner-confirmed clean files to `READY`;
+- `POST /api/internal/maintenance/file-scan-health` — independently checks for overdue scan work, expired scan leases and terminal `SCAN_FAILED` records without returning file/case/user identifiers;
 - `POST /api/internal/maintenance/ai-audit-health` — performs a bounded read-only check for accepted AI requests that are missing a correlated terminal outcome after the configured grace period.
 
 The repository intentionally does **not** configure a production scheduler provider. Deployment infrastructure has not been authoritatively selected/verified for this production-readiness stage, so adding Vercel Cron, a cloud scheduler, Kubernetes CronJob, or another provider-specific resource would be premature.
@@ -19,6 +20,7 @@ External scheduler infrastructure can invoke the maintenance endpoints through t
 npm run maintenance:run:notifications
 npm run maintenance:run:stale-uploads
 npm run maintenance:run:file-scans
+npm run maintenance:run:file-scan-health
 npm run maintenance:run:ai-audit-health
 ```
 
@@ -35,7 +37,7 @@ IB_MAINTENANCE_FILE_SCAN_TIMEOUT_MS="120000"
 
 The runner:
 
-- sends `POST` only to one of the four fixed maintenance paths;
+- sends `POST` only to one of the five fixed maintenance paths;
 - sends the maintenance secret only in the `Authorization: Bearer ...` header;
 - does not include the secret in success/failure output;
 - refuses redirects;
@@ -81,13 +83,35 @@ The scan endpoint returns HTTP 503 when terminal scan failures or lease-loss ano
 
 Do not increase scan batch size until staging measurements establish acceptable scanner latency, application request duration and behavior for the 50 MiB maximum upload size.
 
+### File-scan backlog health
+
+The scan-health job is read-only and must be scheduled independently from the scan worker. This is deliberate: if the worker scheduler itself stops firing, a separate health scheduler can still detect the accumulating queue.
+
+Defaults:
+
+```env
+IB_FILE_SCAN_HEALTH_GRACE_MINUTES="15"
+IB_FILE_SCAN_HEALTH_BATCH_LIMIT="50"
+```
+
+The check is unhealthy when any of these conditions exists beyond the grace boundary:
+
+- `PENDING_SCAN` whose `scanNextAttemptAt` is overdue;
+- `SCANNING` whose lease expired and was not reclaimed;
+- any terminal `SCAN_FAILED` record;
+- a category exceeds the bounded inspection limit (`saturated=true`).
+
+`QUARANTINED` is **not** treated as scheduler/infrastructure failure. It is a valid security outcome and must be handled through quarantine/incident policy rather than queue-health retry logic.
+
+The health response exposes only aggregate counts and configuration values. It never returns file IDs, object keys, case IDs, uploader IDs or lease tokens.
+
 ### AI audit health
 
 The AI audit health job is read-only. It checks for accepted AI requests whose opaque correlation ID has no terminal completion/restricted/failure outcome after the configured grace period. A nonzero orphan count returns 503 so scheduler alerting can surface the anomaly.
 
 ## Job isolation
 
-All four jobs must be scheduled independently. An Object Storage/scanner incident must not suppress notification delivery; an email-provider incident must not suppress stale upload cleanup or AI audit health checks.
+All five jobs must be scheduled independently. An Object Storage/scanner incident must not suppress notification delivery; an email-provider incident must not suppress stale upload cleanup or health checks. `file-scans` and `file-scan-health` specifically must not share a single failure domain if the scheduler platform supports separate schedules/alerts.
 
 ## Security requirements
 
@@ -97,14 +121,14 @@ All four jobs must be scheduled independently. An Object Storage/scanner inciden
 - The scheduler target must be the exact intended application origin over HTTPS.
 - The scanner origin must be a controlled HTTPS origin; the application refuses redirects.
 - Do not enable unauthenticated GET-based cron access as a convenience workaround.
-- Preserve bounded worker limits and lease/retry semantics unless a separate capacity review justifies changes.
+- Preserve bounded worker/health limits and lease/retry semantics unless a separate capacity review justifies changes.
 - Scheduler logs must not contain request authorization headers or runtime secrets.
 - Scanner responses and maintenance results must not expose signed source URLs, lease tokens or client/case/user identifiers.
 
 ## Release status
 
-Code-level scheduler invocation exists for all four maintenance jobs and is covered by foundation tests.
+Code-level scheduler invocation exists for all five maintenance jobs and is covered by foundation tests.
 
 Production scheduler infrastructure is **not configured or verified**. Production readiness remains `BLOCKED_EXTERNAL` until the actual deployment platform is confirmed and the required recurring jobs are provisioned, executed against staging, observed, and wired to failure alerting.
 
-File-scan scheduling has additional external prerequisites: the authoritative database migration must be applied to staging, the controlled scanner service must be provisioned and its clean/quarantine/retry/lease-recovery behavior must be verified as described in `docs/FILE_UPLOAD_SECURITY.md`.
+File-scan scheduling has additional external prerequisites: the authoritative database migration must be applied to staging, the controlled scanner service must be provisioned, staging CLEAN/MALICIOUS fixtures must pass, and scan/retry/lease/backlog alert behavior must be observed as described in `docs/FILE_UPLOAD_SECURITY.md` and `docs/STAGING_FILE_SCANNER_VERIFICATION.md`.
