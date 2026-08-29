@@ -1,6 +1,10 @@
 import "server-only";
 
-import { readMaintenanceRuntimeConfig } from "@/server/config/production";
+import {
+  PRODUCTION_CONFIG_ERROR,
+  readFileScannerRuntimeConfig,
+  readMaintenanceRuntimeConfig,
+} from "@/server/config/production";
 import { StoredFileScanWorker } from "@/server/domain/files/scan-worker";
 import { HttpMalwareScanner } from "@/server/files/http-malware-scanner";
 import { getPrivateObjectStorage } from "@/server/files/object-storage-runtime";
@@ -10,17 +14,22 @@ let singleton: StoredFileScanWorker | null = null;
 
 export function getStoredFileScanWorker() {
   if (singleton) return singleton;
-  const config = readMaintenanceRuntimeConfig();
+  const maintenance = readMaintenanceRuntimeConfig();
+  const scanner = readFileScannerRuntimeConfig();
+  if (scanner.requestTimeoutMs >= maintenance.fileScanLeaseSeconds * 1000) {
+    throw new Error(`${PRODUCTION_CONFIG_ERROR}:IB_FILE_SCAN_LEASE_SECONDS`);
+  }
+
   singleton = new StoredFileScanWorker(
     new PrismaStoredFileRepository(),
     getPrivateObjectStorage(),
-    new HttpMalwareScanner(),
+    new HttpMalwareScanner(scanner),
     {
-      leaseSeconds: config.fileScanLeaseSeconds,
-      sourceUrlTtlSeconds: config.fileScanSourceUrlTtlSeconds,
-      maxAttempts: config.fileScanMaxAttempts,
-      retryBaseSeconds: config.fileScanRetryBaseSeconds,
-      retryMaxSeconds: config.fileScanRetryMaxSeconds,
+      leaseSeconds: maintenance.fileScanLeaseSeconds,
+      sourceUrlTtlSeconds: maintenance.fileScanSourceUrlTtlSeconds,
+      maxAttempts: maintenance.fileScanMaxAttempts,
+      retryBaseSeconds: maintenance.fileScanRetryBaseSeconds,
+      retryMaxSeconds: maintenance.fileScanRetryMaxSeconds,
     },
   );
   return singleton;
