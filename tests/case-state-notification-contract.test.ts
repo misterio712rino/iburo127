@@ -31,14 +31,19 @@ const practicumSource = await readFile(
 );
 
 function notificationCallFor(source: string, type: string) {
-  const marker = `type: "${type}"`;
-  const typeIndex = source.indexOf(marker);
-  assert.ok(typeIndex >= 0, `missing ${type} notification`);
-  const callStart = source.lastIndexOf("createCaseNotificationInTransaction(tx, {", typeIndex);
-  assert.ok(callStart >= 0, `missing transactional writer for ${type}`);
-  const callEnd = source.indexOf("});", typeIndex);
-  assert.ok(callEnd > typeIndex, `unterminated transactional writer for ${type}`);
-  return source.slice(callStart, callEnd + 3);
+  const callMarker = "createCaseNotificationInTransaction(tx, {";
+  const typeMarker = `type: "${type}"`;
+  let offset = 0;
+
+  while (true) {
+    const start = source.indexOf(callMarker, offset);
+    assert.ok(start >= 0, `missing transactional writer for ${type}`);
+    const end = source.indexOf("});", start);
+    assert.ok(end > start, `unterminated transactional writer for ${type}`);
+    const call = source.slice(start, end + 3);
+    if (call.includes(typeMarker)) return call;
+    offset = end + 3;
+  }
 }
 
 assert.match(helperSource, /Prisma\.TransactionClient/);
