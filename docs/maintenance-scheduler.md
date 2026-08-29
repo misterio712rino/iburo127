@@ -2,11 +2,12 @@
 
 ## Scope
 
-The application exposes six bounded, authenticated maintenance operations:
+The application exposes seven bounded, authenticated maintenance operations:
 
 - `POST /api/internal/maintenance/notification-deliveries` — processes a bounded notification-delivery batch using leases, retry/backoff and dead-state handling;
 - `POST /api/internal/maintenance/notification-delivery-health` — independently checks for overdue email deliveries, expired delivery leases and terminal `DEAD` records without returning recipient or notification identifiers;
 - `POST /api/internal/maintenance/stale-uploads` — cleans a bounded batch of stale `PENDING_UPLOAD` objects;
+- `POST /api/internal/maintenance/stale-upload-health` — independently checks whether abandoned pending uploads remain past the cleanup threshold plus grace window;
 - `POST /api/internal/maintenance/file-scans` — claims uploaded files from the malware-scan queue using leases and advances only scanner-confirmed clean files to `READY`;
 - `POST /api/internal/maintenance/file-scan-health` — independently checks for overdue scan work, expired scan leases and terminal `SCAN_FAILED` records without returning file/case/user identifiers;
 - `POST /api/internal/maintenance/ai-audit-health` — performs a bounded read-only check for accepted AI requests that are missing a correlated terminal outcome after the configured grace period.
@@ -21,6 +22,7 @@ External scheduler infrastructure can invoke the maintenance endpoints through t
 npm run maintenance:run:notifications
 npm run maintenance:run:notification-health
 npm run maintenance:run:stale-uploads
+npm run maintenance:run:stale-upload-health
 npm run maintenance:run:file-scans
 npm run maintenance:run:file-scan-health
 npm run maintenance:run:ai-audit-health
@@ -39,7 +41,7 @@ IB_MAINTENANCE_FILE_SCAN_TIMEOUT_MS="120000"
 
 The runner:
 
-- sends `POST` only to one of the six fixed maintenance paths;
+- sends `POST` only to one of the seven fixed maintenance paths;
 - sends the maintenance secret only in the `Authorization: Bearer ...` header;
 - does not include the secret in success/failure output;
 - refuses redirects;
@@ -77,6 +79,22 @@ The repository queries bounded ID projections only (`limit + 1`). The health res
 ### Stale uploads
 
 Stale-upload cleanup is lower frequency. Its default stale threshold is 60 minutes and its default batch limit is 100. The external schedule should run often enough that abandoned `PENDING_UPLOAD` objects do not materially accumulate beyond that threshold.
+
+### Stale-upload health
+
+The stale-upload health job is read-only and must be scheduled independently from cleanup. It intentionally does not alert at the exact cleanup threshold; it adds a separate grace window so a file is considered unhealthy only after it has remained `PENDING_UPLOAD` materially longer than normal cleanup timing permits.
+
+Defaults:
+
+```env
+IB_STALE_UPLOAD_MAX_AGE_MINUTES="60"
+IB_STALE_UPLOAD_HEALTH_GRACE_MINUTES="30"
+IB_STALE_UPLOAD_HEALTH_BATCH_LIMIT="50"
+```
+
+With these defaults, health becomes unhealthy only when a pending upload remains present for more than roughly 90 minutes. The repository selects bounded IDs only (`limit + 1`); the response exposes aggregate counts/settings and never returns object keys, filenames, case IDs or uploader IDs.
+
+This check is particularly important because stopped cleanup does not necessarily break a user request immediately: the visible symptom may only be private orphan-object/storage accumulation. Independent health converts that silent resource leak into an explicit scheduler alert.
 
 ### File malware scans
 
@@ -133,7 +151,7 @@ The AI audit health job is read-only. It checks for accepted AI requests whose o
 
 ## Job isolation
 
-All six jobs must be scheduled independently. An Object Storage/scanner incident must not suppress notification delivery; an email-provider incident must not suppress stale upload cleanup or file/AI health checks. `notification-deliveries` and `notification-delivery-health`, as well as `file-scans` and `file-scan-health`, should not share a single failure domain if the scheduler platform supports separate schedules/alerts.
+All seven jobs must be scheduled independently. An Object Storage/scanner incident must not suppress notification delivery; an email-provider incident must not suppress stale upload cleanup or file/AI health checks. Worker/health pairs (`notification-deliveries` + `notification-delivery-health`, `stale-uploads` + `stale-upload-health`, `file-scans` + `file-scan-health`) should not share a single failure domain if the scheduler platform supports separate schedules/alerts.
 
 ## Security requirements
 
@@ -145,12 +163,12 @@ All six jobs must be scheduled independently. An Object Storage/scanner incident
 - Do not enable unauthenticated GET-based cron access as a convenience workaround.
 - Preserve bounded worker/health limits and lease/retry semantics unless a separate capacity review justifies changes.
 - Scheduler logs must not contain request authorization headers or runtime secrets.
-- Maintenance health responses must not expose recipient/user/case/file identifiers, signed source URLs or lease tokens.
+- Maintenance health responses must not expose recipient/user/case/file identifiers, signed source URLs, object keys or lease tokens.
 
 ## Release status
 
-Code-level scheduler invocation exists for all six maintenance jobs and is covered by foundation tests.
+Code-level scheduler invocation exists for all seven maintenance jobs and is covered by foundation tests.
 
 Production scheduler infrastructure is **not configured or verified**. Production readiness remains `BLOCKED_EXTERNAL` until the actual deployment platform is confirmed and the required recurring jobs are provisioned, executed against staging, observed, and wired to failure alerting.
 
-Notification delivery additionally requires real staging Postbox delivery plus observable retry/dead/backlog behavior. File-scan scheduling additionally requires the authoritative database migration, controlled scanner service, staging CLEAN/MALICIOUS fixtures and scan/retry/lease/backlog alert behavior described in `docs/FILE_UPLOAD_SECURITY.md` and `docs/STAGING_FILE_SCANNER_VERIFICATION.md`.
+Notification delivery additionally requires real staging Postbox delivery plus observable retry/dead/backlog behavior. File/storage maintenance additionally requires the private staging bucket, observable stale-object cleanup/health behavior, the authoritative database migration, controlled scanner service, staging CLEAN/MALICIOUS fixtures and scan/retry/lease/backlog alert behavior described in `docs/FILE_UPLOAD_SECURITY.md` and `docs/STAGING_FILE_SCANNER_VERIFICATION.md`.
