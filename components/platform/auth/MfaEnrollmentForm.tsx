@@ -9,6 +9,10 @@ type Enrollment = {
   backupCodes: string[];
 };
 
+type Props = {
+  completionHref?: string;
+};
+
 function parseEnrollment(data: unknown): Enrollment | null {
   if (!data || typeof data !== "object") return null;
   const record = data as { totpURI?: unknown; backupCodes?: unknown };
@@ -27,7 +31,7 @@ function readSecret(totpUri: string) {
   }
 }
 
-export function MfaEnrollmentForm() {
+export function MfaEnrollmentForm({ completionHref = "/portal" }: Props) {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
@@ -40,7 +44,7 @@ export function MfaEnrollmentForm() {
 
   async function begin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (pending || password.length < 12) return;
+    if (pending || password.length < 12 || password.length > 128) return;
     setPending(true);
     setError(null);
     setCopied(false);
@@ -95,7 +99,7 @@ export function MfaEnrollmentForm() {
         setError("Код не принят. Проверьте время на устройстве и текущий код в приложении-аутентификаторе.");
         return;
       }
-      router.replace("/portal");
+      router.replace(completionHref);
       router.refresh();
     } catch {
       setError("Не удалось подтвердить TOTP-код. Повторите попытку позже.");
@@ -117,6 +121,7 @@ export function MfaEnrollmentForm() {
             type="password"
             autoComplete="current-password"
             minLength={12}
+            maxLength={128}
             required
             value={password}
             onChange={(event) => setPassword(event.target.value)}
@@ -130,7 +135,7 @@ export function MfaEnrollmentForm() {
 
         <button
           type="submit"
-          disabled={pending || password.length < 12}
+          disabled={pending || password.length < 12 || password.length > 128}
           className="h-12 w-full rounded-2xl bg-[#17202a] px-5 text-sm font-bold text-white transition hover:bg-[#263342] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pending ? "Подготавливаем…" : "Подключить приложение-аутентификатор"}

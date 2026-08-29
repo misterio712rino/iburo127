@@ -37,6 +37,29 @@ export function createProductionSessionProvider() {
   );
 }
 
+export type ProductionAccountSecurityState =
+  | { status: "UNAUTHENTICATED" }
+  | {
+      status: "AUTHENTICATED";
+      staff: boolean;
+      twoFactorEnabled: boolean;
+    };
+
+export async function resolveProductionAccountSecurityState(): Promise<ProductionAccountSecurityState> {
+  const context: ProductionAuthContext = createProductionAuthContext();
+  const session = await context.baseSessionProvider.getSession();
+  if (!session) return { status: "UNAUTHENTICATED" };
+
+  const actor = await actorRepository.getActiveActor(session.userId);
+  if (!actor) return { status: "UNAUTHENTICATED" };
+
+  return {
+    status: "AUTHENTICATED",
+    staff: isStaffActor(actor),
+    twoFactorEnabled: await context.readMfaEnabled(),
+  };
+}
+
 export type ProductionStaffMfaState =
   | { status: "UNAUTHENTICATED" }
   | { status: "NOT_REQUIRED" }
@@ -44,15 +67,11 @@ export type ProductionStaffMfaState =
   | { status: "SATISFIED" };
 
 export async function resolveProductionStaffMfaState(): Promise<ProductionStaffMfaState> {
-  const context: ProductionAuthContext = createProductionAuthContext();
-  const session = await context.baseSessionProvider.getSession();
-  if (!session) return { status: "UNAUTHENTICATED" };
+  const state = await resolveProductionAccountSecurityState();
+  if (state.status === "UNAUTHENTICATED") return state;
+  if (!state.staff) return { status: "NOT_REQUIRED" };
 
-  const actor = await actorRepository.getActiveActor(session.userId);
-  if (!actor) return { status: "UNAUTHENTICATED" };
-  if (!isStaffActor(actor)) return { status: "NOT_REQUIRED" };
-
-  return (await context.readMfaEnabled())
+  return state.twoFactorEnabled
     ? { status: "SATISFIED" }
     : { status: "REQUIRED" };
 }
