@@ -15,6 +15,19 @@ export async function listTasks(sessionProvider: SessionProvider) {
   return taskService.list(actor);
 }
 
+export async function createTask(
+  sessionProvider: SessionProvider,
+  input: {
+    clientCaseId: string;
+    title: string;
+    description: string | null;
+    dueAt: Date | null;
+  },
+) {
+  const actor = await requireServerActor(sessionProvider);
+  return taskService.create(actor, input);
+}
+
 export async function updateTaskStatus(
   sessionProvider: SessionProvider,
   input: { taskId: string; status: TaskStatus; expectedVersion: number },

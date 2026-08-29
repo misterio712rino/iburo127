@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ClipboardList } from "lucide-react";
 import { PortalFrame } from "@/components/portal/PortalFrame";
+import { StaffTaskCreateForm } from "@/components/portal/StaffTaskCreateForm";
 import { StaffTaskList } from "@/components/portal/StaffTaskList";
 import { resolveCasePortalAudience } from "@/lib/platform/case-portal-audience";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
@@ -68,6 +69,11 @@ export default async function PortalCaseTasksPage({
             </div>
           </div>
         </section>
+
+        <StaffTaskCreateForm
+          caseId={clientCase.id}
+          enabled={Boolean(clientCase.assignedLawyerId)}
+        />
 
         <section className="mt-6" aria-label={`Задачи по делу ${clientCase.caseNumber}`}>
           <StaffTaskList items={queue} emptyMessage="По этому делу доступных задач сейчас нет." />

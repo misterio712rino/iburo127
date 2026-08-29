@@ -2,7 +2,12 @@ import "server-only";
 
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { TASK_NOT_FOUND, TASK_VERSION_CONFLICT } from "@/server/domain/tasks/contracts";
-import { TASK_FORBIDDEN, TASK_INVALID_STATUS } from "@/server/domain/tasks/service";
+import {
+  TASK_CASE_UNASSIGNED,
+  TASK_FORBIDDEN,
+  TASK_INVALID_DETAILS,
+  TASK_INVALID_STATUS,
+} from "@/server/domain/tasks/service";
 import { TASK_INVALID_INPUT } from "@/server/tasks/input";
 
 export type TaskTransportErrorCode =
@@ -10,6 +15,7 @@ export type TaskTransportErrorCode =
   | "FORBIDDEN"
   | "NOT_FOUND"
   | "INVALID_INPUT"
+  | "CASE_UNASSIGNED"
   | "VERSION_CONFLICT"
   | "INTERNAL_ERROR";
 
@@ -33,8 +39,11 @@ export function classifyTaskError(error: unknown) {
     case TASK_NOT_FOUND:
       return { code: "NOT_FOUND" as const, status: 404 as const };
     case TASK_INVALID_INPUT:
+    case TASK_INVALID_DETAILS:
     case TASK_INVALID_STATUS:
       return { code: "INVALID_INPUT" as const, status: 400 as const };
+    case TASK_CASE_UNASSIGNED:
+      return { code: "CASE_UNASSIGNED" as const, status: 409 as const };
     case TASK_VERSION_CONFLICT:
       return { code: "VERSION_CONFLICT" as const, status: 409 as const };
     default:

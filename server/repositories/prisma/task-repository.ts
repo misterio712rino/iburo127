@@ -5,6 +5,7 @@ import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts"
 import {
   TASK_NOT_FOUND,
   TASK_VERSION_CONFLICT,
+  type CreateTaskRepositoryInput,
   type TaskRecord,
   type TaskRepository,
   type TaskStatus,
@@ -30,6 +31,21 @@ function actorTaskWhere(actor: AuthenticatedActor) {
           clientId: { not: actor.userId },
         },
       },
+    };
+  }
+  return null;
+}
+
+function actorCaseWhere(actor: AuthenticatedActor) {
+  if (actor.roles.includes("MANAGER")) {
+    return {
+      clientId: { not: actor.userId },
+    };
+  }
+  if (actor.roles.includes("LAWYER")) {
+    return {
+      assignedLawyerId: actor.userId,
+      clientId: { not: actor.userId },
     };
   }
   return null;
@@ -72,6 +88,52 @@ export class PrismaTaskRepository implements TaskRepository {
       orderBy: [{ dueAt: "asc" }, { createdAt: "desc" }],
     });
     return rows.map(toRecord);
+  }
+
+  async create(input: CreateTaskRepositoryInput) {
+    const caseScope = actorCaseWhere(input.actor);
+    if (!caseScope) throw new Error(TASK_NOT_FOUND);
+
+    const prisma = getPrismaClient();
+    return prisma.$transaction(async (tx) => {
+      const clientCase = await tx.clientCase.findFirst({
+        where: {
+          id: input.clientCaseId,
+          assignedLawyerId: input.assigneeId,
+          ...caseScope,
+        },
+        select: { id: true, assignedLawyerId: true },
+      });
+      if (!clientCase?.assignedLawyerId || clientCase.assignedLawyerId !== input.assigneeId) {
+        throw new Error(TASK_NOT_FOUND);
+      }
+
+      const row = await tx.caseTask.create({
+        data: {
+          clientCaseId: clientCase.id,
+          assigneeId: clientCase.assignedLawyerId,
+          title: input.title,
+          description: input.description,
+          dueAt: input.dueAt,
+          status: "NEW",
+        },
+      });
+
+      await tx.caseActivityEvent.create({
+        data: buildCaseActivityWrite({
+          clientCaseId: clientCase.id,
+          actorUserId: input.actor.userId,
+          type: "task.created",
+          metadata: {
+            taskId: row.id,
+            assigneeId: row.assigneeId,
+            dueAt: row.dueAt?.toISOString() ?? null,
+          },
+        }),
+      });
+
+      return toRecord(row);
+    });
   }
 
   async updateStatus(input: {

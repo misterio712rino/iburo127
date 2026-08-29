@@ -20,9 +20,19 @@ export type TaskRecord = {
   updatedAt: Date;
 };
 
+export type CreateTaskRepositoryInput = {
+  actor: AuthenticatedActor;
+  clientCaseId: string;
+  assigneeId: string;
+  title: string;
+  description: string | null;
+  dueAt: Date | null;
+};
+
 export interface TaskRepository {
   getAccessible(actor: AuthenticatedActor, taskId: string): Promise<TaskRecord | null>;
   listAccessible(actor: AuthenticatedActor): Promise<readonly TaskRecord[]>;
+  create(input: CreateTaskRepositoryInput): Promise<TaskRecord>;
   updateStatus(input: {
     actor: AuthenticatedActor;
     taskId: string;

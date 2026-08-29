@@ -21,6 +21,7 @@ const TYPE_LABELS: Readonly<Record<string, string>> = {
   "questionnaire.completed": "Анкета завершена",
   "practicum.lesson.completed": "Урок практикума завершён",
   "practicum.completed": "Практикум завершён",
+  "task.created": "Рабочая задача создана",
   "task.status.changed": "Статус задачи изменён",
   "document.regenerated": "Документ сформирован заново",
   "document.sent_for_review": "Документ отправлен на проверку",

@@ -5,6 +5,11 @@ import type { TaskRecord, TaskRepository, TaskStatus } from "@/server/domain/tas
 
 export const TASK_FORBIDDEN = "TASK_FORBIDDEN";
 export const TASK_INVALID_STATUS = "TASK_INVALID_STATUS";
+export const TASK_INVALID_DETAILS = "TASK_INVALID_DETAILS";
+export const TASK_CASE_UNASSIGNED = "TASK_CASE_UNASSIGNED";
+
+const MAX_TASK_TITLE_LENGTH = 160;
+const MAX_TASK_DESCRIPTION_LENGTH = 2000;
 
 function canAccessTask(actor: AuthenticatedActor, task: TaskRecord) {
   if (actor.roles.includes("MANAGER")) return true;
@@ -15,6 +20,25 @@ function assertTaskStatus(status: TaskStatus) {
   if (status !== "NEW" && status !== "WORKING" && status !== "DONE") {
     throw new Error(TASK_INVALID_STATUS);
   }
+}
+
+function normalizeTaskDetails(input: {
+  title: string;
+  description: string | null;
+  dueAt: Date | null;
+}) {
+  const title = input.title.trim();
+  const description = input.description?.trim() || null;
+  if (!title || title.length > MAX_TASK_TITLE_LENGTH) {
+    throw new Error(TASK_INVALID_DETAILS);
+  }
+  if (description && description.length > MAX_TASK_DESCRIPTION_LENGTH) {
+    throw new Error(TASK_INVALID_DETAILS);
+  }
+  if (input.dueAt && Number.isNaN(input.dueAt.getTime())) {
+    throw new Error(TASK_INVALID_DETAILS);
+  }
+  return { title, description, dueAt: input.dueAt };
 }
 
 export class TaskService {
@@ -52,6 +76,32 @@ export class TaskService {
     return tasks.filter(
       (task) => canAccessTask(actor, task) && staffCaseIds.has(task.clientCaseId),
     );
+  }
+
+  async create(
+    actor: AuthenticatedActor,
+    input: {
+      clientCaseId: string;
+      title: string;
+      description: string | null;
+      dueAt: Date | null;
+    },
+  ) {
+    const clientCase = await this.cases.getCase(actor, { caseId: input.clientCaseId });
+    if (!clientCase || !canAccessClientCaseAsStaff(actor, clientCase)) {
+      throw new Error(TASK_FORBIDDEN);
+    }
+    if (!clientCase.assignedLawyerId) {
+      throw new Error(TASK_CASE_UNASSIGNED);
+    }
+
+    const details = normalizeTaskDetails(input);
+    return this.repository.create({
+      actor,
+      clientCaseId: clientCase.id,
+      assigneeId: clientCase.assignedLawyerId,
+      ...details,
+    });
   }
 
   async updateStatus(

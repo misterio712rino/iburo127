@@ -10,11 +10,16 @@ import type {
 } from "@/server/domain/client-cases/contracts";
 import { ClientCaseService } from "@/server/domain/client-cases/service";
 import type {
+  CreateTaskRepositoryInput,
   TaskRecord,
   TaskRepository,
   TaskStatus,
 } from "@/server/domain/tasks/contracts";
-import { TASK_FORBIDDEN, TaskService } from "@/server/domain/tasks/service";
+import {
+  TASK_CASE_UNASSIGNED,
+  TASK_FORBIDDEN,
+  TaskService,
+} from "@/server/domain/tasks/service";
 
 const now = new Date("2026-08-29T12:00:00.000Z");
 
@@ -50,6 +55,15 @@ const cases: ClientCaseRecord[] = [
     id: "case-manager-other",
     caseNumber: "TASK-MANAGER-OTHER",
     clientId: "client-4",
+    planCode: "LITE",
+    stageCode: "DOCUMENT_PREPARATION",
+    assignedLawyerId: "lawyer-2",
+    status: "ACTIVE",
+  },
+  {
+    id: "case-manager-unassigned",
+    caseNumber: "TASK-MANAGER-UNASSIGNED",
+    clientId: "client-5",
     planCode: "LITE",
     stageCode: "DOCUMENT_PREPARATION",
     assignedLawyerId: null,
@@ -96,6 +110,7 @@ class WeakTaskRepository implements TaskRepository {
     task("task-manager-other", "case-manager-other", "lawyer-9"),
   ];
   updates: string[] = [];
+  creations: CreateTaskRepositoryInput[] = [];
 
   private taskLevelAccessible(actor: AuthenticatedActor, record: TaskRecord) {
     if (actor.roles.includes("MANAGER")) return true;
@@ -109,6 +124,26 @@ class WeakTaskRepository implements TaskRepository {
 
   async listAccessible(actor: AuthenticatedActor) {
     return this.records.filter((record) => this.taskLevelAccessible(actor, record));
+  }
+
+  async create(input: CreateTaskRepositoryInput) {
+    this.creations.push(input);
+    const created: TaskRecord = {
+      id: `task-created-${this.creations.length}`,
+      clientCaseId: input.clientCaseId,
+      assigneeId: input.assigneeId,
+      title: input.title,
+      description: input.description,
+      status: "NEW",
+      dueAt: input.dueAt,
+      startedAt: null,
+      completedAt: null,
+      version: 1,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.records.push(created);
+    return created;
   }
 
   async updateStatus(input: {
@@ -135,6 +170,7 @@ class WeakTaskRepository implements TaskRepository {
 }
 
 const actors = {
+  client: { userId: "client-1", roles: ["CLIENT"] },
   lawyer: { userId: "lawyer-1", roles: ["LAWYER"] },
   managerClient: { userId: "manager-client", roles: ["CLIENT", "MANAGER"] },
   manager: { userId: "manager-2", roles: ["MANAGER"] },
@@ -200,10 +236,72 @@ const managerUpdated = await service.updateStatus(actors.manager, {
 });
 assert.equal(managerUpdated.status, "WORKING");
 
+const lawyerCreated = await service.create(actors.lawyer, {
+  clientCaseId: "case-assigned",
+  title: "  Проверить документы  ",
+  description: "  Сверить комплект перед отправкой  ",
+  dueAt: new Date("2026-08-31T12:00:00.000Z"),
+});
+assert.equal(lawyerCreated.assigneeId, "lawyer-1");
+assert.equal(lawyerCreated.title, "Проверить документы");
+assert.equal(lawyerCreated.description, "Сверить комплект перед отправкой");
+
+await assert.rejects(
+  service.create(actors.lawyer, {
+    clientCaseId: "case-reassigned",
+    title: "Недоступная задача",
+    description: null,
+    dueAt: null,
+  }),
+  new RegExp(TASK_FORBIDDEN),
+);
+await assert.rejects(
+  service.create(actors.client, {
+    clientCaseId: "case-assigned",
+    title: "Клиентская попытка",
+    description: null,
+    dueAt: null,
+  }),
+  new RegExp(TASK_FORBIDDEN),
+);
+await assert.rejects(
+  service.create(actors.managerClient, {
+    clientCaseId: "case-manager-own",
+    title: "Самоназначение",
+    description: null,
+    dueAt: null,
+  }),
+  new RegExp(TASK_FORBIDDEN),
+);
+
+const managerCreated = await service.create(actors.manager, {
+  clientCaseId: "case-manager-other",
+  title: "Подготовить проверку",
+  description: null,
+  dueAt: null,
+});
+assert.equal(
+  managerCreated.assigneeId,
+  "lawyer-2",
+  "MANAGER task creation must derive assignee from current ClientCase assignment",
+);
+
+await assert.rejects(
+  service.create(actors.manager, {
+    clientCaseId: "case-manager-unassigned",
+    title: "Задача без юриста",
+    description: null,
+    dueAt: null,
+  }),
+  new RegExp(TASK_CASE_UNASSIGNED),
+);
+assert.equal(repository.creations.length, 2, "forbidden/unassigned creation attempts must not reach repository.create");
+
 const taskServiceSource = await readFile(resolve("server/domain/tasks/service.ts"), "utf8");
 assert.match(taskServiceSource, /this\.cases\.getCase\(actor, \{ caseId: task\.clientCaseId \}\)/);
 assert.match(taskServiceSource, /canAccessClientCaseAsStaff/);
 assert.match(taskServiceSource, /this\.cases\.listCases\(actor\)/);
+assert.match(taskServiceSource, /assigneeId:\s*clientCase\.assignedLawyerId/);
 
 const prismaTaskRepositorySource = await readFile(
   resolve("server/repositories/prisma/task-repository.ts"),
@@ -221,8 +319,39 @@ assert.match(
 );
 assert.match(
   prismaTaskRepositorySource,
+  /clientCase\.findFirst\([\s\S]*assignedLawyerId:\s*input\.assigneeId[\s\S]*\.\.\.caseScope/,
+  "task creation must recheck current ClientCase assignment inside the transaction",
+);
+assert.match(prismaTaskRepositorySource, /caseTask\.create\(/);
+assert.match(prismaTaskRepositorySource, /type:\s*"task\.created"/);
+assert.match(
+  prismaTaskRepositorySource,
   /updateMany\([\s\S]*version:\s*input\.expectedVersion,[\s\S]*\.\.\.scope/,
   "task status write must reapply authorization scope together with optimistic version control",
 );
+
+const taskRouteAdapterSource = await readFile(resolve("server/tasks/route-adapter.ts"), "utf8");
+assert.match(taskRouteAdapterSource, /withAuthoritativeClientCaseId/);
+assert.match(taskRouteAdapterSource, /handleCreateTask/);
+
+const taskCreateRouteSource = await readFile(
+  resolve("app/api/platform/cases/[caseId]/tasks/route.ts"),
+  "utf8",
+);
+assert.match(taskCreateRouteSource, /export async function POST/);
+assert.match(taskCreateRouteSource, /\.create\(caseId, request\)/);
+
+const taskCreateFormSource = await readFile(
+  resolve("components/portal/StaffTaskCreateForm.tsx"),
+  "utf8",
+);
+assert.doesNotMatch(
+  taskCreateFormSource,
+  /assigneeId/,
+  "task creation UI must never accept or submit an assignee id",
+);
+assert.match(taskCreateFormSource, /\/api\/platform\/cases\/\$\{encodeURIComponent\(caseId\)\}\/tasks/);
+assert.match(taskCreateFormSource, /maxLength=\{160\}/);
+assert.match(taskCreateFormSource, /maxLength=\{2000\}/);
 
 console.log("TASK_CASE_AUTHORIZATION_TEST_PASS");
