@@ -9,6 +9,12 @@ function fail(message: string): never {
   process.exit(1);
 }
 
+if (process.env.GITHUB_ACTIONS === "true") {
+  fail(
+    "full structural baseline output is prohibited in GitHub Actions; use db:inspect:baseline:summary instead",
+  );
+}
+
 let target: ReturnType<typeof requireStagingDatabaseTarget>;
 try {
   target = requireStagingDatabaseTarget();
