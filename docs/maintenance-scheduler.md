@@ -2,9 +2,10 @@
 
 ## Scope
 
-The application exposes five bounded, authenticated maintenance operations:
+The application exposes six bounded, authenticated maintenance operations:
 
 - `POST /api/internal/maintenance/notification-deliveries` — processes a bounded notification-delivery batch using leases, retry/backoff and dead-state handling;
+- `POST /api/internal/maintenance/notification-delivery-health` — independently checks for overdue email deliveries, expired delivery leases and terminal `DEAD` records without returning recipient or notification identifiers;
 - `POST /api/internal/maintenance/stale-uploads` — cleans a bounded batch of stale `PENDING_UPLOAD` objects;
 - `POST /api/internal/maintenance/file-scans` — claims uploaded files from the malware-scan queue using leases and advances only scanner-confirmed clean files to `READY`;
 - `POST /api/internal/maintenance/file-scan-health` — independently checks for overdue scan work, expired scan leases and terminal `SCAN_FAILED` records without returning file/case/user identifiers;
@@ -18,6 +19,7 @@ External scheduler infrastructure can invoke the maintenance endpoints through t
 
 ```bash
 npm run maintenance:run:notifications
+npm run maintenance:run:notification-health
 npm run maintenance:run:stale-uploads
 npm run maintenance:run:file-scans
 npm run maintenance:run:file-scan-health
@@ -37,7 +39,7 @@ IB_MAINTENANCE_FILE_SCAN_TIMEOUT_MS="120000"
 
 The runner:
 
-- sends `POST` only to one of the five fixed maintenance paths;
+- sends `POST` only to one of the six fixed maintenance paths;
 - sends the maintenance secret only in the `Authorization: Bearer ...` header;
 - does not include the secret in success/failure output;
 - refuses redirects;
@@ -51,6 +53,26 @@ A non-zero runner exit must be treated by the external scheduler as a failed exe
 ### Notification delivery
 
 The notification endpoint processes a bounded batch of 10 deliveries per invocation. An initial cadence should be selected from expected notification volume and observed outbox backlog rather than hard-coded into application logic. Retry/dead counts should determine whether cadence or worker capacity needs adjustment.
+
+### Notification-delivery health
+
+The notification-health job is read-only and must be scheduled independently from the delivery worker. If the worker schedule stops firing entirely, this second job can still detect a stalled outbox.
+
+Defaults:
+
+```env
+IB_NOTIFICATION_DELIVERY_HEALTH_GRACE_MINUTES="15"
+IB_NOTIFICATION_DELIVERY_HEALTH_BATCH_LIMIT="50"
+```
+
+The check is unhealthy when:
+
+- an `EMAIL` delivery remains `PENDING` with `nextAttemptAt` overdue beyond the grace period;
+- an `EMAIL` delivery remains `PROCESSING` with an expired lease beyond the grace period;
+- any `EMAIL` delivery is in terminal `DEAD` state;
+- a category exceeds the bounded inspection limit (`saturated=true`).
+
+The repository queries bounded ID projections only (`limit + 1`). The health response exposes aggregate counts/configuration values and never returns recipient email, notification/user/case IDs, message title/body, lease token or provider message ID.
 
 ### Stale uploads
 
@@ -111,7 +133,7 @@ The AI audit health job is read-only. It checks for accepted AI requests whose o
 
 ## Job isolation
 
-All five jobs must be scheduled independently. An Object Storage/scanner incident must not suppress notification delivery; an email-provider incident must not suppress stale upload cleanup or health checks. `file-scans` and `file-scan-health` specifically must not share a single failure domain if the scheduler platform supports separate schedules/alerts.
+All six jobs must be scheduled independently. An Object Storage/scanner incident must not suppress notification delivery; an email-provider incident must not suppress stale upload cleanup or file/AI health checks. `notification-deliveries` and `notification-delivery-health`, as well as `file-scans` and `file-scan-health`, should not share a single failure domain if the scheduler platform supports separate schedules/alerts.
 
 ## Security requirements
 
@@ -123,12 +145,12 @@ All five jobs must be scheduled independently. An Object Storage/scanner inciden
 - Do not enable unauthenticated GET-based cron access as a convenience workaround.
 - Preserve bounded worker/health limits and lease/retry semantics unless a separate capacity review justifies changes.
 - Scheduler logs must not contain request authorization headers or runtime secrets.
-- Scanner responses and maintenance results must not expose signed source URLs, lease tokens or client/case/user identifiers.
+- Maintenance health responses must not expose recipient/user/case/file identifiers, signed source URLs or lease tokens.
 
 ## Release status
 
-Code-level scheduler invocation exists for all five maintenance jobs and is covered by foundation tests.
+Code-level scheduler invocation exists for all six maintenance jobs and is covered by foundation tests.
 
 Production scheduler infrastructure is **not configured or verified**. Production readiness remains `BLOCKED_EXTERNAL` until the actual deployment platform is confirmed and the required recurring jobs are provisioned, executed against staging, observed, and wired to failure alerting.
 
-File-scan scheduling has additional external prerequisites: the authoritative database migration must be applied to staging, the controlled scanner service must be provisioned, staging CLEAN/MALICIOUS fixtures must pass, and scan/retry/lease/backlog alert behavior must be observed as described in `docs/FILE_UPLOAD_SECURITY.md` and `docs/STAGING_FILE_SCANNER_VERIFICATION.md`.
+Notification delivery additionally requires real staging Postbox delivery plus observable retry/dead/backlog behavior. File-scan scheduling additionally requires the authoritative database migration, controlled scanner service, staging CLEAN/MALICIOUS fixtures and scan/retry/lease/backlog alert behavior described in `docs/FILE_UPLOAD_SECURITY.md` and `docs/STAGING_FILE_SCANNER_VERIFICATION.md`.
