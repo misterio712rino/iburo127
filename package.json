@@ -32,7 +32,7 @@
     "check:staging:http-mutation-preflight": "tsx scripts/check-staging-http-mutation-preflight.ts",
     "check:staging:http-mutations": "npm run check:staging:http-mutation-preflight && tsx scripts/verify-staging-http-mutations.ts",
     "check:staging:http-mutations:audit": "npm run check:staging:http-mutation-preflight && tsx scripts/verify-staging-http-mutation-audit.ts",
-    "check:staging:application-e2e": "npm run check:staging:auth-flow && npm run check:staging:http-authz && npm run check:staging:http-ai-authz && npm run check:staging:http-mutations:audit && node -e \"console.log('STAGING_APPLICATION_E2E_PASS')\"",
+    "check:staging:application-e2e": "tsx scripts/verify-staging-application-e2e.ts",
     "db:inspect:baseline:summary": "tsx scripts/inspect-database-baseline-summary.ts",
     "db:inspect:baseline": "tsx scripts/inspect-database-baseline.ts",
     "db:inspect:migrations": "tsx scripts/check-migration-history.ts --inspect",

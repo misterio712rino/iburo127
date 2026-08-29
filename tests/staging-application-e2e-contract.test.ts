@@ -63,18 +63,67 @@ assert.equal(jar.hasCookies, false);
 const packageJson = JSON.parse(
   await readFile(resolve("package.json"), "utf8"),
 ) as { scripts?: Record<string, string> };
+const sessionSource = await readFile(
+  resolve("scripts/staging-authenticated-sessions.ts"),
+  "utf8",
+);
+const orchestratorSource = await readFile(
+  resolve("scripts/verify-staging-application-e2e.ts"),
+  "utf8",
+);
 
 assert.equal(
   packageJson.scripts?.["check:staging:auth-flow"],
   "tsx scripts/verify-staging-auth-flow.ts",
-  "staging auth flow must have a dedicated entrypoint",
+  "staging auth flow must keep a dedicated entrypoint",
+);
+assert.equal(
+  packageJson.scripts?.["check:staging:application-e2e"],
+  "tsx scripts/verify-staging-application-e2e.ts",
+  "active staging application E2E must use the fresh-session orchestrator",
 );
 
-const activeE2e = packageJson.scripts?.["check:staging:application-e2e"];
-assert.equal(
-  activeE2e,
-  "npm run check:staging:auth-flow && npm run check:staging:http-authz && npm run check:staging:http-ai-authz && npm run check:staging:http-mutations:audit && node -e \"console.log('STAGING_APPLICATION_E2E_PASS')\"",
-  "active staging application E2E must preserve the reviewed fresh-auth -> authz -> AI entitlement -> guarded mutation/audit order",
+const orderedVerifierPaths = [
+  "scripts/verify-staging-http-authz.ts",
+  "scripts/verify-staging-ai-http-authz.ts",
+  "scripts/verify-staging-http-mutation-audit.ts",
+] as const;
+let previousIndex = -1;
+for (const path of orderedVerifierPaths) {
+  const index = orchestratorSource.indexOf(path);
+  assert.ok(index > previousIndex, `${path} must remain in the reviewed E2E order`);
+  previousIndex = index;
+}
+
+assert.match(orchestratorSource, /createStagingAuthenticatedSessions/);
+assert.match(orchestratorSource, /STAGING_SESSION_COOKIE_ENV_NAMES/);
+assert.match(orchestratorSource, /spawn\(\s*process\.execPath/);
+assert.match(orchestratorSource, /\["--import", "tsx", scriptPath\]/);
+assert.match(orchestratorSource, /stdio:\s*"inherit"/);
+assert.match(orchestratorSource, /shell:\s*false/);
+assert.match(orchestratorSource, /finally\s*\{/);
+assert.match(orchestratorSource, /sessions\.cleanup\(\{ strict: true \}\)/);
+assert.match(
+  orchestratorSource,
+  /refuses pre-supplied CLIENT\/LAWYER\/MANAGER cookies/,
+  "active E2E must reject operator-supplied core session cookies",
+);
+assert.doesNotMatch(orchestratorSource, /writeFile|appendFile|fs\/promises/);
+assert.doesNotMatch(
+  orchestratorSource,
+  /process\.env\.IB_STAGING_(?:CLIENT|LAWYER|MANAGER)_COOKIE\s*=/,
+  "parent orchestrator must not write fresh session cookies into its own process.env",
+);
+
+assert.match(sessionSource, /trustDevice:\s*false/);
+assert.match(sessionSource, /iburo127\.ru/);
+assert.match(sessionSource, /\/api\/auth\/sign-out/);
+assert.match(sessionSource, /StagingCookieJar/);
+assert.doesNotMatch(sessionSource, /writeFile|appendFile|fs\/promises/);
+assert.doesNotMatch(
+  sessionSource,
+  /console\.(?:log|error)\([^\n]*(?:cookie|password|totpSecret)/i,
+  "session bootstrap must not log authentication material",
 );
 
 for (const forbidden of [
@@ -85,7 +134,7 @@ for (const forbidden of [
   "check:staging:storage",
 ]) {
   assert.ok(
-    !activeE2e.includes(forbidden),
+    !orchestratorSource.includes(forbidden),
     `active application E2E must not silently execute separately guarded external operation ${forbidden}`,
   );
 }
@@ -93,7 +142,7 @@ for (const forbidden of [
 const mutationAudit = packageJson.scripts?.["check:staging:http-mutations:audit"] ?? "";
 assert.ok(
   mutationAudit.startsWith("npm run check:staging:http-mutation-preflight &&"),
-  "mutation+audit entrypoint must remain protected by the network-free mutation preflight",
+  "standalone mutation+audit entrypoint must remain protected by the network-free mutation preflight",
 );
 
 console.log("STAGING_APPLICATION_E2E_CONTRACT_PASS");
