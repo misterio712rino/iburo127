@@ -29,7 +29,7 @@ export const STAGING_ENVIRONMENT_PHASES = {
     "IB_STAGING_DATABASE_USER",
     "IB_STAGING_BETTER_AUTH_SCHEMA",
   ],
-  auth: ["BETTER_AUTH_SECRET", "BETTER_AUTH_URL"],
+  auth: ["IB_RUNTIME_TARGET", "BETTER_AUTH_SECRET", "BETTER_AUTH_URL", "IB_STAGING_BASE_URL"],
   authFlow: [...STAGING_AUTH_FLOW_REQUIREMENTS],
   storage: [
     "IB_STORAGE_TARGET",
@@ -49,6 +49,12 @@ export const STAGING_ENVIRONMENT_PHASES = {
     "IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY",
     "IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY",
     "IB_STAGING_FILE_SCANNER_CONFIRM",
+    "IB_STORAGE_TARGET",
+    "IB_STAGING_STORAGE_BUCKET",
+    "IB_STAGING_STORAGE_ACCESS_KEY_ID",
+    "YANDEX_STORAGE_BUCKET",
+    "YANDEX_STORAGE_ACCESS_KEY_ID",
+    "YANDEX_STORAGE_SECRET_ACCESS_KEY",
   ],
   applicationE2e: [
     ...STAGING_AUTH_FLOW_REQUIREMENTS,
@@ -109,11 +115,153 @@ const PLACEHOLDER_PATTERNS = [
   /postgresql:\/\/USER:PASSWORD@HOST/i,
 ];
 
+const STAGING_TARGET_VARIABLES: Partial<Record<StagingEnvironmentPhase, readonly string[]>> = {
+  runtime: ["IB_RUNTIME_TARGET"],
+  database: ["IB_DB_TARGET"],
+  auth: ["IB_RUNTIME_TARGET"],
+  authFlow: ["IB_RUNTIME_TARGET", "IB_STAGING_AUTH_FLOW_TARGET"],
+  storage: ["IB_STORAGE_TARGET"],
+  scanner: ["IB_FILE_SCANNER_TARGET", "IB_STORAGE_TARGET"],
+  applicationE2e: [
+    "IB_RUNTIME_TARGET",
+    "IB_STAGING_AUTH_FLOW_TARGET",
+    "IB_STAGING_MUTATION_TARGET",
+  ],
+  postbox: ["IB_EMAIL_TARGET"],
+  openai: ["IB_AI_TARGET"],
+  bitrix24: ["IB_BITRIX24_TARGET"],
+  maintenance: ["IB_RUNTIME_TARGET"],
+};
+
 function isConfigured(value: string | undefined): boolean {
   if (!value) return false;
   const trimmed = value.trim();
   if (!trimmed) return false;
   return !PLACEHOLDER_PATTERNS.some((pattern) => pattern.test(trimmed));
+}
+
+function safeOrigin(value: string | undefined, allowLoopbackHttp: boolean): URL | null {
+  if (!isConfigured(value)) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(value!.trim());
+  } catch {
+    return null;
+  }
+  const loopback =
+    parsed.hostname === "localhost" ||
+    parsed.hostname === "127.0.0.1" ||
+    parsed.hostname === "[::1]";
+  const protocolAllowed = parsed.protocol === "https:" || (allowLoopbackHttp && loopback && parsed.protocol === "http:");
+  const originOnly =
+    (parsed.pathname === "/" || parsed.pathname === "") &&
+    !parsed.search &&
+    !parsed.hash &&
+    !parsed.username &&
+    !parsed.password;
+  return protocolAllowed && originOnly ? parsed : null;
+}
+
+function invalidSemantics(
+  phase: StagingEnvironmentPhase,
+  env: StagingEnvironment,
+): string[] {
+  const invalid = new Set<string>();
+  const mark = (...names: string[]) => names.forEach((name) => invalid.add(name));
+
+  for (const name of STAGING_TARGET_VARIABLES[phase] ?? []) {
+    if (isConfigured(env[name]) && env[name]?.trim() !== "staging") mark(name);
+  }
+
+  const stagingBase = safeOrigin(env.IB_STAGING_BASE_URL, true);
+  const authOrigin = safeOrigin(env.BETTER_AUTH_URL, true);
+
+  if ((phase === "auth" || phase === "authFlow" || phase === "applicationE2e" || phase === "maintenance") && isConfigured(env.IB_STAGING_BASE_URL) && !stagingBase) {
+    mark("IB_STAGING_BASE_URL");
+  }
+  if ((phase === "auth" || phase === "maintenance") && isConfigured(env.BETTER_AUTH_URL) && !authOrigin) {
+    mark("BETTER_AUTH_URL");
+  }
+  if ((phase === "auth" || phase === "maintenance") && stagingBase && authOrigin && stagingBase.origin !== authOrigin.origin) {
+    mark("BETTER_AUTH_URL", "IB_STAGING_BASE_URL");
+  }
+
+  if ((phase === "authFlow" || phase === "applicationE2e") && stagingBase) {
+    const expected = `AUTH-FLOW:${stagingBase.host}`;
+    if (isConfigured(env.IB_STAGING_AUTH_FLOW_CONFIRM) && env.IB_STAGING_AUTH_FLOW_CONFIRM?.trim() !== expected) {
+      mark("IB_STAGING_AUTH_FLOW_CONFIRM");
+    }
+  }
+
+  if (phase === "applicationE2e" && stagingBase) {
+    const expected = `MUTATE:${stagingBase.host}`;
+    if (isConfigured(env.IB_STAGING_MUTATION_CONFIRM) && env.IB_STAGING_MUTATION_CONFIRM?.trim() !== expected) {
+      mark("IB_STAGING_MUTATION_CONFIRM");
+    }
+  }
+
+  if (phase === "storage") {
+    if (isConfigured(env.YANDEX_STORAGE_BUCKET) && isConfigured(env.IB_STAGING_STORAGE_BUCKET) && env.YANDEX_STORAGE_BUCKET?.trim() !== env.IB_STAGING_STORAGE_BUCKET?.trim()) {
+      mark("YANDEX_STORAGE_BUCKET", "IB_STAGING_STORAGE_BUCKET");
+    }
+    if (isConfigured(env.YANDEX_STORAGE_ACCESS_KEY_ID) && isConfigured(env.IB_STAGING_STORAGE_ACCESS_KEY_ID) && env.YANDEX_STORAGE_ACCESS_KEY_ID?.trim() !== env.IB_STAGING_STORAGE_ACCESS_KEY_ID?.trim()) {
+      mark("YANDEX_STORAGE_ACCESS_KEY_ID", "IB_STAGING_STORAGE_ACCESS_KEY_ID");
+    }
+    if (isConfigured(env.IB_STAGING_STORAGE_ALLOWED_ORIGIN) && !safeOrigin(env.IB_STAGING_STORAGE_ALLOWED_ORIGIN, true)) {
+      mark("IB_STAGING_STORAGE_ALLOWED_ORIGIN");
+    }
+  }
+
+  if (phase === "scanner") {
+    const scannerOrigin = safeOrigin(env.IB_FILE_SCANNER_ORIGIN, false);
+    const expectedScannerOrigin = safeOrigin(env.IB_STAGING_FILE_SCANNER_ORIGIN, false);
+    if (isConfigured(env.IB_FILE_SCANNER_ORIGIN) && !scannerOrigin) mark("IB_FILE_SCANNER_ORIGIN");
+    if (isConfigured(env.IB_STAGING_FILE_SCANNER_ORIGIN) && !expectedScannerOrigin) mark("IB_STAGING_FILE_SCANNER_ORIGIN");
+    if (scannerOrigin && expectedScannerOrigin && scannerOrigin.origin !== expectedScannerOrigin.origin) {
+      mark("IB_FILE_SCANNER_ORIGIN", "IB_STAGING_FILE_SCANNER_ORIGIN");
+    }
+    if (isConfigured(env.YANDEX_STORAGE_BUCKET) && isConfigured(env.IB_STAGING_STORAGE_BUCKET) && env.YANDEX_STORAGE_BUCKET?.trim() !== env.IB_STAGING_STORAGE_BUCKET?.trim()) {
+      mark("YANDEX_STORAGE_BUCKET", "IB_STAGING_STORAGE_BUCKET");
+    }
+    if (isConfigured(env.YANDEX_STORAGE_ACCESS_KEY_ID) && isConfigured(env.IB_STAGING_STORAGE_ACCESS_KEY_ID) && env.YANDEX_STORAGE_ACCESS_KEY_ID?.trim() !== env.IB_STAGING_STORAGE_ACCESS_KEY_ID?.trim()) {
+      mark("YANDEX_STORAGE_ACCESS_KEY_ID", "IB_STAGING_STORAGE_ACCESS_KEY_ID");
+    }
+  }
+
+  if (phase === "postbox") {
+    if (isConfigured(env.YANDEX_POSTBOX_FROM_EMAIL) && isConfigured(env.IB_STAGING_POSTBOX_FROM_EMAIL) && env.YANDEX_POSTBOX_FROM_EMAIL?.trim() !== env.IB_STAGING_POSTBOX_FROM_EMAIL?.trim()) {
+      mark("YANDEX_POSTBOX_FROM_EMAIL", "IB_STAGING_POSTBOX_FROM_EMAIL");
+    }
+    if (isConfigured(env.YANDEX_POSTBOX_ACCESS_KEY_ID) && isConfigured(env.IB_STAGING_POSTBOX_ACCESS_KEY_ID) && env.YANDEX_POSTBOX_ACCESS_KEY_ID?.trim() !== env.IB_STAGING_POSTBOX_ACCESS_KEY_ID?.trim()) {
+      mark("YANDEX_POSTBOX_ACCESS_KEY_ID", "IB_STAGING_POSTBOX_ACCESS_KEY_ID");
+    }
+    if (isConfigured(env.IB_STAGING_POSTBOX_FROM_EMAIL)) {
+      const expected = `SIMULATOR:${env.IB_STAGING_POSTBOX_FROM_EMAIL?.trim()}`;
+      if (isConfigured(env.IB_STAGING_POSTBOX_CONFIRM) && env.IB_STAGING_POSTBOX_CONFIRM?.trim() !== expected) mark("IB_STAGING_POSTBOX_CONFIRM");
+    }
+  }
+
+  if (phase === "openai" && isConfigured(env.IB_AI_OPENAI_MODEL) && isConfigured(env.IB_STAGING_OPENAI_MODEL) && env.IB_AI_OPENAI_MODEL?.trim() !== env.IB_STAGING_OPENAI_MODEL?.trim()) {
+    mark("IB_AI_OPENAI_MODEL", "IB_STAGING_OPENAI_MODEL");
+  }
+
+  if (phase === "bitrix24") {
+    const portal = safeOrigin(env.BITRIX24_PORTAL_ORIGIN, false);
+    const expectedPortal = safeOrigin(env.IB_STAGING_BITRIX24_PORTAL_ORIGIN, false);
+    if (isConfigured(env.BITRIX24_PORTAL_ORIGIN) && !portal) mark("BITRIX24_PORTAL_ORIGIN");
+    if (isConfigured(env.IB_STAGING_BITRIX24_PORTAL_ORIGIN) && !expectedPortal) mark("IB_STAGING_BITRIX24_PORTAL_ORIGIN");
+    if (portal && expectedPortal && portal.origin !== expectedPortal.origin) mark("BITRIX24_PORTAL_ORIGIN", "IB_STAGING_BITRIX24_PORTAL_ORIGIN");
+    if (expectedPortal && isConfigured(env.IB_BITRIX24_ALLOWED_HOST) && env.IB_BITRIX24_ALLOWED_HOST?.trim().toLowerCase() !== expectedPortal.hostname.toLowerCase()) mark("IB_BITRIX24_ALLOWED_HOST");
+    if (isConfigured(env.BITRIX24_WEBHOOK_USER_ID) && isConfigured(env.IB_STAGING_BITRIX24_WEBHOOK_USER_ID) && env.BITRIX24_WEBHOOK_USER_ID?.trim() !== env.IB_STAGING_BITRIX24_WEBHOOK_USER_ID?.trim()) mark("BITRIX24_WEBHOOK_USER_ID", "IB_STAGING_BITRIX24_WEBHOOK_USER_ID");
+  }
+
+  if (phase === "maintenance") {
+    const maintenanceOrigin = safeOrigin(env.IB_MAINTENANCE_BASE_URL, true);
+    if (isConfigured(env.IB_MAINTENANCE_BASE_URL) && !maintenanceOrigin) mark("IB_MAINTENANCE_BASE_URL");
+    if (stagingBase && maintenanceOrigin && stagingBase.origin !== maintenanceOrigin.origin) mark("IB_MAINTENANCE_BASE_URL", "IB_STAGING_BASE_URL");
+  }
+
+  return [...invalid].sort();
 }
 
 export type StagingEnvironmentInventory = {
@@ -126,6 +274,7 @@ export type StagingEnvironmentInventory = {
       requiredCount: number;
       configuredCount: number;
       missingOrPlaceholder: string[];
+      invalidOrInconsistent: string[];
     }
   >;
 };
@@ -133,15 +282,18 @@ export type StagingEnvironmentInventory = {
 export function buildStagingEnvironmentInventory(
   env: StagingEnvironment,
 ): StagingEnvironmentInventory {
-  const phaseEntries = Object.entries(STAGING_ENVIRONMENT_PHASES).map(([phase, required]) => {
+  const phaseEntries = Object.entries(STAGING_ENVIRONMENT_PHASES).map(([phaseName, required]) => {
+    const phase = phaseName as StagingEnvironmentPhase;
     const missingOrPlaceholder = required.filter((name) => !isConfigured(env[name]));
+    const invalidOrInconsistent = invalidSemantics(phase, env);
     return [
       phase,
       {
-        ready: missingOrPlaceholder.length === 0,
+        ready: missingOrPlaceholder.length === 0 && invalidOrInconsistent.length === 0,
         requiredCount: required.length,
         configuredCount: required.length - missingOrPlaceholder.length,
         missingOrPlaceholder,
+        invalidOrInconsistent,
       },
     ] as const;
   });

@@ -7,23 +7,23 @@ import {
 
 const secretValues = {
   IB_RUNTIME_TARGET: "staging",
-  DATABASE_URL: "postgresql://stage.pg.internal:5432/iburo_stage",
+  DATABASE_URL: "postgresql://stage_user@stage.pg.internal:5432/iburo_stage",
   IB_DB_TARGET: "staging",
   IB_STAGING_DATABASE_HOST: "stage.pg.internal",
   IB_STAGING_DATABASE_NAME: "iburo_stage",
   IB_STAGING_DATABASE_USER: "stage_user",
   IB_STAGING_BETTER_AUTH_SCHEMA: "public",
   BETTER_AUTH_SECRET: "better-auth-secret-that-must-never-print",
-  BETTER_AUTH_URL: "https://stage.iburo.invalid",
-  IB_STAGING_BASE_URL: "https://stage.iburo.invalid",
+  BETTER_AUTH_URL: "https://stage.iburo.test",
+  IB_STAGING_BASE_URL: "https://stage.iburo.test",
   IB_STAGING_AUTH_FLOW_TARGET: "staging",
-  IB_STAGING_AUTH_FLOW_CONFIRM: "AUTH-FLOW:stage.iburo.invalid",
-  IB_STAGING_CLIENT_EMAIL: "client@stage.iburo.invalid",
+  IB_STAGING_AUTH_FLOW_CONFIRM: "AUTH-FLOW:stage.iburo.test",
+  IB_STAGING_CLIENT_EMAIL: "client@stage.iburo.test",
   IB_STAGING_CLIENT_PASSWORD: "client-password-that-must-never-print",
-  IB_STAGING_LAWYER_EMAIL: "lawyer@stage.iburo.invalid",
+  IB_STAGING_LAWYER_EMAIL: "lawyer@stage.iburo.test",
   IB_STAGING_LAWYER_PASSWORD: "lawyer-password-that-must-never-print",
   IB_STAGING_LAWYER_TOTP_SECRET: "JBSWY3DPEHPK3PXP",
-  IB_STAGING_MANAGER_EMAIL: "manager@stage.iburo.invalid",
+  IB_STAGING_MANAGER_EMAIL: "manager@stage.iburo.test",
   IB_STAGING_MANAGER_PASSWORD: "manager-password-that-must-never-print",
   IB_STAGING_MANAGER_TOTP_SECRET: "KRSXG5DSNFXGOIDB",
   IB_STAGING_CLIENT_CASE_NUMBER: "STAGE-CLIENT-001",
@@ -31,31 +31,62 @@ const secretValues = {
   IB_STAGING_CLIENT_AI_CASE_NUMBER: "STAGE-CLIENT-AI-001",
   IB_STAGING_CLIENT_NO_AI_CASE_NUMBER: "STAGE-CLIENT-NOAI-001",
   IB_STAGING_MUTATION_TARGET: "staging",
-  IB_STAGING_MUTATION_CONFIRM: "MUTATE:stage.iburo.invalid",
+  IB_STAGING_MUTATION_CONFIRM: "MUTATE:stage.iburo.test",
   IB_STAGING_MUTATION_CASE_NUMBER: "STAGE-MUTATION-001",
   IB_STAGING_MUTATION_TASK_ID: "stage-task-id",
-  OPENAI_API_KEY: "openai-secret-that-must-never-print",
+  IB_STORAGE_TARGET: "staging",
+  IB_STAGING_STORAGE_BUCKET: "iburo-stage-private",
+  IB_STAGING_STORAGE_ALLOWED_ORIGIN: "https://stage.iburo.test",
+  IB_STAGING_STORAGE_ACCESS_KEY_ID: "stage-storage-access-key",
+  YANDEX_STORAGE_BUCKET: "iburo-stage-private",
+  YANDEX_STORAGE_ACCESS_KEY_ID: "stage-storage-access-key",
   YANDEX_STORAGE_SECRET_ACCESS_KEY: "storage-secret-that-must-never-print",
-  IB_FILE_SCANNER_SECRET: "scanner-secret-that-must-never-print",
-  BITRIX24_WEBHOOK_SECRET: "bitrix-secret-that-must-never-print",
+  IB_FILE_SCANNER_TARGET: "staging",
+  IB_FILE_SCANNER_ORIGIN: "https://scanner.stage.iburo.test",
+  IB_FILE_SCANNER_SECRET: "scanner-secret-that-must-never-print-123456",
+  IB_STAGING_FILE_SCANNER_ORIGIN: "https://scanner.stage.iburo.test",
+  IB_STAGING_FILE_SCANNER_SECRET_SHA256: "a".repeat(64),
+  IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY: "security-fixtures/file-scanner/clean.txt",
+  IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY: "security-fixtures/file-scanner/malicious.txt",
+  IB_STAGING_FILE_SCANNER_CONFIRM: "FILE-SCANNER-SMOKE:scanner.stage.iburo.test:iburo-stage-private:placeholder-fingerprint",
+  IB_EMAIL_TARGET: "staging",
+  YANDEX_POSTBOX_FROM_EMAIL: "stage@iburo.test",
+  YANDEX_POSTBOX_ACCESS_KEY_ID: "stage-postbox-access-key",
   YANDEX_POSTBOX_SECRET_ACCESS_KEY: "postbox-secret-that-must-never-print",
-  IB_MAINTENANCE_SECRET: "maintenance-secret-that-must-never-print",
-  IB_MAINTENANCE_BASE_URL: "https://stage.iburo.invalid",
+  IB_STAGING_POSTBOX_FROM_EMAIL: "stage@iburo.test",
+  IB_STAGING_POSTBOX_ACCESS_KEY_ID: "stage-postbox-access-key",
+  IB_STAGING_POSTBOX_CONFIRM: "SIMULATOR:stage@iburo.test",
+  IB_AI_TARGET: "staging",
+  OPENAI_API_KEY: "openai-secret-that-must-never-print",
+  IB_AI_OPENAI_MODEL: "gpt-stage-model",
+  IB_STAGING_OPENAI_MODEL: "gpt-stage-model",
+  IB_STAGING_OPENAI_KEY_SHA256: "b".repeat(64),
+  IB_STAGING_AI_CONFIRM: "AI-SMOKE:gpt-stage-model:placeholder-fingerprint",
+  IB_BITRIX24_TARGET: "staging",
+  BITRIX24_PORTAL_ORIGIN: "https://stage.bitrix24.test",
+  IB_BITRIX24_ALLOWED_HOST: "stage.bitrix24.test",
+  BITRIX24_WEBHOOK_USER_ID: "42",
+  BITRIX24_WEBHOOK_SECRET: "bitrix-secret-that-must-never-print",
+  BITRIX24_CASE_ENTITY_TYPE_ID: "123",
+  BITRIX24_CASE_FIELD_MAP: "{}",
+  IB_STAGING_BITRIX24_PORTAL_ORIGIN: "https://stage.bitrix24.test",
+  IB_STAGING_BITRIX24_WEBHOOK_USER_ID: "42",
+  IB_STAGING_BITRIX24_WEBHOOK_SECRET_SHA256: "c".repeat(64),
+  IB_STAGING_BITRIX24_CONFIRM: "BITRIX-VERIFY:stage.bitrix24.test:42:placeholder-fingerprint",
+  IB_MAINTENANCE_SECRET: "maintenance-secret-that-must-never-print-123456",
+  IB_MAINTENANCE_BASE_URL: "https://stage.iburo.test",
 } as const;
 
 const inventory = buildStagingEnvironmentInventory(secretValues);
 assert.equal(inventory.networkAccessed, false);
 assert.equal(inventory.valuesPrinted, false);
-assert.equal(inventory.phases.runtime.ready, true);
+for (const [phase, result] of Object.entries(inventory.phases)) {
+  assert.equal(result.ready, true, `${phase} must be ready for a consistent staging fixture`);
+  assert.deepEqual(result.missingOrPlaceholder, []);
+  assert.deepEqual(result.invalidOrInconsistent, []);
+}
+
 assert.deepEqual(STAGING_ENVIRONMENT_PHASES.runtime, ["IB_RUNTIME_TARGET"]);
-assert.equal(inventory.phases.database.ready, true);
-assert.equal(inventory.phases.database.missingOrPlaceholder.length, 0);
-assert.equal(inventory.phases.authFlow.ready, true);
-assert.equal(inventory.phases.authFlow.missingOrPlaceholder.length, 0);
-assert.equal(inventory.phases.applicationE2e.ready, true);
-assert.equal(inventory.phases.applicationE2e.missingOrPlaceholder.length, 0);
-assert.equal(inventory.phases.maintenance.ready, true);
-assert.equal(inventory.phases.maintenance.missingOrPlaceholder.length, 0);
 assert.deepEqual(STAGING_ENVIRONMENT_PHASES.maintenance, [
   "IB_RUNTIME_TARGET",
   "BETTER_AUTH_URL",
@@ -63,6 +94,22 @@ assert.deepEqual(STAGING_ENVIRONMENT_PHASES.maintenance, [
   "IB_MAINTENANCE_SECRET",
   "IB_MAINTENANCE_BASE_URL",
 ]);
+
+const scannerRequirements = STAGING_ENVIRONMENT_PHASES.scanner as readonly string[];
+for (const storageRequirement of [
+  "IB_STORAGE_TARGET",
+  "IB_STAGING_STORAGE_BUCKET",
+  "IB_STAGING_STORAGE_ACCESS_KEY_ID",
+  "YANDEX_STORAGE_BUCKET",
+  "YANDEX_STORAGE_ACCESS_KEY_ID",
+  "YANDEX_STORAGE_SECRET_ACCESS_KEY",
+]) {
+  assert.equal(
+    scannerRequirements.includes(storageRequirement),
+    true,
+    `scanner inventory must require ${storageRequirement}`,
+  );
+}
 
 const applicationE2eRequirements =
   STAGING_ENVIRONMENT_PHASES.applicationE2e as readonly string[];
@@ -89,6 +136,32 @@ for (const freshCredential of [
     `active application E2E inventory must require ${freshCredential}`,
   );
 }
+
+const conflictInventory = buildStagingEnvironmentInventory({
+  ...secretValues,
+  IB_RUNTIME_TARGET: "production",
+  BETTER_AUTH_URL: "https://prod.iburo.test",
+  IB_STAGING_MUTATION_TARGET: "production",
+  IB_AI_TARGET: "production",
+  YANDEX_STORAGE_BUCKET: "wrong-stage-bucket",
+});
+assert.equal(conflictInventory.phases.runtime.ready, false);
+assert.deepEqual(conflictInventory.phases.runtime.invalidOrInconsistent, ["IB_RUNTIME_TARGET"]);
+assert.equal(conflictInventory.phases.auth.ready, false);
+assert.ok(conflictInventory.phases.auth.invalidOrInconsistent.includes("BETTER_AUTH_URL"));
+assert.ok(conflictInventory.phases.auth.invalidOrInconsistent.includes("IB_RUNTIME_TARGET"));
+assert.equal(conflictInventory.phases.applicationE2e.ready, false);
+assert.ok(
+  conflictInventory.phases.applicationE2e.invalidOrInconsistent.includes("IB_STAGING_MUTATION_TARGET"),
+);
+assert.equal(conflictInventory.phases.openai.ready, false);
+assert.deepEqual(conflictInventory.phases.openai.invalidOrInconsistent, ["IB_AI_TARGET"]);
+assert.equal(conflictInventory.phases.storage.ready, false);
+assert.ok(conflictInventory.phases.storage.invalidOrInconsistent.includes("YANDEX_STORAGE_BUCKET"));
+assert.equal(conflictInventory.phases.scanner.ready, false);
+assert.ok(conflictInventory.phases.scanner.invalidOrInconsistent.includes("YANDEX_STORAGE_BUCKET"));
+assert.equal(conflictInventory.phases.maintenance.ready, false);
+assert.ok(conflictInventory.phases.maintenance.invalidOrInconsistent.includes("BETTER_AUTH_URL"));
 
 const serialized = JSON.stringify(inventory);
 for (const value of Object.values(secretValues)) {
@@ -120,7 +193,7 @@ assert.deepEqual(
 assert.equal(placeholderInventory.phases.auth.ready, false);
 assert.deepEqual(
   placeholderInventory.phases.auth.missingOrPlaceholder.sort(),
-  ["BETTER_AUTH_SECRET", "BETTER_AUTH_URL"].sort(),
+  ["IB_RUNTIME_TARGET", "BETTER_AUTH_SECRET", "BETTER_AUTH_URL", "IB_STAGING_BASE_URL"].sort(),
 );
 assert.equal(placeholderInventory.phases.authFlow.ready, false);
 assert.ok(
