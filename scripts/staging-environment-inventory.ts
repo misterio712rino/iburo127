@@ -162,6 +162,25 @@ function safeOrigin(value: string | undefined, allowLoopbackHttp: boolean): URL 
   return protocolAllowed && originOnly ? parsed : null;
 }
 
+function safeDatabaseUrl(value: string | undefined): URL | null {
+  if (!isConfigured(value)) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(value!.trim());
+  } catch {
+    return null;
+  }
+  return parsed.protocol === "postgresql:" || parsed.protocol === "postgres:" ? parsed : null;
+}
+
+function safeDecode(value: string): string | null {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return null;
+  }
+}
+
 function invalidSemantics(
   phase: StagingEnvironmentPhase,
   env: StagingEnvironment,
@@ -171,6 +190,36 @@ function invalidSemantics(
 
   for (const name of STAGING_TARGET_VARIABLES[phase] ?? []) {
     if (isConfigured(env[name]) && env[name]?.trim() !== "staging") mark(name);
+  }
+
+  if (phase === "database") {
+    const databaseUrl = safeDatabaseUrl(env.DATABASE_URL);
+    if (isConfigured(env.DATABASE_URL) && !databaseUrl) {
+      mark("DATABASE_URL");
+    }
+    if (databaseUrl) {
+      const actualHost = databaseUrl.hostname.toLowerCase();
+      const expectedHost = env.IB_STAGING_DATABASE_HOST?.trim().toLowerCase();
+      if (isConfigured(env.IB_STAGING_DATABASE_HOST) && actualHost !== expectedHost) {
+        mark("DATABASE_URL", "IB_STAGING_DATABASE_HOST");
+      }
+
+      const actualDatabaseName = safeDecode(databaseUrl.pathname.replace(/^\//, ""));
+      const expectedDatabaseName = env.IB_STAGING_DATABASE_NAME?.trim();
+      if (actualDatabaseName === null) {
+        mark("DATABASE_URL");
+      } else if (isConfigured(env.IB_STAGING_DATABASE_NAME) && actualDatabaseName !== expectedDatabaseName) {
+        mark("DATABASE_URL", "IB_STAGING_DATABASE_NAME");
+      }
+
+      const actualUser = safeDecode(databaseUrl.username);
+      const expectedUser = env.IB_STAGING_DATABASE_USER?.trim();
+      if (actualUser === null) {
+        mark("DATABASE_URL");
+      } else if (isConfigured(env.IB_STAGING_DATABASE_USER) && actualUser !== expectedUser) {
+        mark("DATABASE_URL", "IB_STAGING_DATABASE_USER");
+      }
+    }
   }
 
   const stagingBase = safeOrigin(env.IB_STAGING_BASE_URL, true);

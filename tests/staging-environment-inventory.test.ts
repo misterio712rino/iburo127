@@ -163,6 +163,38 @@ assert.ok(conflictInventory.phases.scanner.invalidOrInconsistent.includes("YANDE
 assert.equal(conflictInventory.phases.maintenance.ready, false);
 assert.ok(conflictInventory.phases.maintenance.invalidOrInconsistent.includes("BETTER_AUTH_URL"));
 
+const databaseConflict = buildStagingEnvironmentInventory({
+  ...secretValues,
+  DATABASE_URL: "postgresql://other_user@wrong.pg.internal:5432/wrong_database",
+});
+assert.equal(databaseConflict.phases.database.ready, false);
+assert.deepEqual(databaseConflict.phases.database.missingOrPlaceholder, []);
+for (const name of [
+  "DATABASE_URL",
+  "IB_STAGING_DATABASE_HOST",
+  "IB_STAGING_DATABASE_NAME",
+  "IB_STAGING_DATABASE_USER",
+]) {
+  assert.ok(
+    databaseConflict.phases.database.invalidOrInconsistent.includes(name),
+    `database inventory must flag ${name} on identity mismatch`,
+  );
+}
+
+const invalidDatabaseUrl = buildStagingEnvironmentInventory({
+  ...secretValues,
+  DATABASE_URL: "https://stage.pg.internal/iburo_stage",
+});
+assert.equal(invalidDatabaseUrl.phases.database.ready, false);
+assert.deepEqual(invalidDatabaseUrl.phases.database.invalidOrInconsistent, ["DATABASE_URL"]);
+
+const malformedEncodedDatabase = buildStagingEnvironmentInventory({
+  ...secretValues,
+  DATABASE_URL: "postgresql://stage_user@stage.pg.internal:5432/%ZZ",
+});
+assert.equal(malformedEncodedDatabase.phases.database.ready, false);
+assert.ok(malformedEncodedDatabase.phases.database.invalidOrInconsistent.includes("DATABASE_URL"));
+
 const serialized = JSON.stringify(inventory);
 for (const value of Object.values(secretValues)) {
   assert.equal(
