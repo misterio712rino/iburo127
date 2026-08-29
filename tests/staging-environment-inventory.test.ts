@@ -40,6 +40,7 @@ const secretValues = {
   BITRIX24_WEBHOOK_SECRET: "bitrix-secret-that-must-never-print",
   YANDEX_POSTBOX_SECRET_ACCESS_KEY: "postbox-secret-that-must-never-print",
   IB_MAINTENANCE_SECRET: "maintenance-secret-that-must-never-print",
+  IB_MAINTENANCE_BASE_URL: "https://stage.iburo.invalid",
 } as const;
 
 const inventory = buildStagingEnvironmentInventory(secretValues);
@@ -53,6 +54,15 @@ assert.equal(inventory.phases.authFlow.ready, true);
 assert.equal(inventory.phases.authFlow.missingOrPlaceholder.length, 0);
 assert.equal(inventory.phases.applicationE2e.ready, true);
 assert.equal(inventory.phases.applicationE2e.missingOrPlaceholder.length, 0);
+assert.equal(inventory.phases.maintenance.ready, true);
+assert.equal(inventory.phases.maintenance.missingOrPlaceholder.length, 0);
+assert.deepEqual(STAGING_ENVIRONMENT_PHASES.maintenance, [
+  "IB_RUNTIME_TARGET",
+  "BETTER_AUTH_URL",
+  "IB_STAGING_BASE_URL",
+  "IB_MAINTENANCE_SECRET",
+  "IB_MAINTENANCE_BASE_URL",
+]);
 
 const applicationE2eRequirements =
   STAGING_ENVIRONMENT_PHASES.applicationE2e as readonly string[];
@@ -119,6 +129,17 @@ assert.ok(
 assert.equal(placeholderInventory.phases.applicationE2e.ready, false);
 assert.ok(
   placeholderInventory.phases.applicationE2e.missingOrPlaceholder.includes("IB_STAGING_CLIENT_EMAIL"),
+);
+assert.equal(placeholderInventory.phases.maintenance.ready, false);
+assert.deepEqual(
+  placeholderInventory.phases.maintenance.missingOrPlaceholder.sort(),
+  [
+    "IB_RUNTIME_TARGET",
+    "BETTER_AUTH_URL",
+    "IB_STAGING_BASE_URL",
+    "IB_MAINTENANCE_SECRET",
+    "IB_MAINTENANCE_BASE_URL",
+  ].sort(),
 );
 
 for (const [phase, required] of Object.entries(STAGING_ENVIRONMENT_PHASES)) {

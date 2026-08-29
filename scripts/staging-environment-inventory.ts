@@ -91,7 +91,13 @@ export const STAGING_ENVIRONMENT_PHASES = {
     "IB_STAGING_BITRIX24_WEBHOOK_SECRET_SHA256",
     "IB_STAGING_BITRIX24_CONFIRM",
   ],
-  maintenance: ["IB_MAINTENANCE_SECRET", "IB_MAINTENANCE_BASE_URL"],
+  maintenance: [
+    "IB_RUNTIME_TARGET",
+    "BETTER_AUTH_URL",
+    "IB_STAGING_BASE_URL",
+    "IB_MAINTENANCE_SECRET",
+    "IB_MAINTENANCE_BASE_URL",
+  ],
 } as const;
 
 export type StagingEnvironmentPhase = keyof typeof STAGING_ENVIRONMENT_PHASES;
