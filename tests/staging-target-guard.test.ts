@@ -6,6 +6,8 @@ import {
   requireStagingMutationConfirmation,
 } from "@/scripts/staging-target-guard";
 import { requireStagingAuthRuntimeTarget } from "@/scripts/staging-http-target-guard";
+import { assertStagingStorageTarget } from "@/scripts/staging-storage-target-guard";
+import { buildStagingEnvironmentInventory } from "@/scripts/staging-environment-inventory";
 
 const stagingDatabaseUrl = [
   "postgresql://",
@@ -103,6 +105,83 @@ assert.throws(
   /at least 32 characters/,
 );
 
+const storageEnv: Record<string, string | undefined> = {
+  IB_RUNTIME_TARGET: "staging",
+  IB_STAGING_BASE_URL: "https://preview.example.vercel.app",
+  IB_STORAGE_TARGET: "staging",
+  YANDEX_STORAGE_BUCKET: "iburo-staging-private",
+  IB_STAGING_STORAGE_BUCKET: "iburo-staging-private",
+  YANDEX_STORAGE_ACCESS_KEY_ID: "staging-storage-access-key",
+  IB_STAGING_STORAGE_ACCESS_KEY_ID: "staging-storage-access-key",
+  YANDEX_STORAGE_SECRET_ACCESS_KEY: "fixture-storage-secret",
+  IB_STAGING_STORAGE_ALLOWED_ORIGIN: "https://preview.example.vercel.app",
+};
+assert.deepEqual(assertStagingStorageTarget(storageEnv), {
+  bucket: "iburo-staging-private",
+  accessKeyId: "staging-storage-access-key",
+  secretAccessKey: "fixture-storage-secret",
+  allowedOrigin: "https://preview.example.vercel.app",
+});
+assert.throws(
+  () => assertStagingStorageTarget({ ...storageEnv, IB_RUNTIME_TARGET: "production" }),
+  /IB_RUNTIME_TARGET/,
+);
+assert.throws(
+  () => assertStagingStorageTarget({ ...storageEnv, IB_STORAGE_TARGET: "production" }),
+  /IB_STORAGE_TARGET/,
+);
+assert.throws(
+  () => assertStagingStorageTarget({ ...storageEnv, IB_STAGING_STORAGE_ALLOWED_ORIGIN: "https://other.example.vercel.app" }),
+  /must match IB_STAGING_BASE_URL origin/,
+);
+assert.throws(
+  () => assertStagingStorageTarget({
+    ...storageEnv,
+    IB_STAGING_BASE_URL: "https://iburo127.ru",
+    IB_STAGING_STORAGE_ALLOWED_ORIGIN: "https://iburo127.ru",
+  }),
+  /production hostname/,
+);
+assert.throws(
+  () => assertStagingStorageTarget({ ...storageEnv, YANDEX_STORAGE_BUCKET: "production-bucket" }),
+  /IB_STAGING_STORAGE_BUCKET/,
+);
+assert.throws(
+  () => assertStagingStorageTarget({ ...storageEnv, YANDEX_STORAGE_ACCESS_KEY_ID: "production-access-key" }),
+  /IB_STAGING_STORAGE_ACCESS_KEY_ID/,
+);
+
+const storageInventory = buildStagingEnvironmentInventory(storageEnv);
+assert.equal(storageInventory.phases.storage.ready, true);
+assert.deepEqual(storageInventory.phases.storage.invalidOrInconsistent, []);
+const mismatchedStorageInventory = buildStagingEnvironmentInventory({
+  ...storageEnv,
+  IB_STAGING_STORAGE_ALLOWED_ORIGIN: "https://other.example.vercel.app",
+});
+assert.equal(mismatchedStorageInventory.phases.storage.ready, false);
+assert.ok(
+  mismatchedStorageInventory.phases.storage.invalidOrInconsistent.includes(
+    "IB_STAGING_STORAGE_ALLOWED_ORIGIN",
+  ),
+);
+assert.ok(
+  mismatchedStorageInventory.phases.storage.invalidOrInconsistent.includes("IB_STAGING_BASE_URL"),
+);
+const productionStorageInventory = buildStagingEnvironmentInventory({
+  ...storageEnv,
+  IB_STAGING_BASE_URL: "https://files.iburo127.ru",
+  IB_STAGING_STORAGE_ALLOWED_ORIGIN: "https://files.iburo127.ru",
+});
+assert.equal(productionStorageInventory.phases.storage.ready, false);
+assert.ok(
+  productionStorageInventory.phases.storage.invalidOrInconsistent.includes("IB_STAGING_BASE_URL"),
+);
+assert.ok(
+  productionStorageInventory.phases.storage.invalidOrInconsistent.includes(
+    "IB_STAGING_STORAGE_ALLOWED_ORIGIN",
+  ),
+);
+
 const coreSource = await readFile(resolve("scripts/check-staging-readiness.ts"), "utf8");
 const authGuardIndex = coreSource.indexOf("requireStagingAuthRuntimeTarget()");
 const poolIndex = coreSource.indexOf("new Pool(");
@@ -111,5 +190,13 @@ assert.ok(authGuardIndex >= 0, "staging core must verify auth runtime target ide
 assert.ok(poolIndex > authGuardIndex, "staging auth runtime identity must be verified before database network access");
 assert.ok(passIndex > poolIndex, "staging core PASS marker must remain after target validation and DB verification");
 assert.match(coreSource, /Better Auth runtime config: staging origin identity verified/);
+
+const storageVerifierSource = await readFile(resolve("scripts/verify-staging-object-storage.ts"), "utf8");
+const storageGuardIndex = storageVerifierSource.indexOf("assertStagingStorageTarget()");
+const s3ClientIndex = storageVerifierSource.indexOf("new S3Client(");
+const storagePassIndex = storageVerifierSource.indexOf("STAGING_OBJECT_STORAGE_VERIFY_PASS");
+assert.ok(storageGuardIndex >= 0, "staging storage verifier must assert storage target identity");
+assert.ok(s3ClientIndex > storageGuardIndex, "storage target identity must be asserted before S3 network client creation");
+assert.ok(storagePassIndex > s3ClientIndex, "storage PASS marker must remain after guarded S3 verification");
 
 console.log("STAGING_TARGET_GUARD_TEST_PASS");

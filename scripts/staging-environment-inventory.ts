@@ -33,6 +33,8 @@ export const STAGING_ENVIRONMENT_PHASES = {
   auth: ["IB_RUNTIME_TARGET", "BETTER_AUTH_SECRET", "BETTER_AUTH_URL", "IB_STAGING_BASE_URL"],
   authFlow: [...STAGING_AUTH_FLOW_REQUIREMENTS],
   storage: [
+    "IB_RUNTIME_TARGET",
+    "IB_STAGING_BASE_URL",
     "IB_STORAGE_TARGET",
     "IB_STAGING_STORAGE_BUCKET",
     "IB_STAGING_STORAGE_ALLOWED_ORIGIN",
@@ -121,7 +123,7 @@ const STAGING_TARGET_VARIABLES: Partial<Record<StagingEnvironmentPhase, readonly
   database: ["IB_DB_TARGET"],
   auth: ["IB_RUNTIME_TARGET"],
   authFlow: ["IB_RUNTIME_TARGET", "IB_STAGING_AUTH_FLOW_TARGET"],
-  storage: ["IB_STORAGE_TARGET"],
+  storage: ["IB_RUNTIME_TARGET", "IB_STORAGE_TARGET"],
   scanner: ["IB_FILE_SCANNER_TARGET", "IB_STORAGE_TARGET"],
   applicationE2e: [
     "IB_RUNTIME_TARGET",
@@ -161,6 +163,12 @@ function safeOrigin(value: string | undefined, allowLoopbackHttp: boolean): URL 
     !parsed.username &&
     !parsed.password;
   return protocolAllowed && originOnly ? parsed : null;
+}
+
+function isProductionHostname(url: URL | null): boolean {
+  if (!url) return false;
+  const hostname = url.hostname.toLowerCase().replace(/\.+$/, "");
+  return hostname === "iburo127.ru" || hostname.endsWith(".iburo127.ru");
 }
 
 function safeDatabaseUrl(value: string | undefined): URL | null {
@@ -255,8 +263,14 @@ function invalidSemantics(
 
   const stagingBase = safeOrigin(env.IB_STAGING_BASE_URL, true);
   const authOrigin = safeOrigin(env.BETTER_AUTH_URL, true);
+  const usesStagingBase =
+    phase === "auth" ||
+    phase === "authFlow" ||
+    phase === "storage" ||
+    phase === "applicationE2e" ||
+    phase === "maintenance";
 
-  if ((phase === "auth" || phase === "authFlow" || phase === "applicationE2e" || phase === "maintenance") && isConfigured(env.IB_STAGING_BASE_URL) && !stagingBase) {
+  if (usesStagingBase && isConfigured(env.IB_STAGING_BASE_URL) && (!stagingBase || isProductionHostname(stagingBase))) {
     mark("IB_STAGING_BASE_URL");
   }
   if ((phase === "auth" || phase === "maintenance") && isConfigured(env.BETTER_AUTH_URL) && !authOrigin) {
@@ -291,8 +305,12 @@ function invalidSemantics(
     if (isConfigured(env.YANDEX_STORAGE_ACCESS_KEY_ID) && isConfigured(env.IB_STAGING_STORAGE_ACCESS_KEY_ID) && env.YANDEX_STORAGE_ACCESS_KEY_ID?.trim() !== env.IB_STAGING_STORAGE_ACCESS_KEY_ID?.trim()) {
       mark("YANDEX_STORAGE_ACCESS_KEY_ID", "IB_STAGING_STORAGE_ACCESS_KEY_ID");
     }
-    if (isConfigured(env.IB_STAGING_STORAGE_ALLOWED_ORIGIN) && !safeOrigin(env.IB_STAGING_STORAGE_ALLOWED_ORIGIN, true)) {
+    const allowedOrigin = safeOrigin(env.IB_STAGING_STORAGE_ALLOWED_ORIGIN, true);
+    if (isConfigured(env.IB_STAGING_STORAGE_ALLOWED_ORIGIN) && (!allowedOrigin || isProductionHostname(allowedOrigin))) {
       mark("IB_STAGING_STORAGE_ALLOWED_ORIGIN");
+    }
+    if (stagingBase && allowedOrigin && stagingBase.origin !== allowedOrigin.origin) {
+      mark("IB_STAGING_BASE_URL", "IB_STAGING_STORAGE_ALLOWED_ORIGIN");
     }
   }
 

@@ -8,6 +8,7 @@ import {
   S3Client,
   type CORSRule,
 } from "@aws-sdk/client-s3";
+import { assertStagingStorageTarget } from "./staging-storage-target-guard";
 
 const STAGING_STORAGE_VERIFY_FAIL = "STAGING_STORAGE_VERIFY_FAIL";
 const STAGING_STORAGE_POLICY_REVIEW_REQUIRED = "STAGING_STORAGE_POLICY_REVIEW_REQUIRED";
@@ -15,12 +16,6 @@ const STAGING_STORAGE_POLICY_REVIEW_REQUIRED = "STAGING_STORAGE_POLICY_REVIEW_RE
 function fail(message: string): never {
   console.error(`${STAGING_STORAGE_VERIFY_FAIL}: ${message}`);
   process.exit(1);
-}
-
-function requireEnv(name: string) {
-  const value = process.env[name]?.trim();
-  if (!value) fail(`missing ${name}`);
-  return value;
 }
 
 function errorStatus(error: unknown) {
@@ -33,27 +28,6 @@ function errorName(error: unknown) {
 
 function isMissingOptionalBucketConfiguration(error: unknown, expectedName: string) {
   return errorName(error) === expectedName;
-}
-
-function normalizeOrigin(value: string) {
-  let parsed: URL;
-  try {
-    parsed = new URL(value);
-  } catch {
-    fail("IB_STAGING_STORAGE_ALLOWED_ORIGIN must be an absolute URL origin");
-  }
-
-  const isSecure = parsed.protocol === "https:" || parsed.hostname === "localhost";
-  const isOriginOnly =
-    (parsed.pathname === "/" || parsed.pathname === "") &&
-    !parsed.search &&
-    !parsed.hash &&
-    !parsed.username &&
-    !parsed.password;
-  if (!isSecure || !isOriginOnly) {
-    fail("IB_STAGING_STORAGE_ALLOWED_ORIGIN must be a secure origin without path/query/credentials");
-  }
-  return parsed.origin;
 }
 
 function isPublicAclGroupUri(uri: string | undefined) {
@@ -114,43 +88,33 @@ function assertCorsRules(rules: readonly CORSRule[], expectedOrigin: string) {
   }
 }
 
-if (process.env.IB_STORAGE_TARGET?.trim() !== "staging") {
-  fail('IB_STORAGE_TARGET must be exactly "staging"');
+let target: ReturnType<typeof assertStagingStorageTarget>;
+try {
+  target = assertStagingStorageTarget();
+} catch (error) {
+  fail(error instanceof Error ? error.message : "invalid staging storage target");
 }
 
-const configuredBucket = requireEnv("YANDEX_STORAGE_BUCKET");
-const expectedBucket = requireEnv("IB_STAGING_STORAGE_BUCKET");
-if (configuredBucket !== expectedBucket) {
-  fail("YANDEX_STORAGE_BUCKET does not match IB_STAGING_STORAGE_BUCKET");
-}
-
-const configuredAccessKeyId = requireEnv("YANDEX_STORAGE_ACCESS_KEY_ID");
-const expectedAccessKeyId = requireEnv("IB_STAGING_STORAGE_ACCESS_KEY_ID");
-if (configuredAccessKeyId !== expectedAccessKeyId) {
-  fail("YANDEX_STORAGE_ACCESS_KEY_ID does not match IB_STAGING_STORAGE_ACCESS_KEY_ID");
-}
-
-const expectedOrigin = normalizeOrigin(requireEnv("IB_STAGING_STORAGE_ALLOWED_ORIGIN"));
 const endpoint = "https://storage.yandexcloud.net";
 const client = new S3Client({
   endpoint,
   region: "ru-central1",
   credentials: {
-    accessKeyId: configuredAccessKeyId,
-    secretAccessKey: requireEnv("YANDEX_STORAGE_SECRET_ACCESS_KEY"),
+    accessKeyId: target.accessKeyId,
+    secretAccessKey: target.secretAccessKey,
   },
 });
 
 try {
-  await client.send(new HeadBucketCommand({ Bucket: configuredBucket }));
+  await client.send(new HeadBucketCommand({ Bucket: target.bucket }));
 
-  const acl = await client.send(new GetBucketAclCommand({ Bucket: configuredBucket }));
+  const acl = await client.send(new GetBucketAclCommand({ Bucket: target.bucket }));
   const publicAclGrant = (acl.Grants ?? []).some((grant) => isPublicAclGroupUri(grant.Grantee?.URI));
   if (publicAclGrant) fail("bucket ACL grants access to a public S3 group");
 
   let policyState: "absent" | "deny-only" = "absent";
   try {
-    const policy = await client.send(new GetBucketPolicyCommand({ Bucket: configuredBucket }));
+    const policy = await client.send(new GetBucketPolicyCommand({ Bucket: target.bucket }));
     if (policy.Policy) {
       if (policyContainsAllow(policy.Policy)) {
         console.error(
@@ -166,19 +130,20 @@ try {
 
   let corsRules: CORSRule[] = [];
   try {
-    const cors = await client.send(new GetBucketCorsCommand({ Bucket: configuredBucket }));
+    const cors = await client.send(new GetBucketCorsCommand({ Bucket: target.bucket }));
     corsRules = cors.CORSRules ?? [];
   } catch (error) {
     if (!isMissingOptionalBucketConfiguration(error, "NoSuchCORSConfiguration")) throw error;
     fail("bucket CORS configuration is missing");
   }
-  assertCorsRules(corsRules, expectedOrigin);
+  assertCorsRules(corsRules, target.allowedOrigin);
 
-  console.log(`Staging Object Storage bucket identity verified: ${expectedBucket}`);
+  console.log(`Staging Object Storage bucket identity verified: ${target.bucket}`);
   console.log("Staging Object Storage access-key identity verified");
+  console.log(`Staging Object Storage CORS origin identity verified: ${target.allowedOrigin}`);
   console.log("Bucket ACL verified: no public S3 group grants");
   console.log(`Bucket policy verified: ${policyState}`);
-  console.log(`Bucket CORS verified for exact staging origin: ${expectedOrigin}`);
+  console.log(`Bucket CORS verified for exact staging origin: ${target.allowedOrigin}`);
   console.log("Object enumeration/content operations performed: 0");
   console.log("STAGING_OBJECT_STORAGE_VERIFY_PASS");
 } catch (error) {
