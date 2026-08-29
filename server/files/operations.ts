@@ -88,7 +88,7 @@ export async function completeStoredFileUpload(sessionProvider: SessionProvider,
     throw new Error(FILE_UPLOAD_METADATA_MISMATCH);
   }
 
-  return storedFileService.markUploadReady(actor, file.id);
+  return storedFileService.markUploadPendingScan(actor, file.id);
 }
 
 export async function createStoredFileDownloadUrl(
