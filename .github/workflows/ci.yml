@@ -36,6 +36,12 @@ jobs:
       - name: Toolchain policy
         run: node scripts/check-toolchain.mjs
 
+      - name: Secret exposure policy
+        run: node scripts/check-secret-exposure.mjs
+
+      - name: Secret exposure policy regression
+        run: node tests/secret-exposure-policy.test.mjs
+
       - name: Install-script policy
         run: node scripts/check-install-scripts-policy.mjs
 
