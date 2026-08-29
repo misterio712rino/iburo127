@@ -1,4 +1,5 @@
 import "./task-reminder-worker.test";
+import "./questionnaire-reminder-worker.test";
 import "./case-state-notification-contract.test";
 
 import assert from "node:assert/strict";
