@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-import { PLATFORM_ROLE_CODES } from "@/server/domain/client-cases/contracts";
+import {
+  PLATFORM_ROLE_CODES,
+  type ClientCaseRecord,
+} from "@/server/domain/client-cases/contracts";
+import type { TaskRecord } from "@/server/domain/tasks/contracts";
+import { buildStaffTaskQueue, summarizeStaffTaskQueue } from "@/server/tasks/staff-task-view";
 
 assert.deepEqual(PLATFORM_ROLE_CODES, ["CLIENT", "LAWYER", "MANAGER"]);
 
@@ -27,5 +32,67 @@ assert.match(
   /new Set<ActorRole>\(PLATFORM_ROLE_CODES\)/,
   "actor repository must reuse PLATFORM_ROLE_CODES",
 );
+
+const accessibleCase: ClientCaseRecord = {
+  id: "case-accessible",
+  caseNumber: "STAGE-001",
+  clientId: "client-1",
+  planCode: "PRO",
+  stageCode: "DOCUMENTS",
+  assignedLawyerId: "lawyer-1",
+  status: "ACTIVE",
+};
+
+const inaccessibleCaseTask: TaskRecord = {
+  id: "task-hidden",
+  clientCaseId: "case-not-accessible",
+  assigneeId: "lawyer-1",
+  title: "Hidden task",
+  description: null,
+  status: "NEW",
+  dueAt: new Date("2026-08-28T10:00:00.000Z"),
+  startedAt: null,
+  completedAt: null,
+  version: 1,
+  createdAt: new Date("2026-08-20T10:00:00.000Z"),
+  updatedAt: new Date("2026-08-20T10:00:00.000Z"),
+};
+
+const visibleNewTask: TaskRecord = {
+  ...inaccessibleCaseTask,
+  id: "task-new",
+  clientCaseId: accessibleCase.id,
+  title: "Prepare documents",
+};
+
+const visibleWorkingTask: TaskRecord = {
+  ...visibleNewTask,
+  id: "task-working",
+  title: "Review questionnaire",
+  status: "WORKING",
+  dueAt: new Date("2026-08-30T10:00:00.000Z"),
+  startedAt: new Date("2026-08-29T08:00:00.000Z"),
+};
+
+const queue = buildStaffTaskQueue(
+  [visibleWorkingTask, inaccessibleCaseTask, visibleNewTask],
+  [accessibleCase],
+);
+assert.deepEqual(
+  queue.map(({ task }) => task.id),
+  ["task-new", "task-working"],
+  "staff task view must drop tasks whose ClientCase is not independently accessible",
+);
+assert.equal(queue[0]?.clientCase.caseNumber, accessibleCase.caseNumber);
+assert.equal(queue[0]?.clientCase.planCode, accessibleCase.planCode);
+
+const summary = summarizeStaffTaskQueue(queue, new Date("2026-08-29T12:00:00.000Z"));
+assert.deepEqual(summary, {
+  total: 2,
+  new: 1,
+  working: 1,
+  done: 0,
+  overdue: 1,
+});
 
 console.log("PLATFORM_ROLE_CONTRACT_TEST_PASS");

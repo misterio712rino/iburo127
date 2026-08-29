@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Activity, ArrowLeft, ArrowUpRight, FileLock2, FileText, GraduationCap, ListChecks, Sparkles } from "lucide-react";
+import { Activity, ArrowLeft, ArrowUpRight, ClipboardList, FileLock2, FileText, GraduationCap, ListChecks, Sparkles } from "lucide-react";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
@@ -24,6 +24,13 @@ const CLIENT_AI_MODULE = {
   icon: Sparkles,
 } as const;
 
+const STAFF_TASK_MODULE = {
+  code: "tasks",
+  title: "Задачи",
+  description: "Операционная очередь сотрудников, ограниченная текущим доступным делом и staff-политикой.",
+  icon: ClipboardList,
+} as const;
+
 export default async function PortalCasePage({ params }: { params: Promise<{ caseId: string }> }) {
   const { caseId } = await params;
   const sessionProvider = createProductionSessionProvider();
@@ -40,7 +47,11 @@ export default async function PortalCasePage({ params }: { params: Promise<{ cas
   if (!clientCase) notFound();
 
   const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
-  const modules = actor.roles.includes("CLIENT") ? [...MODULES, CLIENT_AI_MODULE] : MODULES;
+  const modules = actor.roles.includes("CLIENT")
+    ? [...MODULES, CLIENT_AI_MODULE]
+    : isStaff
+      ? [...MODULES, STAFF_TASK_MODULE]
+      : MODULES;
 
   return (
     <PortalFrame sectionLabel="Защищённое дело" accessLabel="Доступ подтверждён" showStaffTasks={isStaff}>
