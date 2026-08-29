@@ -11,6 +11,7 @@ const filesSource = await readFile(resolve("app/portal/cases/[caseId]/files/page
 const aiSource = await readFile(resolve("app/portal/cases/[caseId]/ai/page.tsx"), "utf8");
 const securitySource = await readFile(resolve("app/portal/security/page.tsx"), "utf8");
 const mfaEnrollmentSource = await readFile(resolve("components/platform/auth/MfaEnrollmentForm.tsx"), "utf8");
+const backupCodesSource = await readFile(resolve("components/platform/auth/BackupCodesRegenerator.tsx"), "utf8");
 
 assert.match(
   portalFrameSource,
@@ -52,7 +53,12 @@ assert.match(
 assert.match(practicumComponentSource, /role="progressbar"/);
 assert.match(practicumComponentSource, /aria-valuenow=\{progressPercent\}/);
 assert.match(practicumComponentSource, /role="status"/);
+assert.match(backupCodesSource, /aria-busy=\{pending\}/);
+assert.match(backupCodesSource, /min-w-0 break-all rounded-xl/);
+assert.match(backupCodesSource, /role="status"/);
+assert.match(backupCodesSource, /w-full[^\"]*sm:w-auto/);
 assert.doesNotMatch(securitySource, /Account security|определяются только сервером|TOTP/);
 assert.doesNotMatch(mfaEnrollmentSource, /Сервис 2FA|TOTP-код|TOTP-приложение/);
+assert.doesNotMatch(backupCodesSource, /Сервис 2FA|неожиданный ответ/);
 
 console.log("MOBILE_CRITICAL_PORTAL_CONTRACT_TEST_PASS");

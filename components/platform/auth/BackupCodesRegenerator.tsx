@@ -36,14 +36,14 @@ export function BackupCodesRegenerator() {
 
       const codes = parseBackupCodes(result.data);
       if (!codes?.length) {
-        setError("Сервис 2FA вернул неожиданный ответ. Старые коды не считайте заменёнными.");
+        setError("Не удалось получить новый набор резервных кодов. Старые коды не считайте заменёнными.");
         return;
       }
 
       setBackupCodes(codes);
       setPassword("");
     } catch {
-      setError("Сервис 2FA временно недоступен. Повторите попытку позже.");
+      setError("Не удалось выпустить резервные коды. Повторите попытку позже.");
     } finally {
       setPending(false);
     }
@@ -61,13 +61,13 @@ export function BackupCodesRegenerator() {
 
   if (backupCodes) {
     return (
-      <div className="space-y-5">
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+      <div className="min-w-0 space-y-5">
+        <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
           Предыдущие резервные коды заменены. Сохраните новый набор сейчас: после ухода со страницы он здесь больше не показывается.
         </div>
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid min-w-0 gap-2 sm:grid-cols-2">
           {backupCodes.map((code) => (
-            <code key={code} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900">
+            <code key={code} className="min-w-0 break-all rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900">
               {code}
             </code>
           ))}
@@ -75,7 +75,7 @@ export function BackupCodesRegenerator() {
         <button
           type="button"
           onClick={copyCodes}
-          className="inline-flex rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-800 transition hover:border-slate-400"
+          className="inline-flex max-w-full items-center break-words rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-800 transition hover:border-slate-400"
         >
           {copied ? "Коды скопированы" : "Скопировать все коды"}
         </button>
@@ -84,7 +84,7 @@ export function BackupCodesRegenerator() {
   }
 
   return (
-    <form onSubmit={regenerate} className="space-y-5" noValidate>
+    <form onSubmit={regenerate} className="min-w-0 space-y-5" noValidate aria-busy={pending}>
       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
         Выпуск нового набора немедленно делает предыдущие резервные коды недействительными.
       </div>
@@ -113,7 +113,7 @@ export function BackupCodesRegenerator() {
       <button
         type="submit"
         disabled={pending || password.length < 12 || password.length > 128}
-        className="h-12 rounded-2xl bg-[#17202a] px-5 text-sm font-bold text-white transition hover:bg-[#263342] disabled:cursor-not-allowed disabled:opacity-50"
+        className="h-12 w-full rounded-2xl bg-[#17202a] px-5 text-sm font-bold text-white transition hover:bg-[#263342] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
       >
         {pending ? "Выпускаем…" : "Выпустить новые резервные коды"}
       </button>
