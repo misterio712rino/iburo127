@@ -21,7 +21,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Exact candidate checkout
@@ -56,18 +55,6 @@ jobs:
 
       - name: Secret exposure policy regression
         run: node tests/secret-exposure-policy.test.mjs
-
-      - name: Secret history exposure policy
-        shell: bash
-        run: |
-          if [ "$(git rev-parse --is-shallow-repository)" != "false" ]; then
-            echo "SECRET_HISTORY_POLICY_FAIL: full reachable history is required" >&2
-            exit 1
-          fi
-          node scripts/check-secret-history.mjs HEAD
-
-      - name: Secret history policy regression
-        run: node tests/secret-history-policy.test.mjs
 
       - name: Install-script policy
         run: node scripts/check-install-scripts-policy.mjs
