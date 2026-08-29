@@ -11,17 +11,12 @@ import {
   ListChecks,
 } from "lucide-react";
 import { PortalFrame } from "@/components/portal/PortalFrame";
-import { CASE_STAGE_FLOW, buildCaseProgressSummary } from "@/lib/platform/case-progress";
-import { PRACTICUM_LESSONS } from "@/lib/platform/practicum-content";
-import { QUESTIONNAIRE_SECTIONS } from "@/lib/platform/questionnaire-content";
+import { CASE_STAGE_FLOW } from "@/lib/platform/case-progress";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
+import { getCaseProgressSummaryForActor } from "@/server/case-progress/operations";
 import { getCurrentPlatformActor } from "@/server/client-cases/operations";
 import { clientCaseService } from "@/server/client-cases/runtime";
-import { listCaseDocuments } from "@/server/documents/operations";
-import { listStoredFiles } from "@/server/files/operations";
-import { getPracticumProgress } from "@/server/practicum/operations";
-import { getQuestionnaire } from "@/server/questionnaire/operations";
 
 export const dynamic = "force-dynamic";
 
@@ -46,39 +41,12 @@ export default async function PortalCaseProgressPage({ params }: { params: Promi
   const clientCase = await clientCaseService.getCase(actor, { caseId });
   if (!clientCase) notFound();
 
-  const [questionnaire, practicum, documents, readyFiles] = await Promise.all([
-    getQuestionnaire(sessionProvider, clientCase.id),
-    getPracticumProgress(sessionProvider, clientCase.id),
-    listCaseDocuments(sessionProvider, clientCase.id),
-    listStoredFiles(sessionProvider, clientCase.id),
-  ]);
-
   const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
-  const summary = buildCaseProgressSummary({
-    audience: isStaff ? "STAFF" : "CLIENT",
-    caseStatus: clientCase.status,
-    stageCode: clientCase.stageCode,
-    questionnaire: questionnaire
-      ? {
-          status: questionnaire.status,
-          completedSectionCount: questionnaire.completedSectionIds.length,
-          totalSectionCount: QUESTIONNAIRE_SECTIONS.length,
-        }
-      : null,
-    practicum: practicum
-      ? {
-          status: practicum.completedAt
-            ? "COMPLETED"
-            : practicum.completedLessonIds.length > 0
-              ? "IN_PROGRESS"
-              : "NOT_STARTED",
-          completedLessonCount: practicum.completedLessonIds.length,
-          totalLessonCount: PRACTICUM_LESSONS.length,
-        }
-      : null,
-    documents: documents.map((document) => ({ status: document.status })),
-    readyFileCount: readyFiles.length,
-  });
+  const summary = await getCaseProgressSummaryForActor(
+    actor,
+    clientCase,
+    isStaff ? "STAFF" : "CLIENT",
+  );
 
   const caseHref = `/portal/cases/${clientCase.id}`;
   const nextHref = `${caseHref}/${summary.nextAction.segment}`;
