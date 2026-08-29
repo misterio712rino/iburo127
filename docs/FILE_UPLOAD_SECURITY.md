@@ -129,6 +129,33 @@ The maintenance API returns only aggregate counters:
 
 It does not return file IDs, case IDs, user IDs, lease tokens or signed URLs.
 
+## Staging scanner smoke gate
+
+The repository contains an active staging-only verifier:
+
+```bash
+npm run check:staging:file-scanner
+```
+
+It is deliberately separate from CI. CI verifies the guard/client/verifier code; it does not call the remote staging scanner.
+
+The smoke verifier:
+
+- requires `IB_FILE_SCANNER_TARGET=staging` and `IB_STORAGE_TARGET=staging`;
+- pins the exact staging scanner HTTPS origin;
+- pins the scanner secret by SHA-256 fingerprint;
+- pins the exact staging Object Storage bucket and access-key ID;
+- accepts fixture object keys only below `security-fixtures/file-scanner/`;
+- performs `HeadObject` plus local short-lived GET signing only;
+- verifies one known-clean fixture returns exactly `CLEAN`;
+- verifies one benign antivirus-detection fixture returns exactly `MALICIOUS`;
+- never uploads, deletes or lists fixture objects;
+- never prints fixture keys, signed URLs or secrets.
+
+The fixture objects are created through a separate reviewed staging-infrastructure procedure. The application does not auto-create antivirus fixtures. Use a standard benign antivirus test artifact such as EICAR or the selected scanner vendor's equivalent; do not store real malware.
+
+See `docs/STAGING_FILE_SCANNER_VERIFICATION.md` for the exact target guard and confirmation contract.
+
 ## Staging activation gates
 
 Code-level quarantine is not equivalent to runtime activation. Before real client uploads are enabled in staging or production, all of the following must be completed:
@@ -138,12 +165,12 @@ Code-level quarantine is not equivalent to runtime activation. Before real clien
 - migration SQL manually reviewed;
 - migration applied to staging only;
 - `npm run db:verify:staging` confirms all `StoredFileStatus` values and scan columns;
-- private staging Object Storage policy verified;
+- private staging Object Storage policy and exact staging access-key identity verified with `npm run check:staging:storage`;
 - controlled HTTPS scanner service selected/deployed;
 - independent scanner secret provisioned through the deployment secret store;
+- dedicated benign scanner fixtures prepared under `security-fixtures/file-scanner/`;
+- `npm run check:staging:file-scanner` passes both `CLEAN` and `MALICIOUS` fixture verdicts;
 - file-scan maintenance scheduler configured against staging;
-- a provider-approved benign clean fixture verifies the `CLEAN -> READY` path;
-- a provider-approved benign antivirus detection fixture verifies `MALICIOUS -> QUARANTINED` without exposing a real malicious artifact;
 - scanner outage verifies retry/backoff and no READY transition;
 - expired lease/reclaim behavior is exercised;
 - maximum-attempt `SCAN_FAILED` alerting is observed;
