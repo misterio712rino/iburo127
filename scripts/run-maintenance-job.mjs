@@ -3,6 +3,7 @@ import { pathToFileURL } from "node:url";
 const JOB_PATHS = Object.freeze({
   "notification-deliveries": "/api/internal/maintenance/notification-deliveries",
   "stale-uploads": "/api/internal/maintenance/stale-uploads",
+  "file-scans": "/api/internal/maintenance/file-scans",
   "ai-audit-health": "/api/internal/maintenance/ai-audit-health",
 });
 
@@ -45,11 +46,11 @@ function requireBaseUrl(env) {
   return parsed.origin;
 }
 
-function readTimeoutMs(env) {
+function readTimeoutMs(env, job) {
   const raw = env.IB_MAINTENANCE_REQUEST_TIMEOUT_MS?.trim();
-  if (!raw) return 15_000;
+  if (!raw) return job === "file-scans" ? 120_000 : 15_000;
   const value = Number(raw);
-  if (!Number.isInteger(value) || value < 1_000 || value > 60_000) {
+  if (!Number.isInteger(value) || value < 1_000 || value > 300_000) {
     fail("IB_MAINTENANCE_REQUEST_TIMEOUT_MS");
   }
   return value;
@@ -57,7 +58,7 @@ function readTimeoutMs(env) {
 
 function requireJob(job) {
   if (!Object.hasOwn(JOB_PATHS, job)) {
-    fail("job must be notification-deliveries, stale-uploads, or ai-audit-health");
+    fail("job must be notification-deliveries, stale-uploads, file-scans, or ai-audit-health");
   }
   return job;
 }
@@ -72,7 +73,7 @@ export async function runMaintenanceJob({
 
   const baseUrl = requireBaseUrl(env);
   const secret = requireSecret(env);
-  const timeoutMs = readTimeoutMs(env);
+  const timeoutMs = readTimeoutMs(env, resolvedJob);
   const endpoint = new URL(JOB_PATHS[resolvedJob], `${baseUrl}/`);
 
   let response;
