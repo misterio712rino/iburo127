@@ -1,4 +1,5 @@
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
+import { readBoundedJsonBody } from "@/server/http/bounded-json-body";
 import { createStoredFileRouteAdapter } from "@/server/files/route-adapter";
 
 type RouteContext = {
@@ -11,16 +12,14 @@ function adapter() {
 
 export async function POST(request: Request, context: RouteContext) {
   const { fileId } = await context.params;
+  const bodyResult = await readBoundedJsonBody(request);
+  if (!bodyResult.ok) return bodyResult.response;
 
-  let expiresInSeconds: unknown;
-  try {
-    const body = await request.json();
-    expiresInSeconds = body && typeof body === "object" && !Array.isArray(body)
+  const body = bodyResult.value;
+  const expiresInSeconds =
+    body && typeof body === "object" && !Array.isArray(body)
       ? (body as Record<string, unknown>).expiresInSeconds
       : undefined;
-  } catch {
-    expiresInSeconds = undefined;
-  }
 
   return adapter().createDownloadUrl(fileId, expiresInSeconds);
 }
