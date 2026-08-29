@@ -1,0 +1,6 @@
+{
+  "@prisma/engines": "7.9.1",
+  "esbuild": "0.28.2",
+  "prisma": "7.9.1",
+  "unrs-resolver": "1.12.2"
+}
