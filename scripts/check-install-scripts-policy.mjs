@@ -31,16 +31,24 @@ if (JSON.stringify(allowedNames) !== JSON.stringify(expectedNames)) {
   );
 }
 
-for (const [name, expectedVersion] of Object.entries(policy)) {
-  if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(expectedVersion)) {
-    failures.push(`${name}: policy version must be exact, got ${expectedVersion}`);
+for (const [name, entry] of Object.entries(policy)) {
+  const expectedVersion = entry?.version;
+  const lockfilePath = entry?.lockfilePath;
+
+  if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(expectedVersion ?? "")) {
+    failures.push(`${name}: policy version must be exact, got ${expectedVersion ?? "missing"}`);
+    continue;
+  }
+  if (typeof lockfilePath !== "string" || !lockfilePath.startsWith("node_modules/")) {
+    failures.push(`${name}: invalid lockfilePath`);
     continue;
   }
 
-  const key = `node_modules/${name}`;
-  const actualVersion = lockfile.packages?.[key]?.version;
+  const actualVersion = lockfile.packages?.[lockfilePath]?.version;
   if (actualVersion !== expectedVersion) {
-    failures.push(`${name}: lockfile version ${actualVersion ?? "missing"} != approved ${expectedVersion}`);
+    failures.push(
+      `${name}: lockfile ${lockfilePath} version ${actualVersion ?? "missing"} != approved ${expectedVersion}`,
+    );
   }
 }
 
