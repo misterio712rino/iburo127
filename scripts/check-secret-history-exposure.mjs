@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 
 const root = resolve(process.argv[2] ?? ".");
+const requestedRefs = process.argv.slice(3);
+const refs = requestedRefs.length > 0 ? requestedRefs : ["HEAD"];
 const MAX_TEXT_BYTES = 1024 * 1024;
 const ALLOWED_ENV_FILES = new Set([".env.example"]);
 const allowlist = JSON.parse(
@@ -38,8 +40,17 @@ if (shallow !== "false") {
   process.exit(1);
 }
 
+for (const ref of refs) {
+  try {
+    git(["rev-parse", "--verify", `${ref}^{commit}`]);
+  } catch {
+    console.error(`SECRET_HISTORY_EXPOSURE_POLICY_FAIL: required ref is unavailable: ${ref}`);
+    process.exit(1);
+  }
+}
+
 const historicalPaths = new Set(
-  git(["log", "--format=", "--name-only", "HEAD"])
+  git(["log", "--format=", "--name-only", ...refs])
     .split(/\r?\n/)
     .map((value) => value.trim())
     .filter(Boolean),
@@ -53,7 +64,7 @@ for (const path of historicalPaths) {
   }
 }
 
-const objectLines = git(["rev-list", "--objects", "HEAD"])
+const objectLines = git(["rev-list", "--objects", ...refs])
   .split(/\r?\n/)
   .filter(Boolean);
 const pathByObject = new Map();
@@ -126,8 +137,10 @@ for (let index = 0; index < blobs.length; index += 25) {
 
 if (violations.length > 0) {
   console.error("SECRET_HISTORY_EXPOSURE_POLICY_FAIL");
-  for (const violation of violations) console.error(violation);
+  for (const violation of [...new Set(violations)].sort()) console.error(violation);
   process.exit(1);
 }
 
-console.log(`SECRET_HISTORY_EXPOSURE_POLICY_PASS: ${scanned} historical text blob(s) scanned`);
+console.log(
+  `SECRET_HISTORY_EXPOSURE_POLICY_PASS: refs=${refs.join(",")} ${scanned} historical text blob(s) scanned`,
+);
