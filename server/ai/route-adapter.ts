@@ -15,15 +15,8 @@ import {
   AI_RATE_LIMITED,
 } from "@/server/domain/ai/contracts";
 import { PRODUCTION_CONFIG_ERROR } from "@/server/config/production";
+import { readBoundedJsonBody } from "@/server/http/bounded-json-body";
 import { privateJsonResponse } from "@/server/http/private-json";
-
-async function readJsonBody(request: Request): Promise<unknown> {
-  try {
-    return await request.json();
-  } catch {
-    return undefined;
-  }
-}
 
 function errorCode(error: unknown): string {
   return error instanceof Error ? error.message : "";
@@ -96,12 +89,15 @@ export function createAiRouteAdapter(sessionProvider: SessionProvider) {
         return privateJsonResponse({ ok: false, error: { code: "NOT_FOUND" } }, 404);
       }
 
+      const bodyResult = await readBoundedJsonBody(request);
+      if (!bodyResult.ok) return bodyResult.response;
+
       try {
         const actor = await requireServerActor(sessionProvider);
         const result = await getAiAssistantService().reply(
           actor,
           caseId,
-          await readJsonBody(request),
+          bodyResult.value,
         );
         return privateJsonResponse({ ok: true, data: result });
       } catch (error) {
