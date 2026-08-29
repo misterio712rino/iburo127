@@ -2,6 +2,7 @@ import { pathToFileURL } from "node:url";
 
 const JOB_PATHS = Object.freeze({
   "notification-deliveries": "/api/internal/maintenance/notification-deliveries",
+  "notification-delivery-health": "/api/internal/maintenance/notification-delivery-health",
   "stale-uploads": "/api/internal/maintenance/stale-uploads",
   "file-scans": "/api/internal/maintenance/file-scans",
   "file-scan-health": "/api/internal/maintenance/file-scan-health",
@@ -67,7 +68,7 @@ function readTimeoutMs(env, job) {
 function requireJob(job) {
   if (!Object.hasOwn(JOB_PATHS, job)) {
     fail(
-      "job must be notification-deliveries, stale-uploads, file-scans, file-scan-health, or ai-audit-health",
+      "job must be notification-deliveries, notification-delivery-health, stale-uploads, file-scans, file-scan-health, or ai-audit-health",
     );
   }
   return job;
