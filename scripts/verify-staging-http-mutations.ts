@@ -15,5 +15,5 @@ try {
       ? message
       : "STAGING_HTTP_MUTATION_FAIL: verifier execution failed",
   );
-  process.exitCode = 1;
+  process.exit(1);
 }
