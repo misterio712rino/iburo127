@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 
 import type {
   AuthenticatedActor,
@@ -178,5 +180,30 @@ const reviewed = await service.markReviewed(manager, {
 });
 assert.equal(reviewed.status, "REVIEWED");
 assert.equal(repository.reviewCalls, 1, "an independent manager must retain review capability");
+
+const documentsUiSource = await readFile(
+  resolve("components/platform/documents/ProductionDocuments.tsx"),
+  "utf8",
+);
+assert.match(
+  documentsUiSource,
+  /staffReviewPriority\(byCode\.get\(left\.id\)\?\.status\)/,
+  "staff document view must explicitly prioritize review-state documents",
+);
+assert.match(documentsUiSource, /document\.status === "SENT_FOR_REVIEW"/);
+assert.match(documentsUiSource, /Ожидают проверки: \{reviewCount\}/);
+assert.match(documentsUiSource, /Подтвердить проверку/);
+assert.match(
+  documentsUiSource,
+  /canClientEdit \? \(/,
+  "optimistic-lock version badge must remain a client editing aid rather than staff workflow copy",
+);
+
+const documentsPageSource = await readFile(
+  resolve("app/portal/cases/[caseId]/documents/page.tsx"),
+  "utf8",
+);
+assert.match(documentsPageSource, /Документы, которые клиент передал на проверку, показаны первыми/);
+assert.match(documentsPageSource, /resolveCasePortalAudience/);
 
 console.log("DOCUMENT_REVIEW_SEPARATION_TEST_PASS");

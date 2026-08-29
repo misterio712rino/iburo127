@@ -33,6 +33,15 @@ const STATUS_LABELS: Record<DocumentStatus, string> = {
   REVIEWED: "Проверен",
 };
 
+function staffReviewPriority(status: DocumentStatus | undefined) {
+  if (status === "SENT_FOR_REVIEW") return 0;
+  if (status === "READY_FOR_REVIEW") return 1;
+  if (status === "DRAFT") return 2;
+  if (status === "WAITING_DATA") return 3;
+  if (status === "REVIEWED") return 4;
+  return 5;
+}
+
 export function ProductionDocuments({
   caseId,
   canClientEdit,
@@ -52,6 +61,18 @@ export function ProductionDocuments({
     () => new Map(documents.map((document) => [document.documentCode, document])),
     [documents],
   );
+  const reviewCount = useMemo(
+    () => documents.filter((document) => document.status === "SENT_FOR_REVIEW").length,
+    [documents],
+  );
+  const orderedDefinitions = useMemo(() => {
+    if (!canReview) return [...DOCUMENT_DEFINITIONS];
+    return [...DOCUMENT_DEFINITIONS].sort(
+      (left, right) =>
+        staffReviewPriority(byCode.get(left.id)?.status) -
+        staffReviewPriority(byCode.get(right.id)?.status),
+    );
+  }, [byCode, canReview]);
 
   async function refreshDocuments() {
     const response = await fetch(`/api/platform/cases/${caseId}/documents`, {
@@ -135,15 +156,28 @@ export function ProductionDocuments({
         </p>
       ) : null}
 
+      {canReview ? (
+        <div className={`rounded-2xl border px-4 py-4 ${reviewCount > 0 ? "border-[#7B2330]/20 bg-[#7B2330]/[0.04]" : "border-emerald-200 bg-emerald-50/70"}`}>
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Очередь проверки</p>
+          <p className="mt-1 text-lg font-bold text-slate-900">Ожидают проверки: {reviewCount}</p>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            {reviewCount > 0
+              ? "Переданные клиентом документы показаны первыми. Подтверждайте проверку после фактического просмотра документа."
+              : "Новых документов, переданных клиентом на проверку, сейчас нет."}
+          </p>
+        </div>
+      ) : null}
+
       <div className="grid gap-4 md:grid-cols-2">
-        {DOCUMENT_DEFINITIONS.map((definition) => {
+        {orderedDefinitions.map((definition) => {
           const document = byCode.get(definition.id);
           const pendingForDocument = pendingKey?.startsWith(`${definition.id}:`) ?? false;
+          const requiresReview = canReview && document?.status === "SENT_FOR_REVIEW";
 
           return (
             <article
               key={definition.id}
-              className="rounded-[28px] border border-slate-200 bg-white/80 p-6"
+              className={`rounded-[28px] border bg-white/80 p-6 ${requiresReview ? "border-[#7B2330]/30 shadow-[0_12px_40px_rgba(123,35,48,0.08)]" : "border-slate-200"}`}
             >
               <div className="flex items-start gap-3">
                 <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-slate-100 text-slate-600">
@@ -158,12 +192,14 @@ export function ProductionDocuments({
               <div className="mt-5 flex flex-wrap items-center gap-2">
                 {document ? (
                   <>
-                    <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                    <span className={`rounded-full px-3 py-1.5 text-xs font-semibold ${requiresReview ? "bg-[#7B2330]/10 text-[#7B2330]" : "bg-slate-100 text-slate-700"}`}>
                       {STATUS_LABELS[document.status]}
                     </span>
-                    <span className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-500">
-                      v{document.version}
-                    </span>
+                    {canClientEdit ? (
+                      <span className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-500">
+                        v{document.version}
+                      </span>
+                    ) : null}
                   </>
                 ) : (
                   <span className="rounded-full border border-dashed border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-400">
@@ -208,7 +244,7 @@ export function ProductionDocuments({
                     pending={pendingKey === `${definition.id}:review`}
                     disabled={Boolean(pendingKey)}
                     onClick={() => mutate(definition.id, "review")}
-                    label="Отметить проверенным"
+                    label="Подтвердить проверку"
                     icon="review"
                   />
                 ) : null}

@@ -51,7 +51,11 @@ export default async function PortalDocumentsPage({ params }: { params: Promise<
             <div className="min-w-0">
               <p className="font-mono text-xs font-semibold tracking-[0.08em] text-slate-400">{clientCase.caseNumber}</p>
               <h1 className="mt-2 break-words font-[var(--font-iburo-display)] text-3xl font-semibold leading-none text-slate-900 sm:text-5xl">Документы</h1>
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">Документы формируются по актуальным данным анкеты. Клиент создаёт и передаёт черновики на проверку, а назначенный юрист или руководитель подтверждает результат.</p>
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">
+                {isStaff
+                  ? "Документы, которые клиент передал на проверку, показаны первыми. Подтверждение доступно только сотруднику с текущим доступом к этому делу."
+                  : "Документы формируются по актуальным данным анкеты. Создавайте черновики, обновляйте их после изменения анкеты и передавайте готовые материалы на проверку специалисту."}
+              </p>
             </div>
           </div>
         </section>
