@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 
 const portalFrameSource = await readFile(resolve("components/portal/PortalFrame.tsx"), "utf8");
 const questionnaireSource = await readFile(resolve("app/portal/cases/[caseId]/questionnaire/page.tsx"), "utf8");
+const practicumSource = await readFile(resolve("app/portal/cases/[caseId]/practicum/page.tsx"), "utf8");
 const documentsSource = await readFile(resolve("app/portal/cases/[caseId]/documents/page.tsx"), "utf8");
 const filesSource = await readFile(resolve("app/portal/cases/[caseId]/files/page.tsx"), "utf8");
 const aiSource = await readFile(resolve("app/portal/cases/[caseId]/ai/page.tsx"), "utf8");
@@ -29,9 +30,12 @@ assert.match(
   "portal navigation items must remain tappable and must not collapse or wrap their labels",
 );
 assert.match(questionnaireSource, /text-4xl[^\"]*sm:text-5xl/);
+assert.match(practicumSource, /text-4xl[^\"]*sm:text-5xl/);
 assert.match(documentsSource, /text-3xl[^\"]*sm:text-5xl/);
 assert.match(filesSource, /text-4xl[^\"]*sm:text-5xl/);
 assert.match(aiSource, /text-3xl[^\"]*sm:text-5xl/);
+assert.match(questionnaireSource, /flex min-w-0 items-start/);
+assert.match(practicumSource, /flex min-w-0 items-start/);
 assert.match(documentsSource, /flex min-w-0 items-start/);
 assert.match(filesSource, /flex min-w-0 items-start/);
 assert.match(aiSource, /flex min-w-0 items-center/);

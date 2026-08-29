@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Activity, ArrowLeft } from "lucide-react";
 import { PortalFrame } from "@/components/portal/PortalFrame";
+import { resolveCasePortalAudience } from "@/lib/platform/case-portal-audience";
 import { buildCaseActivityView } from "@/server/activity/presentation";
 import { listCaseActivity } from "@/server/activity/operations";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
@@ -26,8 +27,9 @@ export default async function PortalCaseActivityPage({ params }: { params: Promi
   const clientCase = await clientCaseService.getCase(actor, { caseId });
   if (!clientCase) notFound();
   const records = await listCaseActivity(sessionProvider, caseId, 100);
-  const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
-  const events = buildCaseActivityView(records, isStaff ? "STAFF" : "CLIENT");
+  const audience = resolveCasePortalAudience(actor, clientCase);
+  const isStaff = audience === "STAFF";
+  const events = buildCaseActivityView(records, audience);
 
   return (
     <PortalFrame sectionLabel="История дела" accessLabel="Доступ подтверждён" showStaffTasks={isStaff}>

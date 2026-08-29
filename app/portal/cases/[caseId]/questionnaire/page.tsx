@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ListChecks } from "lucide-react";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import { ProductionQuestionnaire } from "@/components/platform/questionnaire/ProductionQuestionnaire";
+import { resolveCasePortalAudience } from "@/lib/platform/case-portal-audience";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { getCurrentPlatformActor } from "@/server/client-cases/operations";
@@ -27,8 +28,9 @@ export default async function PortalQuestionnairePage({ params }: { params: Prom
   if (!clientCase) notFound();
 
   const questionnaire = await getQuestionnaire(sessionProvider, clientCase.id);
-  const canEdit = actor.roles.includes("CLIENT") && clientCase.clientId === actor.userId;
-  const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
+  const audience = resolveCasePortalAudience(actor, clientCase);
+  const canEdit = audience === "CLIENT";
+  const isStaff = audience === "STAFF";
 
   return (
     <PortalFrame sectionLabel="Анкета дела" accessLabel="Доступ подтверждён" showStaffTasks={isStaff}>

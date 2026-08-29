@@ -107,7 +107,7 @@ export function ProductionPracticum({
       if (!result.ok) {
         if (response.status === 409 || result.error.code === "VERSION_CONFLICT") {
           await refresh();
-          setError("Состояние практикума изменилось в другой вкладке. Данные обновлены — повторите действие.");
+          setError("Прогресс изменился в другой вкладке. Данные обновлены — повторите действие.");
           return;
         }
         throw new Error(result.error.code);
@@ -126,7 +126,7 @@ export function ProductionPracticum({
       <div className="mt-8 rounded-[24px] border border-dashed border-slate-300 bg-slate-50/70 p-6">
         <p className="font-semibold text-slate-900">Практикум ещё не начат</p>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-          Прогресс будет храниться в серверной базе в рамках этого дела. Локальное состояние браузера не используется как источник истины.
+          После начала выполненные уроки будут сохраняться в этом деле и останутся доступны после следующего входа.
         </p>
         {canEdit ? (
           <button
@@ -160,7 +160,7 @@ export function ProductionPracticum({
             <p className="mt-2 text-3xl font-bold text-slate-900">{progressPercent}%</p>
           </div>
           <p className="text-sm font-semibold text-slate-500">
-            {completedCount} из {PRACTICUM_LESSONS.length} уроков · версия {state.version}
+            {completedCount} из {PRACTICUM_LESSONS.length} уроков
           </p>
         </div>
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">

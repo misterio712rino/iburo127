@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ClipboardList } from "lucide-react";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import { StaffTaskList } from "@/components/portal/StaffTaskList";
+import { resolveCasePortalAudience } from "@/lib/platform/case-portal-audience";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { getCurrentPlatformActor } from "@/server/client-cases/operations";
@@ -28,11 +29,11 @@ export default async function PortalCaseTasksPage({
     throw error;
   }
 
-  const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
-  if (!isStaff) redirect(`/portal/cases/${encodeURIComponent(caseId)}`);
-
   const clientCase = await clientCaseService.getCase(actor, { caseId });
   if (!clientCase) notFound();
+
+  const audience = resolveCasePortalAudience(actor, clientCase);
+  if (audience !== "STAFF") redirect(`/portal/cases/${encodeURIComponent(caseId)}`);
 
   const tasks = await listTasks(sessionProvider);
   const queue = buildStaffTaskQueue(tasks, [clientCase]);
@@ -40,7 +41,7 @@ export default async function PortalCaseTasksPage({
   const caseHref = `/portal/cases/${encodeURIComponent(clientCase.id)}`;
 
   return (
-    <PortalFrame sectionLabel={`Задачи · ${clientCase.caseNumber}`} accessLabel="Staff access" showStaffTasks>
+    <PortalFrame sectionLabel={`Задачи · ${clientCase.caseNumber}`} accessLabel="Доступ сотрудника" showStaffTasks>
       <main className="py-10 sm:py-14">
         <Link href={caseHref} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900">
           <ArrowLeft className="size-4" aria-hidden="true" />
@@ -57,7 +58,7 @@ export default async function PortalCaseTasksPage({
                 Задачи по делу
               </h1>
               <p className="mt-3 text-sm leading-6 text-slate-500">
-                Здесь отображаются только задачи, одновременно разрешённые staff-политикой и принадлежащие этому доступному ClientCase.
+                Здесь отображаются задачи сотрудника, относящиеся к этому доступному делу.
               </p>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">

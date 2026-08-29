@@ -3,6 +3,9 @@ import "./portal-next-action-contract.test";
 import "./mobile-critical-portal-contract.test";
 import "./client-activity-view.test";
 import "./client-facing-copy-contract.test";
+import "./case-portal-audience.test";
+import "./client-case-hub-contract.test";
+import "./document-review-separation.test";
 
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";

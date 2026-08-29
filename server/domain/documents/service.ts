@@ -64,6 +64,9 @@ export class CaseDocumentService {
 
   private async requireReviewer(actor: AuthenticatedActor, clientCaseId: string) {
     const clientCase = await this.requireAccessibleCase(actor, clientCaseId);
+    if (clientCase.clientId === actor.userId) {
+      throw new Error(DOCUMENT_FORBIDDEN);
+    }
     const manager = actor.roles.includes("MANAGER");
     const assignedLawyer =
       actor.roles.includes("LAWYER") && clientCase.assignedLawyerId === actor.userId;

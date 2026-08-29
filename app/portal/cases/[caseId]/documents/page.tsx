@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, FileText } from "lucide-react";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import { ProductionDocuments } from "@/components/platform/documents/ProductionDocuments";
+import { resolveCasePortalAudience } from "@/lib/platform/case-portal-audience";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { getCurrentPlatformActor } from "@/server/client-cases/operations";
@@ -27,9 +28,14 @@ export default async function PortalDocumentsPage({ params }: { params: Promise<
   if (!clientCase) notFound();
 
   const documents = await listCaseDocuments(sessionProvider, caseId);
-  const canClientEdit = actor.roles.includes("CLIENT") && clientCase.clientId === actor.userId;
-  const canReview = actor.roles.includes("MANAGER") || (actor.roles.includes("LAWYER") && clientCase.assignedLawyerId === actor.userId);
-  const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
+  const audience = resolveCasePortalAudience(actor, clientCase);
+  const canClientEdit = audience === "CLIENT";
+  const canReview =
+    audience === "STAFF" &&
+    clientCase.clientId !== actor.userId &&
+    (actor.roles.includes("MANAGER") ||
+      (actor.roles.includes("LAWYER") && clientCase.assignedLawyerId === actor.userId));
+  const isStaff = audience === "STAFF";
 
   return (
     <PortalFrame sectionLabel="Документы" accessLabel="Доступ подтверждён" showStaffTasks={isStaff}>

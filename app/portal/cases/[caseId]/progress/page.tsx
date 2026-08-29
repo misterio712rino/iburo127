@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import { CASE_STAGE_FLOW } from "@/lib/platform/case-progress";
+import { resolveCasePortalAudience } from "@/lib/platform/case-portal-audience";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { getCaseProgressSummaryForActor } from "@/server/case-progress/operations";
@@ -41,12 +42,9 @@ export default async function PortalCaseProgressPage({ params }: { params: Promi
   const clientCase = await clientCaseService.getCase(actor, { caseId });
   if (!clientCase) notFound();
 
-  const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
-  const summary = await getCaseProgressSummaryForActor(
-    actor,
-    clientCase,
-    isStaff ? "STAFF" : "CLIENT",
-  );
+  const audience = resolveCasePortalAudience(actor, clientCase);
+  const isStaff = audience === "STAFF";
+  const summary = await getCaseProgressSummaryForActor(actor, clientCase, audience);
 
   const caseHref = `/portal/cases/${clientCase.id}`;
   const nextHref = `${caseHref}/${summary.nextAction.segment}`;

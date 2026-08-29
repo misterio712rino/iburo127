@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, FileLock2 } from "lucide-react";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import { ProductionFiles } from "@/components/platform/files/ProductionFiles";
+import { resolveCasePortalAudience } from "@/lib/platform/case-portal-audience";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { getCurrentPlatformActor } from "@/server/client-cases/operations";
@@ -27,7 +28,8 @@ export default async function PortalFilesPage({ params }: { params: Promise<{ ca
   if (!clientCase) notFound();
 
   const files = await listStoredFiles(sessionProvider, caseId);
-  const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
+  const audience = resolveCasePortalAudience(actor, clientCase);
+  const isStaff = audience === "STAFF";
 
   return (
     <PortalFrame sectionLabel="Файлы дела" accessLabel="Доступ подтверждён" showStaffTasks={isStaff}>

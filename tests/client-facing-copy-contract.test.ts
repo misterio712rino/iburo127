@@ -3,8 +3,11 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const CLIENT_FACING_SOURCES = [
+  "app/portal/cases/[caseId]/page.tsx",
   "app/portal/cases/[caseId]/questionnaire/page.tsx",
   "components/platform/questionnaire/ProductionQuestionnaire.tsx",
+  "app/portal/cases/[caseId]/practicum/page.tsx",
+  "components/platform/practicum/ProductionPracticum.tsx",
   "app/portal/cases/[caseId]/documents/page.tsx",
   "components/platform/documents/ProductionDocuments.tsx",
   "app/portal/cases/[caseId]/files/page.tsx",
@@ -24,6 +27,7 @@ const BANNED_CLIENT_COPY = [
   /malware scan/i,
   /localStorage/i,
   /серверный workflow/i,
+  /серверной базе/i,
   /Серверное состояние/i,
   /внутреннего пользователя/i,
   /внутренней учётной записи/i,
