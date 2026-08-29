@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Activity, ArrowLeft, ArrowUpRight, ClipboardList, FileLock2, FileText, GraduationCap, ListChecks, Sparkles } from "lucide-react";
+import { Activity, ArrowLeft, ArrowUpRight, ClipboardList, FileLock2, FileText, Gauge, GraduationCap, ListChecks, Sparkles } from "lucide-react";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
@@ -10,6 +10,7 @@ import { clientCaseService } from "@/server/client-cases/runtime";
 export const dynamic = "force-dynamic";
 
 const MODULES = [
+  { code: "progress", title: "Прогресс", description: "Фактический серверный этап дела и готовность анкеты, практикума, документов и файлов.", icon: Gauge },
   { code: "questionnaire", title: "Анкета", description: "Серверное хранение ответов, проверка доступа и контроль версий.", icon: ListChecks },
   { code: "practicum", title: "Практикум", description: "Прогресс обучения хранится в PostgreSQL и доступен только в рамках дела.", icon: GraduationCap },
   { code: "documents", title: "Документы", description: "Подготовка и проверка документов с server-side authorization.", icon: FileText },
