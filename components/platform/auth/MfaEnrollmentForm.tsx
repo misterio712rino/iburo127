@@ -61,13 +61,13 @@ export function MfaEnrollmentForm({ completionHref = "/portal" }: Props) {
 
       const next = parseEnrollment(result.data);
       if (!next) {
-        setError("Сервис 2FA вернул неожиданный ответ. Подключение не завершено.");
+        setError("Не удалось подготовить подключение 2FA. Обновите страницу и повторите попытку.");
         return;
       }
       setEnrollment(next);
       setPassword("");
     } catch {
-      setError("Сервис 2FA временно недоступен. Повторите попытку позже.");
+      setError("Не удалось подключиться к настройке 2FA. Повторите попытку позже.");
     } finally {
       setPending(false);
     }
@@ -102,7 +102,7 @@ export function MfaEnrollmentForm({ completionHref = "/portal" }: Props) {
       router.replace(completionHref);
       router.refresh();
     } catch {
-      setError("Не удалось подтвердить TOTP-код. Повторите попытку позже.");
+      setError("Не удалось подтвердить код. Повторите попытку позже.");
     } finally {
       setPending(false);
     }
@@ -110,7 +110,7 @@ export function MfaEnrollmentForm({ completionHref = "/portal" }: Props) {
 
   if (!enrollment) {
     return (
-      <form onSubmit={begin} className="space-y-5">
+      <form onSubmit={begin} className="space-y-5" aria-busy={pending}>
         <div className="space-y-2">
           <label htmlFor="mfa-password" className="block text-sm font-semibold text-slate-700">
             Подтвердите текущий пароль
@@ -146,19 +146,19 @@ export function MfaEnrollmentForm({ completionHref = "/portal" }: Props) {
 
   return (
     <div className="space-y-7">
-      <section className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-        <h2 className="text-base font-bold text-slate-900">1. Добавьте iБюро в аутентификатор</h2>
+      <section className="min-w-0 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+        <h2 className="break-words text-base font-bold text-slate-900">1. Добавьте iБюро в аутентификатор</h2>
         <p className="mt-2 text-sm leading-6 text-slate-500">
-          Откройте ссылку на телефоне или добавьте секрет вручную в Google Authenticator, Microsoft Authenticator, 1Password или другое TOTP-приложение.
+          Откройте ссылку на телефоне или добавьте секрет вручную в Google Authenticator, Microsoft Authenticator, 1Password или другое приложение-аутентификатор.
         </p>
         <a
           href={enrollment.totpUri}
-          className="mt-4 inline-flex rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-800 transition hover:border-slate-400"
+          className="mt-4 inline-flex max-w-full items-center break-words rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-800 transition hover:border-slate-400"
         >
           Открыть в приложении-аутентификаторе
         </a>
         {secret ? (
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="mt-4 min-w-0 rounded-2xl border border-slate-200 bg-white p-4">
             <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Секрет для ручного ввода</p>
             <code className="mt-2 block break-all text-sm font-semibold text-slate-800">{secret}</code>
             <button type="button" onClick={copySecret} className="mt-3 text-xs font-bold text-[#7B2330]">
@@ -168,21 +168,21 @@ export function MfaEnrollmentForm({ completionHref = "/portal" }: Props) {
         ) : null}
       </section>
 
-      <section className="rounded-3xl border border-amber-200 bg-amber-50 p-5">
-        <h2 className="text-base font-bold text-amber-950">2. Сохраните резервные коды</h2>
+      <section className="min-w-0 rounded-3xl border border-amber-200 bg-amber-50 p-5">
+        <h2 className="break-words text-base font-bold text-amber-950">2. Сохраните резервные коды</h2>
         <p className="mt-2 text-sm leading-6 text-amber-900/70">
           Сохраните их отдельно от рабочего устройства. Каждый резервный код одноразовый; после ухода со страницы эти коды больше здесь не показываются.
         </p>
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           {enrollment.backupCodes.map((backupCode) => (
-            <code key={backupCode} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm font-semibold text-amber-950">
+            <code key={backupCode} className="min-w-0 break-all rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm font-semibold text-amber-950">
               {backupCode}
             </code>
           ))}
         </div>
       </section>
 
-      <form onSubmit={verify} className="space-y-5">
+      <form onSubmit={verify} className="space-y-5" aria-busy={pending}>
         <div className="space-y-2">
           <label htmlFor="mfa-enrollment-code" className="block text-sm font-semibold text-slate-700">
             3. Введите шестизначный код из приложения

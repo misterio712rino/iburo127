@@ -5,9 +5,12 @@ import { resolve } from "node:path";
 const portalFrameSource = await readFile(resolve("components/portal/PortalFrame.tsx"), "utf8");
 const questionnaireSource = await readFile(resolve("app/portal/cases/[caseId]/questionnaire/page.tsx"), "utf8");
 const practicumSource = await readFile(resolve("app/portal/cases/[caseId]/practicum/page.tsx"), "utf8");
+const practicumComponentSource = await readFile(resolve("components/platform/practicum/ProductionPracticum.tsx"), "utf8");
 const documentsSource = await readFile(resolve("app/portal/cases/[caseId]/documents/page.tsx"), "utf8");
 const filesSource = await readFile(resolve("app/portal/cases/[caseId]/files/page.tsx"), "utf8");
 const aiSource = await readFile(resolve("app/portal/cases/[caseId]/ai/page.tsx"), "utf8");
+const securitySource = await readFile(resolve("app/portal/security/page.tsx"), "utf8");
+const mfaEnrollmentSource = await readFile(resolve("components/platform/auth/MfaEnrollmentForm.tsx"), "utf8");
 
 assert.match(
   portalFrameSource,
@@ -34,10 +37,22 @@ assert.match(practicumSource, /text-4xl[^\"]*sm:text-5xl/);
 assert.match(documentsSource, /text-3xl[^\"]*sm:text-5xl/);
 assert.match(filesSource, /text-4xl[^\"]*sm:text-5xl/);
 assert.match(aiSource, /text-3xl[^\"]*sm:text-5xl/);
+assert.match(securitySource, /text-4xl[^\"]*sm:text-5xl/);
 assert.match(questionnaireSource, /flex min-w-0 items-start/);
 assert.match(practicumSource, /flex min-w-0 items-start/);
 assert.match(documentsSource, /flex min-w-0 items-start/);
 assert.match(filesSource, /flex min-w-0 items-start/);
 assert.match(aiSource, /flex min-w-0 items-center/);
+assert.match(securitySource, /min-w-0 max-w-3xl/);
+assert.match(
+  practicumComponentSource,
+  /summary className="inline-flex min-h-11 cursor-pointer items-center/,
+  "lesson material disclosure must keep a 44px touch target",
+);
+assert.match(practicumComponentSource, /role="progressbar"/);
+assert.match(practicumComponentSource, /aria-valuenow=\{progressPercent\}/);
+assert.match(practicumComponentSource, /role="status"/);
+assert.doesNotMatch(securitySource, /Account security|определяются только сервером|TOTP/);
+assert.doesNotMatch(mfaEnrollmentSource, /Сервис 2FA|TOTP-код|TOTP-приложение/);
 
 console.log("MOBILE_CRITICAL_PORTAL_CONTRACT_TEST_PASS");

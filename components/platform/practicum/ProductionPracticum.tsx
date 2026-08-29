@@ -133,6 +133,7 @@ export function ProductionPracticum({
             type="button"
             onClick={createProgress}
             disabled={creating}
+            aria-busy={creating}
             className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-[#17202a] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#263342] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {creating ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
@@ -163,7 +164,14 @@ export function ProductionPracticum({
             {completedCount} из {PRACTICUM_LESSONS.length} уроков
           </p>
         </div>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
+        <div
+          className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200"
+          role="progressbar"
+          aria-label="Прогресс практикума"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progressPercent}
+        >
           <div className="h-full rounded-full bg-[#7B2330] transition-[width]" style={{ width: `${progressPercent}%` }} />
         </div>
       </div>
@@ -177,7 +185,7 @@ export function ProductionPracticum({
       {PRACTICUM_MODULES.map((module) => (
         <section key={module.id} className="rounded-[28px] border border-white/80 bg-white/90 p-5 shadow-[0_12px_40px_rgba(15,23,42,0.06)] sm:p-6">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Модуль {module.number}</p>
-          <h2 className="mt-2 text-2xl font-bold text-slate-900">{module.title}</h2>
+          <h2 className="mt-2 break-words text-2xl font-bold text-slate-900">{module.title}</h2>
           <p className="mt-2 text-sm leading-6 text-slate-500">{module.description}</p>
 
           <div className="mt-5 space-y-3">
@@ -189,18 +197,18 @@ export function ProductionPracticum({
 
               return (
                 <article key={lesson.id} className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
-                  <div className="flex items-start gap-3">
-                    <span className="mt-0.5 text-slate-500">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="mt-0.5 shrink-0 text-slate-500">
                       {completed ? <CheckCircle2 className="size-5 text-emerald-600" aria-hidden="true" /> : <Circle className="size-5" aria-hidden="true" />}
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <h3 className="font-bold text-slate-900">{lesson.number}. {lesson.title}</h3>
-                        <span className="text-xs font-semibold text-slate-400">{lesson.duration}</span>
+                        <h3 className="break-words font-bold text-slate-900">{lesson.number}. {lesson.title}</h3>
+                        <span className="shrink-0 text-xs font-semibold text-slate-400">{lesson.duration}</span>
                       </div>
-                      <p className="mt-2 text-sm leading-6 text-slate-500">{lesson.introduction}</p>
+                      <p className="mt-2 break-words text-sm leading-6 text-slate-500">{lesson.introduction}</p>
                       <details className="mt-3">
-                        <summary className="cursor-pointer text-sm font-semibold text-slate-700">Материал урока</summary>
+                        <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm font-semibold text-slate-700">Материал урока</summary>
                         <div className="mt-3 space-y-3 text-sm leading-6 text-slate-600">
                           {lesson.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
                           <ul className="list-disc space-y-1 pl-5">
@@ -214,6 +222,7 @@ export function ProductionPracticum({
                           type="button"
                           onClick={() => completeLesson(lesson.id)}
                           disabled={Boolean(pendingLessonId)}
+                          aria-busy={pending}
                           className="mt-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {pending ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : null}
@@ -230,8 +239,8 @@ export function ProductionPracticum({
       ))}
 
       {state.completedAt ? (
-        <div className="flex items-center gap-3 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
-          <CheckCircle2 className="size-5" aria-hidden="true" />
+        <div role="status" className="flex items-center gap-3 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+          <CheckCircle2 className="size-5 shrink-0" aria-hidden="true" />
           Базовый практикум завершён.
         </div>
       ) : null}
