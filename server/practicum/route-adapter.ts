@@ -1,20 +1,13 @@
 import "server-only";
 
 import type { SessionProvider } from "@/server/auth/contracts";
+import { readBoundedJsonBody } from "@/server/http/bounded-json-body";
 import {
   handleCompletePracticumLesson,
   handleGetOrCreatePracticumProgress,
   handleGetPracticumProgress,
 } from "@/server/practicum/handlers";
 import { toPracticumHttpResponse } from "@/server/practicum/http";
-
-async function readJsonBody(request: Request): Promise<unknown> {
-  try {
-    return await request.json();
-  } catch {
-    return undefined;
-  }
-}
 
 function withAuthoritativeClientCaseId(body: unknown, clientCaseId: unknown): unknown {
   if (!body || typeof body !== "object" || Array.isArray(body)) return body;
@@ -39,7 +32,9 @@ export function createPracticumRouteAdapter(sessionProvider: SessionProvider) {
     },
 
     async completeLesson(clientCaseId: unknown, request: Request): Promise<Response> {
-      const body = withAuthoritativeClientCaseId(await readJsonBody(request), clientCaseId);
+      const bodyResult = await readBoundedJsonBody(request);
+      if (!bodyResult.ok) return bodyResult.response;
+      const body = withAuthoritativeClientCaseId(bodyResult.value, clientCaseId);
       return toPracticumHttpResponse(
         await handleCompletePracticumLesson(sessionProvider, body),
       );
