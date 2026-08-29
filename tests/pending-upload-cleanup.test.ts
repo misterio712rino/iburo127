@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import type {
+  ClaimedStoredFileScan,
   StoredFileRecord,
   StoredFileRepository,
   StoredFileStatus,
@@ -23,6 +24,14 @@ const staleFile: StoredFileRecord = {
   mimeType: "application/pdf",
   sizeBytes: BigInt(1024),
   checksumSha256: null,
+  scanAttemptCount: 0,
+  scanNextAttemptAt: null,
+  scanLeaseUntil: null,
+  scanLeaseToken: null,
+  scanProvider: null,
+  scanLastErrorCode: null,
+  scannedAt: null,
+  quarantinedAt: null,
   readyAt: null,
   createdAt,
 };
@@ -57,25 +66,57 @@ class FakeRepository implements StoredFileRepository {
     mimeType: string;
     sizeBytes: bigint;
     checksumSha256?: string | null;
-  }) {
+  }): Promise<StoredFileRecord> {
     this.current = {
       ...input,
       checksumSha256: input.checksumSha256 ?? null,
+      scanAttemptCount: 0,
+      scanNextAttemptAt: null,
+      scanLeaseUntil: null,
+      scanLeaseToken: null,
+      scanProvider: null,
+      scanLastErrorCode: null,
+      scannedAt: null,
+      quarantinedAt: null,
       readyAt: null,
       createdAt,
     };
     return this.current;
   }
 
-  async markReady(fileId: string, readyAt: Date) {
-    assert.equal(this.current?.id, fileId);
-    this.current = { ...this.current!, status: "READY", readyAt };
+  async markPendingScan(fileId: string, scanNextAttemptAt: Date) {
+    if (this.current?.id !== fileId || this.current.status !== "PENDING_UPLOAD") return null;
+    this.current = { ...this.current, status: "PENDING_SCAN", scanNextAttemptAt };
     return this.current;
+  }
+
+  async claimDueScan(): Promise<ClaimedStoredFileScan | null> {
+    return null;
+  }
+
+  async markScanClean() {
+    return null;
+  }
+
+  async markScanQuarantined() {
+    return null;
+  }
+
+  async rescheduleScan() {
+    return false;
+  }
+
+  async markScanFailed() {
+    return false;
   }
 
   async deletePending(fileId: string) {
     if (this.promoteBeforeClaim && this.current?.id === fileId) {
-      this.current = { ...this.current, status: "READY", readyAt: new Date() };
+      this.current = {
+        ...this.current,
+        status: "PENDING_SCAN",
+        scanNextAttemptAt: new Date(),
+      };
     }
     if (this.current?.id !== fileId || this.current.status !== "PENDING_UPLOAD") return false;
     this.current = null;
@@ -126,7 +167,7 @@ async function successfulCleanup() {
   assert.equal(storage.deleteCalls, 1);
 }
 
-async function readyRaceIsProtected() {
+async function scanQueueRaceIsProtected() {
   const repository = new FakeRepository();
   repository.promoteBeforeClaim = true;
   const storage = new FakeStorage();
@@ -134,7 +175,7 @@ async function readyRaceIsProtected() {
   const result = await service.cleanup({ before: new Date("2026-08-28T02:00:00.000Z") });
 
   assert.deepEqual(result, { inspected: 1, deleted: 0, skipped: 1, failed: 0 });
-  assert.equal(repository.current?.status, "READY");
+  assert.equal(repository.current?.status, "PENDING_SCAN");
   assert.equal(storage.deleteCalls, 0);
 }
 
@@ -152,7 +193,7 @@ async function storageFailureRestoresClaim() {
 }
 
 await successfulCleanup();
-await readyRaceIsProtected();
+await scanQueueRaceIsProtected();
 await storageFailureRestoresClaim();
 
 console.log("pending upload cleanup tests: PASS");
