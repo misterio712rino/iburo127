@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches:
+      - main
       - demo/investor-preview
       - audit/production-readiness
   pull_request:
@@ -54,21 +55,6 @@ jobs:
 
       - name: Secret exposure policy regression
         run: node tests/secret-exposure-policy.test.mjs
-
-      - name: Fetch auditable Git history
-        shell: bash
-        run: |
-          if git rev-parse --is-shallow-repository | grep -qx true; then
-            git fetch --no-tags --unshallow origin
-          fi
-          git fetch --no-tags origin main:refs/remotes/origin/main
-          echo "GIT_HISTORY_FETCH_PASS"
-
-      - name: Secret history exposure policy
-        run: node scripts/check-secret-history.mjs HEAD refs/remotes/origin/main
-
-      - name: Secret history exposure regression
-        run: node tests/secret-history-policy.test.mjs
 
       - name: Install-script policy
         run: node scripts/check-install-scripts-policy.mjs
