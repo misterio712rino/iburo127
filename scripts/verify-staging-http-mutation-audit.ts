@@ -129,6 +129,12 @@ function requireEventType(events: readonly ActivityData[], type: string) {
   }
 }
 
+function rejectEventType(events: readonly ActivityData[], type: string) {
+  if (events.some((event) => event.type === type)) {
+    fail(`unexpected new activity event ${type}`);
+  }
+}
+
 const mutationCaseId = await resolveMutationCaseId();
 const baseline = await listActivity(mutationCaseId);
 const baselineIds = new Set(baseline.map((event) => event.id));
@@ -149,8 +155,15 @@ requireEventType(newEvents, "task.status.changed");
 
 if (process.env.IB_STAGING_FILES_E2E?.trim() === "1") {
   requireEventType(newEvents, "file.upload.registered");
-  requireEventType(newEvents, "file.download.authorized");
+  requireEventType(newEvents, "file.upload.completed");
+
+  if (process.env.IB_STAGING_FILE_SCAN_E2E?.trim() === "1") {
+    requireEventType(newEvents, "file.scan.clean");
+    requireEventType(newEvents, "file.download.authorized");
+  } else {
+    rejectEventType(newEvents, "file.download.authorized");
+  }
 }
 
-console.log("AUDIT: expected cross-workflow events and metadata redaction verified");
+console.log("AUDIT: expected cross-workflow events, quarantine boundary and metadata redaction verified");
 console.log("STAGING_HTTP_MUTATION_AUDIT_PASS");
