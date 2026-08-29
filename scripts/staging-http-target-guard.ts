@@ -1,10 +1,12 @@
 export const STAGING_HTTP_TARGET_GUARD = "STAGING_HTTP_TARGET_GUARD";
 
+type StagingHttpTargetEnv = Readonly<Record<string, string | undefined>>;
+
 function fail(reason: string): never {
   throw new Error(`${STAGING_HTTP_TARGET_GUARD}:${reason}`);
 }
 
-function required(env: NodeJS.ProcessEnv, name: string): string {
+function required(env: StagingHttpTargetEnv, name: string): string {
   const value = env[name]?.trim();
   if (!value) fail(`missing ${name}`);
   return value;
@@ -15,7 +17,7 @@ function normalizedHostname(url: URL): string {
 }
 
 export function requireStagingHttpTarget(
-  env: NodeJS.ProcessEnv = process.env,
+  env: StagingHttpTargetEnv = process.env,
 ): URL {
   if (required(env, "IB_RUNTIME_TARGET") !== "staging") {
     fail("IB_RUNTIME_TARGET must equal staging");
