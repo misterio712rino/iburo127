@@ -46,14 +46,21 @@ function requireBaseUrl(env) {
   return parsed.origin;
 }
 
-function readTimeoutMs(env, job) {
-  const raw = env.IB_MAINTENANCE_REQUEST_TIMEOUT_MS?.trim();
-  if (!raw) return job === "file-scans" ? 120_000 : 15_000;
+function readBoundedTimeout(env, name, fallback) {
+  const raw = env[name]?.trim();
+  if (!raw) return fallback;
   const value = Number(raw);
   if (!Number.isInteger(value) || value < 1_000 || value > 300_000) {
-    fail("IB_MAINTENANCE_REQUEST_TIMEOUT_MS");
+    fail(name);
   }
   return value;
+}
+
+function readTimeoutMs(env, job) {
+  if (job === "file-scans") {
+    return readBoundedTimeout(env, "IB_MAINTENANCE_FILE_SCAN_TIMEOUT_MS", 120_000);
+  }
+  return readBoundedTimeout(env, "IB_MAINTENANCE_REQUEST_TIMEOUT_MS", 15_000);
 }
 
 function requireJob(job) {
