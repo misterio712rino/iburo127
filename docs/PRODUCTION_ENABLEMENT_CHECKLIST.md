@@ -92,6 +92,7 @@ Repository/server foundation is complete; activation still requires:
 - [x] Upload input enforces allowlisted MIME types, a 50 MiB limit and UUID-scoped opaque keys.
 - [x] Browser-supplied checksum values are not persisted as trusted integrity metadata; checksum support remains reserved for a future server-verified flow.
 - [x] Stale `PENDING_UPLOAD` cleanup service/repository foundation implemented with bounded batches and conditional metadata deletion.
+- [x] Independent stale-upload backlog health endpoint/runner detects `PENDING_UPLOAD` records that survive the cleanup threshold plus grace period; it exposes aggregate counts only.
 - [x] Upload completion no longer trusts metadata verification as a malware verdict: verified uploads atomically transition `PENDING_UPLOAD -> PENDING_SCAN`, not `READY`, with `file.upload.completed` audit creation.
 - [x] Download/list/get paths remain fail-closed: only `StoredFile.status === READY` is visible/authorized; `PENDING_SCAN`, `SCANNING`, `QUARANTINED` and `SCAN_FAILED` cannot receive a user-facing signed download URL.
 - [x] Provider-neutral malware scan worker foundation implemented with DB-backed UUID leases, expired-lease reclaim, bounded retries/backoff, terminal failure and matching-lease finalization.
@@ -99,21 +100,24 @@ Repository/server foundation is complete; activation still requires:
 - [x] Controlled HTTPS scanner client foundation implemented with an independent bearer secret, signed-Yandex-source allowlist, redirect refusal, timeout, bounded 16 KiB response, strict `CLEAN|MALICIOUS` verdict schema and normalized provider/network errors.
 - [x] Scanner request privacy boundary sends only a short-lived signed source URL, MIME type and size; it does not send filename, clientCaseId, user ID or application authentication credentials.
 - [x] Protected `POST /api/internal/maintenance/file-scans` and provider-neutral `npm run maintenance:run:file-scans` runner implemented; endpoint returns aggregate counters only and reports terminal failures/lease-loss anomalies as unhealthy.
+- [x] Independent file-scan backlog health endpoint/runner detects overdue `PENDING_SCAN`, expired `SCANNING` leases, terminal `SCAN_FAILED`, and bounded-query saturation without returning file/case/user identifiers.
 - [x] Scan security defaults are CI-pinned: initial batch size 1, scanner timeout shorter than lease, source URL TTL at least the lease duration, and bounded retry configuration.
 - [x] Read-only staging schema verifier requires all scan lifecycle enum values and StoredFile scan/lease/retry columns before staging schema PASS.
 - [x] File malware/quarantine architecture and activation gates documented in `docs/FILE_UPLOAD_SECURITY.md`.
-- [x] Read-only staging Object Storage metadata verifier implemented as `npm run check:staging:storage`; it checks bucket identity/ACL/policy/CORS without listing, reading, writing or deleting objects.
+- [x] Read-only staging Object Storage metadata verifier implemented as `npm run check:staging:storage`; it checks exact staging bucket/access-key identity plus bucket ACL/policy/CORS without listing, reading, writing or deleting objects.
+- [x] Staging-only malware-scanner smoke verifier implemented as `npm run check:staging:file-scanner`; it pins scanner origin/secret fingerprint, staging bucket/access-key identity and dedicated fixture prefix, then requires both known-clean `CLEAN` and benign test-artifact `MALICIOUS` verdicts without object mutation/listing.
 - [ ] Authoritative database baseline inspected before generating the StoredFile quarantine migration.
 - [ ] StoredFile/UserSecurityEvent and other pending migration SQL generated from the authoritative baseline, manually reviewed, and applied to staging only.
 - [ ] Private staging bucket/service account configured and verified with staging credentials.
 - [ ] Controlled HTTPS malware scanner service provisioned in staging with an independent secret.
-- [ ] Clean benign fixture verifies `CLEAN -> READY` in staging.
-- [ ] Provider-approved benign antivirus detection fixture verifies `MALICIOUS -> QUARANTINED` in staging without using a real malicious artifact.
+- [ ] `npm run check:staging:file-scanner` executed successfully against the real staging scanner and dedicated private fixtures.
+- [ ] Clean benign fixture verifies `CLEAN -> READY` through the real staging application workflow.
+- [ ] Provider-approved benign antivirus detection fixture verifies `MALICIOUS -> QUARANTINED` through the real staging application workflow without using a real malicious artifact.
 - [ ] Scanner outage/retry, expired-lease reclaim and maximum-attempt `SCAN_FAILED` behavior verified against staging.
-- [ ] File-scan maintenance scheduler configured independently and its 503 failure path wired to alerting.
+- [ ] File-scan worker and independent scan-health scheduler jobs configured separately and their 503 failure paths wired to alerting.
+- [ ] Stale-upload cleanup and independent stale-upload-health jobs configured separately and observed against staging private storage.
 - [ ] Maximum 50 MiB file scanning latency measured and scanner/lease/scheduler timeouts reviewed.
 - [ ] Quarantine retention/deletion policy and incident-response ownership approved.
-- [ ] Schedule/operate stale `PENDING_UPLOAD` cleanup only after staging storage policy is available.
 - [ ] No generated document or uploaded file exposed by a guessable public URL in staging E2E.
 - [ ] DB-backed upload/scan/quarantine/download/review/audit E2E completed.
 
@@ -141,8 +145,9 @@ Repository/server foundation is complete; activation still requires:
 - [x] Production portal lists only the current user's notifications and supports mark-read through authenticated transport.
 - [x] External email delivery provider selected and implemented through Yandex Cloud Postbox with dedicated server-side credentials.
 - [x] Durable transactional notification-delivery outbox implements stable dedupe keys, delivery attempts, optimistic leases, retry/backoff and terminal `DEAD` state; delivery is explicitly documented as at-least-once rather than exactly-once.
+- [x] Independent notification-delivery health endpoint/runner detects overdue `PENDING`, expired `PROCESSING` leases, terminal `DEAD`, and bounded-query saturation without returning recipient or notification/user identifiers.
 - [ ] Verify recipient scoping and no cross-user notification exposure with DB-backed tests.
-- [ ] Configure and observe the external notification scheduler against staging, including retry/dead-state alerting.
+- [ ] Configure notification-delivery worker and independent notification-health jobs against staging, including retry/dead/backlog alerting.
 
 ## Authentication implementation gates
 
@@ -173,13 +178,14 @@ Architecture decision: see `docs/AUTH_PROVIDER_DECISION.md`.
 
 ## Maintenance / operational gates
 
-- [x] Provider-neutral authenticated runner supports notification delivery, stale upload cleanup, file malware scans and AI audit health as four independent fixed jobs.
+- [x] Provider-neutral authenticated runner supports seven fixed maintenance jobs: notification delivery, notification-delivery health, stale-upload cleanup, stale-upload health, file malware scans, file-scan health and AI audit health.
 - [x] Maintenance endpoints are POST-only, bearer protected, no-store, bounded, reject runner redirects, and return unhealthy status for operational conditions requiring attention.
-- [x] File-scan maintenance response exposes aggregate counters only, not file/case/user IDs, lease tokens or scanner source URLs.
+- [x] Worker/health pairs are independent for notification delivery, stale-upload cleanup and malware scanning, so a stopped worker schedule can be detected by a separate read-only health schedule.
+- [x] Maintenance worker/health responses expose aggregate counters/configuration only and do not return recipient/user/case/file identifiers, object keys, signed scanner URLs or lease tokens.
 - [ ] Actual production/staging scheduler platform confirmed.
-- [ ] Four jobs provisioned independently against staging.
-- [ ] Scheduler failure exits/HTTP 503 wired to operational alerting.
-- [ ] File scanner service health/availability monitoring and `SCAN_FAILED` incident handling verified.
+- [ ] Seven jobs provisioned independently against staging with worker/health pairs separated where the scheduler platform permits independent schedules/alerts.
+- [ ] Scheduler non-zero exits/HTTP 503 conditions wired to operational alerting.
+- [ ] Notification `DEAD`, stale-upload backlog, file-scan backlog/`SCAN_FAILED` and AI audit-orphan incident handling observed in staging.
 
 ## Staging runbook
 
@@ -192,6 +198,7 @@ Architecture decision: see `docs/AUTH_PROVIDER_DECISION.md`.
 - [x] Read-only post-migration schema verification documented in `docs/STAGING_POST_MIGRATION_VERIFICATION.md` and implemented as `npm run db:verify:staging`; it now includes StoredFile malware-scan lifecycle columns and status values.
 - [x] Read-only Better Auth schema verification documented in `docs/STAGING_BETTER_AUTH_SCHEMA_VERIFICATION.md` and implemented as `npm run check:staging:auth-schema`.
 - [x] Read-only staging Object Storage verification documented in `docs/STAGING_OBJECT_STORAGE_VERIFICATION.md` and implemented as `npm run check:staging:storage`.
+- [x] Staging malware-scanner target/smoke verification documented in `docs/STAGING_FILE_SCANNER_VERIFICATION.md` and implemented as `npm run check:staging:file-scanner`; remote execution remains an external gate.
 - [x] Read-only staging authorization fixture verification documented in `docs/STAGING_AUTHZ_VERIFICATION.md` and implemented as `npm run check:staging:authz`.
 
 ## Release safety
