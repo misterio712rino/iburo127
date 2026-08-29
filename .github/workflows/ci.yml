@@ -36,6 +36,9 @@ jobs:
       - name: Toolchain policy
         run: node scripts/check-toolchain.mjs
 
+      - name: Install-script policy
+        run: node scripts/check-install-scripts-policy.mjs
+
       - name: Install dependencies
         run: npm ci
 
