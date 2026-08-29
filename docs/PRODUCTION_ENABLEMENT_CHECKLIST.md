@@ -11,7 +11,7 @@ This checklist defines the conditions for switching any platform workflow from i
 - [x] Full read-only PostgreSQL structural baseline inspection implemented as `npm run db:inspect:baseline`; it reads no user-table payloads and refuses to run under GitHub Actions so internal schema structure is not dumped into this public repository's CI logs.
 - [x] Migration SQL review gate implemented as `npm run db:review:sql`; destructive/high-risk SQL is fingerprinted and automatically blocked or flagged before staging application.
 - [x] Guarded staging-only migration deploy command implemented as `npm run db:deploy:staging`; it requires an exact database-name match and explicit confirmation before `prisma migrate deploy` can run.
-- [x] Read-only post-migration staging schema verification implemented as `npm run db:verify:staging`; it verifies required domain tables/enums and rejects unfinished Prisma migrations without reading client data.
+- [x] Read-only post-migration staging schema verification implemented as `npm run db:verify:staging`; it verifies required domain tables/enums, the complete StoredFile malware-scan lifecycle columns/status values, and rejects unfinished Prisma migrations without reading client data.
 - [x] Authentication product direction selected: Better Auth, self-hosted against PostgreSQL.
 - [x] Better Auth dependency/configuration installed on the audit branch with controlled lockfile changes.
 - [x] Provider-specific Better Auth session-reader boundary implemented.
@@ -30,6 +30,7 @@ This checklist defines the conditions for switching any platform workflow from i
 - [x] Transport foundations return normalized public error codes instead of raw internal exception text.
 - [x] Private workflow JSON responses use `private, no-store` cache policy.
 - [x] Cookie-authenticated `/api/platform/*` mutations are protected by a centralized Next.js `proxy.ts` origin policy: browser mutations require the exact configured application `Origin`, contradictory Fetch Metadata is rejected, and the repository Node staging verifier has only a narrow non-browser compatibility path.
+- [x] Platform JSON mutation bodies are byte-bounded by a shared 64 KiB reader; actual streamed bytes are counted independently of `Content-Length`, oversized bodies return `413 PAYLOAD_TOO_LARGE`, and CI rejects new raw body reads in platform routes/adapters.
 - [x] Questionnaire, practicum and document create-on-first-use repositories recover safely from concurrent unique-key creation races.
 - [ ] Production logs verified not to contain questionnaire answers, document contents or other sensitive payloads.
 
@@ -72,7 +73,7 @@ Repository/server foundation is complete; activation still requires:
 - [ ] Migration SQL reviewed and applied to staging.
 - [ ] DB-backed cross-role assignment tests completed.
 
-## Documents gates
+## Documents / private files gates
 
 - [x] Document lifecycle/status model implemented.
 - [x] Case-scoped document repository/service/transport foundation implemented.
@@ -88,17 +89,33 @@ Repository/server foundation is complete; activation still requires:
 - [x] Authorized private file list/metadata/download-URL API routes implemented.
 - [x] Signed private upload preparation + HEAD-verified completion flow implemented.
 - [x] Production portal supports direct signed upload, server verification and signed download without exposing object keys.
-- [x] Pending uploads remain hidden from normal file list/get/download operations until verification succeeds.
 - [x] Upload input enforces allowlisted MIME types, a 50 MiB limit and UUID-scoped opaque keys.
 - [x] Browser-supplied checksum values are not persisted as trusted integrity metadata; checksum support remains reserved for a future server-verified flow.
 - [x] Stale `PENDING_UPLOAD` cleanup service/repository foundation implemented with bounded batches and conditional metadata deletion.
-- [x] Upload completion now performs conditional `PENDING_UPLOAD -> READY` plus `file.upload.completed` audit creation inside one Prisma transaction; cleanup/completion races fail closed.
+- [x] Upload completion no longer trusts metadata verification as a malware verdict: verified uploads atomically transition `PENDING_UPLOAD -> PENDING_SCAN`, not `READY`, with `file.upload.completed` audit creation.
+- [x] Download/list/get paths remain fail-closed: only `StoredFile.status === READY` is visible/authorized; `PENDING_SCAN`, `SCANNING`, `QUARANTINED` and `SCAN_FAILED` cannot receive a user-facing signed download URL.
+- [x] Provider-neutral malware scan worker foundation implemented with DB-backed UUID leases, expired-lease reclaim, bounded retries/backoff, terminal failure and matching-lease finalization.
+- [x] `CLEAN` is the only scanner verdict that can transition `SCANNING -> READY`; `MALICIOUS` transitions to `QUARANTINED`; scanner/storage errors never fail open to READY.
+- [x] Controlled HTTPS scanner client foundation implemented with an independent bearer secret, signed-Yandex-source allowlist, redirect refusal, timeout, bounded 16 KiB response, strict `CLEAN|MALICIOUS` verdict schema and normalized provider/network errors.
+- [x] Scanner request privacy boundary sends only a short-lived signed source URL, MIME type and size; it does not send filename, clientCaseId, user ID or application authentication credentials.
+- [x] Protected `POST /api/internal/maintenance/file-scans` and provider-neutral `npm run maintenance:run:file-scans` runner implemented; endpoint returns aggregate counters only and reports terminal failures/lease-loss anomalies as unhealthy.
+- [x] Scan security defaults are CI-pinned: initial batch size 1, scanner timeout shorter than lease, source URL TTL at least the lease duration, and bounded retry configuration.
+- [x] Read-only staging schema verifier requires all scan lifecycle enum values and StoredFile scan/lease/retry columns before staging schema PASS.
+- [x] File malware/quarantine architecture and activation gates documented in `docs/FILE_UPLOAD_SECURITY.md`.
 - [x] Read-only staging Object Storage metadata verifier implemented as `npm run check:staging:storage`; it checks bucket identity/ACL/policy/CORS without listing, reading, writing or deleting objects.
+- [ ] Authoritative database baseline inspected before generating the StoredFile quarantine migration.
+- [ ] StoredFile/UserSecurityEvent and other pending migration SQL generated from the authoritative baseline, manually reviewed, and applied to staging only.
 - [ ] Private staging bucket/service account configured and verified with staging credentials.
+- [ ] Controlled HTTPS malware scanner service provisioned in staging with an independent secret.
+- [ ] Clean benign fixture verifies `CLEAN -> READY` in staging.
+- [ ] Provider-approved benign antivirus detection fixture verifies `MALICIOUS -> QUARANTINED` in staging without using a real malicious artifact.
+- [ ] Scanner outage/retry, expired-lease reclaim and maximum-attempt `SCAN_FAILED` behavior verified against staging.
+- [ ] File-scan maintenance scheduler configured independently and its 503 failure path wired to alerting.
+- [ ] Maximum 50 MiB file scanning latency measured and scanner/lease/scheduler timeouts reviewed.
+- [ ] Quarantine retention/deletion policy and incident-response ownership approved.
 - [ ] Schedule/operate stale `PENDING_UPLOAD` cleanup only after staging storage policy is available.
-- [ ] Document/file migrations reviewed and applied to staging.
 - [ ] No generated document or uploaded file exposed by a guessable public URL in staging E2E.
-- [ ] DB-backed upload/download/review/audit E2E completed.
+- [ ] DB-backed upload/scan/quarantine/download/review/audit E2E completed.
 
 ## Activity / audit gates
 
@@ -109,6 +126,7 @@ Repository/server foundation is complete; activation still requires:
 - [x] Activity metadata allowlist rejects unapproved fields and long values to reduce sensitive-data leakage risk.
 - [x] Authenticated case activity is exposed in the production portal without raw sensitive payloads.
 - [x] Critical questionnaire/task/document/file mutations that currently emit case activity write the business mutation and corresponding `CaseActivityEvent` in the same Prisma transaction.
+- [x] File scan lifecycle emits controlled system audit events for clean/quarantined/failed outcomes without storing signed source URLs, scanner secrets or free-form scanner exception text.
 - [x] Separate user-scoped auth security audit foundation implemented for successful sign-in, TOTP verification, backup-code use and password-reset request/completion; it stores only internal `User.id`, controlled event type and timestamp.
 - [x] AI requests use a server-generated opaque UUIDv4 `auditId` to correlate `ai.request.accepted` with exactly the corresponding completion/restricted/failure outcome, and a bounded read-only maintenance health check detects accepted requests that remain without an outcome after the configured grace period.
 - [ ] Apply/review the `UserSecurityEvent` migration in staging and verify Better Auth lifecycle events against mapped test identities.
@@ -153,6 +171,16 @@ Architecture decision: see `docs/AUTH_PROVIDER_DECISION.md`.
 - [ ] Decide whether to require email verification only after existing staging identities and mail delivery are reviewed.
 - [ ] Execute and verify controlled `AuthIdentity` linking against migrated staging data.
 
+## Maintenance / operational gates
+
+- [x] Provider-neutral authenticated runner supports notification delivery, stale upload cleanup, file malware scans and AI audit health as four independent fixed jobs.
+- [x] Maintenance endpoints are POST-only, bearer protected, no-store, bounded, reject runner redirects, and return unhealthy status for operational conditions requiring attention.
+- [x] File-scan maintenance response exposes aggregate counters only, not file/case/user IDs, lease tokens or scanner source URLs.
+- [ ] Actual production/staging scheduler platform confirmed.
+- [ ] Four jobs provisioned independently against staging.
+- [ ] Scheduler failure exits/HTTP 503 wired to operational alerting.
+- [ ] File scanner service health/availability monitoring and `SCAN_FAILED` incident handling verified.
+
 ## Staging runbook
 
 - [x] Staging activation sequence documented in `docs/STAGING_ACTIVATION_RUNBOOK.md`.
@@ -161,7 +189,7 @@ Architecture decision: see `docs/AUTH_PROVIDER_DECISION.md`.
 - [x] Full read-only authoritative database structure inspection documented in `docs/DATABASE_BASELINE_INSPECTION.md` and implemented as `npm run db:inspect:baseline`; run only in a trusted environment, never as a public GitHub Actions structural dump.
 - [x] Migration SQL review gate documented in `docs/MIGRATION_SQL_REVIEW_GATE.md` and implemented as `npm run db:review:sql`.
 - [x] Guarded staging migration deployment documented in `docs/STAGING_MIGRATION_DEPLOY.md` and implemented as `npm run db:deploy:staging`; no production deploy command exists.
-- [x] Read-only post-migration schema verification documented in `docs/STAGING_POST_MIGRATION_VERIFICATION.md` and implemented as `npm run db:verify:staging`.
+- [x] Read-only post-migration schema verification documented in `docs/STAGING_POST_MIGRATION_VERIFICATION.md` and implemented as `npm run db:verify:staging`; it now includes StoredFile malware-scan lifecycle columns and status values.
 - [x] Read-only Better Auth schema verification documented in `docs/STAGING_BETTER_AUTH_SCHEMA_VERIFICATION.md` and implemented as `npm run check:staging:auth-schema`.
 - [x] Read-only staging Object Storage verification documented in `docs/STAGING_OBJECT_STORAGE_VERIFICATION.md` and implemented as `npm run check:staging:storage`.
 - [x] Read-only staging authorization fixture verification documented in `docs/STAGING_AUTHZ_VERIFICATION.md` and implemented as `npm run check:staging:authz`.
@@ -171,6 +199,7 @@ Architecture decision: see `docs/AUTH_PROVIDER_DECISION.md`.
 - Never run `prisma db push` against production as a substitute for reviewed migrations.
 - Never run Better Auth auto-migrations directly against production; generate/review SQL first.
 - Never run `npm audit fix --force` automatically on the release branch.
+- Never bypass `PENDING_SCAN`, `QUARANTINED` or `SCAN_FAILED` by manually setting uploaded files to `READY`.
 - Never merge `audit/production-readiness` into `main` until the exact diff and CI are reviewed.
 - Never point production traffic at an audit deployment until authentication and the database baseline are confirmed.
 - Keep the investor demo isolated from production authorization even if both experiences coexist in one codebase.
