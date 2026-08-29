@@ -5,6 +5,9 @@ import { basename, resolve } from "node:path";
 const root = resolve(process.argv[2] ?? ".");
 const MAX_TEXT_BYTES = 1024 * 1024;
 const ALLOWED_ENV_FILES = new Set([".env.example"]);
+const allowlist = JSON.parse(
+  readFileSync(resolve(process.cwd(), "security/secret-exposure-allowlist.json"), "utf8"),
+);
 
 const detectors = [
   ["private-key", /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/],
@@ -15,6 +18,10 @@ const detectors = [
   ["bitrix-webhook", /https:\/\/[^/\s]+\.bitrix24\.[^/\s]+\/rest\/\d+\/[A-Za-z0-9_-]{8,}/i],
   ["hardcoded-bearer", /(?:authorization|bearer)["'\s:=]+Bearer\s+[A-Za-z0-9._-]{20,}/i],
 ];
+
+function isAllowed(relativePath, detector) {
+  return Array.isArray(allowlist[relativePath]) && allowlist[relativePath].includes(detector);
+}
 
 function trackedFiles() {
   const output = execFileSync("git", ["-C", root, "ls-files", "-z"], {
@@ -36,32 +43,25 @@ for (const relativePath of trackedFiles()) {
 
   const absolutePath = resolve(root, relativePath);
   let stat;
-  try {
-    stat = statSync(absolutePath);
-  } catch {
-    continue;
-  }
+  try { stat = statSync(absolutePath); } catch { continue; }
   if (!stat.isFile() || stat.size > MAX_TEXT_BYTES) continue;
 
   let source;
-  try {
-    source = readFileSync(absolutePath, "utf8");
-  } catch {
-    continue;
-  }
+  try { source = readFileSync(absolutePath, "utf8"); } catch { continue; }
   if (source.includes("\u0000")) continue;
   scanned += 1;
 
-  for (const [name, pattern] of detectors) {
-    if (pattern.test(source)) {
-      violations.push(`${relativePath}: ${name} detector matched`);
+  for (const [detector, pattern] of detectors) {
+    if (pattern.test(source) && !isAllowed(relativePath, detector)) {
+      violations.push(`${relativePath}: ${detector} detector matched`);
     }
   }
 
   if (basename(relativePath) !== ".env.example") {
-    const credentialedDatabaseUrl = /postgres(?:ql)?:\/\/[^:\s/@]+:[^@\s/]+@/i;
-    if (credentialedDatabaseUrl.test(source)) {
-      violations.push(`${relativePath}: credentialed database URL detector matched`);
+    const detector = "credentialed-database-url";
+    const pattern = /postgres(?:ql)?:\/\/[^:\s/@]+:[^@\s/]+@/i;
+    if (pattern.test(source) && !isAllowed(relativePath, detector)) {
+      violations.push(`${relativePath}: ${detector} detector matched`);
     }
   }
 }
