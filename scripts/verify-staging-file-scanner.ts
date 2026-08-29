@@ -9,6 +9,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
   assertStagingFileScannerTarget,
   STAGING_FILE_SCANNER_TARGET_GUARD,
+  type StagingFileScannerTarget,
 } from "@/scripts/staging-file-scanner-target-guard";
 import {
   scanWithHttpMalwareScanner,
@@ -53,7 +54,7 @@ function errorName(error: unknown) {
     : "UnknownS3Error";
 }
 
-let target;
+let target: StagingFileScannerTarget;
 try {
   target = assertStagingFileScannerTarget(process.env);
 } catch (error) {
