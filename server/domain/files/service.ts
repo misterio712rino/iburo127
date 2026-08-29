@@ -77,10 +77,10 @@ export class StoredFileService {
     return file;
   }
 
-  async markUploadReady(actor: AuthenticatedActor, fileId: string) {
+  async markUploadPendingScan(actor: AuthenticatedActor, fileId: string, now = new Date()) {
     await this.getPendingUpload(actor, fileId);
-    const ready = await this.repository.markReady(fileId, new Date(), actor.userId);
-    if (!ready) throw new Error(FILE_UPLOAD_NOT_PENDING);
-    return ready;
+    const pendingScan = await this.repository.markPendingScan(fileId, now, actor.userId);
+    if (!pendingScan) throw new Error(FILE_UPLOAD_NOT_PENDING);
+    return pendingScan;
   }
 }
