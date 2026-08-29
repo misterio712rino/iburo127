@@ -2,8 +2,19 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-const source = await readFile(resolve("scripts/verify-staging-http-mutations.ts"), "utf8");
+const source = await readFile(
+  resolve("scripts/verify-staging-http-mutations-impl.ts"),
+  "utf8",
+);
 const auditSource = await readFile(
+  resolve("scripts/verify-staging-http-mutation-audit-impl.ts"),
+  "utf8",
+);
+const mutationWrapper = await readFile(
+  resolve("scripts/verify-staging-http-mutations.ts"),
+  "utf8",
+);
+const auditWrapper = await readFile(
   resolve("scripts/verify-staging-http-mutation-audit.ts"),
   "utf8",
 );
@@ -36,5 +47,16 @@ assert.match(auditSource, /requireEventType\(newEvents, "file\.download\.authori
 assert.match(auditSource, /rejectEventType\(newEvents, "file\.download\.authorized"\)/);
 assert.match(auditSource, /"objectKey"/);
 assert.match(auditSource, /"signedUrl"/);
+
+for (const [label, wrapper, implementation] of [
+  ["mutation", mutationWrapper, "./verify-staging-http-mutations-impl"],
+  ["audit", auditWrapper, "./verify-staging-http-mutation-audit-impl"],
+] as const) {
+  const preflightIndex = wrapper.indexOf("requireStagingHttpMutationPreflight(process.env)");
+  const importIndex = wrapper.indexOf(`await import(\"${implementation}\")`);
+  assert.ok(preflightIndex >= 0, `${label} wrapper must run the network-free preflight`);
+  assert.ok(importIndex > preflightIndex, `${label} wrapper must preflight before importing active verifier`);
+  assert.doesNotMatch(wrapper, /\bfetch\s*\(/);
+}
 
 console.log("STAGING_HTTP_FILE_QUARANTINE_CONTRACT_TEST_PASS");
