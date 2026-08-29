@@ -30,8 +30,31 @@ function git(args, options = {}) {
   });
 }
 
-function isAllowed(blobSha, detector) {
-  return Array.isArray(allowlist[blobSha]) && allowlist[blobSha].includes(detector);
+function displayPath(path) {
+  return JSON.stringify(path);
+}
+
+function isAllowed(path, blobSha, detector) {
+  const byPath = allowlist[path];
+  return Boolean(
+    byPath &&
+      typeof byPath === "object" &&
+      !Array.isArray(byPath) &&
+      Array.isArray(byPath[blobSha]) &&
+      byPath[blobSha].includes(detector),
+  );
+}
+
+function listTree(commit) {
+  const output = git(["ls-tree", "-r", "-z", "--full-tree", commit]);
+  return output
+    .split("\0")
+    .filter(Boolean)
+    .map((entry) => {
+      const match = entry.match(/^\d+\s+blob\s+([0-9a-f]{40})\t(.+)$/s);
+      return match ? { blob: match[1], path: match[2] } : null;
+    })
+    .filter(Boolean);
 }
 
 const shallow = git(["rev-parse", "--is-shallow-repository"]).trim();
@@ -49,88 +72,110 @@ for (const ref of refs) {
   }
 }
 
-const historicalPaths = new Set(
-  git(["log", "--format=", "--name-only", ...refs])
-    .split(/\r?\n/)
-    .map((value) => value.trim())
-    .filter(Boolean),
-);
-
-const violations = [];
-for (const path of historicalPaths) {
-  const name = basename(path);
-  if (/^\.env(?:\.|$)/.test(name) && !ALLOWED_ENV_FILES.has(name)) {
-    violations.push(`${path}: tracked environment file existed in candidate history`);
+const commits = git(["rev-list", "--topo-order", ...refs])
+  .split(/\r?\n/)
+  .filter(Boolean);
+const pairs = new Map();
+for (const commit of commits) {
+  for (const { blob, path } of listTree(commit)) {
+    const key = `${blob}\0${path}`;
+    if (!pairs.has(key)) pairs.set(key, { blob, path, commit });
   }
 }
 
-const objectLines = git(["rev-list", "--objects", ...refs])
-  .split(/\r?\n/)
-  .filter(Boolean);
-const pathByObject = new Map();
-const objectIds = [];
-for (const line of objectLines) {
-  const space = line.indexOf(" ");
-  const oid = space === -1 ? line : line.slice(0, space);
-  const path = space === -1 ? null : line.slice(space + 1);
-  if (!pathByObject.has(oid) && path) pathByObject.set(oid, path);
-  objectIds.push(oid);
+const violations = [];
+for (const { blob, path, commit } of pairs.values()) {
+  const name = basename(path);
+  if (/^\.env(?:\.|$)/.test(name) && !ALLOWED_ENV_FILES.has(name)) {
+    violations.push(
+      `${commit} ${displayPath(path)}: tracked environment file existed in candidate history (blob ${blob})`,
+    );
+  }
 }
 
+const uniqueBlobIds = [...new Set([...pairs.values()].map(({ blob }) => blob))];
 const check = spawnSync(
   "git",
   ["-C", root, "cat-file", "--batch-check=%(objectname) %(objecttype) %(objectsize)"],
-  { input: `${[...new Set(objectIds)].join("\n")}\n`, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 },
+  {
+    input: `${uniqueBlobIds.join("\n")}\n`,
+    encoding: "utf8",
+    maxBuffer: 32 * 1024 * 1024,
+  },
 );
 if (check.status !== 0) {
-  process.stderr.write(check.stderr || "SECRET_HISTORY_EXPOSURE_POLICY_FAIL: git cat-file check failed\n");
+  process.stderr.write(
+    check.stderr || "SECRET_HISTORY_EXPOSURE_POLICY_FAIL: git cat-file check failed\n",
+  );
   process.exit(1);
 }
 
-const blobs = check.stdout
-  .split(/\r?\n/)
-  .filter(Boolean)
-  .map((line) => {
-    const [oid, type, sizeText] = line.split(" ");
-    return { oid, type, size: Number(sizeText) };
-  })
-  .filter((item) => item.type === "blob" && Number.isFinite(item.size) && item.size <= MAX_TEXT_BYTES);
+const eligibleBlobIds = new Set(
+  check.stdout
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => {
+      const [oid, type, sizeText] = line.split(" ");
+      return { oid, type, size: Number(sizeText) };
+    })
+    .filter(
+      (item) =>
+        item.type === "blob" && Number.isFinite(item.size) && item.size <= MAX_TEXT_BYTES,
+    )
+    .map((item) => item.oid),
+);
 
-let scanned = 0;
-for (let index = 0; index < blobs.length; index += 25) {
-  const chunk = blobs.slice(index, index + 25);
+const sources = new Map();
+const eligible = [...eligibleBlobIds];
+for (let index = 0; index < eligible.length; index += 25) {
+  const chunk = eligible.slice(index, index + 25);
   const batch = spawnSync("git", ["-C", root, "cat-file", "--batch"], {
-    input: `${chunk.map((item) => item.oid).join("\n")}\n`,
+    input: `${chunk.join("\n")}\n`,
     encoding: null,
     maxBuffer: 32 * 1024 * 1024,
   });
   if (batch.status !== 0 || !batch.stdout) {
-    process.stderr.write(batch.stderr?.toString("utf8") || "SECRET_HISTORY_EXPOSURE_POLICY_FAIL: git cat-file batch failed\n");
+    process.stderr.write(
+      batch.stderr?.toString("utf8") ||
+        "SECRET_HISTORY_EXPOSURE_POLICY_FAIL: git cat-file batch failed\n",
+    );
     process.exit(1);
   }
 
   let offset = 0;
-  for (const item of chunk) {
+  for (const oid of chunk) {
     const newline = batch.stdout.indexOf(0x0a, offset);
-    if (newline === -1) throw new Error("SECRET_HISTORY_EXPOSURE_POLICY_FAIL: malformed git batch header");
+    if (newline === -1) {
+      throw new Error("SECRET_HISTORY_EXPOSURE_POLICY_FAIL: malformed git batch header");
+    }
     const header = batch.stdout.subarray(offset, newline).toString("utf8");
-    const parts = header.split(" ");
-    const size = Number(parts[2]);
+    const [returnedOid, type, sizeText] = header.split(" ");
+    const size = Number(sizeText);
+    if (returnedOid !== oid || type !== "blob" || !Number.isSafeInteger(size) || size < 0) {
+      throw new Error("SECRET_HISTORY_EXPOSURE_POLICY_FAIL: unexpected git batch object");
+    }
     const start = newline + 1;
     const end = start + size;
     const content = batch.stdout.subarray(start, end);
     offset = end + 1;
 
     if (content.includes(0x00)) continue;
-    const source = content.toString("utf8");
-    scanned += 1;
-    const path = pathByObject.get(item.oid) ?? "<historical-blob>";
+    sources.set(oid, content.toString("utf8"));
+  }
+}
 
-    for (const [detector, pattern] of detectors) {
-      if (detector === "credentialed-database-url" && basename(path) === ".env.example") continue;
-      if (pattern.test(source) && !isAllowed(item.oid, detector)) {
-        violations.push(`${item.oid} ${path}: ${detector} detector matched`);
-      }
+let scannedPairs = 0;
+for (const { blob, path, commit } of pairs.values()) {
+  const source = sources.get(blob);
+  if (source === undefined) continue;
+  scannedPairs += 1;
+
+  for (const [detector, pattern] of detectors) {
+    if (detector === "credentialed-database-url" && basename(path) === ".env.example") continue;
+    if (pattern.test(source) && !isAllowed(path, blob, detector)) {
+      violations.push(
+        `${commit} ${displayPath(path)}: ${detector} detector matched (blob ${blob})`,
+      );
     }
   }
 }
@@ -142,5 +187,5 @@ if (violations.length > 0) {
 }
 
 console.log(
-  `SECRET_HISTORY_EXPOSURE_POLICY_PASS: refs=${refs.join(",")} ${scanned} historical text blob(s) scanned`,
+  `SECRET_HISTORY_EXPOSURE_POLICY_PASS: refs=${refs.join(",")} ${scannedPairs} historical text blob/path pair(s) scanned`,
 );
