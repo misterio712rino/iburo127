@@ -14,13 +14,38 @@ const operationSource = await readFile(
 
 assert.match(
   portalSource,
+  /clientOwnedCases = cases\.filter/,
+  "portal next actions must be derived from case-specific client ownership, including multi-role accounts",
+);
+assert.match(
+  portalSource,
+  /resolveCasePortalAudience\(actor, clientCase\) === "CLIENT"/,
+  "portal must resolve CLIENT versus STAFF from the relationship to each ClientCase",
+);
+assert.doesNotMatch(
+  portalSource,
   /actor\.roles\.includes\("CLIENT"\) && !isStaff/,
-  "portal next actions must be computed only for the client-facing dashboard, not the staff queue",
+  "portal must not suppress client next actions merely because the same account also has a staff role",
 );
 assert.match(
   portalSource,
   /getCaseProgressSummaryForActor\(actor, clientCase, "CLIENT"\)/,
-  "client dashboard must derive next actions from the shared server progress aggregator",
+  "owned client cases must derive next actions from the shared server progress aggregator",
+);
+assert.match(
+  portalSource,
+  /const audience = resolveCasePortalAudience\(actor, clientCase\)/,
+  "each portal case card must derive its presentation audience independently",
+);
+assert.match(
+  portalSource,
+  /getPlanDisplayLabel\(clientCase\.planCode, audience\)/,
+  "portal plan labels must use audience-safe fallbacks",
+);
+assert.match(
+  portalSource,
+  /getCaseStageDisplayLabel\(clientCase\.stageCode, audience\)/,
+  "portal stage labels must use audience-safe fallbacks",
 );
 assert.match(
   portalSource,

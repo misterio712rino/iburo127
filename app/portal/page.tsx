@@ -2,7 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight, ArrowUpRight, BriefcaseBusiness } from "lucide-react";
 import { PortalFrame } from "@/components/portal/PortalFrame";
-import { getCaseStageLabel, getCaseStatusLabel, getPlanLabel } from "@/lib/platform/case-progress";
+import {
+  getCaseStageDisplayLabel,
+  getCaseStatusLabel,
+  getPlanDisplayLabel,
+} from "@/lib/platform/case-progress";
+import { resolveCasePortalAudience } from "@/lib/platform/case-portal-audience";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { getCaseProgressSummaryForActor } from "@/server/case-progress/operations";
@@ -32,20 +37,19 @@ export default async function PortalPage() {
 
   const cases = await clientCaseService.listCases(actor);
   const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
-  const isClient = actor.roles.includes("CLIENT") && !isStaff;
+  const clientOwnedCases = cases.filter(
+    (clientCase) => resolveCasePortalAudience(actor, clientCase) === "CLIENT",
+  );
 
-  const clientProgressEntries = isClient
-    ? await Promise.all(
-        cases.map(async (clientCase) => [
-          clientCase.id,
-          await getCaseProgressSummaryForActor(actor, clientCase, "CLIENT"),
-        ] as const),
-      )
-    : [];
+  const clientProgressEntries = await Promise.all(
+    clientOwnedCases.map(async (clientCase) => [
+      clientCase.id,
+      await getCaseProgressSummaryForActor(actor, clientCase, "CLIENT"),
+    ] as const),
+  );
   const clientProgressByCase = new Map(clientProgressEntries);
-  const primaryClientCase = isClient
-    ? cases.find((clientCase) => clientCase.status === "ACTIVE") ?? cases[0]
-    : undefined;
+  const primaryClientCase =
+    clientOwnedCases.find((clientCase) => clientCase.status === "ACTIVE") ?? clientOwnedCases[0];
   const primaryNextAction = primaryClientCase
     ? clientProgressByCase.get(primaryClientCase.id)?.nextAction
     : undefined;
@@ -101,6 +105,7 @@ export default async function PortalPage() {
         {cases.length ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {cases.map((clientCase) => {
+              const audience = resolveCasePortalAudience(actor, clientCase);
               const nextAction = clientProgressByCase.get(clientCase.id)?.nextAction;
 
               return (
@@ -108,7 +113,7 @@ export default async function PortalPage() {
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="font-mono text-xs font-semibold tracking-[0.08em] text-slate-400">{clientCase.caseNumber}</p>
-                      <h3 className="mt-3 text-2xl font-bold text-slate-900">Тариф «{getPlanLabel(clientCase.planCode)}»</h3>
+                      <h3 className="mt-3 text-2xl font-bold text-slate-900">Тариф «{getPlanDisplayLabel(clientCase.planCode, audience)}»</h3>
                     </div>
                     <span className="rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-bold text-slate-600">
                       {getCaseStatusLabel(clientCase.status)}
@@ -117,7 +122,7 @@ export default async function PortalPage() {
                   <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-slate-100 pt-5 text-sm">
                     <div>
                       <dt className="text-slate-400">Текущий этап</dt>
-                      <dd className="mt-1 font-semibold text-slate-700">{getCaseStageLabel(clientCase.stageCode)}</dd>
+                      <dd className="mt-1 font-semibold text-slate-700">{getCaseStageDisplayLabel(clientCase.stageCode, audience)}</dd>
                     </div>
                     <div>
                       <dt className="text-slate-400">Доступ</dt>

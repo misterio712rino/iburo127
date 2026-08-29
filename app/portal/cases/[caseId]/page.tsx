@@ -15,9 +15,9 @@ import {
 } from "lucide-react";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import {
-  getCaseStageLabel,
+  getCaseStageDisplayLabel,
   getCaseStatusLabel,
-  getPlanLabel,
+  getPlanDisplayLabel,
 } from "@/lib/platform/case-progress";
 import { resolveCasePortalAudience } from "@/lib/platform/case-portal-audience";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
@@ -122,8 +122,8 @@ export default async function PortalCasePage({ params }: { params: Promise<{ cas
           </div>
 
           <dl className="mt-8 grid gap-5 border-t border-slate-100 pt-6 sm:grid-cols-3">
-            <div><dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Тариф</dt><dd className="mt-2 text-lg font-bold text-slate-900">{getPlanLabel(clientCase.planCode)}</dd></div>
-            <div><dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Текущий этап</dt><dd className="mt-2 text-lg font-bold text-slate-900">{getCaseStageLabel(clientCase.stageCode)}</dd></div>
+            <div><dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Тариф</dt><dd className="mt-2 text-lg font-bold text-slate-900">{getPlanDisplayLabel(clientCase.planCode, audience)}</dd></div>
+            <div><dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Текущий этап</dt><dd className="mt-2 text-lg font-bold text-slate-900">{getCaseStageDisplayLabel(clientCase.stageCode, audience)}</dd></div>
             <div><dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Доступ</dt><dd className="mt-2 text-lg font-bold text-emerald-700">Подтверждён</dd></div>
           </dl>
         </section>

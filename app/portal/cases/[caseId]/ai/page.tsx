@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Sparkles } from "lucide-react";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import { AiAssistant } from "@/components/platform/ai/AiAssistant";
-import { getPlanLabel } from "@/lib/platform/case-progress";
+import { getPlanDisplayLabel } from "@/lib/platform/case-progress";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { getCurrentPlatformActor } from "@/server/client-cases/operations";
@@ -45,7 +45,7 @@ export default async function PortalCaseAiPage({ params }: { params: Promise<{ c
                 AI-помощник
               </h1>
             </div>
-            <span className="w-fit rounded-full bg-slate-100 px-4 py-2 text-xs font-bold text-slate-600">{getPlanLabel(clientCase.planCode)}</span>
+            <span className="w-fit rounded-full bg-slate-100 px-4 py-2 text-xs font-bold text-slate-600">{getPlanDisplayLabel(clientCase.planCode, "CLIENT")}</span>
           </div>
 
           <AiAssistant caseId={clientCase.id} withShell={false} />

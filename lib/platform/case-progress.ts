@@ -58,12 +58,30 @@ export function getCaseStageLabel(stageCode: string) {
   return CASE_STAGE_FLOW.find((stage) => stage.code === stageCode)?.label ?? stageCode;
 }
 
+export function getCaseStageDisplayLabel(
+  stageCode: string,
+  audience: CaseProgressAudience,
+) {
+  const known = CASE_STAGE_FLOW.find((stage) => stage.code === stageCode)?.label;
+  if (known) return known;
+  return audience === "CLIENT" ? "Этап уточняется" : stageCode;
+}
+
 export function getCaseStatusLabel(status: CaseStatus) {
   return CASE_STATUS_LABELS[status];
 }
 
 export function getPlanLabel(planCode: string) {
   return PLAN_LABELS[planCode] ?? planCode;
+}
+
+export function getPlanDisplayLabel(
+  planCode: string,
+  audience: CaseProgressAudience,
+) {
+  const known = PLAN_LABELS[planCode];
+  if (known) return known;
+  return audience === "CLIENT" ? "Тариф уточняется" : planCode;
 }
 
 function percentage(completed: number, total: number, forceComplete: boolean) {
@@ -152,7 +170,7 @@ export function buildCaseProgressSummary(input: CaseProgressInput) {
   return {
     stage: {
       code: input.stageCode,
-      label: getCaseStageLabel(input.stageCode),
+      label: getCaseStageDisplayLabel(input.stageCode, input.audience),
       position: stageIndex >= 0 ? stageIndex + 1 : null,
       total: CASE_STAGE_FLOW.length,
     },

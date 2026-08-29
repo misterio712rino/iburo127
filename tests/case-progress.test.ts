@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import {
   buildCaseProgressSummary,
+  getCaseStageDisplayLabel,
   getCaseStageLabel,
   getCaseStatusLabel,
+  getPlanDisplayLabel,
   getPlanLabel,
 } from "@/lib/platform/case-progress";
 
@@ -10,10 +12,14 @@ assert.equal(getPlanLabel("LITE"), "Лайт");
 assert.equal(getPlanLabel("PRO"), "Про");
 assert.equal(getPlanLabel("INDIVIDUAL"), "Индивидуальный");
 assert.equal(getPlanLabel("CUSTOM"), "CUSTOM");
+assert.equal(getPlanDisplayLabel("CUSTOM", "CLIENT"), "Тариф уточняется");
+assert.equal(getPlanDisplayLabel("CUSTOM", "STAFF"), "CUSTOM");
 assert.equal(getCaseStatusLabel("ACTIVE"), "Активное");
 assert.equal(getCaseStatusLabel("PAUSED"), "Приостановлено");
 assert.equal(getCaseStageLabel("LAWYER_REVIEW"), "Проверка юристом");
 assert.equal(getCaseStageLabel("CUSTOM_STAGE"), "CUSTOM_STAGE");
+assert.equal(getCaseStageDisplayLabel("CUSTOM_STAGE", "CLIENT"), "Этап уточняется");
+assert.equal(getCaseStageDisplayLabel("CUSTOM_STAGE", "STAFF"), "CUSTOM_STAGE");
 
 const questionnaireFirst = buildCaseProgressSummary({
   audience: "CLIENT",
@@ -64,6 +70,29 @@ const staffReview = buildCaseProgressSummary({
   readyFileCount: 1,
 });
 assert.equal(staffReview.nextAction.title, "Проверить документы клиента");
+
+const unknownClientStage = buildCaseProgressSummary({
+  audience: "CLIENT",
+  caseStatus: "ACTIVE",
+  stageCode: "INTERNAL_FUTURE_STAGE",
+  questionnaire: { status: "IN_PROGRESS", completedSectionCount: 1, totalSectionCount: 4 },
+  practicum: null,
+  documents: [],
+  readyFileCount: 0,
+});
+assert.equal(unknownClientStage.stage.code, "INTERNAL_FUTURE_STAGE");
+assert.equal(unknownClientStage.stage.label, "Этап уточняется");
+
+const unknownStaffStage = buildCaseProgressSummary({
+  audience: "STAFF",
+  caseStatus: "ACTIVE",
+  stageCode: "INTERNAL_FUTURE_STAGE",
+  questionnaire: { status: "IN_PROGRESS", completedSectionCount: 1, totalSectionCount: 4 },
+  practicum: null,
+  documents: [],
+  readyFileCount: 0,
+});
+assert.equal(unknownStaffStage.stage.label, "INTERNAL_FUTURE_STAGE");
 
 const completed = buildCaseProgressSummary({
   audience: "CLIENT",
