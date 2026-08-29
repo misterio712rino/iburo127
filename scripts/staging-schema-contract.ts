@@ -32,6 +32,27 @@ export const REQUIRED_STAGING_ENUMS = [
   "NotificationDeliveryStatus",
 ] as const;
 
+export const REQUIRED_STORED_FILE_STATUS_VALUES = [
+  "PENDING_UPLOAD",
+  "PENDING_SCAN",
+  "SCANNING",
+  "READY",
+  "QUARANTINED",
+  "SCAN_FAILED",
+] as const;
+
+export const REQUIRED_STORED_FILE_SCAN_COLUMNS = [
+  "scanAttemptCount",
+  "scanNextAttemptAt",
+  "scanLeaseUntil",
+  "scanLeaseToken",
+  "scanProvider",
+  "scanLastErrorCode",
+  "scannedAt",
+  "quarantinedAt",
+  "readyAt",
+] as const;
+
 export class StagingSchemaContractError extends Error {
   constructor(message: string) {
     super(message);
@@ -42,6 +63,10 @@ export class StagingSchemaContractError extends Error {
 export type StagingSchemaContractInput = {
   tables: Iterable<string>;
   enums: Iterable<string>;
+  storedFile: {
+    columns: Iterable<string>;
+    statusValues: Iterable<string>;
+  };
   prismaMigrationHistory: {
     tablePresent: boolean;
     appliedCount: number;
@@ -73,6 +98,26 @@ export function assertStagingSchemaContract(input: StagingSchemaContractInput): 
   if (missingEnums.length > 0) {
     throw new StagingSchemaContractError(
       `missing required domain enums: ${missingEnums.join(", ")}`,
+    );
+  }
+
+  const storedFileColumns = new Set(input.storedFile.columns);
+  const missingStoredFileColumns = REQUIRED_STORED_FILE_SCAN_COLUMNS.filter(
+    (columnName) => !storedFileColumns.has(columnName),
+  );
+  if (missingStoredFileColumns.length > 0) {
+    throw new StagingSchemaContractError(
+      `missing StoredFile scan columns: ${missingStoredFileColumns.join(", ")}`,
+    );
+  }
+
+  const storedFileStatusValues = new Set(input.storedFile.statusValues);
+  const missingStoredFileStatuses = REQUIRED_STORED_FILE_STATUS_VALUES.filter(
+    (status) => !storedFileStatusValues.has(status),
+  );
+  if (missingStoredFileStatuses.length > 0) {
+    throw new StagingSchemaContractError(
+      `missing StoredFileStatus values: ${missingStoredFileStatuses.join(", ")}`,
     );
   }
 
