@@ -89,11 +89,10 @@ export function createAiRouteAdapter(sessionProvider: SessionProvider) {
         return privateJsonResponse({ ok: false, error: { code: "NOT_FOUND" } }, 404);
       }
 
-      const bodyResult = await readBoundedJsonBody(request);
-      if (!bodyResult.ok) return bodyResult.response;
-
       try {
         const actor = await requireServerActor(sessionProvider);
+        const bodyResult = await readBoundedJsonBody(request);
+        if (!bodyResult.ok) return bodyResult.response;
         const result = await getAiAssistantService().reply(
           actor,
           caseId,
