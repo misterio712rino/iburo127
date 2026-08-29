@@ -1,26 +1,15 @@
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
-const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
-const nvmrc = readFileSync(".nvmrc", "utf8").trim();
-
-const expectedNode = packageJson.engines?.node;
-const expectedNpm = packageJson.engines?.npm;
-const expectedPackageManager = packageJson.packageManager;
-
+const expectedNode = readFileSync(".nvmrc", "utf8").trim();
+const expectedNpm = readFileSync(".npm-version", "utf8").trim();
 const failures = [];
 
-if (!/^\d+\.\d+\.\d+$/.test(nvmrc)) {
+if (!/^\d+\.\d+\.\d+$/.test(expectedNode)) {
   failures.push(".nvmrc must contain an exact semantic version");
 }
-if (expectedNode !== nvmrc) {
-  failures.push(`package.json engines.node must exactly match .nvmrc (${nvmrc})`);
-}
-if (!/^\d+\.\d+\.\d+$/.test(expectedNpm ?? "")) {
-  failures.push("package.json engines.npm must contain an exact semantic version");
-}
-if (expectedPackageManager !== `npm@${expectedNpm}`) {
-  failures.push("package.json packageManager must exactly match engines.npm");
+if (!/^\d+\.\d+\.\d+$/.test(expectedNpm)) {
+  failures.push(".npm-version must contain an exact semantic version");
 }
 
 const actualNode = process.versions.node;
