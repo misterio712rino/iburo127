@@ -44,8 +44,8 @@ export default async function PortalProfilePage() {
         </Link>
 
         <section className="mt-8 grid gap-5 lg:grid-cols-[1.15fr_.85fr]">
-          <article className="rounded-[32px] border border-white/80 bg-white/90 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)] sm:p-8">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <article className="min-w-0 rounded-[32px] border border-white/80 bg-white/90 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)] sm:p-8">
+            <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex min-w-0 items-start gap-4">
                 <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-slate-100 text-slate-700">
                   <UserRound className="size-7" aria-hidden="true" />
@@ -76,13 +76,13 @@ export default async function PortalProfilePage() {
             </p>
           </article>
 
-          <div className="grid gap-5">
-            <article className="rounded-[28px] border border-white/80 bg-white/90 p-6 shadow-[0_14px_45px_rgba(15,23,42,0.07)]">
-              <div className="flex items-center gap-3">
-                <span className="grid size-11 place-items-center rounded-2xl bg-slate-100 text-slate-700"><BriefcaseBusiness className="size-5" aria-hidden="true" /></span>
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">Дела</h2>
-                  <p className="text-sm text-slate-500">Только дела, доступные вашей учётной записи.</p>
+          <div className="grid min-w-0 gap-5">
+            <article className="min-w-0 rounded-[28px] border border-white/80 bg-white/90 p-6 shadow-[0_14px_45px_rgba(15,23,42,0.07)]">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-slate-100 text-slate-700"><BriefcaseBusiness className="size-5" aria-hidden="true" /></span>
+                <div className="min-w-0">
+                  <h2 className="break-words text-lg font-bold text-slate-900">Дела</h2>
+                  <p className="break-words text-sm text-slate-500">Только дела, доступные вашей учётной записи.</p>
                 </div>
               </div>
               <dl className="mt-6 grid grid-cols-3 gap-3">
@@ -93,24 +93,24 @@ export default async function PortalProfilePage() {
               {cases.length ? (
                 <div className="mt-5 space-y-2 border-t border-slate-100 pt-5">
                   {cases.slice(0, 3).map((item) => (
-                    <Link key={item.id} href={`/portal/cases/${item.id}`} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 px-4 py-3 text-sm transition hover:border-slate-200 hover:bg-slate-50">
-                      <span className="font-mono text-xs font-semibold text-slate-600">{item.caseNumber}</span>
-                      <span className="text-xs font-semibold text-slate-400">{getCaseStatusLabel(item.status)}</span>
+                    <Link key={item.id} href={`/portal/cases/${item.id}`} className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-slate-100 px-4 py-3 text-sm transition hover:border-slate-200 hover:bg-slate-50">
+                      <span className="min-w-0 break-all font-mono text-xs font-semibold text-slate-600">{item.caseNumber}</span>
+                      <span className="shrink-0 text-xs font-semibold text-slate-400">{getCaseStatusLabel(item.status)}</span>
                     </Link>
                   ))}
                 </div>
               ) : null}
             </article>
 
-            <article className="rounded-[28px] border border-white/80 bg-white/90 p-6 shadow-[0_14px_45px_rgba(15,23,42,0.07)]">
-              <div className="flex items-center gap-3">
-                <span className="grid size-11 place-items-center rounded-2xl bg-slate-100 text-slate-700"><KeyRound className="size-5" aria-hidden="true" /></span>
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">Безопасность аккаунта</h2>
-                  <p className="text-sm text-slate-500">Пароль, двухфакторная защита и резервные коды.</p>
+            <article className="min-w-0 rounded-[28px] border border-white/80 bg-white/90 p-6 shadow-[0_14px_45px_rgba(15,23,42,0.07)]">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-slate-100 text-slate-700"><KeyRound className="size-5" aria-hidden="true" /></span>
+                <div className="min-w-0">
+                  <h2 className="break-words text-lg font-bold text-slate-900">Безопасность аккаунта</h2>
+                  <p className="break-words text-sm text-slate-500">Пароль, двухфакторная защита и резервные коды.</p>
                 </div>
               </div>
-              <Link href="/portal/security" className="mt-5 inline-flex rounded-xl bg-[#17202a] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#263342]">
+              <Link href="/portal/security" className="mt-5 inline-flex max-w-full items-center break-words rounded-xl bg-[#17202a] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#263342]">
                 Открыть настройки безопасности
               </Link>
             </article>
@@ -123,21 +123,21 @@ export default async function PortalProfilePage() {
 
 function ProfileField({ icon: Icon, label, value }: { icon: typeof Mail; label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+    <div className="min-w-0 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
       <dt className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
-        <Icon className="size-4" aria-hidden="true" />
+        <Icon className="size-4 shrink-0" aria-hidden="true" />
         {label}
       </dt>
-      <dd className="mt-2 break-words text-sm font-semibold text-slate-800">{value}</dd>
+      <dd className="mt-2 break-all text-sm font-semibold text-slate-800">{value}</dd>
     </div>
   );
 }
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-2xl bg-slate-50 p-3 text-center">
+    <div className="min-w-0 rounded-2xl bg-slate-50 p-3 text-center">
       <dd className="text-2xl font-bold text-slate-900">{value}</dd>
-      <dt className="mt-1 text-[11px] font-semibold text-slate-400">{label}</dt>
+      <dt className="mt-1 break-words text-[11px] font-semibold text-slate-400">{label}</dt>
     </div>
   );
 }

@@ -10,8 +10,10 @@ const documentsSource = await readFile(resolve("app/portal/cases/[caseId]/docume
 const filesSource = await readFile(resolve("app/portal/cases/[caseId]/files/page.tsx"), "utf8");
 const aiSource = await readFile(resolve("app/portal/cases/[caseId]/ai/page.tsx"), "utf8");
 const securitySource = await readFile(resolve("app/portal/security/page.tsx"), "utf8");
+const profileSource = await readFile(resolve("app/portal/profile/page.tsx"), "utf8");
 const mfaEnrollmentSource = await readFile(resolve("components/platform/auth/MfaEnrollmentForm.tsx"), "utf8");
 const backupCodesSource = await readFile(resolve("components/platform/auth/BackupCodesRegenerator.tsx"), "utf8");
+const notificationReadSource = await readFile(resolve("components/platform/notifications/MarkNotificationReadButton.tsx"), "utf8");
 
 assert.match(
   portalFrameSource,
@@ -39,12 +41,16 @@ assert.match(documentsSource, /text-3xl[^\"]*sm:text-5xl/);
 assert.match(filesSource, /text-4xl[^\"]*sm:text-5xl/);
 assert.match(aiSource, /text-3xl[^\"]*sm:text-5xl/);
 assert.match(securitySource, /text-4xl[^\"]*sm:text-5xl/);
+assert.match(profileSource, /text-4xl[^\"]*sm:text-5xl/);
 assert.match(questionnaireSource, /flex min-w-0 items-start/);
 assert.match(practicumSource, /flex min-w-0 items-start/);
 assert.match(documentsSource, /flex min-w-0 items-start/);
 assert.match(filesSource, /flex min-w-0 items-start/);
 assert.match(aiSource, /flex min-w-0 items-center/);
 assert.match(securitySource, /min-w-0 max-w-3xl/);
+assert.match(profileSource, /grid min-w-0 gap-5/);
+assert.match(profileSource, /min-w-0 break-all font-mono/);
+assert.match(profileSource, /mt-2 break-all text-sm font-semibold/);
 assert.match(
   practicumComponentSource,
   /summary className="inline-flex min-h-11 cursor-pointer items-center/,
@@ -57,6 +63,10 @@ assert.match(backupCodesSource, /aria-busy=\{pending\}/);
 assert.match(backupCodesSource, /min-w-0 break-all rounded-xl/);
 assert.match(backupCodesSource, /role="status"/);
 assert.match(backupCodesSource, /w-full[^\"]*sm:w-auto/);
+assert.match(notificationReadSource, /aria-busy=\{pending\}/);
+assert.match(notificationReadSource, /flex min-w-0 flex-wrap/);
+assert.match(notificationReadSource, /role="alert"/);
+assert.match(notificationReadSource, /min-w-0 break-words text-xs/);
 assert.doesNotMatch(securitySource, /Account security|определяются только сервером|TOTP/);
 assert.doesNotMatch(mfaEnrollmentSource, /Сервис 2FA|TOTP-код|TOTP-приложение/);
 assert.doesNotMatch(backupCodesSource, /Сервис 2FA|неожиданный ответ/);
