@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const WORKFLOWS_ROOT = ".github/workflows";
+const REQUIRED_RUNNER = "ubuntu-24.04";
 
 function collectWorkflowFiles(directory) {
   const files = [];
@@ -20,6 +21,7 @@ function collectWorkflowFiles(directory) {
 const violations = [];
 let checkoutCount = 0;
 let workflowCount = 0;
+let runnerCount = 0;
 
 for (const file of collectWorkflowFiles(WORKFLOWS_ROOT)) {
   workflowCount += 1;
@@ -42,9 +44,6 @@ for (const file of collectWorkflowFiles(WORKFLOWS_ROOT)) {
   if (/^\s*secrets\s*:\s*inherit\s*(?:#.*)?$/m.test(source)) {
     violations.push(`${displayPath}: secrets: inherit is forbidden by CI security policy`);
   }
-  if (/^\s*runs-on\s*:\s*.*self-hosted/im.test(source)) {
-    violations.push(`${displayPath}: self-hosted runners are forbidden by CI security policy`);
-  }
   if (/^\s*continue-on-error\s*:\s*true\s*(?:#.*)?$/m.test(source)) {
     violations.push(`${displayPath}: continue-on-error: true is forbidden in protected CI workflows`);
   }
@@ -58,6 +57,16 @@ for (const file of collectWorkflowFiles(WORKFLOWS_ROOT)) {
   }
 
   lines.forEach((line, index) => {
+    const runnerMatch = line.match(/^\s*runs-on\s*:\s*([^\s#]+)(?:\s*#.*)?$/);
+    if (runnerMatch) {
+      runnerCount += 1;
+      if (runnerMatch[1] !== REQUIRED_RUNNER) {
+        violations.push(
+          `${displayPath}:${index + 1}: runs-on must be pinned to ${REQUIRED_RUNNER}; got ${runnerMatch[1]}`,
+        );
+      }
+    }
+
     if (!/^\s*uses:\s*actions\/checkout@/.test(line)) return;
     checkoutCount += 1;
 
@@ -91,6 +100,10 @@ if (checkoutCount === 0) {
   console.error("GITHUB_WORKFLOW_SECURITY_POLICY_FAIL: no checkout step found");
   process.exit(1);
 }
+if (runnerCount === 0) {
+  console.error("GITHUB_WORKFLOW_SECURITY_POLICY_FAIL: no runs-on declaration found");
+  process.exit(1);
+}
 if (violations.length > 0) {
   console.error("GITHUB_WORKFLOW_SECURITY_POLICY_FAIL");
   for (const violation of violations) console.error(violation);
@@ -98,5 +111,5 @@ if (violations.length > 0) {
 }
 
 console.log(
-  `GITHUB_WORKFLOW_SECURITY_POLICY_PASS: ${workflowCount} workflow(s), ${checkoutCount} checkout step(s) hardened`,
+  `GITHUB_WORKFLOW_SECURITY_POLICY_PASS: ${workflowCount} workflow(s), ${checkoutCount} checkout step(s), ${runnerCount} runner(s) hardened`,
 );
