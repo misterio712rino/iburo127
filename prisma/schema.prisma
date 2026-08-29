@@ -49,7 +49,11 @@ enum CaseDocumentStatus {
 
 enum StoredFileStatus {
   PENDING_UPLOAD
+  PENDING_SCAN
+  SCANNING
   READY
+  QUARANTINED
+  SCAN_FAILED
 }
 
 enum NotificationDeliveryChannel {
@@ -359,22 +363,32 @@ model NotificationDelivery {
 }
 
 model StoredFile {
-  id              String           @id @default(uuid()) @db.Uuid
-  clientCaseId    String           @db.Uuid
-  uploadedById    String?          @db.Uuid
-  status          StoredFileStatus @default(PENDING_UPLOAD)
-  storageProvider String
-  objectKey       String           @unique
-  fileName        String
-  mimeType        String
-  sizeBytes       BigInt
-  checksumSha256  String?
-  readyAt         DateTime?
-  createdAt       DateTime         @default(now())
+  id                String           @id @default(uuid()) @db.Uuid
+  clientCaseId      String           @db.Uuid
+  uploadedById      String?          @db.Uuid
+  status            StoredFileStatus @default(PENDING_UPLOAD)
+  storageProvider   String
+  objectKey         String           @unique
+  fileName          String
+  mimeType          String
+  sizeBytes         BigInt
+  checksumSha256    String?
+  scanAttemptCount  Int              @default(0)
+  scanNextAttemptAt DateTime?
+  scanLeaseUntil    DateTime?
+  scanLeaseToken    String?          @db.Uuid
+  scanProvider      String?
+  scanLastErrorCode String?
+  scannedAt         DateTime?
+  quarantinedAt     DateTime?
+  readyAt           DateTime?
+  createdAt         DateTime         @default(now())
 
   clientCase ClientCase @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   uploadedBy User?       @relation("StoredFileUploaders", fields: [uploadedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   @@index([clientCaseId, status, createdAt])
+  @@index([status, scanNextAttemptAt])
+  @@index([status, scanLeaseUntil])
   @@index([uploadedById])
 }
