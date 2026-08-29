@@ -1,0 +1,39 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+
+const portalFrameSource = await readFile(resolve("components/portal/PortalFrame.tsx"), "utf8");
+const questionnaireSource = await readFile(resolve("app/portal/cases/[caseId]/questionnaire/page.tsx"), "utf8");
+const documentsSource = await readFile(resolve("app/portal/cases/[caseId]/documents/page.tsx"), "utf8");
+const filesSource = await readFile(resolve("app/portal/cases/[caseId]/files/page.tsx"), "utf8");
+const aiSource = await readFile(resolve("app/portal/cases/[caseId]/ai/page.tsx"), "utf8");
+
+assert.match(
+  portalFrameSource,
+  /\[&_button\]:min-h-11/,
+  "production portal buttons must keep a 44px minimum touch target",
+);
+assert.match(
+  portalFrameSource,
+  /\[&_a\]:min-h-11/,
+  "production portal links must keep a 44px minimum touch target when their display mode supports height",
+);
+assert.match(
+  portalFrameSource,
+  /flex-nowrap[^\"]*overflow-x-auto[^\"]*sm:flex-wrap/,
+  "mobile portal navigation must stay on one horizontally scrollable row and may wrap again on larger screens",
+);
+assert.match(
+  portalFrameSource,
+  /min-h-11 shrink-0[^\"]*whitespace-nowrap/,
+  "portal navigation items must remain tappable and must not collapse or wrap their labels",
+);
+assert.match(questionnaireSource, /text-4xl[^\"]*sm:text-5xl/);
+assert.match(documentsSource, /text-3xl[^\"]*sm:text-5xl/);
+assert.match(filesSource, /text-4xl[^\"]*sm:text-5xl/);
+assert.match(aiSource, /text-3xl[^\"]*sm:text-5xl/);
+assert.match(documentsSource, /flex min-w-0 items-start/);
+assert.match(filesSource, /flex min-w-0 items-start/);
+assert.match(aiSource, /flex min-w-0 items-center/);
+
+console.log("MOBILE_CRITICAL_PORTAL_CONTRACT_TEST_PASS");

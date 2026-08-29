@@ -35,12 +35,12 @@ export default async function PortalCaseAiPage({ params }: { params: Promise<{ c
           Назад к делу
         </Link>
 
-        <section className="mt-8 rounded-[30px] border border-white/80 bg-white/80 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.06)] sm:p-7">
-          <div className="mb-7 flex flex-col gap-4 border-b border-slate-100 pb-6 sm:flex-row sm:items-center sm:justify-between">
-            <div>
+        <section className="mt-8 rounded-[30px] border border-white/80 bg-white/80 p-4 shadow-[0_18px_60px_rgba(15,23,42,0.06)] sm:p-7">
+          <div className="mb-7 flex min-w-0 flex-col gap-4 border-b border-slate-100 pb-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
               <p className="font-mono text-xs font-semibold tracking-[0.08em] text-slate-400">{clientCase.caseNumber}</p>
-              <h1 className="mt-3 flex items-center gap-3 font-[var(--font-iburo-display)] text-4xl font-semibold text-slate-900 sm:text-5xl">
-                <Sparkles className="size-7 text-[#7B2330]" aria-hidden="true" />
+              <h1 className="mt-3 flex min-w-0 items-center gap-2 break-words font-[var(--font-iburo-display)] text-3xl font-semibold text-slate-900 sm:gap-3 sm:text-5xl">
+                <Sparkles className="size-6 shrink-0 text-[#7B2330] sm:size-7" aria-hidden="true" />
                 AI-помощник
               </h1>
             </div>
