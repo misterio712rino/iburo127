@@ -183,10 +183,10 @@ try {
   assert.match(shortSecretResult.stderr, /IB_MAINTENANCE_SECRET/);
 
   const invalidTimeoutResult = await runRunner("file-scans", {
-    IB_MAINTENANCE_REQUEST_TIMEOUT_MS: "300001",
+    IB_MAINTENANCE_FILE_SCAN_TIMEOUT_MS: "300001",
   });
   assert.equal(invalidTimeoutResult.code, 1);
-  assert.match(invalidTimeoutResult.stderr, /IB_MAINTENANCE_REQUEST_TIMEOUT_MS/);
+  assert.match(invalidTimeoutResult.stderr, /IB_MAINTENANCE_FILE_SCAN_TIMEOUT_MS/);
 
   const notificationRoute = await readFile(
     resolve("app/api/internal/maintenance/notification-deliveries/route.ts"),
