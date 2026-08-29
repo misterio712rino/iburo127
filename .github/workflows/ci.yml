@@ -20,6 +20,19 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Exact candidate checkout
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$EXPECTED_SHA" ]; then
+            echo "EXACT_CANDIDATE_CHECKOUT_FAIL: expected=$EXPECTED_SHA actual=$actual_sha" >&2
+            exit 1
+          fi
+          echo "EXACT_CANDIDATE_CHECKOUT_PASS: $actual_sha"
 
       - name: GitHub Actions pin policy
         run: npm run check:ci-action-pins
