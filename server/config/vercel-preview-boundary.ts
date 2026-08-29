@@ -3,7 +3,9 @@ export const VERCEL_PREVIEW_BOUNDARY_ERROR = "VERCEL_PREVIEW_BOUNDARY_ERROR";
 export const VERCEL_STAGING_BRANCH = "audit/production-readiness";
 export const VERCEL_STAGING_CONFIRMATION = `STAGING:${VERCEL_STAGING_BRANCH}`;
 
-export function isVercelPreviewBackendAllowed(env: NodeJS.ProcessEnv = process.env) {
+type EnvironmentLike = Readonly<Record<string, string | undefined>>;
+
+export function isVercelPreviewBackendAllowed(env: EnvironmentLike = process.env) {
   const vercelEnvironment = env.VERCEL_ENV?.trim();
   if (vercelEnvironment !== "preview") return true;
 
@@ -14,7 +16,7 @@ export function isVercelPreviewBackendAllowed(env: NodeJS.ProcessEnv = process.e
   );
 }
 
-export function assertVercelPreviewBackendAllowed(env: NodeJS.ProcessEnv = process.env) {
+export function assertVercelPreviewBackendAllowed(env: EnvironmentLike = process.env) {
   if (isVercelPreviewBackendAllowed(env)) return;
   throw new Error(VERCEL_PREVIEW_BOUNDARY_ERROR);
 }
