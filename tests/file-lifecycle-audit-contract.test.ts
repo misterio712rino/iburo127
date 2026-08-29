@@ -68,13 +68,21 @@ class FileRepository implements StoredFileRepository {
     this.current = {
       ...input,
       checksumSha256: input.checksumSha256 ?? null,
+      scanAttemptCount: 0,
+      scanNextAttemptAt: null,
+      scanLeaseUntil: null,
+      scanLeaseToken: null,
+      scanProvider: null,
+      scanLastErrorCode: null,
+      scannedAt: null,
+      quarantinedAt: null,
       readyAt: null,
       createdAt: now,
     };
     return this.current;
   }
 
-  async markReady(fileId: string, readyAt: Date, auditActorUserId: string) {
+  async markPendingScan(fileId: string, scanNextAttemptAt: Date, auditActorUserId: string) {
     this.lastAuditActorUserId = auditActorUserId;
     if (
       this.losePendingRace ||
@@ -85,8 +93,33 @@ class FileRepository implements StoredFileRepository {
     ) {
       return null;
     }
-    this.current = { ...this.current, status: "READY", readyAt };
+    this.current = {
+      ...this.current,
+      status: "PENDING_SCAN",
+      scanNextAttemptAt,
+      readyAt: null,
+    };
     return this.current;
+  }
+
+  async claimDueScan() {
+    return null;
+  }
+
+  async markScanClean() {
+    return null;
+  }
+
+  async markScanQuarantined() {
+    return null;
+  }
+
+  async rescheduleScan() {
+    return false;
+  }
+
+  async markScanFailed() {
+    return false;
   }
 
   async deletePending() {
@@ -99,6 +132,9 @@ class FileRepository implements StoredFileRepository {
 }
 
 assert.equal(requireCaseActivityType("file.upload.completed"), "file.upload.completed");
+assert.equal(requireCaseActivityType("file.scan.clean"), "file.scan.clean");
+assert.equal(requireCaseActivityType("file.scan.quarantined"), "file.scan.quarantined");
+assert.equal(requireCaseActivityType("file.scan.failed"), "file.scan.failed");
 
 const repository = new FileRepository();
 const service = new StoredFileService(new ClientCaseService(new CaseRepository()), repository);
@@ -114,9 +150,11 @@ const pending = await service.registerPendingUpload(actor, {
 });
 assert.equal(pending.status, "PENDING_UPLOAD");
 
-const ready = await service.markUploadReady(actor, pending.id);
-assert.equal(ready.status, "READY");
+const pendingScan = await service.markUploadPendingScan(actor, pending.id, now);
+assert.equal(pendingScan.status, "PENDING_SCAN");
+assert.equal(pendingScan.readyAt, null);
 assert.equal(repository.lastAuditActorUserId, actor.userId);
+await assert.rejects(service.get(actor, pending.id), /FILE_NOT_FOUND/);
 
 await service.registerPendingUpload(actor, {
   id: "file-2",
@@ -128,6 +166,9 @@ await service.registerPendingUpload(actor, {
   sizeBytes: BigInt(2048),
 });
 repository.losePendingRace = true;
-await assert.rejects(service.markUploadReady(actor, "file-2"), /FILE_UPLOAD_NOT_PENDING/);
+await assert.rejects(
+  service.markUploadPendingScan(actor, "file-2", now),
+  /FILE_UPLOAD_NOT_PENDING/,
+);
 
 console.log("FILE_LIFECYCLE_AUDIT_CONTRACT_PASS");
