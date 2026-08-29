@@ -67,7 +67,11 @@ export default async function PortalCaseProgressPage({ params }: { params: Promi
       : null,
     practicum: practicum
       ? {
-          status: practicum.status,
+          status: practicum.completedAt
+            ? "COMPLETED"
+            : practicum.completedLessonIds.length > 0
+              ? "IN_PROGRESS"
+              : "NOT_STARTED",
           completedLessonCount: practicum.completedLessonIds.length,
           totalLessonCount: PRACTICUM_LESSONS.length,
         }
