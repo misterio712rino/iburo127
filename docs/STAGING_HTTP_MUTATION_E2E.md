@@ -8,6 +8,33 @@ Command:
 npm run check:staging:http-mutations
 ```
 
+## Network-free preflight
+
+Every supported mutation entrypoint now runs:
+
+```bash
+npm run check:staging:http-mutation-preflight
+```
+
+before importing any verifier code that can call `fetch`.
+
+The preflight is pure and network-free. A configuration error therefore aborts before the first HTTP request and before questionnaire/task/document/file staging state can be changed.
+
+It verifies all of the following in advance:
+
+- exact staging application origin and production-host denylist;
+- `IB_STAGING_MUTATION_TARGET=staging`;
+- exact `MUTATE:<staging-host>` confirmation;
+- CLIENT/LAWYER/MANAGER fixture cookies plus mutation case/task identifiers;
+- `IB_STAGING_FILES_E2E` and `IB_STAGING_FILE_SCAN_E2E` are exactly `0` or `1`;
+- scan E2E cannot be enabled unless file E2E is enabled;
+- file E2E has the exact private-bucket confirmation and a genuinely different second CLIENT cookie;
+- scan E2E has the exact `SCAN:<staging-host>` confirmation;
+- scan E2E maximum worker runs are bounded to 1–20;
+- the maintenance secret is present, at least 32 characters and contains no leading/trailing whitespace, CR, LF or NUL.
+
+The direct verifier scripts are also wrappers around the same preflight, so invoking them with `tsx` does not bypass this gate.
+
 ## Safety gate
 
 The harness is intentionally mutation-capable and refuses to run unless all of the following are true:
@@ -93,7 +120,7 @@ If a previous run was interrupted after the task mutation, reset the dedicated s
 
 ## Private file storage / quarantine E2E
 
-Storage execution is **off by default**. Without a real private staging bucket the command only reports that the file E2E contract is prepared and skips all storage mutation.
+Storage execution is **off by default**. Without a real private staging bucket the command reports that the file E2E contract is prepared and skips all storage mutation.
 
 After the private staging Yandex Object Storage bucket is configured and has passed `npm run check:staging:storage`, explicitly add:
 
