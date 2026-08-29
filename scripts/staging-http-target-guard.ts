@@ -10,6 +10,10 @@ function required(env: NodeJS.ProcessEnv, name: string): string {
   return value;
 }
 
+function normalizedHostname(url: URL): string {
+  return url.hostname.toLowerCase().replace(/\.+$/, "");
+}
+
 export function requireStagingHttpTarget(
   env: NodeJS.ProcessEnv = process.env,
 ): URL {
@@ -25,10 +29,11 @@ export function requireStagingHttpTarget(
     fail("IB_STAGING_BASE_URL is invalid");
   }
 
+  const hostname = normalizedHostname(url);
   const loopback =
-    url.hostname === "localhost" ||
-    url.hostname === "127.0.0.1" ||
-    url.hostname === "[::1]";
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "[::1]";
   if (url.protocol !== "https:" && !(loopback && url.protocol === "http:")) {
     fail("IB_STAGING_BASE_URL must use https unless it targets loopback");
   }
@@ -41,7 +46,7 @@ export function requireStagingHttpTarget(
   ) {
     fail("IB_STAGING_BASE_URL must be an origin without credentials/path/query/hash");
   }
-  if (url.hostname === "iburo127.ru" || url.hostname === "www.iburo127.ru") {
+  if (hostname === "iburo127.ru" || hostname.endsWith(".iburo127.ru")) {
     fail("production hostname is explicitly blocked");
   }
 

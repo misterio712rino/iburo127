@@ -1,5 +1,10 @@
 import "dotenv/config";
 
+import {
+  requireStagingHttpTarget,
+  STAGING_HTTP_TARGET_GUARD,
+} from "./staging-http-target-guard";
+
 function fail(message: string): never {
   console.error(`STAGING_HTTP_AUTHZ_FAIL: ${message}`);
   process.exit(1);
@@ -11,14 +16,16 @@ function required(name: string): string {
   return value;
 }
 
-const baseUrlValue = required("IB_STAGING_BASE_URL");
-const baseUrl = new URL(baseUrlValue);
-if (baseUrl.protocol !== "https:" && baseUrl.hostname !== "localhost" && baseUrl.hostname !== "127.0.0.1") {
-  fail("IB_STAGING_BASE_URL must use https unless it targets localhost");
+let baseUrl: URL;
+try {
+  baseUrl = requireStagingHttpTarget(process.env);
+} catch (error) {
+  const message =
+    error instanceof Error && error.message.startsWith(`${STAGING_HTTP_TARGET_GUARD}:`)
+      ? error.message
+      : `${STAGING_HTTP_TARGET_GUARD}:UNEXPECTED`;
+  fail(message);
 }
-baseUrl.pathname = "/";
-baseUrl.search = "";
-baseUrl.hash = "";
 
 const clientCookie = required("IB_STAGING_CLIENT_COOKIE");
 const lawyerCookie = required("IB_STAGING_LAWYER_COOKIE");

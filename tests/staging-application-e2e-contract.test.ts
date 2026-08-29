@@ -6,6 +6,10 @@ import {
   generateTotp,
   StagingCookieJar,
 } from "../scripts/staging-auth-flow-core";
+import {
+  requireStagingHttpTarget,
+  STAGING_HTTP_TARGET_GUARD,
+} from "../scripts/staging-http-target-guard";
 
 const rfcSecret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
 assert.equal(generateTotp(rfcSecret, { timestampMs: 59_000, digits: 8 }), "94287082");
@@ -49,6 +53,35 @@ assert.equal(
   false,
 );
 
+assert.equal(
+  requireStagingHttpTarget({
+    IB_RUNTIME_TARGET: "staging",
+    IB_STAGING_BASE_URL: "https://preview.example.vercel.app",
+  }).origin,
+  "https://preview.example.vercel.app",
+);
+assert.equal(
+  requireStagingHttpTarget({
+    IB_RUNTIME_TARGET: "staging",
+    IB_STAGING_BASE_URL: "http://127.0.0.1:3000",
+  }).origin,
+  "http://127.0.0.1:3000",
+);
+for (const env of [
+  { IB_STAGING_BASE_URL: "https://preview.example.vercel.app" },
+  { IB_RUNTIME_TARGET: "production", IB_STAGING_BASE_URL: "https://preview.example.vercel.app" },
+  { IB_RUNTIME_TARGET: "staging", IB_STAGING_BASE_URL: "https://iburo127.ru" },
+  { IB_RUNTIME_TARGET: "staging", IB_STAGING_BASE_URL: "https://www.iburo127.ru" },
+  { IB_RUNTIME_TARGET: "staging", IB_STAGING_BASE_URL: "https://api.iburo127.ru" },
+  { IB_RUNTIME_TARGET: "staging", IB_STAGING_BASE_URL: "https://IBURO127.RU." },
+  { IB_RUNTIME_TARGET: "staging", IB_STAGING_BASE_URL: "https://preview.example.vercel.app/path" },
+  { IB_RUNTIME_TARGET: "staging", IB_STAGING_BASE_URL: "https://preview.example.vercel.app?x=1" },
+  { IB_RUNTIME_TARGET: "staging", IB_STAGING_BASE_URL: "https://user:pass@preview.example.vercel.app" },
+  { IB_RUNTIME_TARGET: "staging", IB_STAGING_BASE_URL: "http://preview.example.com" },
+] satisfies NodeJS.ProcessEnv[]) {
+  assert.throws(() => requireStagingHttpTarget(env), new RegExp(`^${STAGING_HTTP_TARGET_GUARD}:`));
+}
+
 const jar = new StagingCookieJar();
 jar.absorbSetCookieLines([
   "session=alpha==; Path=/; HttpOnly; Secure",
@@ -60,17 +93,13 @@ assert.equal(jar.header(), "two_factor=beta");
 jar.clear();
 assert.equal(jar.hasCookies, false);
 
-const packageJson = JSON.parse(
-  await readFile(resolve("package.json"), "utf8"),
-) as { scripts?: Record<string, string> };
-const sessionSource = await readFile(
-  resolve("scripts/staging-authenticated-sessions.ts"),
-  "utf8",
-);
-const orchestratorSource = await readFile(
-  resolve("scripts/verify-staging-application-e2e.ts"),
-  "utf8",
-);
+const packageJson = JSON.parse(await readFile(resolve("package.json"), "utf8")) as {
+  scripts?: Record<string, string>;
+};
+const sessionSource = await readFile(resolve("scripts/staging-authenticated-sessions.ts"), "utf8");
+const orchestratorSource = await readFile(resolve("scripts/verify-staging-application-e2e.ts"), "utf8");
+const httpAuthzSource = await readFile(resolve("scripts/verify-staging-http-authz.ts"), "utf8");
+const aiHttpAuthzSource = await readFile(resolve("scripts/verify-staging-ai-http-authz.ts"), "utf8");
 
 assert.equal(
   packageJson.scripts?.["check:staging:auth-flow"],
@@ -93,6 +122,17 @@ for (const path of orderedVerifierPaths) {
   const index = orchestratorSource.indexOf(path);
   assert.ok(index > previousIndex, `${path} must remain in the reviewed E2E order`);
   previousIndex = index;
+}
+
+for (const [label, source] of [
+  ["HTTP authorization", httpAuthzSource],
+  ["AI HTTP authorization", aiHttpAuthzSource],
+] as const) {
+  const guardIndex = source.indexOf("requireStagingHttpTarget(process.env)");
+  const fetchIndex = source.indexOf("fetch(");
+  assert.ok(guardIndex >= 0, `${label} must invoke the shared staging HTTP target guard`);
+  assert.ok(fetchIndex > guardIndex, `${label} must validate the staging target before first fetch`);
+  assert.match(source, /STAGING_HTTP_TARGET_GUARD/);
 }
 
 assert.match(orchestratorSource, /createStagingAuthenticatedSessions/);
