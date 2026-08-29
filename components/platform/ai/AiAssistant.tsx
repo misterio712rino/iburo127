@@ -70,7 +70,7 @@ function LoadingCard() {
     <PlatformCard className="p-6 sm:p-8">
       <div role="status" className="flex items-center gap-3 text-sm text-muted-foreground">
         <span className="size-2 animate-pulse rounded-full bg-primary" />
-        Загружаем безопасный контекст дела…
+        Загружаем данные вашего дела…
       </div>
     </PlatformCard>
   );
@@ -177,7 +177,7 @@ function AiChat({
       } else if (error instanceof AiApiError && error.status === 429) {
         setRequestError("Лимит запросов временно исчерпан. Попробуйте позже.");
       } else if (error instanceof AiApiError && error.status === 503) {
-        setRequestError("AI-помощник временно недоступен. Ваше сообщение не было сохранено сервером.");
+        setRequestError("AI-помощник временно недоступен. Ваше сообщение не было сохранено.");
       } else {
         setRequestError("Не удалось получить ответ. Попробуйте отправить сообщение ещё раз.");
       }
@@ -208,7 +208,7 @@ function AiChat({
         <div>
           <p className="font-semibold">Информационная поддержка</p>
           <p className="mt-1 text-muted-foreground">
-            AI-помощник помогает ориентироваться в материалах дела. Его ответы не являются окончательным юридическим заключением. История этого чата не сохраняется в localStorage.
+            AI-помощник помогает ориентироваться в материалах дела. Его ответы не являются окончательным юридическим заключением. История этого чата не сохраняется в браузере.
           </p>
         </div>
       </div>
@@ -220,7 +220,7 @@ function AiChat({
             </span>
             <div>
               <h2 className="font-semibold">Помощник <IBuroBrand /></h2>
-              <p className="text-xs text-muted-foreground">Контекст дела получен с сервера</p>
+              <p className="text-xs text-muted-foreground">Контекст дела загружен</p>
             </div>
           </div>
           <div role="log" aria-live="polite" aria-label="История диалога" className="max-h-[36rem] min-h-[24rem] min-w-0 space-y-5 overflow-y-auto p-3 sm:p-5">

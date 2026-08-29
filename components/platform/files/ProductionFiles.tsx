@@ -106,7 +106,7 @@ export function ProductionFiles({
       const completed = (await completeResponse.json()) as ApiResult<StoredFileView>;
       if (!completed.ok) {
         if (completeResponse.status === 409) {
-          setError("Файл был отправлен в хранилище, но сервер ещё не подтвердил загрузку. Повторите попытку через несколько секунд.");
+          setError("Файл загружен, но проверка ещё не завершена. Повторите попытку через несколько секунд.");
           return;
         }
         throw new Error(completed.error.code);
@@ -139,7 +139,7 @@ export function ProductionFiles({
       if (!result.ok) throw new Error(result.error.code);
       window.location.assign(result.data.url);
     } catch {
-      setError("Не удалось получить защищённую ссылку на файл. Повторите попытку.");
+      setError("Не удалось подготовить защищённую ссылку на файл. Повторите попытку.");
     } finally {
       setDownloadingId(null);
     }
@@ -152,7 +152,7 @@ export function ProductionFiles({
           <div>
             <p className="font-bold text-slate-900">Добавить файл в дело</p>
             <p className="mt-1 text-sm leading-6 text-slate-500">
-              PDF, JPG, PNG, WEBP, DOC или DOCX до 50 МБ. Файл становится видимым только после серверной проверки загрузки.
+              PDF, JPG, PNG, WEBP, DOC или DOCX до 50 МБ. После загрузки файл проходит проверку безопасности и затем появляется в списке.
             </p>
           </div>
           <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-[#17202a] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#263342] has-[input:disabled]:cursor-not-allowed has-[input:disabled]:opacity-50">

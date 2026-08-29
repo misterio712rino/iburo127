@@ -112,7 +112,7 @@ export function ProductionQuestionnaire({
           return;
         }
         if (result.error.code === "INVALID_INPUT") {
-          setError("Сервер отклонил значение поля. Проверьте формат данных.");
+          setError("Не удалось сохранить значение. Проверьте формат данных.");
           return;
         }
         throw new Error(result.error.code);
@@ -182,7 +182,7 @@ export function ProductionQuestionnaire({
       <div className="mt-8 rounded-[24px] border border-dashed border-slate-300 bg-slate-50/70 p-6">
         <p className="font-semibold text-slate-900">Анкета ещё не создана</p>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-          После начала ответы будут храниться в PostgreSQL в рамках этого дела. Данные браузера не являются источником истины.
+          После начала ответы будут сохраняться в вашем деле. Вы сможете возвращаться к заполнению до окончательного завершения анкеты.
         </p>
         {canEdit ? (
           <button
@@ -208,7 +208,7 @@ export function ProductionQuestionnaire({
     <div className="mt-8 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-slate-100 bg-slate-50/70 p-5">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Серверное состояние</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Состояние анкеты</p>
           <p className="mt-2 text-lg font-bold text-slate-900">
             {state.status === "COMPLETED" ? "Анкета завершена" : `${completedSet.size} из ${QUESTIONNAIRE_SECTIONS.length} разделов`}
           </p>
@@ -253,7 +253,7 @@ export function ProductionQuestionnaire({
               </div>
             ) : section.review ? (
               <div className="mt-6 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-sm leading-6 text-slate-500">
-                Итоговый раздел подтверждает, что предыдущие разделы проверены. Сервер повторно проверит обязательные поля перед окончательным завершением анкеты.
+                Итоговый раздел подтверждает, что предыдущие разделы проверены. Перед завершением система ещё раз проверит обязательные поля.
               </div>
             ) : null}
 

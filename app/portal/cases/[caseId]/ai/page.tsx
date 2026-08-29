@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Sparkles } from "lucide-react";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import { AiAssistant } from "@/components/platform/ai/AiAssistant";
+import { getPlanLabel } from "@/lib/platform/case-progress";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { getCurrentPlatformActor } from "@/server/client-cases/operations";
@@ -28,7 +29,7 @@ export default async function PortalCaseAiPage({ params }: { params: Promise<{ c
   if (!clientCase || clientCase.clientId !== actor.userId) notFound();
 
   return (
-    <PortalFrame sectionLabel="Защищённый AI-помощник" accessLabel="Доступ подтверждён">
+    <PortalFrame sectionLabel="AI-помощник" accessLabel="Доступ подтверждён">
       <main className="py-10 sm:py-12">
         <Link href={`/portal/cases/${clientCase.id}`} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900">
           <ArrowLeft className="size-4" aria-hidden="true" />
@@ -44,7 +45,7 @@ export default async function PortalCaseAiPage({ params }: { params: Promise<{ c
                 AI-помощник
               </h1>
             </div>
-            <span className="w-fit rounded-full bg-slate-100 px-4 py-2 text-xs font-bold uppercase tracking-[0.08em] text-slate-600">{clientCase.planCode}</span>
+            <span className="w-fit rounded-full bg-slate-100 px-4 py-2 text-xs font-bold text-slate-600">{getPlanLabel(clientCase.planCode)}</span>
           </div>
 
           <AiAssistant caseId={clientCase.id} withShell={false} />

@@ -32,7 +32,7 @@ export default async function PortalDocumentsPage({ params }: { params: Promise<
   const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
 
   return (
-    <PortalFrame sectionLabel="Защищённые документы" accessLabel="Доступ подтверждён" showStaffTasks={isStaff}>
+    <PortalFrame sectionLabel="Документы" accessLabel="Доступ подтверждён" showStaffTasks={isStaff}>
       <main className="py-10 sm:py-14">
         <Link href={`/portal/cases/${caseId}`} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900">
           <ArrowLeft className="size-4" aria-hidden="true" />
@@ -45,7 +45,7 @@ export default async function PortalDocumentsPage({ params }: { params: Promise<
             <div className="min-w-0">
               <p className="font-mono text-xs font-semibold tracking-[0.08em] text-slate-400">{clientCase.caseNumber}</p>
               <h1 className="mt-2 break-words font-[var(--font-iburo-display)] text-3xl font-semibold leading-none text-slate-900 sm:text-5xl">Документы</h1>
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">Документы формируются из серверного состояния анкеты. Клиент создаёт и передаёт черновики на проверку, а назначенный юрист или руководитель подтверждает результат.</p>
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">Документы формируются по актуальным данным анкеты. Клиент создаёт и передаёт черновики на проверку, а назначенный юрист или руководитель подтверждает результат.</p>
             </div>
           </div>
         </section>

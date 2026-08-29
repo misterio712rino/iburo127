@@ -44,7 +44,7 @@ export default async function PortalQuestionnairePage({ params }: { params: Prom
             <div className="min-w-0">
               <p className="font-mono text-xs font-semibold tracking-[0.08em] text-slate-400">{clientCase.caseNumber}</p>
               <h1 className="mt-2 break-words font-[var(--font-iburo-display)] text-4xl font-semibold leading-none text-slate-900 sm:text-5xl">Анкета</h1>
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">Ответы сохраняются через авторизованный серверный workflow с контролем версии. Изменение ответа автоматически снимает подтверждение соответствующего раздела и итоговой проверки.</p>
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">Заполняйте сведения по разделам и сохраняйте ответы по мере готовности. Если изменить ответ, соответствующий раздел потребуется подтвердить повторно.</p>
             </div>
           </div>
 

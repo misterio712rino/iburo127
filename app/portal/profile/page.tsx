@@ -72,7 +72,7 @@ export default async function PortalProfilePage() {
             </dl>
 
             <p className="mt-6 text-xs leading-5 text-slate-400">
-              Учётная запись создана {profile.createdAt.toLocaleDateString("ru-RU")}. Контактные данные отображаются из внутренней учётной записи iБюро.
+              Учётная запись создана {profile.createdAt.toLocaleDateString("ru-RU")}. Контактные данные отображаются из вашей учётной записи iБюро.
             </p>
           </article>
 
@@ -82,7 +82,7 @@ export default async function PortalProfilePage() {
                 <span className="grid size-11 place-items-center rounded-2xl bg-slate-100 text-slate-700"><BriefcaseBusiness className="size-5" aria-hidden="true" /></span>
                 <div>
                   <h2 className="text-lg font-bold text-slate-900">Дела</h2>
-                  <p className="text-sm text-slate-500">Только дела, доступные текущей учётной записи.</p>
+                  <p className="text-sm text-slate-500">Только дела, доступные вашей учётной записи.</p>
                 </div>
               </div>
               <dl className="mt-6 grid grid-cols-3 gap-3">

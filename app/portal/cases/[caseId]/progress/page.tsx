@@ -64,16 +64,16 @@ export default async function PortalCaseProgressPage({ params }: { params: Promi
             <div className="max-w-3xl">
               <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500"><Gauge className="size-4" aria-hidden="true" />Состояние дела</span>
               <p className="mt-3 font-mono text-xs font-semibold tracking-[0.08em] text-slate-400">{clientCase.caseNumber}</p>
-              <h1 className="mt-2 font-[var(--font-iburo-display)] text-5xl font-semibold leading-none text-slate-900">Прогресс дела</h1>
+              <h1 className="mt-2 font-[var(--font-iburo-display)] text-4xl font-semibold leading-none text-slate-900 sm:text-5xl">Прогресс дела</h1>
               <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">
-                Здесь отображается фактическое серверное состояние этапа, анкеты, практикума, документов и доступных файлов. Это не прогноз срока завершения процедуры банкротства.
+                Здесь собраны текущий этап дела, готовность анкеты, практикума, документов и доступных файлов. Это не прогноз срока завершения процедуры банкротства.
               </p>
             </div>
             <div className="rounded-2xl bg-slate-50 px-5 py-4 lg:text-right">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Текущий этап</p>
               <p className="mt-2 text-xl font-bold text-slate-900">{summary.stage.label}</p>
               <p className="mt-1 text-xs font-semibold text-slate-500">
-                {summary.stage.position ? `Этап ${summary.stage.position} из ${summary.stage.total}` : summary.stage.code}
+                {summary.stage.position ? `Этап ${summary.stage.position} из ${summary.stage.total}` : isStaff ? summary.stage.code : "Этап уточняется"}
               </p>
             </div>
           </div>
@@ -102,7 +102,7 @@ export default async function PortalCaseProgressPage({ params }: { params: Promi
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{summary.nextAction.description}</p>
             </div>
             <Link href={nextHref} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#17202a] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#263342]">
-              Открыть модуль <ArrowRight className="size-4" aria-hidden="true" />
+              Перейти <ArrowRight className="size-4" aria-hidden="true" />
             </Link>
           </div>
         </section>
@@ -133,16 +133,16 @@ export default async function PortalCaseProgressPage({ params }: { params: Promi
           />
           <MetricCard
             icon={FileCheck2}
-            title="Файлы READY"
+            title="Проверенные файлы"
             primary={`${summary.readyFileCount} шт.`}
-            detail="Показываются только файлы, прошедшие server-side проверку и malware scan."
+            detail="Показываются только файлы, прошедшие проверку безопасности."
             href={`${caseHref}/files`}
           />
         </section>
 
         <div className="mt-6 flex items-start gap-3 rounded-2xl border border-slate-200 bg-white/65 px-4 py-4 text-xs leading-5 text-slate-500">
           <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden="true" />
-          Источник истины для этого экрана — серверные данные текущего ClientCase. Локальное состояние браузера не используется для определения этапа или готовности материалов.
+          Этап и готовность материалов рассчитываются автоматически по актуальным данным вашего дела.
         </div>
       </main>
     </PortalFrame>

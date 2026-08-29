@@ -228,7 +228,7 @@ export function ProductionDocuments({
               ) : null}
 
               {pendingForDocument ? (
-                <span className="sr-only" aria-live="polite">Выполняется серверное действие</span>
+                <span className="sr-only" aria-live="polite">Выполняется действие</span>
               ) : null}
             </article>
           );
