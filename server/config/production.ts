@@ -32,6 +32,26 @@ function requireSafeEmailAddress(env: NodeJS.ProcessEnv, name: string) {
   return value;
 }
 
+function requireHttpsOrigin(env: NodeJS.ProcessEnv, name: string) {
+  const value = requireEnv(env, name);
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`${PRODUCTION_CONFIG_ERROR}:${name}`);
+  }
+
+  const originOnly =
+    parsed.protocol === "https:" &&
+    (parsed.pathname === "/" || parsed.pathname === "") &&
+    !parsed.search &&
+    !parsed.hash &&
+    !parsed.username &&
+    !parsed.password;
+  if (!originOnly) throw new Error(`${PRODUCTION_CONFIG_ERROR}:${name}`);
+  return parsed.origin;
+}
+
 export type ProductionDatabaseConfig = {
   databaseUrl: string;
 };
@@ -67,10 +87,22 @@ export type OpenAiRuntimeConfig = {
   maxOutputTokens: number;
 };
 
+export type FileScannerRuntimeConfig = {
+  origin: string;
+  secret: string;
+  requestTimeoutMs: number;
+};
+
 export type MaintenanceRuntimeConfig = {
   secret: string;
   staleUploadMaxAgeMinutes: number;
   staleUploadBatchLimit: number;
+  fileScanBatchLimit: number;
+  fileScanLeaseSeconds: number;
+  fileScanSourceUrlTtlSeconds: number;
+  fileScanMaxAttempts: number;
+  fileScanRetryBaseSeconds: number;
+  fileScanRetryMaxSeconds: number;
   aiAuditGraceMinutes: number;
   aiAuditBatchLimit: number;
 };
@@ -178,11 +210,68 @@ export function readOpenAiRuntimeConfig(
   };
 }
 
+export function readFileScannerRuntimeConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): FileScannerRuntimeConfig {
+  const secret = requireEnv(env, "IB_FILE_SCANNER_SECRET");
+  if (secret.length < 32 || /[\r\n\0]/.test(secret)) {
+    throw new Error(`${PRODUCTION_CONFIG_ERROR}:IB_FILE_SCANNER_SECRET`);
+  }
+
+  return {
+    origin: requireHttpsOrigin(env, "IB_FILE_SCANNER_ORIGIN"),
+    secret,
+    requestTimeoutMs: readIntegerEnv(
+      env,
+      "IB_FILE_SCANNER_REQUEST_TIMEOUT_MS",
+      60_000,
+      1_000,
+      120_000,
+    ),
+  };
+}
+
 export function readMaintenanceRuntimeConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): MaintenanceRuntimeConfig {
   const secret = requireEnv(env, "IB_MAINTENANCE_SECRET");
   if (secret.length < 32) throw new Error(`${PRODUCTION_CONFIG_ERROR}:IB_MAINTENANCE_SECRET`);
+
+  const fileScanLeaseSeconds = readIntegerEnv(
+    env,
+    "IB_FILE_SCAN_LEASE_SECONDS",
+    120,
+    30,
+    900,
+  );
+  const fileScanSourceUrlTtlSeconds = readIntegerEnv(
+    env,
+    "IB_FILE_SCAN_SOURCE_URL_TTL_SECONDS",
+    180,
+    30,
+    900,
+  );
+  if (fileScanSourceUrlTtlSeconds < fileScanLeaseSeconds) {
+    throw new Error(`${PRODUCTION_CONFIG_ERROR}:IB_FILE_SCAN_SOURCE_URL_TTL_SECONDS`);
+  }
+
+  const fileScanRetryBaseSeconds = readIntegerEnv(
+    env,
+    "IB_FILE_SCAN_RETRY_BASE_SECONDS",
+    60,
+    10,
+    3_600,
+  );
+  const fileScanRetryMaxSeconds = readIntegerEnv(
+    env,
+    "IB_FILE_SCAN_RETRY_MAX_SECONDS",
+    3_600,
+    10,
+    86_400,
+  );
+  if (fileScanRetryMaxSeconds < fileScanRetryBaseSeconds) {
+    throw new Error(`${PRODUCTION_CONFIG_ERROR}:IB_FILE_SCAN_RETRY_MAX_SECONDS`);
+  }
 
   return {
     secret,
@@ -194,6 +283,12 @@ export function readMaintenanceRuntimeConfig(
       10_080,
     ),
     staleUploadBatchLimit: readIntegerEnv(env, "IB_STALE_UPLOAD_BATCH_LIMIT", 100, 1, 500),
+    fileScanBatchLimit: readIntegerEnv(env, "IB_FILE_SCAN_BATCH_LIMIT", 10, 1, 100),
+    fileScanLeaseSeconds,
+    fileScanSourceUrlTtlSeconds,
+    fileScanMaxAttempts: readIntegerEnv(env, "IB_FILE_SCAN_MAX_ATTEMPTS", 5, 1, 20),
+    fileScanRetryBaseSeconds,
+    fileScanRetryMaxSeconds,
     aiAuditGraceMinutes: readIntegerEnv(
       env,
       "IB_AI_AUDIT_GRACE_MINUTES",
