@@ -24,15 +24,15 @@ function requireSecret(env) {
   return secret;
 }
 
-function requireBaseUrl(env) {
-  const raw = env.IB_MAINTENANCE_BASE_URL?.trim();
-  if (!raw) fail("IB_MAINTENANCE_BASE_URL");
+function parseOrigin(value, name) {
+  const raw = value?.trim();
+  if (!raw) fail(name);
 
   let parsed;
   try {
     parsed = new URL(raw);
   } catch {
-    fail("IB_MAINTENANCE_BASE_URL");
+    fail(name);
   }
 
   const loopback =
@@ -47,8 +47,33 @@ function requireBaseUrl(env) {
     !parsed.username &&
     !parsed.password;
 
-  if (!secureProtocol || !originOnly) fail("IB_MAINTENANCE_BASE_URL");
-  return parsed.origin;
+  if (!secureProtocol || !originOnly) fail(name);
+  return { origin: parsed.origin, loopback };
+}
+
+function requireBaseUrl(env) {
+  return parseOrigin(env.IB_MAINTENANCE_BASE_URL, "IB_MAINTENANCE_BASE_URL");
+}
+
+function assertMaintenanceEnvironmentTarget(env, target) {
+  if (target.loopback) return;
+
+  const runtimeTarget = env.IB_RUNTIME_TARGET?.trim();
+  if (runtimeTarget !== "staging" && runtimeTarget !== "production") {
+    fail("IB_RUNTIME_TARGET must be staging or production for non-loopback maintenance requests");
+  }
+
+  const authOrigin = parseOrigin(env.BETTER_AUTH_URL, "BETTER_AUTH_URL");
+  if (authOrigin.origin !== target.origin) {
+    fail("IB_MAINTENANCE_BASE_URL must match BETTER_AUTH_URL origin");
+  }
+
+  if (runtimeTarget === "staging") {
+    const stagingOrigin = parseOrigin(env.IB_STAGING_BASE_URL, "IB_STAGING_BASE_URL");
+    if (stagingOrigin.origin !== target.origin) {
+      fail("IB_MAINTENANCE_BASE_URL must match IB_STAGING_BASE_URL in staging");
+    }
+  }
 }
 
 function readBoundedTimeout(env, name, fallback) {
@@ -85,10 +110,11 @@ export async function runMaintenanceJob({
   const resolvedJob = requireJob(job);
   if (typeof fetchImpl !== "function") fail("fetch is unavailable");
 
-  const baseUrl = requireBaseUrl(env);
+  const target = requireBaseUrl(env);
+  assertMaintenanceEnvironmentTarget(env, target);
   const secret = requireSecret(env);
   const timeoutMs = readTimeoutMs(env, resolvedJob);
-  const endpoint = new URL(JOB_PATHS[resolvedJob], `${baseUrl}/`);
+  const endpoint = new URL(JOB_PATHS[resolvedJob], `${target.origin}/`);
 
   let response;
   try {
