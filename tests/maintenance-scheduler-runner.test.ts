@@ -120,6 +120,16 @@ try {
   assert.equal(requests.at(-1)?.url, "/api/internal/maintenance/file-scans");
   assert.equal(requests.at(-1)?.authorization, `Bearer ${secret}`);
 
+  const fileScanHealthResult = await runRunner("file-scan-health");
+  assert.equal(fileScanHealthResult.code, 0);
+  assert.match(
+    fileScanHealthResult.stdout,
+    /MAINTENANCE_SCHEDULER_PASS job=file-scan-health status=200/,
+  );
+  assert.equal(requests.at(-1)?.method, "POST");
+  assert.equal(requests.at(-1)?.url, "/api/internal/maintenance/file-scan-health");
+  assert.equal(requests.at(-1)?.authorization, `Bearer ${secret}`);
+
   const aiAuditHealthResult = await runRunner("ai-audit-health");
   assert.equal(aiAuditHealthResult.code, 0);
   assert.match(
@@ -137,6 +147,8 @@ try {
     staleUploadResult.stderr,
     fileScanResult.stdout,
     fileScanResult.stderr,
+    fileScanHealthResult.stdout,
+    fileScanHealthResult.stderr,
     aiAuditHealthResult.stdout,
     aiAuditHealthResult.stderr,
   ]) {
@@ -144,11 +156,11 @@ try {
   }
 
   responseMode = "unhealthy";
-  const unhealthyResult = await runRunner("file-scans");
+  const unhealthyResult = await runRunner("file-scan-health");
   assert.equal(unhealthyResult.code, 1);
   assert.match(
     unhealthyResult.stderr,
-    /MAINTENANCE_SCHEDULER_FAIL:unhealthy response for file-scans status=503/,
+    /MAINTENANCE_SCHEDULER_FAIL:unhealthy response for file-scan-health status=503/,
   );
   assert.doesNotMatch(unhealthyResult.stderr, new RegExp(secret));
 
@@ -166,7 +178,7 @@ try {
   assert.equal(invalidJobResult.code, 1);
   assert.match(
     invalidJobResult.stderr,
-    /job must be notification-deliveries, stale-uploads, file-scans, or ai-audit-health/,
+    /job must be notification-deliveries, stale-uploads, file-scans, file-scan-health, or ai-audit-health/,
   );
   assert.equal(requests.length, requestCountBeforeInvalidJob);
 
@@ -222,6 +234,23 @@ try {
   assert.doesNotMatch(fileScanRoute, /clientCaseId\s*:/);
   assert.doesNotMatch(fileScanRoute, /scanLeaseToken\s*:/);
   assert.doesNotMatch(fileScanRoute, /sourceUrl\s*:/);
+
+  const fileScanHealthRoute = await readFile(
+    resolve("app/api/internal/maintenance/file-scan-health/route.ts"),
+    "utf8",
+  );
+  const fileScanHealthAuth = fileScanHealthRoute.indexOf("isAuthorizedMaintenanceRequest(");
+  const fileScanHealthService = fileScanHealthRoute.indexOf("getStoredFileScanHealthService()");
+  assert.ok(fileScanHealthAuth >= 0 && fileScanHealthService > fileScanHealthAuth);
+  assert.match(fileScanHealthRoute, /config\.fileScanHealthGraceMinutes/);
+  assert.match(fileScanHealthRoute, /config\.fileScanHealthBatchLimit/);
+  assert.match(fileScanHealthRoute, /FILE_SCAN_BACKLOG_UNHEALTHY/);
+  assert.match(fileScanHealthRoute, /Cache-Control": "no-store"/);
+  assert.doesNotMatch(fileScanHealthRoute, /fileId\s*:/);
+  assert.doesNotMatch(fileScanHealthRoute, /clientCaseId\s*:/);
+  assert.doesNotMatch(fileScanHealthRoute, /uploadedById\s*:/);
+  assert.doesNotMatch(fileScanHealthRoute, /objectKey\s*:/);
+  assert.doesNotMatch(fileScanHealthRoute, /scanLeaseToken\s*:/);
 
   const aiAuditHealthRoute = await readFile(
     resolve("app/api/internal/maintenance/ai-audit-health/route.ts"),
