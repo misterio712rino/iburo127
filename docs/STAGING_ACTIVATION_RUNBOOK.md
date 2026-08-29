@@ -4,7 +4,7 @@ Purpose: activate the production-oriented backend safely in a non-production env
 
 ## Hard stop conditions
 
-Do not proceed if any of these are unknown:
+Do not proceed to any **mutation** phase if any of these are unknown:
 
 - authoritative staging PostgreSQL host, database name and database user;
 - verified backup/snapshot point;
@@ -12,6 +12,8 @@ Do not proceed if any of these are unknown:
 - Better Auth secret and base URL configuration;
 - private Yandex Object Storage staging bucket and service-account credentials;
 - dedicated Yandex Cloud Postbox staging sender and service-account/static-key credentials.
+
+Read-only baseline inspection may be used to discover the current staging DB state before DDL, but it must still pass the exact staging target guard below.
 
 Never substitute production credentials while validating staging.
 
@@ -24,9 +26,10 @@ IB_DB_TARGET=staging
 IB_STAGING_DATABASE_HOST=<exact host from DATABASE_URL>
 IB_STAGING_DATABASE_NAME=<exact database from DATABASE_URL>
 IB_STAGING_DATABASE_USER=<exact user from DATABASE_URL>
+IB_STAGING_BETTER_AUTH_SCHEMA=<exact Better Auth schema, normally public>
 ```
 
-The repository performs a network-free preflight against `DATABASE_URL` before staging DB verification, staging AuthIdentity provisioning, and `prisma migrate deploy`. A host/database/user mismatch fails closed before PostgreSQL is contacted.
+The repository performs a network-free preflight against `DATABASE_URL` before staging DB verification, baseline inspection, staging AuthIdentity provisioning, and `prisma migrate deploy`. A host/database/user mismatch fails closed before PostgreSQL is contacted.
 
 Run the guard directly with:
 
@@ -42,14 +45,7 @@ Configure staging-only environment variables from `.env.example` and run:
 npm run check:staging
 ```
 
-This gate is read-only. It:
-
-1. validates the exact staging DB URL identity before connecting;
-2. opens a PostgreSQL `READ ONLY` transaction and verifies the connected database identity;
-3. validates Better Auth runtime configuration structurally;
-4. runs the staging Object Storage security verifier, which reads bucket metadata only and checks ACL, bucket policy and CORS.
-
-It does not run migrations, provision identities, enumerate/download/upload/delete objects, mutate bucket configuration, or send email.
+This gate is read-only. It validates the staging runtime configuration and Object Storage metadata policy without running migrations, provisioning identities, enumerating/downloading/uploading/deleting objects, mutating bucket configuration, or sending email.
 
 Expected terminal marker:
 
@@ -61,29 +57,96 @@ If it fails, stop and fix staging identity/connectivity/security configuration b
 
 ## Phase 1 — Database baseline and reviewed migration
 
-1. Confirm the authoritative staging PostgreSQL target.
-2. Create/verify a snapshot or backup before any DDL.
-3. Inspect the current schema and migration history.
-4. If the database predates Prisma migration history, establish a reviewed baseline instead of replaying historical DDL blindly.
-5. Generate and review migration SQL for destructive operations, implicit casts, table rewrites and unexpected drops.
-6. Set the explicit confirmation token:
+### 1.1 Public-safe baseline summary
+
+Run first:
+
+```bash
+npm run db:inspect:baseline:summary
+```
+
+The command is staging-only, opens `BEGIN READ ONLY`, verifies connected database/user identity, and prints only aggregate counts plus one classification:
+
+- `A_EMPTY_DATABASE`
+- `B_EXISTING_DOMAIN_SCHEMA`
+- `C_PRISMA_HISTORY_PRESENT`
+- `D_AUTH_SCHEMA_ONLY`
+- `REVIEW_NONEMPTY_OTHER_SCHEMA`
+
+It does not print the database URL, target host/name/user values, arbitrary discovered table names, columns, indexes, constraints or defaults.
+
+`A_EMPTY_DATABASE` is intentionally conservative: it is emitted only when the tracked user schema contains no relations/views/sequences/composite relations, enum/domain types, routines or collations. `0 base tables` alone is not enough.
+
+### 1.2 Full structural baseline when required
+
+For every classification except `A_EMPTY_DATABASE`, capture the full baseline on a trusted machine:
+
+```bash
+npm run db:inspect:baseline > database-baseline.json
+```
+
+The full inspector is read-only but intentionally refuses to run when `GITHUB_ACTIONS=true`, because this repository is public and the structural snapshot must not be exposed in public Actions logs/artifacts.
+
+Do not commit `database-baseline.json` to this repository.
+
+Interpretation:
+
+- `B_EXISTING_DOMAIN_SCHEMA` → represent the real pre-existing state; do not blind-init or recreate populated tables.
+- `C_PRISMA_HISTORY_PRESENT` → reconcile existing `_prisma_migrations` names/checksums/state before creating new history.
+- `D_AUTH_SCHEMA_ONLY` → preserve Better Auth provider objects and verify them separately; domain baseline must not replace them.
+- `REVIEW_NONEMPTY_OTHER_SCHEMA` → identify legacy/provider/extension objects before generating any migration.
+
+### 1.3 Backup and migration design
+
+Before any DDL:
+
+1. create/verify a staging snapshot or backup and document the restore path;
+2. compare the authoritative baseline with `prisma/schema.prisma`;
+3. generate the real migration history only after the baseline strategy is resolved;
+4. inspect the migration history fingerprint:
+
+```bash
+npm run db:inspect:migrations
+```
+
+5. manually review SQL:
+
+```bash
+npm run db:review:sql
+```
+
+6. set `IB_STAGING_MIGRATION_HISTORY_SHA256` to the exact reviewed migration-history SHA-256. Any later SQL/history change invalidates the pin and blocks mutation paths.
+
+Do not create fake migrations merely to make `db:check:migrations` pass.
+
+### 1.4 Apply reviewed staging migration
+
+Set the explicit staging confirmation token:
 
 ```text
 IB_STAGING_MIGRATION_CONFIRM=MIGRATE:<IB_STAGING_DATABASE_NAME>
 ```
 
-7. Apply reviewed migrations to staging only:
+Then run:
 
 ```bash
 npm run db:deploy:staging
 ```
 
-The command re-runs the network-free target guard, verifies the connected database identity, and only then invokes `prisma migrate deploy`.
+The command requires the pinned reviewed migration history, re-runs the exact staging target guard, verifies the connected database identity, and only then invokes `prisma migrate deploy` against staging.
+
+After application, run:
+
+```bash
+npm run db:verify:staging
+```
+
+Do not continue if migration history contains unfinished entries or the required domain schema contract is incomplete.
 
 ## Phase 2 — Better Auth wiring
 
 1. Verify the Better Auth schema on staging with `npm run check:staging:auth-schema`.
-2. Do not use Better Auth auto-migration against production.
+2. Do not use Better Auth auto-migration against production. Provider SQL must be generated/reviewed as part of the controlled schema plan.
 3. Configure password recovery/email delivery before declaring recovery production-ready.
 4. Enroll TOTP 2FA for LAWYER and MANAGER accounts before staff routes are considered production-ready.
 5. Link verified Better Auth subjects to internal users only through the staging-only guarded command:
@@ -93,6 +156,7 @@ npm run auth:link:staging
 ```
 
 6. Verify that suspended/roleless internal users resolve to no platform access.
+7. Exercise repeated staging auth requests and verify database-backed rate limiting returns the expected 429 behavior across application instances before calling brute-force protection runtime-verified.
 
 ## Phase 3 — Private Object Storage
 
