@@ -50,7 +50,41 @@ Scanner outcomes are handled as follows:
 - storage-provider mismatch -> `SCAN_FAILED` without invoking the scanner;
 - lost lease -> no state change by the stale worker.
 
-`SCAN_FAILED` and lease-loss results make the maintenance endpoint unhealthy so external scheduler/operations alerting can surface them.
+`SCAN_FAILED` and lease-loss results make the scan-worker maintenance endpoint unhealthy so external scheduler/operations alerting can surface them.
+
+## Independent backlog health
+
+The worker result alone cannot detect a scheduler that has stopped running entirely. A separate read-only health operation therefore exists:
+
+```bash
+npm run maintenance:run:file-scan-health
+```
+
+Endpoint:
+
+```text
+POST /api/internal/maintenance/file-scan-health
+```
+
+It independently detects:
+
+- `PENDING_SCAN` records whose `scanNextAttemptAt` has remained due beyond the configured grace period;
+- `SCANNING` records whose lease has remained expired beyond the grace period;
+- any terminal `SCAN_FAILED` records;
+- saturation when any bounded category contains more records than the configured inspection limit.
+
+Defaults:
+
+```env
+IB_FILE_SCAN_HEALTH_GRACE_MINUTES="15"
+IB_FILE_SCAN_HEALTH_BATCH_LIMIT="50"
+```
+
+The repository queries only bounded ID projections (`limit + 1`) to establish aggregate cardinality. The API returns only counts, saturation and the effective grace/batch settings. It never returns file IDs, object keys, case IDs, uploader IDs, scanner error details or lease tokens.
+
+`QUARANTINED` is intentionally **not** an infrastructure-health failure. Quarantine is a valid security verdict and belongs to quarantine retention/incident handling. It must not be automatically retried as though the scanner infrastructure had failed.
+
+The scan worker and scan-health check should be scheduled independently so failure of the worker schedule can still be detected by the health schedule.
 
 ## Scanner service trust boundary
 
@@ -118,7 +152,7 @@ Controlled case activity events are emitted for:
 
 Activity metadata remains allowlisted. It may contain opaque file IDs, storage/scanner provider codes and lifecycle status, but never scanner secrets, source URLs, file content, filenames, user contact information or free-form scanner error details.
 
-The maintenance API returns only aggregate counters:
+The scan-worker maintenance API returns only aggregate counters:
 
 - claimed;
 - clean;
@@ -127,7 +161,16 @@ The maintenance API returns only aggregate counters:
 - failed;
 - leaseLost.
 
-It does not return file IDs, case IDs, user IDs, lease tokens or signed URLs.
+The independent health API returns only:
+
+- overduePending;
+- expiredLeases;
+- terminalFailures;
+- saturated;
+- graceMinutes;
+- batchLimit.
+
+Neither API returns file IDs, case IDs, user IDs, object keys, lease tokens or signed URLs.
 
 ## Staging scanner smoke gate
 
@@ -170,10 +213,11 @@ Code-level quarantine is not equivalent to runtime activation. Before real clien
 - independent scanner secret provisioned through the deployment secret store;
 - dedicated benign scanner fixtures prepared under `security-fixtures/file-scanner/`;
 - `npm run check:staging:file-scanner` passes both `CLEAN` and `MALICIOUS` fixture verdicts;
-- file-scan maintenance scheduler configured against staging;
+- `file-scans` maintenance scheduler configured against staging;
+- independent `file-scan-health` scheduler/alerting configured against staging;
 - scanner outage verifies retry/backoff and no READY transition;
 - expired lease/reclaim behavior is exercised;
-- maximum-attempt `SCAN_FAILED` alerting is observed;
+- overdue queue and terminal `SCAN_FAILED` conditions produce observable health alerts;
 - maximum allowed upload size (50 MiB) latency is measured and scanner/scheduler timeouts reviewed;
 - quarantine retention/deletion and incident-response ownership are approved.
 
