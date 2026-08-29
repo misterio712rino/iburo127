@@ -5,7 +5,9 @@ import { resolve } from "node:path";
 const packageJson = JSON.parse(await readFile(resolve("package.json"), "utf8")) as {
   scripts?: Record<string, string>;
 };
-const release = packageJson.scripts?.["check:staging:release"] ?? "";
+const scripts = packageJson.scripts ?? {};
+const release = scripts["check:staging:release"] ?? "";
+const maintenanceHealth = scripts["check:staging:maintenance-health"] ?? "";
 
 const requiredSteps = [
   "npm run db:check:migrations",
@@ -17,6 +19,7 @@ const requiredSteps = [
   "npm run check:staging:authz",
   "npm run check:staging:auth-flow",
   "npm run check:staging:application-e2e",
+  "npm run check:staging:maintenance-health",
   "npm run check:staging:email-delivery",
   "npm run check:staging:ai-provider",
   "npm run check:staging:bitrix24",
@@ -30,8 +33,38 @@ for (const step of requiredSteps) {
   previousIndex = index;
 }
 
+const expectedMaintenanceHealth = [
+  "npm run maintenance:run:notification-health",
+  "npm run maintenance:run:stale-upload-health",
+  "npm run maintenance:run:file-scan-health",
+  "npm run maintenance:run:ai-audit-health",
+].join(" && ");
+assert.equal(
+  maintenanceHealth,
+  expectedMaintenanceHealth,
+  "staging maintenance health gate must contain only the approved read-only health checks",
+);
+for (const mutatingScript of [
+  "maintenance:run:notifications",
+  "maintenance:run:task-reminders",
+  "maintenance:run:questionnaire-reminders",
+  "maintenance:run:stale-uploads",
+  "maintenance:run:file-scans",
+]) {
+  assert.equal(
+    maintenanceHealth.includes(mutatingScript),
+    false,
+    `${mutatingScript} must never execute inside the staging release health gate`,
+  );
+}
+
 const passIndex = release.indexOf("STAGING_RELEASE_READINESS_PASS");
 assert.ok(passIndex > previousIndex, "release PASS marker must only be reachable after every required verifier");
 assert.doesNotMatch(release, /\|\||;\s*npm run/, "release verifiers must remain fail-closed through && chaining");
+assert.doesNotMatch(
+  maintenanceHealth,
+  /\|\||;\s*npm run/,
+  "maintenance health verifiers must remain fail-closed through && chaining",
+);
 
 console.log("STAGING_RELEASE_GATE_CONTRACT_PASS");

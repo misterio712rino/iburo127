@@ -8,8 +8,15 @@ const packageJson = JSON.parse(await readFile(resolve("package.json"), "utf8")) 
 const scripts = packageJson.scripts ?? {};
 
 const expected = {
+  "maintenance:run:notifications": "node scripts/run-maintenance-job.mjs notification-deliveries",
+  "maintenance:run:notification-health": "node scripts/run-maintenance-job.mjs notification-delivery-health",
   "maintenance:run:task-reminders": "node scripts/run-maintenance-job.mjs task-reminders",
   "maintenance:run:questionnaire-reminders": "node scripts/run-maintenance-job.mjs questionnaire-reminders",
+  "maintenance:run:stale-uploads": "node scripts/run-maintenance-job.mjs stale-uploads",
+  "maintenance:run:stale-upload-health": "node scripts/run-maintenance-job.mjs stale-upload-health",
+  "maintenance:run:file-scans": "node scripts/run-maintenance-job.mjs file-scans",
+  "maintenance:run:file-scan-health": "node scripts/run-maintenance-job.mjs file-scan-health",
+  "maintenance:run:ai-audit-health": "node scripts/run-maintenance-job.mjs ai-audit-health",
 } as const;
 
 for (const [name, command] of Object.entries(expected)) {
