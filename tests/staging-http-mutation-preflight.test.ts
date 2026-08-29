@@ -122,6 +122,8 @@ expectFail(
 );
 expectFail({ ...scanEnv, IB_MAINTENANCE_SECRET: "short" }, /IB_MAINTENANCE_SECRET/);
 expectFail({ ...scanEnv, IB_MAINTENANCE_SECRET: `${"m".repeat(40)}\n` }, /IB_MAINTENANCE_SECRET/);
+expectFail({ ...scanEnv, IB_MAINTENANCE_SECRET: `${"m".repeat(20)}\r${"m".repeat(20)}` }, /IB_MAINTENANCE_SECRET/);
+expectFail({ ...scanEnv, IB_MAINTENANCE_SECRET: ` ${"m".repeat(40)}` }, /IB_MAINTENANCE_SECRET/);
 
 const loopback = requireStagingHttpMutationPreflight(
   env({
@@ -145,5 +147,21 @@ const cliSource = await readFile(
 assert.doesNotMatch(cliSource, /IB_STAGING_CLIENT_COOKIE.*console/);
 assert.doesNotMatch(cliSource, /IB_MAINTENANCE_SECRET.*console/);
 assert.match(cliSource, /STAGING_HTTP_MUTATION_PREFLIGHT_PASS/);
+
+const packageJson = JSON.parse(await readFile(resolve("package.json"), "utf8")) as {
+  scripts?: Record<string, string>;
+};
+assert.equal(
+  packageJson.scripts?.["check:staging:http-mutation-preflight"],
+  "tsx scripts/check-staging-http-mutation-preflight.ts",
+);
+for (const scriptName of ["check:staging:http-mutations", "check:staging:http-mutations:audit"]) {
+  const script = packageJson.scripts?.[scriptName];
+  assert.ok(script, `missing ${scriptName}`);
+  assert.ok(
+    script.startsWith("npm run check:staging:http-mutation-preflight &&"),
+    `${scriptName} must fail network-free before active verifier execution`,
+  );
+}
 
 console.log("STAGING_HTTP_MUTATION_PREFLIGHT_TEST_PASS");
