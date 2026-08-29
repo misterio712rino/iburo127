@@ -12,6 +12,7 @@ import {
   type SaveQuestionnaireAnswerInput,
 } from "@/server/domain/questionnaire/contracts";
 import { buildCaseActivityWrite } from "@/server/repositories/prisma/case-activity-write";
+import { createCaseNotificationInTransaction } from "@/server/repositories/prisma/case-notification-write";
 import { isPrismaUniqueConstraintError } from "@/server/repositories/prisma/errors";
 
 function normalizeAnswers(value: unknown): QuestionnaireAnswers {
@@ -216,6 +217,21 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
           metadata: { questionnaireVersion: input.expectedVersion + 1 },
         }),
       });
+
+      const clientCase = await tx.clientCase.findUnique({
+        where: { id: input.clientCaseId },
+        select: { caseNumber: true, assignedLawyerId: true },
+      });
+      if (clientCase?.assignedLawyerId) {
+        await createCaseNotificationInTransaction(tx, {
+          userId: clientCase.assignedLawyerId,
+          clientCaseId: input.clientCaseId,
+          dedupeKey: `questionnaire.completed:${input.clientCaseId}`,
+          type: "questionnaire.completed",
+          title: "Анкета клиента заполнена",
+          body: `Клиент по делу ${clientCase.caseNumber} завершил анкету. Данные готовы к дальнейшей работе.`,
+        });
+      }
 
       const row = await tx.caseQuestionnaire.findUnique({ where: { clientCaseId: input.clientCaseId } });
       if (!row) throw new Error(QUESTIONNAIRE_NOT_FOUND);

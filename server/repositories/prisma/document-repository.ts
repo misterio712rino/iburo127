@@ -9,6 +9,7 @@ import {
   type CaseDocumentStatus,
 } from "@/server/domain/documents/contracts";
 import { buildCaseActivityWrite } from "@/server/repositories/prisma/case-activity-write";
+import { createCaseNotificationInTransaction } from "@/server/repositories/prisma/case-notification-write";
 import { isPrismaUniqueConstraintError } from "@/server/repositories/prisma/errors";
 
 function toRecord(row: {
@@ -165,6 +166,21 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
         }),
       });
 
+      const clientCase = await tx.clientCase.findUnique({
+        where: { id: input.clientCaseId },
+        select: { caseNumber: true, assignedLawyerId: true },
+      });
+      if (clientCase?.assignedLawyerId) {
+        await createCaseNotificationInTransaction(tx, {
+          userId: clientCase.assignedLawyerId,
+          clientCaseId: input.clientCaseId,
+          dedupeKey: `document.ready_for_review:${current.id}:${input.expectedVersion + 1}`,
+          type: "document.ready_for_review",
+          title: "Документ ожидает проверки",
+          body: `По делу ${clientCase.caseNumber} появился документ, ожидающий вашей проверки.`,
+        });
+      }
+
       const row = await tx.caseDocument.findUnique({ where: { id: current.id } });
       if (!row) throw new Error(DOCUMENT_NOT_FOUND);
       return toRecord(row);
@@ -211,6 +227,21 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
           },
         }),
       });
+
+      const clientCase = await tx.clientCase.findUnique({
+        where: { id: input.clientCaseId },
+        select: { caseNumber: true, clientId: true },
+      });
+      if (clientCase) {
+        await createCaseNotificationInTransaction(tx, {
+          userId: clientCase.clientId,
+          clientCaseId: input.clientCaseId,
+          dedupeKey: `document.reviewed:${current.id}:${input.expectedVersion + 1}`,
+          type: "document.reviewed",
+          title: "Документ проверен",
+          body: `Документ по делу ${clientCase.caseNumber} прошёл проверку. Откройте раздел документов, чтобы увидеть актуальный статус.`,
+        });
+      }
 
       const row = await tx.caseDocument.findUnique({ where: { id: current.id } });
       if (!row) throw new Error(DOCUMENT_NOT_FOUND);

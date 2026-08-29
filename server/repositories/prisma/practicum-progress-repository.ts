@@ -8,6 +8,7 @@ import {
   type PracticumProgressRepository,
 } from "@/server/domain/practicum/contracts";
 import { buildCaseActivityWrite } from "@/server/repositories/prisma/case-activity-write";
+import { createCaseNotificationInTransaction } from "@/server/repositories/prisma/case-notification-write";
 import { isPrismaUniqueConstraintError } from "@/server/repositories/prisma/errors";
 
 function toRecord(row: {
@@ -96,6 +97,21 @@ export class PrismaPracticumProgressRepository implements PracticumProgressRepos
             metadata: { lessonId: input.lessonId },
           }),
         });
+
+        const clientCase = await tx.clientCase.findUnique({
+          where: { id: input.clientCaseId },
+          select: { caseNumber: true, assignedLawyerId: true },
+        });
+        if (clientCase?.assignedLawyerId) {
+          await createCaseNotificationInTransaction(tx, {
+            userId: clientCase.assignedLawyerId,
+            clientCaseId: input.clientCaseId,
+            dedupeKey: `practicum.completed:${input.clientCaseId}`,
+            type: "practicum.completed",
+            title: "Практикум завершён",
+            body: `Клиент по делу ${clientCase.caseNumber} завершил практикум.`,
+          });
+        }
       }
 
       const row = await tx.casePracticumProgress.findUnique({
