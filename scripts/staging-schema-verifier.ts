@@ -3,6 +3,8 @@ import {
   assertStagingSchemaContract,
   REQUIRED_STAGING_DOMAIN_TABLES,
   REQUIRED_STAGING_ENUMS,
+  REQUIRED_STORED_FILE_SCAN_COLUMNS,
+  REQUIRED_STORED_FILE_STATUS_VALUES,
 } from "./staging-schema-contract";
 import type { StagingDatabaseTarget } from "./staging-target-guard";
 
@@ -11,6 +13,8 @@ export type StagingSchemaVerificationReport = {
   databaseUser: string;
   requiredTableCount: number;
   requiredEnumCount: number;
+  requiredStoredFileScanColumnCount: number;
+  requiredStoredFileStatusValueCount: number;
   appliedMigrationCount: number;
 };
 
@@ -77,6 +81,33 @@ export async function verifyStagingDatabaseSchema(
       );
       const existingEnums = new Set(enumResult.rows.map((row) => row.type_name));
 
+      const storedFileColumnResult = await client.query<{ column_name: string }>(
+        `
+          select column_name
+          from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'StoredFile'
+        `,
+      );
+      const storedFileColumns = new Set(
+        storedFileColumnResult.rows.map((row) => row.column_name),
+      );
+
+      const storedFileStatusResult = await client.query<{ enum_value: string }>(
+        `
+          select e.enumlabel as enum_value
+          from pg_type t
+          join pg_namespace n on n.oid = t.typnamespace
+          join pg_enum e on e.enumtypid = t.oid
+          where n.nspname = 'public'
+            and t.typname = 'StoredFileStatus'
+          order by e.enumsortorder
+        `,
+      );
+      const storedFileStatusValues = new Set(
+        storedFileStatusResult.rows.map((row) => row.enum_value),
+      );
+
       const prismaMigrationsTablePresent = existingTables.has("_prisma_migrations");
       let appliedMigrationCount = 0;
       let unfinishedMigrationCount = 0;
@@ -112,6 +143,10 @@ export async function verifyStagingDatabaseSchema(
       assertStagingSchemaContract({
         tables: existingTables,
         enums: existingEnums,
+        storedFile: {
+          columns: storedFileColumns,
+          statusValues: storedFileStatusValues,
+        },
         prismaMigrationHistory: {
           tablePresent: prismaMigrationsTablePresent,
           appliedCount: appliedMigrationCount,
@@ -125,6 +160,8 @@ export async function verifyStagingDatabaseSchema(
         databaseUser: databaseIdentity.database_user,
         requiredTableCount: REQUIRED_STAGING_DOMAIN_TABLES.length,
         requiredEnumCount: REQUIRED_STAGING_ENUMS.length,
+        requiredStoredFileScanColumnCount: REQUIRED_STORED_FILE_SCAN_COLUMNS.length,
+        requiredStoredFileStatusValueCount: REQUIRED_STORED_FILE_STATUS_VALUES.length,
         appliedMigrationCount,
       };
     } catch (error) {
