@@ -74,6 +74,49 @@ try {
       "total user table count",
     );
 
+    const totalSchemaObjectResult = await client.query<{ count: string }>(`
+      select (
+        (
+          select count(*)
+          from pg_class class
+          join pg_namespace namespace on namespace.oid = class.relnamespace
+          where namespace.nspname not in ('pg_catalog', 'information_schema')
+            and namespace.nspname not like 'pg_toast%'
+            and namespace.nspname not like 'pg_temp_%'
+            and class.relkind in ('r', 'p', 'v', 'm', 'S', 'f', 'c')
+        ) +
+        (
+          select count(*)
+          from pg_type type
+          join pg_namespace namespace on namespace.oid = type.typnamespace
+          where namespace.nspname not in ('pg_catalog', 'information_schema')
+            and namespace.nspname not like 'pg_toast%'
+            and namespace.nspname not like 'pg_temp_%'
+            and type.typtype in ('e', 'd')
+        ) +
+        (
+          select count(*)
+          from pg_proc routine
+          join pg_namespace namespace on namespace.oid = routine.pronamespace
+          where namespace.nspname not in ('pg_catalog', 'information_schema')
+            and namespace.nspname not like 'pg_toast%'
+            and namespace.nspname not like 'pg_temp_%'
+        ) +
+        (
+          select count(*)
+          from pg_collation collation
+          join pg_namespace namespace on namespace.oid = collation.collnamespace
+          where namespace.nspname not in ('pg_catalog', 'information_schema')
+            and namespace.nspname not like 'pg_toast%'
+            and namespace.nspname not like 'pg_temp_%'
+        )
+      )::text as count
+    `);
+    const totalUserSchemaObjectCount = parseCount(
+      totalSchemaObjectResult.rows[0]?.count,
+      "total user schema object count",
+    );
+
     const domainTableResult = await client.query<{ count: string }>(
       `
         select count(*)::text as count
@@ -161,6 +204,7 @@ try {
 
     const classification = classifyStagingBaseline({
       totalUserTableCount,
+      totalUserSchemaObjectCount,
       domainTableCount,
       domainEnumCount,
       betterAuthTableCount,
@@ -175,6 +219,7 @@ try {
       inspectedAt: new Date().toISOString(),
       targetVerified: true,
       totalUserTableCount,
+      totalUserSchemaObjectCount,
       domain: {
         presentTableCount: domainTableCount,
         requiredTableCount: REQUIRED_STAGING_DOMAIN_TABLES.length,
