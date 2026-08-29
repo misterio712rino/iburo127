@@ -34,7 +34,7 @@ assert.match(auditSource, /IB_STAGING_FILE_SCAN_E2E/);
 assert.match(auditSource, /requireEventType\(newEvents, "file\.scan\.clean"\)/);
 assert.match(auditSource, /requireEventType\(newEvents, "file\.download\.authorized"\)/);
 assert.match(auditSource, /rejectEventType\(newEvents, "file\.download\.authorized"\)/);
-assert.doesNotMatch(auditSource, /objectKey/i);
-assert.doesNotMatch(auditSource, /signedUrl/i);
+assert.match(auditSource, /"objectKey"/);
+assert.match(auditSource, /"signedUrl"/);
 
 console.log("STAGING_HTTP_FILE_QUARANTINE_CONTRACT_TEST_PASS");
