@@ -4,6 +4,7 @@ const JOB_PATHS = Object.freeze({
   "notification-deliveries": "/api/internal/maintenance/notification-deliveries",
   "notification-delivery-health": "/api/internal/maintenance/notification-delivery-health",
   "stale-uploads": "/api/internal/maintenance/stale-uploads",
+  "stale-upload-health": "/api/internal/maintenance/stale-upload-health",
   "file-scans": "/api/internal/maintenance/file-scans",
   "file-scan-health": "/api/internal/maintenance/file-scan-health",
   "ai-audit-health": "/api/internal/maintenance/ai-audit-health",
@@ -68,7 +69,7 @@ function readTimeoutMs(env, job) {
 function requireJob(job) {
   if (!Object.hasOwn(JOB_PATHS, job)) {
     fail(
-      "job must be notification-deliveries, notification-delivery-health, stale-uploads, file-scans, file-scan-health, or ai-audit-health",
+      "job must be notification-deliveries, notification-delivery-health, stale-uploads, stale-upload-health, file-scans, file-scan-health, or ai-audit-health",
     );
   }
   return job;
