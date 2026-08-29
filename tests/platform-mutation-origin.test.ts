@@ -2,6 +2,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
+  VERCEL_PREVIEW_BOUNDARY_ERROR,
+  VERCEL_STAGING_BRANCH,
+  VERCEL_STAGING_CONFIRMATION,
+  assertVercelPreviewBackendAllowed,
+  isVercelPreviewBackendAllowed,
+} from "@/server/config/vercel-preview-boundary";
+import {
   PLATFORM_MUTATION_ORIGIN_NOT_CONFIGURED,
   PLATFORM_MUTATION_ORIGIN_REJECTED,
   evaluatePlatformMutationOrigin,
@@ -117,10 +124,55 @@ assert.deepEqual(
   { allowed: true },
 );
 
+assert.equal(isVercelPreviewBackendAllowed({}), true);
+assert.equal(isVercelPreviewBackendAllowed({ VERCEL_ENV: "production" }), true);
+
+for (const previewEnv of [
+  { VERCEL_ENV: "preview" },
+  {
+    VERCEL_ENV: "preview",
+    VERCEL_GIT_COMMIT_REF: VERCEL_STAGING_BRANCH,
+  },
+  {
+    VERCEL_ENV: "preview",
+    VERCEL_GIT_COMMIT_REF: VERCEL_STAGING_BRANCH,
+    IB_RUNTIME_TARGET: "staging",
+  },
+  {
+    VERCEL_ENV: "preview",
+    VERCEL_GIT_COMMIT_REF: "main",
+    IB_RUNTIME_TARGET: "staging",
+    IB_VERCEL_PREVIEW_BACKEND_CONFIRM: VERCEL_STAGING_CONFIRMATION,
+  },
+  {
+    VERCEL_ENV: "preview",
+    VERCEL_GIT_COMMIT_REF: VERCEL_STAGING_BRANCH,
+    IB_RUNTIME_TARGET: "production",
+    IB_VERCEL_PREVIEW_BACKEND_CONFIRM: VERCEL_STAGING_CONFIRMATION,
+  },
+]) {
+  assert.equal(isVercelPreviewBackendAllowed(previewEnv), false);
+  assert.throws(
+    () => assertVercelPreviewBackendAllowed(previewEnv),
+    new RegExp(VERCEL_PREVIEW_BOUNDARY_ERROR),
+  );
+}
+
+const confirmedPreviewEnv = {
+  VERCEL_ENV: "preview",
+  VERCEL_GIT_COMMIT_REF: VERCEL_STAGING_BRANCH,
+  IB_RUNTIME_TARGET: "staging",
+  IB_VERCEL_PREVIEW_BACKEND_CONFIRM: VERCEL_STAGING_CONFIRMATION,
+};
+assert.equal(isVercelPreviewBackendAllowed(confirmedPreviewEnv), true);
+assert.doesNotThrow(() => assertVercelPreviewBackendAllowed(confirmedPreviewEnv));
+
 const proxySource = await readFile(resolve("proxy.ts"), "utf8");
+assert.match(proxySource, /isVercelPreviewBackendAllowed\(\)/);
 assert.match(proxySource, /evaluatePlatformMutationOrigin\(request\)/);
-assert.match(proxySource, /matcher:\s*\["\/api\/platform\/:path\*"\]/);
+assert.match(proxySource, /matcher:\s*\["\/app\/:path\*", "\/api\/:path\*"\]/);
 assert.match(proxySource, /Cache-Control": "private, no-store"/);
+assert.match(proxySource, /STAGING_BACKEND_DISABLED/);
 assert.doesNotMatch(proxySource, /\/api\/auth/);
 assert.doesNotMatch(proxySource, /\/api\/internal/);
 
