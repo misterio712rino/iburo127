@@ -192,6 +192,26 @@ function configuredFingerprint(value: string | undefined): string | null {
   return /^[a-f0-9]{64}$/.test(normalized) ? normalized : null;
 }
 
+function isSafeSecret(value: string | undefined, minLength: number): boolean {
+  if (!isConfigured(value)) return false;
+  const normalized = value!.trim();
+  return normalized.length >= minLength && !/[\r\n\0]/.test(normalized);
+}
+
+function isSafeScannerFixtureKey(value: string | undefined): boolean {
+  if (!isConfigured(value)) return false;
+  const normalized = value!.trim();
+  return (
+    normalized.length <= 512 &&
+    normalized.startsWith("security-fixtures/file-scanner/") &&
+    !normalized.startsWith("/") &&
+    !normalized.includes("..") &&
+    !normalized.includes("\\") &&
+    !/[\r\n\0]/.test(normalized) &&
+    /^[A-Za-z0-9._/-]+$/.test(normalized)
+  );
+}
+
 function invalidSemantics(
   phase: StagingEnvironmentPhase,
   env: StagingEnvironment,
@@ -246,6 +266,10 @@ function invalidSemantics(
     mark("BETTER_AUTH_URL", "IB_STAGING_BASE_URL");
   }
 
+  if (phase === "auth" && isConfigured(env.BETTER_AUTH_SECRET) && !isSafeSecret(env.BETTER_AUTH_SECRET, 32)) {
+    mark("BETTER_AUTH_SECRET");
+  }
+
   if ((phase === "authFlow" || phase === "applicationE2e") && stagingBase) {
     const expected = `AUTH-FLOW:${stagingBase.host}`;
     if (isConfigured(env.IB_STAGING_AUTH_FLOW_CONFIRM) && env.IB_STAGING_AUTH_FLOW_CONFIRM?.trim() !== expected) {
@@ -287,6 +311,9 @@ function invalidSemantics(
       mark("YANDEX_STORAGE_ACCESS_KEY_ID", "IB_STAGING_STORAGE_ACCESS_KEY_ID");
     }
 
+    if (isConfigured(env.IB_FILE_SCANNER_SECRET) && !isSafeSecret(env.IB_FILE_SCANNER_SECRET, 32)) {
+      mark("IB_FILE_SCANNER_SECRET");
+    }
     const expectedFingerprint = configuredFingerprint(env.IB_STAGING_FILE_SCANNER_SECRET_SHA256);
     if (isConfigured(env.IB_STAGING_FILE_SCANNER_SECRET_SHA256) && !expectedFingerprint) {
       mark("IB_STAGING_FILE_SCANNER_SECRET_SHA256");
@@ -294,6 +321,19 @@ function invalidSemantics(
     if (expectedFingerprint && isConfigured(env.IB_FILE_SCANNER_SECRET) && sha256Hex(env.IB_FILE_SCANNER_SECRET!.trim()) !== expectedFingerprint) {
       mark("IB_FILE_SCANNER_SECRET", "IB_STAGING_FILE_SCANNER_SECRET_SHA256");
     }
+
+    const cleanKey = env.IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY?.trim();
+    const maliciousKey = env.IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY?.trim();
+    if (isConfigured(env.IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY) && !isSafeScannerFixtureKey(env.IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY)) {
+      mark("IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY");
+    }
+    if (isConfigured(env.IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY) && !isSafeScannerFixtureKey(env.IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY)) {
+      mark("IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY");
+    }
+    if (cleanKey && maliciousKey && cleanKey === maliciousKey) {
+      mark("IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY", "IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY");
+    }
+
     if (expectedScannerOrigin && expectedFingerprint && isConfigured(env.IB_STAGING_STORAGE_BUCKET)) {
       const expectedConfirmation = `FILE-SCANNER-SMOKE:${expectedScannerOrigin.hostname}:${env.IB_STAGING_STORAGE_BUCKET!.trim()}:${expectedFingerprint}`;
       if (isConfigured(env.IB_STAGING_FILE_SCANNER_CONFIRM) && env.IB_STAGING_FILE_SCANNER_CONFIRM?.trim() !== expectedConfirmation) {
@@ -374,6 +414,9 @@ function invalidSemantics(
     const maintenanceOrigin = safeOrigin(env.IB_MAINTENANCE_BASE_URL, true);
     if (isConfigured(env.IB_MAINTENANCE_BASE_URL) && !maintenanceOrigin) mark("IB_MAINTENANCE_BASE_URL");
     if (stagingBase && maintenanceOrigin && stagingBase.origin !== maintenanceOrigin.origin) mark("IB_MAINTENANCE_BASE_URL", "IB_STAGING_BASE_URL");
+    if (isConfigured(env.IB_MAINTENANCE_SECRET) && !isSafeSecret(env.IB_MAINTENANCE_SECRET, 32)) {
+      mark("IB_MAINTENANCE_SECRET");
+    }
   }
 
   return [...invalid].sort();

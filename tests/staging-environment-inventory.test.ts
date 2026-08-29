@@ -235,6 +235,48 @@ assert.ok(invalidFingerprints.phases.openai.invalidOrInconsistent.includes("IB_S
 assert.ok(invalidFingerprints.phases.scanner.invalidOrInconsistent.includes("IB_STAGING_FILE_SCANNER_SECRET_SHA256"));
 assert.ok(invalidFingerprints.phases.bitrix24.invalidOrInconsistent.includes("IB_STAGING_BITRIX24_WEBHOOK_SECRET_SHA256"));
 
+const shortSecretInventory = buildStagingEnvironmentInventory({
+  ...secretValues,
+  BETTER_AUTH_SECRET: "too-short-auth-secret",
+  IB_MAINTENANCE_SECRET: "too-short-maintenance-secret",
+});
+assert.deepEqual(shortSecretInventory.phases.auth.invalidOrInconsistent, ["BETTER_AUTH_SECRET"]);
+assert.deepEqual(shortSecretInventory.phases.maintenance.invalidOrInconsistent, ["IB_MAINTENANCE_SECRET"]);
+
+const unsafeScannerKeys = buildStagingEnvironmentInventory({
+  ...secretValues,
+  IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY: "security-fixtures/file-scanner/../escape.txt",
+  IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY: "wrong-prefix/malicious.txt",
+});
+assert.equal(unsafeScannerKeys.phases.scanner.ready, false);
+assert.ok(
+  unsafeScannerKeys.phases.scanner.invalidOrInconsistent.includes(
+    "IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY",
+  ),
+);
+assert.ok(
+  unsafeScannerKeys.phases.scanner.invalidOrInconsistent.includes(
+    "IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY",
+  ),
+);
+
+const duplicateScannerKeys = buildStagingEnvironmentInventory({
+  ...secretValues,
+  IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY:
+    secretValues.IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY,
+});
+assert.equal(duplicateScannerKeys.phases.scanner.ready, false);
+assert.ok(
+  duplicateScannerKeys.phases.scanner.invalidOrInconsistent.includes(
+    "IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY",
+  ),
+);
+assert.ok(
+  duplicateScannerKeys.phases.scanner.invalidOrInconsistent.includes(
+    "IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY",
+  ),
+);
+
 const serialized = JSON.stringify(inventory);
 for (const value of Object.values(secretValues)) {
   assert.equal(
