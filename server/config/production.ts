@@ -283,7 +283,7 @@ export function readMaintenanceRuntimeConfig(
       10_080,
     ),
     staleUploadBatchLimit: readIntegerEnv(env, "IB_STALE_UPLOAD_BATCH_LIMIT", 100, 1, 500),
-    fileScanBatchLimit: readIntegerEnv(env, "IB_FILE_SCAN_BATCH_LIMIT", 10, 1, 100),
+    fileScanBatchLimit: readIntegerEnv(env, "IB_FILE_SCAN_BATCH_LIMIT", 1, 1, 10),
     fileScanLeaseSeconds,
     fileScanSourceUrlTtlSeconds,
     fileScanMaxAttempts: readIntegerEnv(env, "IB_FILE_SCAN_MAX_ATTEMPTS", 5, 1, 20),
