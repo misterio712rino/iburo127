@@ -9,14 +9,7 @@ import {
   handlePrepareStoredFileUpload,
 } from "@/server/files/handlers";
 import { toStoredFileHttpResponse } from "@/server/files/http";
-
-async function readJsonBody(request: Request): Promise<unknown> {
-  try {
-    return await request.json();
-  } catch {
-    return undefined;
-  }
-}
+import { readBoundedJsonBody } from "@/server/http/bounded-json-body";
 
 export function createStoredFileRouteAdapter(sessionProvider: SessionProvider) {
   return {
@@ -29,8 +22,10 @@ export function createStoredFileRouteAdapter(sessionProvider: SessionProvider) {
     },
 
     async prepareUpload(clientCaseId: unknown, request: Request): Promise<Response> {
+      const bodyResult = await readBoundedJsonBody(request);
+      if (!bodyResult.ok) return bodyResult.response;
       return toStoredFileHttpResponse(
-        await handlePrepareStoredFileUpload(sessionProvider, clientCaseId, await readJsonBody(request)),
+        await handlePrepareStoredFileUpload(sessionProvider, clientCaseId, bodyResult.value),
       );
     },
 
