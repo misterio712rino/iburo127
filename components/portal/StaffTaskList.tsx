@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { ArrowUpRight, BriefcaseBusiness, Clock3, FileText, History } from "lucide-react";
 import { TaskStatusControl } from "@/components/platform/tasks/TaskStatusControl";
+import {
+  getCaseStageDisplayLabel,
+  getPlanDisplayLabel,
+} from "@/lib/platform/case-progress";
 import type { StaffTaskQueueItem } from "@/server/tasks/staff-task-view";
 
 const STATUS_LABELS = {
@@ -36,11 +40,15 @@ export function StaffTaskList({
     );
   }
 
+  const now = new Date();
+
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       {items.map(({ task, clientCase }) => {
         const caseHref = `/portal/cases/${encodeURIComponent(clientCase.id)}`;
         const due = dueLabel(task.dueAt);
+        const overdue =
+          task.status !== "DONE" && Boolean(task.dueAt && task.dueAt.getTime() < now.getTime());
 
         return (
           <article
@@ -56,36 +64,44 @@ export function StaffTaskList({
                   <BriefcaseBusiness className="size-3.5" aria-hidden="true" />
                   {clientCase.caseNumber}
                 </Link>
-                <p className="mt-2 text-lg font-bold text-slate-900">{task.title}</p>
+                <p className="mt-2 break-words text-lg font-bold text-slate-900">{task.title}</p>
                 {task.description ? (
-                  <p className="mt-2 text-sm leading-6 text-slate-500">{task.description}</p>
+                  <p className="mt-2 break-words text-sm leading-6 text-slate-500">{task.description}</p>
                 ) : null}
               </div>
-              <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-bold text-slate-600">
-                {STATUS_LABELS[task.status]}
-              </span>
+              <div className="flex shrink-0 flex-col items-end gap-2">
+                <span className="rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-bold text-slate-600">
+                  {STATUS_LABELS[task.status]}
+                </span>
+                {overdue ? (
+                  <span className="rounded-full bg-red-50 px-3 py-1.5 text-[11px] font-bold text-red-700">
+                    Просрочено
+                  </span>
+                ) : null}
+              </div>
             </div>
 
             <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 text-xs">
               <div>
                 <dt className="text-slate-400">Этап дела</dt>
-                <dd className="mt-1 font-semibold text-slate-700">{clientCase.stageCode}</dd>
+                <dd className="mt-1 font-semibold text-slate-700">
+                  {getCaseStageDisplayLabel(clientCase.stageCode, "STAFF")}
+                </dd>
               </div>
               <div>
                 <dt className="text-slate-400">Тариф</dt>
-                <dd className="mt-1 font-semibold text-slate-700">{clientCase.planCode}</dd>
+                <dd className="mt-1 font-semibold text-slate-700">
+                  {getPlanDisplayLabel(clientCase.planCode, "STAFF")}
+                </dd>
               </div>
             </dl>
 
-            <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-              <span>Версия {task.version}</span>
-              {due ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <Clock3 className="size-3.5" aria-hidden="true" />
-                  До {due}
-                </span>
-              ) : null}
-            </div>
+            {due ? (
+              <div className={`mt-4 inline-flex items-center gap-1.5 text-xs ${overdue ? "font-semibold text-red-700" : "text-slate-400"}`}>
+                <Clock3 className="size-3.5" aria-hidden="true" />
+                {overdue ? "Срок был" : "Срок"} {due}
+              </div>
+            ) : null}
 
             <TaskStatusControl taskId={task.id} status={task.status} version={task.version} />
 

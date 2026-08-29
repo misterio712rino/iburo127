@@ -48,7 +48,7 @@ const accessibleCase: ClientCaseRecord = {
   caseNumber: "STAGE-001",
   clientId: "client-1",
   planCode: "PRO",
-  stageCode: "DOCUMENTS",
+  stageCode: "LAWYER_REVIEW",
   assignedLawyerId: "lawyer-1",
   status: "ACTIVE",
 };
@@ -73,6 +73,7 @@ const visibleNewTask: TaskRecord = {
   id: "task-new",
   clientCaseId: accessibleCase.id,
   title: "Prepare documents",
+  dueAt: new Date("2026-08-31T10:00:00.000Z"),
 };
 
 const visibleWorkingTask: TaskRecord = {
@@ -84,25 +85,53 @@ const visibleWorkingTask: TaskRecord = {
   startedAt: new Date("2026-08-29T08:00:00.000Z"),
 };
 
+const visibleOverdueWorkingTask: TaskRecord = {
+  ...visibleWorkingTask,
+  id: "task-overdue-working",
+  title: "Urgent document review",
+  dueAt: new Date("2026-08-28T09:00:00.000Z"),
+};
+
+const queueNow = new Date("2026-08-29T12:00:00.000Z");
 const queue = buildStaffTaskQueue(
-  [visibleWorkingTask, inaccessibleCaseTask, visibleNewTask],
+  [visibleNewTask, visibleWorkingTask, inaccessibleCaseTask, visibleOverdueWorkingTask],
   [accessibleCase],
+  queueNow,
 );
 assert.deepEqual(
   queue.map(({ task }) => task.id),
-  ["task-new", "task-working"],
-  "staff task view must drop tasks whose ClientCase is not independently accessible",
+  ["task-overdue-working", "task-working", "task-new"],
+  "staff task view must drop inaccessible cases and prioritize overdue -> working -> new tasks",
 );
 assert.equal(queue[0]?.clientCase.caseNumber, accessibleCase.caseNumber);
 assert.equal(queue[0]?.clientCase.planCode, accessibleCase.planCode);
 
-const summary = summarizeStaffTaskQueue(queue, new Date("2026-08-29T12:00:00.000Z"));
+const summary = summarizeStaffTaskQueue(queue, queueNow);
 assert.deepEqual(summary, {
-  total: 2,
+  total: 3,
   new: 1,
-  working: 1,
+  working: 2,
   done: 0,
   overdue: 1,
 });
+
+const staffTaskListSource = await readFile(resolve("components/portal/StaffTaskList.tsx"), "utf8");
+assert.match(staffTaskListSource, /getCaseStageDisplayLabel\(clientCase\.stageCode, "STAFF"\)/);
+assert.match(staffTaskListSource, /getPlanDisplayLabel\(clientCase\.planCode, "STAFF"\)/);
+assert.match(staffTaskListSource, /Просрочено/);
+assert.doesNotMatch(
+  staffTaskListSource,
+  /Версия \{task\.version\}/,
+  "staff task cards must not foreground optimistic-lock version numbers in normal workflow UI",
+);
+
+const staffTasksPageSource = await readFile(resolve("app/portal/tasks/page.tsx"), "utf8");
+assert.match(staffTasksPageSource, /Сейчас в приоритете/);
+assert.match(staffTasksPageSource, /Открыть задачи по делу/);
+assert.match(
+  staffTasksPageSource,
+  /buildStaffTaskQueue\(tasks, cases, now\)/,
+  "staff queue and summary must share one server timestamp for deterministic prioritization",
+);
 
 console.log("PLATFORM_ROLE_CONTRACT_TEST_PASS");

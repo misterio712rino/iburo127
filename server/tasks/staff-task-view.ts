@@ -19,10 +19,11 @@ export type StaffTaskQueueSummary = {
   overdue: number;
 };
 
-function taskPriority(task: TaskRecord): number {
+function taskPriority(task: TaskRecord, now: Date): number {
   if (task.status === "DONE") return 3;
+  if (task.dueAt && task.dueAt.getTime() < now.getTime()) return 0;
   if (task.status === "WORKING") return 1;
-  return 0;
+  return 2;
 }
 
 function dueTime(task: TaskRecord): number {
@@ -32,6 +33,7 @@ function dueTime(task: TaskRecord): number {
 export function buildStaffTaskQueue(
   tasks: readonly TaskRecord[],
   cases: readonly ClientCaseRecord[],
+  now: Date = new Date(),
 ): readonly StaffTaskQueueItem[] {
   const casesById = new Map(cases.map((clientCase) => [clientCase.id, clientCase] as const));
 
@@ -55,7 +57,7 @@ export function buildStaffTaskQueue(
     })
     .sort(
       (left, right) =>
-        taskPriority(left.task) - taskPriority(right.task) ||
+        taskPriority(left.task, now) - taskPriority(right.task, now) ||
         dueTime(left.task) - dueTime(right.task) ||
         left.task.createdAt.getTime() - right.task.createdAt.getTime(),
     );
