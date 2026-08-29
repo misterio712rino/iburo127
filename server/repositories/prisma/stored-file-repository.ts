@@ -1,7 +1,9 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import { getPrismaClient } from "@/server/database/prisma";
 import type {
+  ClaimedStoredFileScan,
   StoredFileRecord,
   StoredFileRepository,
   StoredFileStatus,
@@ -81,7 +83,7 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
     });
   }
 
-  async markReady(fileId: string, readyAt: Date, auditActorUserId: string) {
+  async markPendingScan(fileId: string, scanNextAttemptAt: Date, auditActorUserId: string) {
     const prisma = getPrismaClient();
     return prisma.$transaction(async (tx) => {
       const current = await tx.storedFile.findUnique({ where: { id: fileId } });
@@ -99,7 +101,17 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
           status: "PENDING_UPLOAD",
           uploadedById: auditActorUserId,
         },
-        data: { status: "READY", readyAt },
+        data: {
+          status: "PENDING_SCAN",
+          scanNextAttemptAt,
+          scanLeaseUntil: null,
+          scanLeaseToken: null,
+          scanProvider: null,
+          scanLastErrorCode: null,
+          scannedAt: null,
+          quarantinedAt: null,
+          readyAt: null,
+        },
       });
       if (updated.count !== 1) return null;
 
@@ -111,12 +123,250 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
           metadata: {
             fileId: current.id,
             storageProvider: current.storageProvider,
+            fileStatus: "PENDING_SCAN",
           },
         }),
       });
 
       const row = await tx.storedFile.findUnique({ where: { id: current.id } });
       return row ? toRecord(row) : null;
+    });
+  }
+
+  async claimDueScan(input: { now: Date; leaseUntil: Date }) {
+    const prisma = getPrismaClient();
+    const eligible = {
+      OR: [
+        {
+          status: "PENDING_SCAN" as const,
+          scanNextAttemptAt: { lte: input.now },
+        },
+        {
+          status: "SCANNING" as const,
+          scanLeaseUntil: { lte: input.now },
+        },
+      ],
+    };
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const candidate = await prisma.storedFile.findFirst({
+        where: eligible,
+        orderBy: [{ scanNextAttemptAt: "asc" }, { createdAt: "asc" }],
+        select: { id: true },
+      });
+      if (!candidate) return null;
+
+      const leaseToken = randomUUID();
+      const claimed = await prisma.storedFile.updateMany({
+        where: { id: candidate.id, ...eligible },
+        data: {
+          status: "SCANNING",
+          scanLeaseUntil: input.leaseUntil,
+          scanLeaseToken: leaseToken,
+          scanAttemptCount: { increment: 1 },
+          scanLastErrorCode: null,
+        },
+      });
+      if (claimed.count !== 1) continue;
+
+      const row = await prisma.storedFile.findUnique({ where: { id: candidate.id } });
+      if (!row || row.status !== "SCANNING" || row.scanLeaseToken !== leaseToken) continue;
+
+      return toRecord(row) as ClaimedStoredFileScan;
+    }
+
+    return null;
+  }
+
+  async markScanClean(input: {
+    fileId: string;
+    leaseToken: string;
+    providerCode: string;
+    scannedAt: Date;
+  }) {
+    const prisma = getPrismaClient();
+    return prisma.$transaction(async (tx) => {
+      const current = await tx.storedFile.findUnique({ where: { id: input.fileId } });
+      if (
+        !current ||
+        current.status !== "SCANNING" ||
+        current.scanLeaseToken !== input.leaseToken
+      ) {
+        return null;
+      }
+
+      const updated = await tx.storedFile.updateMany({
+        where: {
+          id: input.fileId,
+          status: "SCANNING",
+          scanLeaseToken: input.leaseToken,
+        },
+        data: {
+          status: "READY",
+          scanProvider: input.providerCode,
+          scanLastErrorCode: null,
+          scannedAt: input.scannedAt,
+          quarantinedAt: null,
+          readyAt: input.scannedAt,
+          scanNextAttemptAt: null,
+          scanLeaseUntil: null,
+          scanLeaseToken: null,
+        },
+      });
+      if (updated.count !== 1) return null;
+
+      await tx.caseActivityEvent.create({
+        data: buildCaseActivityWrite({
+          clientCaseId: current.clientCaseId,
+          actorUserId: null,
+          type: "file.scan.clean",
+          metadata: {
+            fileId: current.id,
+            storageProvider: current.storageProvider,
+            scanProvider: input.providerCode,
+            fileStatus: "READY",
+          },
+        }),
+      });
+
+      const row = await tx.storedFile.findUnique({ where: { id: input.fileId } });
+      return row ? toRecord(row) : null;
+    });
+  }
+
+  async markScanQuarantined(input: {
+    fileId: string;
+    leaseToken: string;
+    providerCode: string;
+    scannedAt: Date;
+  }) {
+    const prisma = getPrismaClient();
+    return prisma.$transaction(async (tx) => {
+      const current = await tx.storedFile.findUnique({ where: { id: input.fileId } });
+      if (
+        !current ||
+        current.status !== "SCANNING" ||
+        current.scanLeaseToken !== input.leaseToken
+      ) {
+        return null;
+      }
+
+      const updated = await tx.storedFile.updateMany({
+        where: {
+          id: input.fileId,
+          status: "SCANNING",
+          scanLeaseToken: input.leaseToken,
+        },
+        data: {
+          status: "QUARANTINED",
+          scanProvider: input.providerCode,
+          scanLastErrorCode: null,
+          scannedAt: input.scannedAt,
+          quarantinedAt: input.scannedAt,
+          readyAt: null,
+          scanNextAttemptAt: null,
+          scanLeaseUntil: null,
+          scanLeaseToken: null,
+        },
+      });
+      if (updated.count !== 1) return null;
+
+      await tx.caseActivityEvent.create({
+        data: buildCaseActivityWrite({
+          clientCaseId: current.clientCaseId,
+          actorUserId: null,
+          type: "file.scan.quarantined",
+          metadata: {
+            fileId: current.id,
+            storageProvider: current.storageProvider,
+            scanProvider: input.providerCode,
+            fileStatus: "QUARANTINED",
+          },
+        }),
+      });
+
+      const row = await tx.storedFile.findUnique({ where: { id: input.fileId } });
+      return row ? toRecord(row) : null;
+    });
+  }
+
+  async rescheduleScan(input: {
+    fileId: string;
+    leaseToken: string;
+    nextAttemptAt: Date;
+    providerCode: string;
+    errorCode: string;
+  }) {
+    const prisma = getPrismaClient();
+    const updated = await prisma.storedFile.updateMany({
+      where: {
+        id: input.fileId,
+        status: "SCANNING",
+        scanLeaseToken: input.leaseToken,
+      },
+      data: {
+        status: "PENDING_SCAN",
+        scanProvider: input.providerCode,
+        scanLastErrorCode: input.errorCode,
+        scanNextAttemptAt: input.nextAttemptAt,
+        scanLeaseUntil: null,
+        scanLeaseToken: null,
+      },
+    });
+    return updated.count === 1;
+  }
+
+  async markScanFailed(input: {
+    fileId: string;
+    leaseToken: string;
+    providerCode: string;
+    scannedAt: Date;
+    errorCode: string;
+  }) {
+    const prisma = getPrismaClient();
+    return prisma.$transaction(async (tx) => {
+      const current = await tx.storedFile.findUnique({ where: { id: input.fileId } });
+      if (
+        !current ||
+        current.status !== "SCANNING" ||
+        current.scanLeaseToken !== input.leaseToken
+      ) {
+        return false;
+      }
+
+      const updated = await tx.storedFile.updateMany({
+        where: {
+          id: input.fileId,
+          status: "SCANNING",
+          scanLeaseToken: input.leaseToken,
+        },
+        data: {
+          status: "SCAN_FAILED",
+          scanProvider: input.providerCode,
+          scanLastErrorCode: input.errorCode,
+          scannedAt: input.scannedAt,
+          readyAt: null,
+          scanNextAttemptAt: null,
+          scanLeaseUntil: null,
+          scanLeaseToken: null,
+        },
+      });
+      if (updated.count !== 1) return false;
+
+      await tx.caseActivityEvent.create({
+        data: buildCaseActivityWrite({
+          clientCaseId: current.clientCaseId,
+          actorUserId: null,
+          type: "file.scan.failed",
+          metadata: {
+            fileId: current.id,
+            storageProvider: current.storageProvider,
+            scanProvider: input.providerCode,
+            fileStatus: "SCAN_FAILED",
+          },
+        }),
+      });
+      return true;
     });
   }
 
@@ -148,6 +398,14 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
           mimeType: file.mimeType,
           sizeBytes: file.sizeBytes,
           checksumSha256: file.checksumSha256,
+          scanAttemptCount: 0,
+          scanNextAttemptAt: null,
+          scanLeaseUntil: null,
+          scanLeaseToken: null,
+          scanProvider: null,
+          scanLastErrorCode: null,
+          scannedAt: null,
+          quarantinedAt: null,
           readyAt: null,
           createdAt: file.createdAt,
         },
