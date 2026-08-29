@@ -7,7 +7,8 @@ This checklist defines the conditions for switching any platform workflow from i
 - [ ] Authoritative PostgreSQL cluster confirmed and reachable from the deployment environment.
 - [ ] Current database schema inspected and backed up.
 - [ ] Prisma migration baseline established without destructive drift.
-- [x] Read-only PostgreSQL baseline inspection command implemented as `npm run db:inspect:baseline`; it does not run migrations, DDL, DML or read user table contents.
+- [x] Public-safe read-only PostgreSQL baseline summary implemented as `npm run db:inspect:baseline:summary`; exact staging target guards run before connection and output is limited to aggregate counts plus conservative A/B/C/D/REVIEW classification.
+- [x] Full read-only PostgreSQL structural baseline inspection implemented as `npm run db:inspect:baseline`; it reads no user-table payloads and refuses to run under GitHub Actions so internal schema structure is not dumped into this public repository's CI logs.
 - [x] Migration SQL review gate implemented as `npm run db:review:sql`; destructive/high-risk SQL is fingerprinted and automatically blocked or flagged before staging application.
 - [x] Guarded staging-only migration deploy command implemented as `npm run db:deploy:staging`; it requires an exact database-name match and explicit confirmation before `prisma migrate deploy` can run.
 - [x] Read-only post-migration staging schema verification implemented as `npm run db:verify:staging`; it verifies required domain tables/enums and rejects unfinished Prisma migrations without reading client data.
@@ -156,7 +157,8 @@ Architecture decision: see `docs/AUTH_PROVIDER_DECISION.md`.
 
 - [x] Staging activation sequence documented in `docs/STAGING_ACTIVATION_RUNBOOK.md`.
 - [x] Read-only staging preflight script implemented as `npm run check:staging`.
-- [x] Read-only authoritative database structure inspection documented in `docs/DATABASE_BASELINE_INSPECTION.md` and implemented as `npm run db:inspect:baseline`.
+- [x] Public-safe staging database baseline summary documented in `docs/DATABASE_BASELINE_INSPECTION.md` and implemented as `npm run db:inspect:baseline:summary`; it is the first database classification gate.
+- [x] Full read-only authoritative database structure inspection documented in `docs/DATABASE_BASELINE_INSPECTION.md` and implemented as `npm run db:inspect:baseline`; run only in a trusted environment, never as a public GitHub Actions structural dump.
 - [x] Migration SQL review gate documented in `docs/MIGRATION_SQL_REVIEW_GATE.md` and implemented as `npm run db:review:sql`.
 - [x] Guarded staging migration deployment documented in `docs/STAGING_MIGRATION_DEPLOY.md` and implemented as `npm run db:deploy:staging`; no production deploy command exists.
 - [x] Read-only post-migration schema verification documented in `docs/STAGING_POST_MIGRATION_VERIFICATION.md` and implemented as `npm run db:verify:staging`.
