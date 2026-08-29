@@ -9,6 +9,7 @@ const pinPolicyScript = resolve(repoRoot, "scripts/check-github-actions-pins.mjs
 const workflowSecurityScript = resolve(repoRoot, "scripts/check-github-workflow-security.mjs");
 const checkoutSha = "3d3c42e5aac5ba805825da76410c181273ba90b1";
 const setupNodeSha = "820762786026740c76f36085b0efc47a31fe5020";
+const exactCandidateRef = "${{ github.event.pull_request.head.sha || github.sha }}";
 
 function withWorkflow(source: string, run: (root: string) => void) {
   const root = mkdtempSync(join(tmpdir(), "iburo-ci-policy-"));
@@ -44,6 +45,7 @@ jobs:
         uses: actions/checkout@${checkoutSha} # v7.0.1
         with:
           persist-credentials: false
+          ref: ${exactCandidateRef}
       - name: Setup Node.js
         uses: actions/setup-node@${setupNodeSha} # v7.0.0
         with:
@@ -89,11 +91,25 @@ withWorkflow(safeWorkflow().replace("runs-on: ubuntu-24.04", "runs-on: ubuntu-la
   assert.match(result.stderr, /runs-on must be pinned to ubuntu-24\.04/);
 });
 
-withWorkflow(safeWorkflow().replace("        with:\n          persist-credentials: false\n", ""), (root) => {
+withWorkflow(safeWorkflow().replace("        with:\n          persist-credentials: false\n          ref: ${exactCandidateRef}\n", ""), (root) => {
   const result = runPolicy(workflowSecurityScript, root);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /GITHUB_WORKFLOW_SECURITY_POLICY_FAIL/);
   assert.match(result.stderr, /persist-credentials: false/);
+});
+
+withWorkflow(safeWorkflow().replace(`          ref: ${exactCandidateRef}\n`, ""), (root) => {
+  const result = runPolicy(workflowSecurityScript, root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /GITHUB_WORKFLOW_SECURITY_POLICY_FAIL/);
+  assert.match(result.stderr, /exact candidate SHA expression/);
+});
+
+withWorkflow(safeWorkflow().replace(exactCandidateRef, "${{ github.sha }}"), (root) => {
+  const result = runPolicy(workflowSecurityScript, root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /GITHUB_WORKFLOW_SECURITY_POLICY_FAIL/);
+  assert.match(result.stderr, /checkout ref must resolve the exact candidate SHA/);
 });
 
 console.log("GITHUB_CI_SECURITY_POLICY_TEST_PASS");
