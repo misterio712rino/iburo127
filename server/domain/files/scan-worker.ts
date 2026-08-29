@@ -109,7 +109,11 @@ export class StoredFileScanWorker {
         scannedAt: now,
         errorCode: FILE_SCAN_STORAGE_PROVIDER_MISMATCH,
       });
-      failed ? (result.failed += 1) : (result.leaseLost += 1);
+      if (failed) {
+        result.failed += 1;
+      } else {
+        result.leaseLost += 1;
+      }
       return;
     }
 
@@ -131,7 +135,11 @@ export class StoredFileScanWorker {
           providerCode: this.scanner.providerCode,
           scannedAt: now,
         });
-        ready ? (result.clean += 1) : (result.leaseLost += 1);
+        if (ready) {
+          result.clean += 1;
+        } else {
+          result.leaseLost += 1;
+        }
         return;
       }
 
@@ -141,7 +149,11 @@ export class StoredFileScanWorker {
         providerCode: this.scanner.providerCode,
         scannedAt: now,
       });
-      quarantined ? (result.quarantined += 1) : (result.leaseLost += 1);
+      if (quarantined) {
+        result.quarantined += 1;
+      } else {
+        result.leaseLost += 1;
+      }
     } catch (error) {
       const errorCode = safeScannerErrorCode(error);
       if (file.scanAttemptCount >= this.config.maxAttempts) {
@@ -152,7 +164,11 @@ export class StoredFileScanWorker {
           scannedAt: now,
           errorCode,
         });
-        failed ? (result.failed += 1) : (result.leaseLost += 1);
+        if (failed) {
+          result.failed += 1;
+        } else {
+          result.leaseLost += 1;
+        }
         return;
       }
 
@@ -168,7 +184,11 @@ export class StoredFileScanWorker {
         errorCode,
         nextAttemptAt: new Date(now.getTime() + delaySeconds * 1000),
       });
-      retried ? (result.retried += 1) : (result.leaseLost += 1);
+      if (retried) {
+        result.retried += 1;
+      } else {
+        result.leaseLost += 1;
+      }
     }
   }
 
