@@ -159,7 +159,8 @@ class InMemoryTaskRepository implements TaskRepository {
 
 async function testTaskAuthorization() {
   const repository = new InMemoryTaskRepository();
-  const service = new TaskService(repository);
+  const cases = new ClientCaseService(new InMemoryCaseRepository());
+  const service = new TaskService(cases, repository);
 
   assert.equal((await service.get(actors.lawyer, task.id))?.id, task.id);
   assert.equal(await service.get(actors.otherLawyer, task.id), null);
