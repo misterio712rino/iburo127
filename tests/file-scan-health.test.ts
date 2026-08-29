@@ -91,4 +91,14 @@ assert.doesNotMatch(repositorySource, /objectKey:\s*true/);
 assert.doesNotMatch(repositorySource, /clientCaseId:\s*true/);
 assert.doesNotMatch(repositorySource, /uploadedById:\s*true/);
 
+const configSource = await readFile(resolve("server/config/production.ts"), "utf8");
+assert.match(
+  configSource,
+  /"IB_FILE_SCAN_HEALTH_GRACE_MINUTES",\s*15,\s*2,\s*1_440/,
+);
+assert.match(
+  configSource,
+  /"IB_FILE_SCAN_HEALTH_BATCH_LIMIT",\s*50,\s*1,\s*200/,
+);
+
 console.log("FILE_SCAN_HEALTH_TEST_PASS");
