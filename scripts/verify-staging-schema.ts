@@ -26,5 +26,11 @@ console.log(`Staging database identity verified: ${report.databaseName}`);
 console.log(`Staging database user verified: ${report.databaseUser}`);
 console.log(`Required domain tables verified: ${report.requiredTableCount}`);
 console.log(`Required PostgreSQL enums verified: ${report.requiredEnumCount}`);
+console.log(
+  `StoredFile scan columns verified: ${report.requiredStoredFileScanColumnCount}`,
+);
+console.log(
+  `StoredFileStatus lifecycle values verified: ${report.requiredStoredFileStatusValueCount}`,
+);
 console.log(`Applied Prisma migrations verified: ${report.appliedMigrationCount}`);
 console.log("STAGING_SCHEMA_VERIFY_PASS");
