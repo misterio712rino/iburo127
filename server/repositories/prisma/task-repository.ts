@@ -12,8 +12,26 @@ import {
 import { buildCaseActivityWrite } from "@/server/repositories/prisma/case-activity-write";
 
 function actorTaskWhere(actor: AuthenticatedActor) {
-  if (actor.roles.includes("MANAGER")) return {};
-  if (actor.roles.includes("LAWYER")) return { assigneeId: actor.userId };
+  if (actor.roles.includes("MANAGER")) {
+    return {
+      clientCase: {
+        is: {
+          clientId: { not: actor.userId },
+        },
+      },
+    };
+  }
+  if (actor.roles.includes("LAWYER")) {
+    return {
+      assigneeId: actor.userId,
+      clientCase: {
+        is: {
+          assignedLawyerId: actor.userId,
+          clientId: { not: actor.userId },
+        },
+      },
+    };
+  }
   return null;
 }
 

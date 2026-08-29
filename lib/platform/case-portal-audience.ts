@@ -2,6 +2,7 @@ import type {
   AuthenticatedActor,
   ClientCaseRecord,
 } from "@/server/domain/client-cases/contracts";
+import { canAccessClientCaseAsStaff } from "@/server/domain/client-cases/access-policy";
 
 export type CasePortalAudience = "CLIENT" | "STAFF";
 
@@ -15,7 +16,7 @@ export function resolveCasePortalAudience(
     return "CLIENT";
   }
 
-  if (actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER")) {
+  if (canAccessClientCaseAsStaff(actor, clientCase)) {
     return "STAFF";
   }
 

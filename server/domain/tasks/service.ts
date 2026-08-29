@@ -1,4 +1,6 @@
+import { canAccessClientCaseAsStaff } from "@/server/domain/client-cases/access-policy";
 import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
+import { ClientCaseService } from "@/server/domain/client-cases/service";
 import type { TaskRecord, TaskRepository, TaskStatus } from "@/server/domain/tasks/contracts";
 
 export const TASK_FORBIDDEN = "TASK_FORBIDDEN";
@@ -16,17 +18,40 @@ function assertTaskStatus(status: TaskStatus) {
 }
 
 export class TaskService {
-  constructor(private readonly repository: TaskRepository) {}
+  constructor(
+    private readonly cases: ClientCaseService,
+    private readonly repository: TaskRepository,
+  ) {}
+
+  private async canAccessTaskCaseAsStaff(
+    actor: AuthenticatedActor,
+    task: TaskRecord,
+  ) {
+    const clientCase = await this.cases.getCase(actor, { caseId: task.clientCaseId });
+    return Boolean(clientCase && canAccessClientCaseAsStaff(actor, clientCase));
+  }
 
   async get(actor: AuthenticatedActor, taskId: string) {
     const task = await this.repository.getAccessible(actor, taskId);
     if (!task || !canAccessTask(actor, task)) return null;
+    if (!(await this.canAccessTaskCaseAsStaff(actor, task))) return null;
     return task;
   }
 
   async list(actor: AuthenticatedActor) {
-    const tasks = await this.repository.listAccessible(actor);
-    return tasks.filter((task) => canAccessTask(actor, task));
+    const [tasks, cases] = await Promise.all([
+      this.repository.listAccessible(actor),
+      this.cases.listCases(actor),
+    ]);
+    const staffCaseIds = new Set(
+      cases
+        .filter((clientCase) => canAccessClientCaseAsStaff(actor, clientCase))
+        .map((clientCase) => clientCase.id),
+    );
+
+    return tasks.filter(
+      (task) => canAccessTask(actor, task) && staffCaseIds.has(task.clientCaseId),
+    );
   }
 
   async updateStatus(
