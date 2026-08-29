@@ -70,7 +70,9 @@ function readTimeoutMs(env, job) {
 
 function requireJob(job) {
   if (!Object.hasOwn(JOB_PATHS, job)) {
-    fail(`job must be one of: ${Object.keys(JOB_PATHS).join(", ")}`);
+    fail(
+      "job must be notification-deliveries, notification-delivery-health, stale-uploads, stale-upload-health, file-scans, file-scan-health, or ai-audit-health; additional supported jobs: task-reminders, questionnaire-reminders",
+    );
   }
   return job;
 }
