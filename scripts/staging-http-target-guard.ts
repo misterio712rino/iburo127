@@ -2,6 +2,11 @@ export const STAGING_HTTP_TARGET_GUARD = "STAGING_HTTP_TARGET_GUARD";
 
 type StagingHttpTargetEnv = Readonly<Record<string, string | undefined>>;
 
+export type StagingAuthRuntimeTarget = {
+  baseUrl: string;
+  secret: string;
+};
+
 function fail(reason: string): never {
   throw new Error(`${STAGING_HTTP_TARGET_GUARD}:${reason}`);
 }
@@ -54,4 +59,36 @@ export function requireStagingHttpTarget(
 
   url.pathname = "/";
   return url;
+}
+
+export function requireStagingAuthRuntimeTarget(
+  env: StagingHttpTargetEnv = process.env,
+): StagingAuthRuntimeTarget {
+  const stagingUrl = requireStagingHttpTarget(env);
+  const secret = required(env, "BETTER_AUTH_SECRET");
+  if (secret.length < 32) {
+    fail("BETTER_AUTH_SECRET must be at least 32 characters");
+  }
+
+  const rawAuthUrl = required(env, "BETTER_AUTH_URL");
+  let authUrl: URL;
+  try {
+    authUrl = new URL(rawAuthUrl);
+  } catch {
+    fail("BETTER_AUTH_URL is invalid");
+  }
+  if (
+    authUrl.username ||
+    authUrl.password ||
+    (authUrl.pathname !== "/" && authUrl.pathname !== "") ||
+    authUrl.search ||
+    authUrl.hash
+  ) {
+    fail("BETTER_AUTH_URL must be an origin without credentials/path/query/hash");
+  }
+  if (authUrl.origin !== stagingUrl.origin) {
+    fail("BETTER_AUTH_URL must match IB_STAGING_BASE_URL origin");
+  }
+
+  return { baseUrl: authUrl.origin, secret };
 }

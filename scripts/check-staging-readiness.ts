@@ -2,6 +2,7 @@ import "dotenv/config";
 
 import { Pool } from "pg";
 import { requireStagingDatabaseTarget } from "./staging-target-guard";
+import { requireStagingAuthRuntimeTarget } from "./staging-http-target-guard";
 
 function fail(message: string): never {
   console.error(`STAGING_READINESS_FAIL: ${message}`);
@@ -15,20 +16,10 @@ try {
   fail(error instanceof Error ? error.message : "invalid staging database target");
 }
 
-const authSecret = process.env.BETTER_AUTH_SECRET?.trim();
-const authUrlValue = process.env.BETTER_AUTH_URL?.trim();
-if (!authSecret) fail("missing BETTER_AUTH_SECRET");
-if (!authUrlValue) fail("missing BETTER_AUTH_URL");
-if (authSecret.length < 32) fail("BETTER_AUTH_SECRET must be at least 32 characters");
-
-let authUrl: URL;
 try {
-  authUrl = new URL(authUrlValue);
-} catch {
-  fail("BETTER_AUTH_URL must be an absolute URL");
-}
-if (authUrl.protocol !== "https:" && authUrl.hostname !== "localhost") {
-  fail("BETTER_AUTH_URL must use HTTPS outside localhost");
+  requireStagingAuthRuntimeTarget();
+} catch (error) {
+  fail(error instanceof Error ? error.message : "invalid staging auth runtime target");
 }
 
 const pool = new Pool({
@@ -50,7 +41,7 @@ try {
     fail("connected database does not match the preflight staging database identity");
   }
   console.log(`Staging PostgreSQL identity verified: ${target.expectedDatabaseName}`);
-  console.log("Better Auth runtime config: present and structurally valid");
+  console.log("Better Auth runtime config: staging origin identity verified");
   console.log("STAGING_CORE_READINESS_PASS");
   await client.query("ROLLBACK");
 } catch (error) {
