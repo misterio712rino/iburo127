@@ -1,0 +1,102 @@
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
+
+const WORKFLOWS_ROOT = ".github/workflows";
+
+function collectWorkflowFiles(directory) {
+  const files = [];
+  for (const entry of readdirSync(directory)) {
+    const absolute = join(directory, entry);
+    const stat = statSync(absolute);
+    if (stat.isDirectory()) {
+      files.push(...collectWorkflowFiles(absolute));
+      continue;
+    }
+    if (/\.ya?ml$/i.test(entry)) files.push(absolute);
+  }
+  return files;
+}
+
+const violations = [];
+let checkoutCount = 0;
+let workflowCount = 0;
+
+for (const file of collectWorkflowFiles(WORKFLOWS_ROOT)) {
+  workflowCount += 1;
+  const displayPath = relative(".", file);
+  const source = readFileSync(file, "utf8");
+  const lines = source.split(/\r?\n/);
+
+  if (/^\s*pull_request_target\s*:/m.test(source)) {
+    violations.push(`${displayPath}: pull_request_target is forbidden by CI security policy`);
+  }
+  if (/^\s*workflow_run\s*:/m.test(source)) {
+    violations.push(`${displayPath}: workflow_run is forbidden by CI security policy`);
+  }
+  if (/^\s*permissions\s*:\s*(write-all|read-all)\s*$/m.test(source)) {
+    violations.push(`${displayPath}: permissions must be explicit and least-privilege`);
+  }
+  if (/^\s*[A-Za-z0-9_-]+\s*:\s*write\s*(?:#.*)?$/m.test(source)) {
+    violations.push(`${displayPath}: write permission scopes are forbidden by the current CI policy`);
+  }
+  if (/^\s*secrets\s*:\s*inherit\s*(?:#.*)?$/m.test(source)) {
+    violations.push(`${displayPath}: secrets: inherit is forbidden by CI security policy`);
+  }
+  if (/^\s*runs-on\s*:\s*.*self-hosted/im.test(source)) {
+    violations.push(`${displayPath}: self-hosted runners are forbidden by CI security policy`);
+  }
+  if (/^\s*continue-on-error\s*:\s*true\s*(?:#.*)?$/m.test(source)) {
+    violations.push(`${displayPath}: continue-on-error: true is forbidden in protected CI workflows`);
+  }
+
+  const permissionsBlocks = lines.filter((line) => /^permissions\s*:\s*$/.test(line)).length;
+  if (permissionsBlocks !== 1) {
+    violations.push(`${displayPath}: exactly one top-level permissions block is required`);
+  }
+  if (!/^permissions\s*:\s*$\n\s{2}contents\s*:\s*read\s*(?:#.*)?$/m.test(source)) {
+    violations.push(`${displayPath}: top-level permissions must declare contents: read`);
+  }
+
+  lines.forEach((line, index) => {
+    if (!/^\s*uses:\s*actions\/checkout@/.test(line)) return;
+    checkoutCount += 1;
+
+    const lookahead = lines.slice(index + 1, index + 10);
+    let persistCredentialsFound = false;
+    for (const candidate of lookahead) {
+      if (/^\s*-\s+name\s*:/.test(candidate)) break;
+      if (/^\s*persist-credentials\s*:\s*false\s*(?:#.*)?$/.test(candidate)) {
+        persistCredentialsFound = true;
+        break;
+      }
+      if (/^\s*persist-credentials\s*:\s*true\s*(?:#.*)?$/.test(candidate)) {
+        violations.push(`${displayPath}:${index + 1}: checkout must not persist GitHub credentials`);
+        persistCredentialsFound = true;
+        break;
+      }
+    }
+    if (!persistCredentialsFound) {
+      violations.push(
+        `${displayPath}:${index + 1}: checkout must explicitly set persist-credentials: false`,
+      );
+    }
+  });
+}
+
+if (workflowCount === 0) {
+  console.error("GITHUB_WORKFLOW_SECURITY_POLICY_FAIL: no workflow files found");
+  process.exit(1);
+}
+if (checkoutCount === 0) {
+  console.error("GITHUB_WORKFLOW_SECURITY_POLICY_FAIL: no checkout step found");
+  process.exit(1);
+}
+if (violations.length > 0) {
+  console.error("GITHUB_WORKFLOW_SECURITY_POLICY_FAIL");
+  for (const violation of violations) console.error(violation);
+  process.exit(1);
+}
+
+console.log(
+  `GITHUB_WORKFLOW_SECURITY_POLICY_PASS: ${workflowCount} workflow(s), ${checkoutCount} checkout step(s) hardened`,
+);
