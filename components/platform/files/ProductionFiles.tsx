@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Download, Loader2, UploadCloud } from "lucide-react";
+import { Download, Loader2, ShieldCheck, UploadCloud } from "lucide-react";
 
 type StoredFileView = {
   id: string;
@@ -36,9 +36,11 @@ function formatSize(value: string) {
 
 export function ProductionFiles({
   caseId,
+  canUpload,
   initialFiles,
 }: {
   caseId: string;
+  canUpload: boolean;
   initialFiles: StoredFileView[];
 }) {
   const [files, setFiles] = useState(initialFiles);
@@ -58,7 +60,7 @@ export function ProductionFiles({
   }
 
   async function upload(file: File) {
-    if (uploading) return;
+    if (!canUpload || uploading) return;
     setError(null);
 
     if (file.size <= 0 || file.size > MAX_UPLOAD_BYTES) {
@@ -147,32 +149,45 @@ export function ProductionFiles({
 
   return (
     <div className="mt-8 space-y-6">
-      <div className="rounded-[24px] border border-slate-200 bg-white/80 p-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      {canUpload ? (
+        <div className="rounded-[24px] border border-slate-200 bg-white/80 p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-bold text-slate-900">Добавить файл в дело</p>
+              <p className="mt-1 text-sm leading-6 text-slate-500">
+                PDF, JPG, PNG, WEBP, DOC или DOCX до 50 МБ. После загрузки файл проходит проверку безопасности и затем появляется в списке.
+              </p>
+            </div>
+            <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-[#17202a] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#263342] has-[input:disabled]:cursor-not-allowed has-[input:disabled]:opacity-50">
+              {uploading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <UploadCloud className="size-4" aria-hidden="true" />}
+              {uploading ? "Загрузка…" : "Выбрать файл"}
+              <input
+                ref={inputRef}
+                type="file"
+                accept={ACCEPT}
+                disabled={uploading}
+                className="sr-only"
+                onChange={(event) => {
+                  const selected = event.target.files?.[0];
+                  if (selected) void upload(selected);
+                }}
+              />
+            </label>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-start gap-3 rounded-[24px] border border-emerald-200 bg-emerald-50/70 p-5 text-sm leading-6 text-emerald-900">
+          <ShieldCheck className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
           <div>
-            <p className="font-bold text-slate-900">Добавить файл в дело</p>
-            <p className="mt-1 text-sm leading-6 text-slate-500">
-              PDF, JPG, PNG, WEBP, DOC или DOCX до 50 МБ. После загрузки файл проходит проверку безопасности и затем появляется в списке.
+            <p className="font-bold">Режим просмотра сотрудника</p>
+            <p className="mt-1 text-emerald-800">
+              Здесь доступны только файлы, которые завершили проверку безопасности. Загрузка новых файлов выполняется клиентом из его части дела.
             </p>
           </div>
-          <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-[#17202a] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#263342] has-[input:disabled]:cursor-not-allowed has-[input:disabled]:opacity-50">
-            {uploading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <UploadCloud className="size-4" aria-hidden="true" />}
-            {uploading ? "Загрузка…" : "Выбрать файл"}
-            <input
-              ref={inputRef}
-              type="file"
-              accept={ACCEPT}
-              disabled={uploading}
-              className="sr-only"
-              onChange={(event) => {
-                const selected = event.target.files?.[0];
-                if (selected) void upload(selected);
-              }}
-            />
-          </label>
         </div>
-        {error ? <p role="alert" className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
-      </div>
+      )}
+
+      {error ? <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
 
       <section aria-labelledby="ready-files-heading">
         <div className="flex items-center justify-between gap-3">

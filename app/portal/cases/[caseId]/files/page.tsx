@@ -30,6 +30,7 @@ export default async function PortalFilesPage({ params }: { params: Promise<{ ca
   const files = await listStoredFiles(sessionProvider, caseId);
   const audience = resolveCasePortalAudience(actor, clientCase);
   const isStaff = audience === "STAFF";
+  const canUpload = audience === "CLIENT";
 
   return (
     <PortalFrame sectionLabel="Файлы дела" accessLabel="Доступ подтверждён" showStaffTasks={isStaff}>
@@ -45,13 +46,18 @@ export default async function PortalFilesPage({ params }: { params: Promise<{ ca
             <div className="min-w-0">
               <p className="font-mono text-xs font-semibold tracking-[0.08em] text-slate-400">{clientCase.caseNumber}</p>
               <h1 className="mt-2 break-words font-[var(--font-iburo-display)] text-4xl font-semibold leading-none text-slate-900 sm:text-5xl">Файлы дела</h1>
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">Файлы хранятся в защищённом разделе дела. После загрузки каждый файл проходит проверку безопасности и становится доступен только пользователям с подтверждённым доступом к делу.</p>
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">
+                {isStaff
+                  ? "Сотруднику доступны только файлы, которые завершили проверку безопасности и разрешены для этого дела."
+                  : "Загружайте материалы по делу здесь. После проверки безопасности готовые файлы становятся доступны пользователям с подтверждённым доступом к делу."}
+              </p>
             </div>
           </div>
         </section>
 
         <ProductionFiles
           caseId={clientCase.id}
+          canUpload={canUpload}
           initialFiles={files.map((file) => ({
             id: file.id,
             fileName: file.fileName,

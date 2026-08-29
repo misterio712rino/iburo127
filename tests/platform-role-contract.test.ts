@@ -7,6 +7,7 @@ import "./case-portal-audience.test";
 import "./client-case-hub-contract.test";
 import "./document-review-separation.test";
 import "./task-case-authorization.test";
+import "./file-portal-audience-contract.test";
 
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
