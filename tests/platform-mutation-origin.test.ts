@@ -176,4 +176,31 @@ assert.match(proxySource, /STAGING_BACKEND_DISABLED/);
 assert.doesNotMatch(proxySource, /\/api\/auth/);
 assert.doesNotMatch(proxySource, /\/api\/internal/);
 
+const stagingIdentitySource = await readFile(
+  resolve("app/_iburo/staging-identity/route.ts"),
+  "utf8",
+);
+assert.match(stagingIdentitySource, /VERCEL_GIT_COMMIT_SHA/);
+assert.match(stagingIdentitySource, /VERCEL_GIT_COMMIT_REF/);
+assert.match(stagingIdentitySource, /IB_RUNTIME_TARGET/);
+assert.match(stagingIdentitySource, /isVercelPreviewBackendAllowed/);
+assert.match(stagingIdentitySource, /Cache-Control": "private, no-store, max-age=0"/);
+assert.match(stagingIdentitySource, /X-Content-Type-Options": "nosniff"/);
+for (const forbidden of [
+  "DATABASE_URL",
+  "BETTER_AUTH_SECRET",
+  "OPENAI_API_KEY",
+  "YANDEX_STORAGE_SECRET_ACCESS_KEY",
+  "YANDEX_POSTBOX_SECRET_ACCESS_KEY",
+  "IB_FILE_SCANNER_SECRET",
+  "IB_MAINTENANCE_SECRET",
+  "BITRIX24_WEBHOOK_URL",
+]) {
+  assert.doesNotMatch(
+    stagingIdentitySource,
+    new RegExp(forbidden),
+    `${forbidden} must not be exposed by staging identity`,
+  );
+}
+
 console.log("PLATFORM_MUTATION_ORIGIN_TEST_PASS");
