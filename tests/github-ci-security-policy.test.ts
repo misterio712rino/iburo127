@@ -38,7 +38,7 @@ permissions:
   contents: read
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@${checkoutSha} # v7.0.1
@@ -47,7 +47,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@${setupNodeSha} # v7.0.0
         with:
-          node-version: 24
+          node-version-file: .nvmrc
 `;
 }
 
@@ -80,6 +80,13 @@ withWorkflow(safeWorkflow().replace("  pull_request:", "  pull_request_target:")
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /GITHUB_WORKFLOW_SECURITY_POLICY_FAIL/);
   assert.match(result.stderr, /pull_request_target is forbidden/);
+});
+
+withWorkflow(safeWorkflow().replace("runs-on: ubuntu-24.04", "runs-on: ubuntu-latest"), (root) => {
+  const result = runPolicy(workflowSecurityScript, root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /GITHUB_WORKFLOW_SECURITY_POLICY_FAIL/);
+  assert.match(result.stderr, /runs-on must be pinned to ubuntu-24\.04/);
 });
 
 withWorkflow(safeWorkflow().replace("        with:\n          persist-credentials: false\n", ""), (root) => {
