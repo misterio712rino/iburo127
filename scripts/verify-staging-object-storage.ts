@@ -124,13 +124,19 @@ if (configuredBucket !== expectedBucket) {
   fail("YANDEX_STORAGE_BUCKET does not match IB_STAGING_STORAGE_BUCKET");
 }
 
+const configuredAccessKeyId = requireEnv("YANDEX_STORAGE_ACCESS_KEY_ID");
+const expectedAccessKeyId = requireEnv("IB_STAGING_STORAGE_ACCESS_KEY_ID");
+if (configuredAccessKeyId !== expectedAccessKeyId) {
+  fail("YANDEX_STORAGE_ACCESS_KEY_ID does not match IB_STAGING_STORAGE_ACCESS_KEY_ID");
+}
+
 const expectedOrigin = normalizeOrigin(requireEnv("IB_STAGING_STORAGE_ALLOWED_ORIGIN"));
 const endpoint = "https://storage.yandexcloud.net";
 const client = new S3Client({
   endpoint,
   region: "ru-central1",
   credentials: {
-    accessKeyId: requireEnv("YANDEX_STORAGE_ACCESS_KEY_ID"),
+    accessKeyId: configuredAccessKeyId,
     secretAccessKey: requireEnv("YANDEX_STORAGE_SECRET_ACCESS_KEY"),
   },
 });
@@ -169,6 +175,7 @@ try {
   assertCorsRules(corsRules, expectedOrigin);
 
   console.log(`Staging Object Storage bucket identity verified: ${expectedBucket}`);
+  console.log("Staging Object Storage access-key identity verified");
   console.log("Bucket ACL verified: no public S3 group grants");
   console.log(`Bucket policy verified: ${policyState}`);
   console.log(`Bucket CORS verified for exact staging origin: ${expectedOrigin}`);
