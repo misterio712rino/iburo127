@@ -91,7 +91,7 @@ withWorkflow(safeWorkflow().replace("runs-on: ubuntu-24.04", "runs-on: ubuntu-la
   assert.match(result.stderr, /runs-on must be pinned to ubuntu-24\.04/);
 });
 
-withWorkflow(safeWorkflow().replace("        with:\n          persist-credentials: false\n          ref: ${exactCandidateRef}\n", ""), (root) => {
+withWorkflow(safeWorkflow().replace(`        with:\n          persist-credentials: false\n          ref: ${exactCandidateRef}\n`, ""), (root) => {
   const result = runPolicy(workflowSecurityScript, root);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /GITHUB_WORKFLOW_SECURITY_POLICY_FAIL/);
