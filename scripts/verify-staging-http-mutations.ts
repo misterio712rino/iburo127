@@ -90,12 +90,27 @@ type PreparedUploadData = {
 type StoredFileData = {
   id: string;
   clientCaseId: string;
-  status: "PENDING_UPLOAD" | "READY";
+  status:
+    | "PENDING_UPLOAD"
+    | "PENDING_SCAN"
+    | "SCANNING"
+    | "READY"
+    | "QUARANTINED"
+    | "SCAN_FAILED";
 };
 
 type SignedDownloadData = {
   url: string;
   expiresAt: string;
+};
+
+type MaintenanceScanData = {
+  claimed: number;
+  clean: number;
+  quarantined: number;
+  retried: number;
+  failed: number;
+  leaseLost: number;
 };
 
 function requirePrivateNoStore(response: Response, label: string) {
@@ -513,6 +528,40 @@ async function tasksE2e(clientCaseId: string) {
   console.log("TASKS: LAWYER mutation, stale conflict, CLIENT denial, MANAGER mutation and fixture restore verified");
 }
 
+function readBoundedPositiveInteger(name: string, fallback: number, max: number) {
+  const raw = process.env[name]?.trim();
+  if (!raw) return fallback;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1 || value > max) {
+    fail(`${name} must be an integer between 1 and ${max}`);
+  }
+  return value;
+}
+
+async function runFileScanMaintenance(secret: string): Promise<MaintenanceScanData> {
+  const response = await fetch(new URL("/api/internal/maintenance/file-scans", baseUrl), {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      authorization: `Bearer ${secret}`,
+    },
+    redirect: "manual",
+  });
+  requirePrivateNoStore(response, "file scan maintenance");
+
+  const text = await response.text();
+  let body: JsonEnvelope<MaintenanceScanData>;
+  try {
+    body = JSON.parse(text) as JsonEnvelope<MaintenanceScanData>;
+  } catch {
+    fail(`file scan maintenance returned non-JSON response (status ${response.status})`);
+  }
+  if (response.status !== 200 || !body.ok || !body.data) {
+    fail(`file scan maintenance expected 200 success, got ${response.status}/${body.error?.code ?? "UNKNOWN"}`);
+  }
+  return body.data;
+}
+
 async function filesE2e(clientCaseId: string) {
   if (process.env.IB_STAGING_FILES_E2E?.trim() !== "1") {
     console.log("FILES_CONTRACT: storage E2E prepared but skipped; set IB_STAGING_FILES_E2E=1 only after private staging bucket setup");
@@ -552,15 +601,94 @@ async function filesE2e(clientCaseId: string) {
     `${filePath}/complete`,
     clientCookie,
   );
-  if (completed.status !== "READY" || completed.clientCaseId !== clientCaseId) fail("completed file is not READY for the mutation case");
+  if (completed.status !== "PENDING_SCAN" || completed.clientCaseId !== clientCaseId) {
+    fail("completed file must enter PENDING_SCAN for the mutation case");
+  }
 
-  const files = await expectOk<StoredFileData[]>("file authoritative list", "GET", listPath, clientCookie);
-  if (!files.some((file) => file.id === prepared.fileId && file.status === "READY")) {
-    fail("READY file is missing from authoritative list");
+  const filesBeforeScan = await expectOk<StoredFileData[]>(
+    "file authoritative list before scan",
+    "GET",
+    listPath,
+    clientCookie,
+  );
+  if (filesBeforeScan.some((file) => file.id === prepared.fileId)) {
+    fail("PENDING_SCAN file must not appear in the normal authoritative list");
+  }
+  await expectError(
+    "PENDING_SCAN file get",
+    "GET",
+    filePath,
+    clientCookie,
+    undefined,
+    404,
+    "NOT_FOUND",
+  );
+  await expectError(
+    "PENDING_SCAN file download",
+    "POST",
+    `${filePath}/download`,
+    clientCookie,
+    { expiresInSeconds: 60 },
+    404,
+    "NOT_FOUND",
+  );
+
+  await expectError("other CLIENT file get", "GET", filePath, otherClientCookie, undefined, 404, "NOT_FOUND");
+  await expectError("other CLIENT file download", "POST", `${filePath}/download`, otherClientCookie, { expiresInSeconds: 60 }, 404, "NOT_FOUND");
+  await expectError("other CLIENT case file list", "GET", listPath, otherClientCookie, undefined, 404, "NOT_FOUND");
+
+  console.log("FILES_QUARANTINE_BOUNDARY: upload completion produced PENDING_SCAN and normal read/download paths stayed closed");
+
+  if (process.env.IB_STAGING_FILE_SCAN_E2E?.trim() !== "1") {
+    console.log("FILES_SCAN: CLEAN-to-READY E2E skipped; set IB_STAGING_FILE_SCAN_E2E=1 only after scanner smoke verification");
+    return;
+  }
+
+  if (required("IB_STAGING_FILE_SCAN_E2E_CONFIRM") !== `SCAN:${baseUrl.host}`) {
+    fail(`IB_STAGING_FILE_SCAN_E2E_CONFIRM must equal SCAN:${baseUrl.host}`);
+  }
+  const maintenanceSecret = required("IB_MAINTENANCE_SECRET");
+  if (maintenanceSecret.length < 32) fail("IB_MAINTENANCE_SECRET must be at least 32 characters");
+  const maxRuns = readBoundedPositiveInteger("IB_STAGING_FILE_SCAN_E2E_MAX_RUNS", 5, 20);
+
+  let ready: StoredFileData | null = null;
+  for (let run = 1; run <= maxRuns; run += 1) {
+    const result = await runFileScanMaintenance(maintenanceSecret);
+    if (result.retried > 0 || result.failed > 0 || result.leaseLost > 0) {
+      fail("file scan maintenance reported retry/failure/lease-loss during CLEAN lifecycle verification");
+    }
+
+    const read = await apiRequest<StoredFileData>(
+      `file readiness check ${run}`,
+      "GET",
+      filePath,
+      clientCookie,
+    );
+    if (read.status === 200 && read.body.ok && read.body.data?.status === "READY") {
+      ready = read.body.data;
+      break;
+    }
+    if (read.status !== 404 || read.body.ok || read.body.error?.code !== "NOT_FOUND") {
+      fail(`file readiness check ${run} expected READY or hidden NOT_FOUND`);
+    }
+  }
+
+  if (!ready || ready.clientCaseId !== clientCaseId) {
+    fail(`file did not reach READY after ${maxRuns} bounded scan-worker runs`);
+  }
+
+  const filesAfterScan = await expectOk<StoredFileData[]>(
+    "file authoritative list after clean scan",
+    "GET",
+    listPath,
+    clientCookie,
+  );
+  if (!filesAfterScan.some((file) => file.id === prepared.fileId && file.status === "READY")) {
+    fail("scanner-confirmed READY file is missing from authoritative list");
   }
 
   const signedDownload = await expectOk<SignedDownloadData>(
-    "file signed download",
+    "file signed download after clean scan",
     "POST",
     `${filePath}/download`,
     clientCookie,
@@ -572,11 +700,7 @@ async function filesE2e(clientCaseId: string) {
   const downloaded = Buffer.from(await downloadResponse.arrayBuffer());
   if (!downloaded.equals(bytes)) fail("signed file download bytes do not match uploaded fixture");
 
-  await expectError("other CLIENT file get", "GET", filePath, otherClientCookie, undefined, 404, "NOT_FOUND");
-  await expectError("other CLIENT file download", "POST", `${filePath}/download`, otherClientCookie, { expiresInSeconds: 60 }, 404, "NOT_FOUND");
-  await expectError("other CLIENT case file list", "GET", listPath, otherClientCookie, undefined, 404, "NOT_FOUND");
-
-  console.log("FILES: prepare, signed PUT, HEAD verification, READY list, signed download and cross-client denial verified");
+  console.log("FILES: PENDING_SCAN fail-closed boundary, scanner CLEAN to READY, signed download bytes and cross-client denial verified");
 }
 
 const mutationCaseId = await resolveMutationCase();
