@@ -48,6 +48,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Vercel Preview identity verifier contract
+        run: npx tsx tests/vercel-preview-identity-verifier-contract.test.ts
+
       - name: Dependency audit policy
         shell: bash
         run: |
