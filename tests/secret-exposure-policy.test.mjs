@@ -53,7 +53,7 @@ withRepo({
 }, (root) => {
   const result = scan(root);
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /credentialed database URL detector matched/);
+  assert.match(result.stderr, /credentialed-database-url detector matched/);
   assert.doesNotMatch(result.stderr, /S{20,}/);
 });
 
