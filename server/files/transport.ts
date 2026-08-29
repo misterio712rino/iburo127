@@ -7,6 +7,7 @@ import {
   FILE_UPLOAD_FORBIDDEN,
   FILE_UPLOAD_NOT_PENDING,
 } from "@/server/domain/files/service";
+import type { StoredFileStatus } from "@/server/domain/files/contracts";
 import { FILE_TRANSPORT_INVALID_INPUT } from "@/server/files/input";
 import {
   FILE_STORAGE_PROVIDER_MISMATCH,
@@ -18,7 +19,7 @@ export type StoredFileTransportRecord = {
   id: string;
   clientCaseId: string;
   uploadedById: string | null;
-  status: "PENDING_UPLOAD" | "READY";
+  status: StoredFileStatus;
   storageProvider: string;
   fileName: string;
   mimeType: string;
@@ -42,7 +43,7 @@ export function toStoredFileTransportRecord(file: {
   id: string;
   clientCaseId: string;
   uploadedById: string | null;
-  status: "PENDING_UPLOAD" | "READY";
+  status: StoredFileStatus;
   storageProvider: string;
   objectKey: string;
   fileName: string;
