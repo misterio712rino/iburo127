@@ -3,6 +3,10 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const source = await readFile(resolve("scripts/verify-staging-http-mutations.ts"), "utf8");
+const auditSource = await readFile(
+  resolve("scripts/verify-staging-http-mutation-audit.ts"),
+  "utf8",
+);
 
 assert.match(source, /\| "PENDING_SCAN"/);
 assert.match(source, /\| "SCANNING"/);
@@ -23,5 +27,14 @@ assert.match(source, /file\.status === "READY"/);
 assert.doesNotMatch(source, /prisma\./i);
 assert.doesNotMatch(source, /scanLeaseToken/i);
 assert.doesNotMatch(source, /markUploadReady/i);
+
+assert.match(auditSource, /requireEventType\(newEvents, "file\.upload\.registered"\)/);
+assert.match(auditSource, /requireEventType\(newEvents, "file\.upload\.completed"\)/);
+assert.match(auditSource, /IB_STAGING_FILE_SCAN_E2E/);
+assert.match(auditSource, /requireEventType\(newEvents, "file\.scan\.clean"\)/);
+assert.match(auditSource, /requireEventType\(newEvents, "file\.download\.authorized"\)/);
+assert.match(auditSource, /rejectEventType\(newEvents, "file\.download\.authorized"\)/);
+assert.doesNotMatch(auditSource, /objectKey/i);
+assert.doesNotMatch(auditSource, /signedUrl/i);
 
 console.log("STAGING_HTTP_FILE_QUARANTINE_CONTRACT_TEST_PASS");
