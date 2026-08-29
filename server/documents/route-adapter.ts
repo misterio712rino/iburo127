@@ -10,14 +10,7 @@ import {
   handleSendCaseDocumentForReview,
 } from "@/server/documents/handlers";
 import { toDocumentHttpResponse } from "@/server/documents/http";
-
-async function readJsonBody(request: Request): Promise<unknown> {
-  try {
-    return await request.json();
-  } catch {
-    return undefined;
-  }
-}
+import { readBoundedJsonBody } from "@/server/http/bounded-json-body";
 
 function withAuthoritativeDocumentIdentity(
   body: unknown,
@@ -57,8 +50,10 @@ export function createDocumentRouteAdapter(sessionProvider: SessionProvider) {
       documentCode: unknown,
       request: Request,
     ): Promise<Response> {
+      const bodyResult = await readBoundedJsonBody(request);
+      if (!bodyResult.ok) return bodyResult.response;
       const body = withAuthoritativeDocumentIdentity(
-        await readJsonBody(request),
+        bodyResult.value,
         clientCaseId,
         documentCode,
       );
@@ -72,8 +67,10 @@ export function createDocumentRouteAdapter(sessionProvider: SessionProvider) {
       documentCode: unknown,
       request: Request,
     ): Promise<Response> {
+      const bodyResult = await readBoundedJsonBody(request);
+      if (!bodyResult.ok) return bodyResult.response;
       const body = withAuthoritativeDocumentIdentity(
-        await readJsonBody(request),
+        bodyResult.value,
         clientCaseId,
         documentCode,
       );
@@ -87,8 +84,10 @@ export function createDocumentRouteAdapter(sessionProvider: SessionProvider) {
       documentCode: unknown,
       request: Request,
     ): Promise<Response> {
+      const bodyResult = await readBoundedJsonBody(request);
+      if (!bodyResult.ok) return bodyResult.response;
       const body = withAuthoritativeDocumentIdentity(
-        await readJsonBody(request),
+        bodyResult.value,
         clientCaseId,
         documentCode,
       );
