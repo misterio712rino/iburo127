@@ -22,7 +22,12 @@ import type {
   StoredFileRepository,
   StoredFileStatus,
 } from "@/server/domain/files/contracts";
-import type { TaskRecord, TaskRepository, TaskStatus } from "@/server/domain/tasks/contracts";
+import type {
+  CreateTaskRepositoryInput,
+  TaskRecord,
+  TaskRepository,
+  TaskStatus,
+} from "@/server/domain/tasks/contracts";
 import type { QuestionnaireSection } from "@/lib/platform/types";
 
 const clientCase: ClientCaseRecord = {
@@ -135,6 +140,24 @@ class InMemoryTaskRepository implements TaskRepository {
   async listAccessible(_actor: AuthenticatedActor) {
     void _actor;
     return [this.current];
+  }
+
+  async create(input: CreateTaskRepositoryInput) {
+    this.current = {
+      id: "task-created",
+      clientCaseId: input.clientCaseId,
+      assigneeId: input.assigneeId,
+      title: input.title,
+      description: input.description,
+      status: "NEW",
+      dueAt: input.dueAt,
+      startedAt: null,
+      completedAt: null,
+      version: 1,
+      createdAt: now,
+      updatedAt: now,
+    };
+    return this.current;
   }
 
   async updateStatus(input: {
