@@ -78,7 +78,7 @@ for (const env of [
   { IB_RUNTIME_TARGET: "staging", IB_STAGING_BASE_URL: "https://preview.example.vercel.app?x=1" },
   { IB_RUNTIME_TARGET: "staging", IB_STAGING_BASE_URL: "https://user:pass@preview.example.vercel.app" },
   { IB_RUNTIME_TARGET: "staging", IB_STAGING_BASE_URL: "http://preview.example.com" },
-] satisfies NodeJS.ProcessEnv[]) {
+]) {
   assert.throws(
     () => requireStagingHttpTarget(env),
     (error: unknown) =>
