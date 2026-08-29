@@ -3,6 +3,7 @@ import { join, relative } from "node:path";
 
 const WORKFLOWS_ROOT = ".github/workflows";
 const REQUIRED_RUNNER = "ubuntu-24.04";
+const REQUIRED_CHECKOUT_REF = "${{ github.event.pull_request.head.sha || github.sha }}";
 
 function collectWorkflowFiles(directory) {
   const files = [];
@@ -70,23 +71,36 @@ for (const file of collectWorkflowFiles(WORKFLOWS_ROOT)) {
     if (!/^\s*uses:\s*actions\/checkout@/.test(line)) return;
     checkoutCount += 1;
 
-    const lookahead = lines.slice(index + 1, index + 10);
+    const lookahead = lines.slice(index + 1, index + 12);
     let persistCredentialsFound = false;
+    let checkoutRefFound = false;
     for (const candidate of lookahead) {
       if (/^\s*-\s+name\s*:/.test(candidate)) break;
       if (/^\s*persist-credentials\s*:\s*false\s*(?:#.*)?$/.test(candidate)) {
         persistCredentialsFound = true;
-        break;
       }
       if (/^\s*persist-credentials\s*:\s*true\s*(?:#.*)?$/.test(candidate)) {
         violations.push(`${displayPath}:${index + 1}: checkout must not persist GitHub credentials`);
         persistCredentialsFound = true;
-        break;
+      }
+      const refMatch = candidate.match(/^\s*ref\s*:\s*(.+?)\s*(?:#.*)?$/);
+      if (refMatch) {
+        checkoutRefFound = true;
+        if (refMatch[1] !== REQUIRED_CHECKOUT_REF) {
+          violations.push(
+            `${displayPath}:${index + 1}: checkout ref must resolve the exact candidate SHA; expected ${REQUIRED_CHECKOUT_REF}`,
+          );
+        }
       }
     }
     if (!persistCredentialsFound) {
       violations.push(
         `${displayPath}:${index + 1}: checkout must explicitly set persist-credentials: false`,
+      );
+    }
+    if (!checkoutRefFound) {
+      violations.push(
+        `${displayPath}:${index + 1}: checkout must explicitly set ref to the exact candidate SHA expression`,
       );
     }
   });
