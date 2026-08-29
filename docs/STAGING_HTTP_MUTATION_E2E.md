@@ -1,6 +1,6 @@
 # iБюро — Staging HTTP mutation E2E
 
-This runbook exercises the real authenticated staging HTTP mutation boundaries for questionnaire, practicum, documents, tasks and, when explicitly enabled, private object storage.
+This runbook exercises the real authenticated staging HTTP mutation boundaries for questionnaire, practicum, documents, tasks and, when explicitly enabled, private object storage plus the malware-scan lifecycle.
 
 Command:
 
@@ -40,7 +40,7 @@ The mutation case must be visible to all three fixture actors:
 
 The questionnaire on this case must not be `COMPLETED`. The harness writes only fixed synthetic staging values and prepares the `property-inventory` document prerequisites itself.
 
-Cookies are secrets. Never commit them, paste them into issues, or print them in CI logs. The harness deliberately logs only assertion labels/status codes and never response payloads, cookie values, signed URLs or object keys.
+Cookies are secrets. Never commit them, paste them into issues, or print them in CI logs. The harness deliberately logs only assertion labels/status codes and never response payloads, cookie values, signed URLs, object keys or maintenance secrets.
 
 ## Assertions
 
@@ -91,11 +91,11 @@ The dedicated task must start in `NEW`.
 
 If a previous run was interrupted after the task mutation, reset the dedicated staging fixture to `NEW` before rerunning. The harness will fail closed instead of silently normalizing an unexpected initial task state.
 
-## Private file storage E2E
+## Private file storage / quarantine E2E
 
 Storage execution is **off by default**. Without a real private staging bucket the command only reports that the file E2E contract is prepared and skips all storage mutation.
 
-After the private staging Yandex Object Storage bucket is configured, explicitly add:
+After the private staging Yandex Object Storage bucket is configured and has passed `npm run check:staging:storage`, explicitly add:
 
 ```text
 IB_STAGING_FILES_E2E=1
@@ -103,27 +103,80 @@ IB_STAGING_PRIVATE_BUCKET_CONFIRM=PRIVATE_STAGING_BUCKET:<staging-host>
 IB_STAGING_OTHER_CLIENT_COOKIE=<Better Auth Cookie header value for a different staging CLIENT>
 ```
 
-The storage flow then verifies:
+This first storage level intentionally does **not** run the malware worker. It verifies the security boundary immediately after upload:
 
 1. authenticated prepare-upload;
 2. direct `PUT` to the short-lived signed URL;
 3. server completion/HEAD verification;
-4. `StoredFile READY` in authoritative list;
-5. short-lived signed download and byte equality;
-6. another CLIENT cannot get, download, or list files for the owner case.
+4. completion returns exactly `PENDING_SCAN`, never `READY`;
+5. the new `PENDING_SCAN` file is absent from the normal READY-only file list;
+6. owner GET/download are hidden with `404 NOT_FOUND` while the file is unscanned;
+7. another CLIENT cannot get, download, or list files for the owner case.
 
-The script never prints the signed upload/download URL, `objectKey`, or cookies. The storage test creates a tiny synthetic PDF fixture and currently leaves the READY staging row/object in place because there is no authenticated delete endpoint in the current file lifecycle.
+This proves that metadata verification alone cannot expose a file.
+
+### Optional full CLEAN → READY scan E2E
+
+Only after all of the following are true:
+
+- staging DB migration contains the scan lifecycle fields/statuses;
+- private staging storage verification passed;
+- `npm run check:staging:file-scanner` passed for both CLEAN and benign MALICIOUS fixtures;
+- the application deployment has the staging scanner/storage/maintenance configuration;
+- the scan queue is understood well enough that bounded worker execution is safe;
+
+add:
+
+```text
+IB_STAGING_FILE_SCAN_E2E=1
+IB_STAGING_FILE_SCAN_E2E_CONFIRM=SCAN:<staging-host>
+IB_STAGING_FILE_SCAN_E2E_MAX_RUNS=5
+IB_MAINTENANCE_SECRET=<exact staging maintenance secret>
+```
+
+`IB_STAGING_FILE_SCAN_E2E_MAX_RUNS` defaults to 5 and is hard-bounded to 1–20. The verifier does not loop indefinitely.
+
+When enabled, the harness calls only the existing protected:
+
+```text
+POST /api/internal/maintenance/file-scans
+```
+
+using the staging maintenance bearer secret. It never receives or manipulates a scan lease token and never writes directly to PostgreSQL.
+
+For each bounded worker invocation:
+
+- HTTP must succeed with `ok: true`;
+- `retried`, `failed` and `leaseLost` must remain zero for this CLEAN lifecycle verification;
+- the uploaded fixture must remain hidden until the real scanner worker transitions it to `READY`.
+
+After `READY` is observed through the normal authenticated file API, the harness verifies:
+
+1. the file appears in the READY-only authoritative list;
+2. a normal short-lived signed download can now be created;
+3. downloaded bytes exactly match the uploaded synthetic fixture.
+
+The script never prints signed upload/download URLs, object keys, cookies, the scanner secret or the maintenance secret.
+
+The tiny synthetic PDF staging row/object is currently left in place because there is no authenticated delete endpoint in the application file lifecycle. Use only a dedicated staging case/bucket lifecycle and clean fixtures according to the staging retention procedure.
+
+### What this verifier does not prove
+
+The CLEAN flow does not replace the dedicated malware-scanner smoke test. The `MALICIOUS` scanner verdict is independently verified by `npm run check:staging:file-scanner` with a benign antivirus-detection fixture. Full DB-backed `MALICIOUS → QUARANTINED` application lifecycle verification remains a separate staging release requirement until a dedicated controlled quarantine fixture flow is implemented.
 
 ## Recommended order
 
-Run only after the read-only gates pass:
+Run only after the read-only/schema gates pass:
 
 ```text
 npm run db:verify:staging
 npm run check:staging
 npm run check:staging:authz
 npm run check:staging:http-authz
+npm run check:staging:file-scanner
 npm run check:staging:http-mutations
 ```
 
-Enable `IB_STAGING_FILES_E2E=1` only after the private staging bucket and separate other-client fixture are confirmed.
+Enable `IB_STAGING_FILES_E2E=1` only after the private staging bucket and separate other-client fixture are confirmed. Enable `IB_STAGING_FILE_SCAN_E2E=1` only after the scanner smoke verification and maintenance runtime configuration are independently proven.
+
+After the mutation run, execute the audit-correlation verifier documented in `docs/STAGING_HTTP_MUTATION_AUDIT.md` where applicable.
