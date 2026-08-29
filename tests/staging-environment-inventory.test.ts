@@ -15,6 +15,17 @@ const secretValues = {
   IB_STAGING_BETTER_AUTH_SCHEMA: "public",
   BETTER_AUTH_SECRET: "better-auth-secret-that-must-never-print",
   BETTER_AUTH_URL: "https://stage.iburo.invalid",
+  IB_STAGING_BASE_URL: "https://stage.iburo.invalid",
+  IB_STAGING_AUTH_FLOW_TARGET: "staging",
+  IB_STAGING_AUTH_FLOW_CONFIRM: "AUTH-FLOW:stage.iburo.invalid",
+  IB_STAGING_CLIENT_EMAIL: "client@stage.iburo.invalid",
+  IB_STAGING_CLIENT_PASSWORD: "client-password-that-must-never-print",
+  IB_STAGING_LAWYER_EMAIL: "lawyer@stage.iburo.invalid",
+  IB_STAGING_LAWYER_PASSWORD: "lawyer-password-that-must-never-print",
+  IB_STAGING_LAWYER_TOTP_SECRET: "JBSWY3DPEHPK3PXP",
+  IB_STAGING_MANAGER_EMAIL: "manager@stage.iburo.invalid",
+  IB_STAGING_MANAGER_PASSWORD: "manager-password-that-must-never-print",
+  IB_STAGING_MANAGER_TOTP_SECRET: "KRSXG5DSNFXGOIDB",
   OPENAI_API_KEY: "openai-secret-that-must-never-print",
   YANDEX_STORAGE_SECRET_ACCESS_KEY: "storage-secret-that-must-never-print",
   IB_FILE_SCANNER_SECRET: "scanner-secret-that-must-never-print",
@@ -30,6 +41,8 @@ assert.equal(inventory.phases.runtime.ready, true);
 assert.deepEqual(STAGING_ENVIRONMENT_PHASES.runtime, ["IB_RUNTIME_TARGET"]);
 assert.equal(inventory.phases.database.ready, true);
 assert.equal(inventory.phases.database.missingOrPlaceholder.length, 0);
+assert.equal(inventory.phases.authFlow.ready, true);
+assert.equal(inventory.phases.authFlow.missingOrPlaceholder.length, 0);
 
 const serialized = JSON.stringify(inventory);
 for (const value of Object.values(secretValues)) {
@@ -62,6 +75,10 @@ assert.equal(placeholderInventory.phases.auth.ready, false);
 assert.deepEqual(
   placeholderInventory.phases.auth.missingOrPlaceholder.sort(),
   ["BETTER_AUTH_SECRET", "BETTER_AUTH_URL"].sort(),
+);
+assert.equal(placeholderInventory.phases.authFlow.ready, false);
+assert.ok(
+  placeholderInventory.phases.authFlow.missingOrPlaceholder.includes("IB_STAGING_AUTH_FLOW_CONFIRM"),
 );
 
 for (const [phase, required] of Object.entries(STAGING_ENVIRONMENT_PHASES)) {
