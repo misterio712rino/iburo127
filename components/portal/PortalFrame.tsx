@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Bell, ClipboardList, House, KeyRound, ShieldCheck } from "lucide-react";
+import { Bell, ClipboardList, House, KeyRound, ShieldCheck, UserRound } from "lucide-react";
 import { IBuroBrand } from "@/components/platform/IBuroBrand";
 import { SignOutButton } from "@/components/platform/auth/SignOutButton";
 
@@ -40,6 +40,10 @@ export function PortalFrame({
         <Link href="/portal" className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-white hover:text-slate-900">
           <House className="size-4" aria-hidden="true" />
           Кабинет
+        </Link>
+        <Link href="/portal/profile" className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-white hover:text-slate-900">
+          <UserRound className="size-4" aria-hidden="true" />
+          Профиль
         </Link>
         <Link href="/portal/notifications" className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-white hover:text-slate-900">
           <Bell className="size-4" aria-hidden="true" />
