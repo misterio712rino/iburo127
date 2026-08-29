@@ -1,6 +1,7 @@
 import "./case-progress.test";
 import "./portal-next-action-contract.test";
 import "./mobile-critical-portal-contract.test";
+import "./client-activity-view.test";
 
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
