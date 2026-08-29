@@ -12,6 +12,7 @@ export const CASE_ACTIVITY_TYPES = [
   "questionnaire.completed",
   "practicum.lesson.completed",
   "practicum.completed",
+  "task.created",
   "task.status.changed",
   "document.regenerated",
   "document.sent_for_review",

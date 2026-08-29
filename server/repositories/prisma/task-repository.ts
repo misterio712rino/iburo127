@@ -124,11 +124,7 @@ export class PrismaTaskRepository implements TaskRepository {
           clientCaseId: clientCase.id,
           actorUserId: input.actor.userId,
           type: "task.created",
-          metadata: {
-            taskId: row.id,
-            assigneeId: row.assigneeId,
-            dueAt: row.dueAt?.toISOString() ?? null,
-          },
+          metadata: { taskId: row.id },
         }),
       });
 
