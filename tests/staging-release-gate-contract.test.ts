@@ -33,38 +33,48 @@ for (const step of requiredSteps) {
   previousIndex = index;
 }
 
-const expectedMaintenanceHealth = [
-  "npm run maintenance:run:notification-health",
-  "npm run maintenance:run:stale-upload-health",
-  "npm run maintenance:run:file-scan-health",
-  "npm run maintenance:run:ai-audit-health",
-].join(" && ");
 assert.equal(
   maintenanceHealth,
-  expectedMaintenanceHealth,
-  "staging maintenance health gate must contain only the approved read-only health checks",
+  "node scripts/run-staging-maintenance-health.mjs",
+  "staging maintenance health must use the staging-only orchestration wrapper",
 );
-for (const mutatingScript of [
-  "maintenance:run:notifications",
-  "maintenance:run:task-reminders",
-  "maintenance:run:questionnaire-reminders",
-  "maintenance:run:stale-uploads",
-  "maintenance:run:file-scans",
+
+const maintenanceWrapper = await readFile(resolve("scripts/run-staging-maintenance-health.mjs"), "utf8");
+assert.match(maintenanceWrapper, /IB_RUNTIME_TARGET\?\.trim\(\) !== "staging"/);
+const runtimeGuardIndex = maintenanceWrapper.indexOf('IB_RUNTIME_TARGET?.trim() !== "staging"');
+const firstRunIndex = maintenanceWrapper.indexOf("runMaintenanceJob({ job, env, fetchImpl })");
+assert.ok(runtimeGuardIndex >= 0, "staging maintenance wrapper must require staging runtime identity");
+assert.ok(firstRunIndex > runtimeGuardIndex, "staging runtime identity must be checked before any maintenance request");
+
+for (const requiredHealthJob of [
+  "notification-delivery-health",
+  "stale-upload-health",
+  "file-scan-health",
+  "ai-audit-health",
 ]) {
-  assert.equal(
-    maintenanceHealth.includes(mutatingScript),
-    false,
-    `${mutatingScript} must never execute inside the staging release health gate`,
+  assert.match(
+    maintenanceWrapper,
+    new RegExp(`\\"${requiredHealthJob}\\"`),
+    `${requiredHealthJob} must remain in staging maintenance health`,
   );
 }
+for (const mutatingJob of [
+  "notification-deliveries",
+  "task-reminders",
+  "questionnaire-reminders",
+  "stale-uploads",
+  "file-scans",
+]) {
+  assert.equal(
+    maintenanceWrapper.includes(`"${mutatingJob}"`),
+    false,
+    `${mutatingJob} must never execute inside staging maintenance health`,
+  );
+}
+assert.match(maintenanceWrapper, /STAGING_MAINTENANCE_HEALTH_PASS/);
 
 const passIndex = release.indexOf("STAGING_RELEASE_READINESS_PASS");
 assert.ok(passIndex > previousIndex, "release PASS marker must only be reachable after every required verifier");
 assert.doesNotMatch(release, /\|\||;\s*npm run/, "release verifiers must remain fail-closed through && chaining");
-assert.doesNotMatch(
-  maintenanceHealth,
-  /\|\||;\s*npm run/,
-  "maintenance health verifiers must remain fail-closed through && chaining",
-);
 
 console.log("STAGING_RELEASE_GATE_CONTRACT_PASS");
