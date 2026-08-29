@@ -97,6 +97,8 @@ export type MaintenanceRuntimeConfig = {
   secret: string;
   staleUploadMaxAgeMinutes: number;
   staleUploadBatchLimit: number;
+  notificationDeliveryHealthGraceMinutes: number;
+  notificationDeliveryHealthBatchLimit: number;
   fileScanBatchLimit: number;
   fileScanLeaseSeconds: number;
   fileScanSourceUrlTtlSeconds: number;
@@ -285,6 +287,20 @@ export function readMaintenanceRuntimeConfig(
       10_080,
     ),
     staleUploadBatchLimit: readIntegerEnv(env, "IB_STALE_UPLOAD_BATCH_LIMIT", 100, 1, 500),
+    notificationDeliveryHealthGraceMinutes: readIntegerEnv(
+      env,
+      "IB_NOTIFICATION_DELIVERY_HEALTH_GRACE_MINUTES",
+      15,
+      2,
+      1_440,
+    ),
+    notificationDeliveryHealthBatchLimit: readIntegerEnv(
+      env,
+      "IB_NOTIFICATION_DELIVERY_HEALTH_BATCH_LIMIT",
+      50,
+      1,
+      200,
+    ),
     fileScanBatchLimit: readIntegerEnv(env, "IB_FILE_SCAN_BATCH_LIMIT", 1, 1, 10),
     fileScanLeaseSeconds,
     fileScanSourceUrlTtlSeconds,
