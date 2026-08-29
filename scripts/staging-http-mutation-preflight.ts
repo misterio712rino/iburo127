@@ -17,6 +17,19 @@ function required(env: NodeJS.ProcessEnv, name: string): string {
   return value;
 }
 
+function requireSafeSecret(env: NodeJS.ProcessEnv, name: string, minLength: number): string {
+  const raw = env[name];
+  if (!raw) fail(`missing ${name}`);
+  if (
+    raw !== raw.trim() ||
+    raw.length < minLength ||
+    /[\r\n\0]/.test(raw)
+  ) {
+    fail(`${name} must be a safe secret of at least ${minLength} characters`);
+  }
+  return raw;
+}
+
 function readOptInFlag(env: NodeJS.ProcessEnv, name: string): boolean {
   const value = env[name]?.trim() ?? "0";
   if (value !== "0" && value !== "1") fail(`${name} must equal 0 or 1`);
@@ -119,10 +132,7 @@ export function requireStagingHttpMutationPreflight(
     if (required(env, "IB_STAGING_FILE_SCAN_E2E_CONFIRM") !== expectedScanConfirmation) {
       fail(`IB_STAGING_FILE_SCAN_E2E_CONFIRM must equal ${expectedScanConfirmation}`);
     }
-    const maintenanceSecret = required(env, "IB_MAINTENANCE_SECRET");
-    if (maintenanceSecret.length < 32 || /[\r\n\0]/.test(maintenanceSecret)) {
-      fail("IB_MAINTENANCE_SECRET must be a safe secret of at least 32 characters");
-    }
+    requireSafeSecret(env, "IB_MAINTENANCE_SECRET", 32);
   }
 
   return {
