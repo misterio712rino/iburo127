@@ -4,12 +4,18 @@ import {
   assertStagingSchemaContract,
   REQUIRED_STAGING_DOMAIN_TABLES,
   REQUIRED_STAGING_ENUMS,
+  REQUIRED_STORED_FILE_SCAN_COLUMNS,
+  REQUIRED_STORED_FILE_STATUS_VALUES,
   StagingSchemaContractError,
 } from "@/scripts/staging-schema-contract";
 
 const validInput = {
   tables: [...REQUIRED_STAGING_DOMAIN_TABLES, "_prisma_migrations"],
   enums: [...REQUIRED_STAGING_ENUMS],
+  storedFile: {
+    columns: [...REQUIRED_STORED_FILE_SCAN_COLUMNS],
+    statusValues: [...REQUIRED_STORED_FILE_STATUS_VALUES],
+  },
   prismaMigrationHistory: {
     tablePresent: true,
     appliedCount: 1,
@@ -18,6 +24,8 @@ const validInput = {
 };
 
 assert.ok(REQUIRED_STAGING_DOMAIN_TABLES.includes("UserSecurityEvent"));
+assert.ok(REQUIRED_STORED_FILE_STATUS_VALUES.includes("QUARANTINED"));
+assert.ok(REQUIRED_STORED_FILE_SCAN_COLUMNS.includes("scanLeaseToken"));
 assert.doesNotThrow(() => assertStagingSchemaContract(validInput));
 
 assert.throws(
@@ -49,6 +57,34 @@ assert.throws(
       enums: validInput.enums.filter((enumName) => enumName !== "ClientCaseStatus"),
     }),
   /missing required domain enums: ClientCaseStatus/,
+);
+
+assert.throws(
+  () =>
+    assertStagingSchemaContract({
+      ...validInput,
+      storedFile: {
+        ...validInput.storedFile,
+        columns: validInput.storedFile.columns.filter(
+          (columnName) => columnName !== "scanLeaseToken",
+        ),
+      },
+    }),
+  /missing StoredFile scan columns: scanLeaseToken/,
+);
+
+assert.throws(
+  () =>
+    assertStagingSchemaContract({
+      ...validInput,
+      storedFile: {
+        ...validInput.storedFile,
+        statusValues: validInput.storedFile.statusValues.filter(
+          (status) => status !== "QUARANTINED",
+        ),
+      },
+    }),
+  /missing StoredFileStatus values: QUARANTINED/,
 );
 
 assert.throws(
