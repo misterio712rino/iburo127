@@ -84,7 +84,12 @@ class FakeRepository implements StoredFileRepository {
   async listByCase() { return []; }
   async getById() { return null; }
   async listPendingBefore() { return []; }
-  async create() { throw new Error("unused"); }
+  async create(
+    input: Parameters<StoredFileRepository["create"]>[0],
+  ): Promise<StoredFileRecord> {
+    void input;
+    throw new Error("unused");
+  }
   async markPendingScan() { return null; }
   async deletePending() { return false; }
   async restorePending() { return false; }
