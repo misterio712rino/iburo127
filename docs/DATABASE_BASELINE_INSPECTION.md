@@ -36,6 +36,7 @@ BEGIN READ ONLY;
 и собирает только агрегированное состояние:
 
 - общее количество пользовательских base tables;
+- агрегированный счётчик пользовательских schema objects, включая relations/views/sequences/composite relations, enum/domain types, routines и collations;
 - сколько обязательных domain tables/enums iБюро найдено;
 - сколько Better Auth tables найдено;
 - существует ли `public._prisma_migrations`;
@@ -46,11 +47,13 @@ Summary не выводит `DATABASE_URL`, host, database/user values, имен
 
 ### Классификация
 
-- `A_EMPTY_DATABASE` — пользовательских tables нет. Можно проектировать настоящую initial domain migration, но сначала всё равно нужен backup/snapshot policy и SQL review.
+- `A_EMPTY_DATABASE` — не найдено отслеживаемых пользовательских schema objects. Только этот результат допускает переход к проектированию настоящей initial domain migration; перед применением всё равно нужны backup/snapshot policy и SQL review.
 - `B_EXISTING_DOMAIN_SCHEMA` — найдены domain objects без подтверждённой Prisma history. Нельзя делать blind init; нужен полный structural baseline и reconciliation.
 - `C_PRISMA_HISTORY_PRESENT` — существует `_prisma_migrations`. Сначала требуется reconciliation существующей history; само наличие таблицы не разрешает `migrate deploy`.
-- `D_AUTH_SCHEMA_ONLY` — domain schema отсутствует, но Better Auth objects уже существуют. Их нужно сохранить и сверить provider verifier-ом перед проектированием domain baseline.
-- `REVIEW_NONEMPTY_OTHER_SCHEMA` — база непустая, но найденные объекты нельзя безопасно отнести только к текущему domain/auth contract. Нужен полный review.
+- `D_AUTH_SCHEMA_ONLY` — domain schema отсутствует, найден только ожидаемый Better Auth table set и нет дополнительных отслеживаемых schema objects. Auth objects нужно сохранить и сверить provider verifier-ом перед проектированием domain baseline.
+- `REVIEW_NONEMPTY_OTHER_SCHEMA` — база непустая или содержит дополнительные schema objects, которые нельзя безопасно отнести только к текущему domain/auth contract. Нужен полный review.
+
+Даже `0 base tables` не означает `A_EMPTY_DATABASE`, если остались view, sequence, enum/domain type, routine, collation или другой отслеживаемый schema object.
 
 Любой результат кроме `A_EMPTY_DATABASE` требует полного structural review перед созданием baseline migration.
 
