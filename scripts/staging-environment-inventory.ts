@@ -1,5 +1,6 @@
 import "dotenv/config";
 
+import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 
 export type StagingEnvironment = Readonly<Record<string, string | undefined>>;
@@ -181,6 +182,16 @@ function safeDecode(value: string): string | null {
   }
 }
 
+function sha256Hex(value: string): string {
+  return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+function configuredFingerprint(value: string | undefined): string | null {
+  if (!isConfigured(value)) return null;
+  const normalized = value!.trim().toLowerCase();
+  return /^[a-f0-9]{64}$/.test(normalized) ? normalized : null;
+}
+
 function invalidSemantics(
   phase: StagingEnvironmentPhase,
   env: StagingEnvironment,
@@ -275,6 +286,20 @@ function invalidSemantics(
     if (isConfigured(env.YANDEX_STORAGE_ACCESS_KEY_ID) && isConfigured(env.IB_STAGING_STORAGE_ACCESS_KEY_ID) && env.YANDEX_STORAGE_ACCESS_KEY_ID?.trim() !== env.IB_STAGING_STORAGE_ACCESS_KEY_ID?.trim()) {
       mark("YANDEX_STORAGE_ACCESS_KEY_ID", "IB_STAGING_STORAGE_ACCESS_KEY_ID");
     }
+
+    const expectedFingerprint = configuredFingerprint(env.IB_STAGING_FILE_SCANNER_SECRET_SHA256);
+    if (isConfigured(env.IB_STAGING_FILE_SCANNER_SECRET_SHA256) && !expectedFingerprint) {
+      mark("IB_STAGING_FILE_SCANNER_SECRET_SHA256");
+    }
+    if (expectedFingerprint && isConfigured(env.IB_FILE_SCANNER_SECRET) && sha256Hex(env.IB_FILE_SCANNER_SECRET!.trim()) !== expectedFingerprint) {
+      mark("IB_FILE_SCANNER_SECRET", "IB_STAGING_FILE_SCANNER_SECRET_SHA256");
+    }
+    if (expectedScannerOrigin && expectedFingerprint && isConfigured(env.IB_STAGING_STORAGE_BUCKET)) {
+      const expectedConfirmation = `FILE-SCANNER-SMOKE:${expectedScannerOrigin.hostname}:${env.IB_STAGING_STORAGE_BUCKET!.trim()}:${expectedFingerprint}`;
+      if (isConfigured(env.IB_STAGING_FILE_SCANNER_CONFIRM) && env.IB_STAGING_FILE_SCANNER_CONFIRM?.trim() !== expectedConfirmation) {
+        mark("IB_STAGING_FILE_SCANNER_CONFIRM");
+      }
+    }
   }
 
   if (phase === "postbox") {
@@ -290,8 +315,23 @@ function invalidSemantics(
     }
   }
 
-  if (phase === "openai" && isConfigured(env.IB_AI_OPENAI_MODEL) && isConfigured(env.IB_STAGING_OPENAI_MODEL) && env.IB_AI_OPENAI_MODEL?.trim() !== env.IB_STAGING_OPENAI_MODEL?.trim()) {
-    mark("IB_AI_OPENAI_MODEL", "IB_STAGING_OPENAI_MODEL");
+  if (phase === "openai") {
+    if (isConfigured(env.IB_AI_OPENAI_MODEL) && isConfigured(env.IB_STAGING_OPENAI_MODEL) && env.IB_AI_OPENAI_MODEL?.trim() !== env.IB_STAGING_OPENAI_MODEL?.trim()) {
+      mark("IB_AI_OPENAI_MODEL", "IB_STAGING_OPENAI_MODEL");
+    }
+    const expectedFingerprint = configuredFingerprint(env.IB_STAGING_OPENAI_KEY_SHA256);
+    if (isConfigured(env.IB_STAGING_OPENAI_KEY_SHA256) && !expectedFingerprint) {
+      mark("IB_STAGING_OPENAI_KEY_SHA256");
+    }
+    if (expectedFingerprint && isConfigured(env.OPENAI_API_KEY) && sha256Hex(env.OPENAI_API_KEY!.trim()) !== expectedFingerprint) {
+      mark("OPENAI_API_KEY", "IB_STAGING_OPENAI_KEY_SHA256");
+    }
+    if (expectedFingerprint && isConfigured(env.IB_AI_OPENAI_MODEL)) {
+      const expectedConfirmation = `AI-SMOKE:${env.IB_AI_OPENAI_MODEL!.trim()}:${expectedFingerprint}`;
+      if (isConfigured(env.IB_STAGING_AI_CONFIRM) && env.IB_STAGING_AI_CONFIRM?.trim() !== expectedConfirmation) {
+        mark("IB_STAGING_AI_CONFIRM");
+      }
+    }
   }
 
   if (phase === "bitrix24") {
@@ -301,7 +341,33 @@ function invalidSemantics(
     if (isConfigured(env.IB_STAGING_BITRIX24_PORTAL_ORIGIN) && !expectedPortal) mark("IB_STAGING_BITRIX24_PORTAL_ORIGIN");
     if (portal && expectedPortal && portal.origin !== expectedPortal.origin) mark("BITRIX24_PORTAL_ORIGIN", "IB_STAGING_BITRIX24_PORTAL_ORIGIN");
     if (expectedPortal && isConfigured(env.IB_BITRIX24_ALLOWED_HOST) && env.IB_BITRIX24_ALLOWED_HOST?.trim().toLowerCase() !== expectedPortal.hostname.toLowerCase()) mark("IB_BITRIX24_ALLOWED_HOST");
-    if (isConfigured(env.BITRIX24_WEBHOOK_USER_ID) && isConfigured(env.IB_STAGING_BITRIX24_WEBHOOK_USER_ID) && env.BITRIX24_WEBHOOK_USER_ID?.trim() !== env.IB_STAGING_BITRIX24_WEBHOOK_USER_ID?.trim()) mark("BITRIX24_WEBHOOK_USER_ID", "IB_STAGING_BITRIX24_WEBHOOK_USER_ID");
+
+    const webhookUserId = env.BITRIX24_WEBHOOK_USER_ID?.trim();
+    const expectedUserId = env.IB_STAGING_BITRIX24_WEBHOOK_USER_ID?.trim();
+    if (isConfigured(env.BITRIX24_WEBHOOK_USER_ID) && !/^[1-9][0-9]{0,19}$/.test(webhookUserId ?? "")) {
+      mark("BITRIX24_WEBHOOK_USER_ID");
+    }
+    if (isConfigured(env.BITRIX24_WEBHOOK_USER_ID) && isConfigured(env.IB_STAGING_BITRIX24_WEBHOOK_USER_ID) && webhookUserId !== expectedUserId) {
+      mark("BITRIX24_WEBHOOK_USER_ID", "IB_STAGING_BITRIX24_WEBHOOK_USER_ID");
+    }
+
+    const webhookSecret = env.BITRIX24_WEBHOOK_SECRET?.trim();
+    if (isConfigured(env.BITRIX24_WEBHOOK_SECRET) && !/^[A-Za-z0-9_-]{8,128}$/.test(webhookSecret ?? "")) {
+      mark("BITRIX24_WEBHOOK_SECRET");
+    }
+    const expectedFingerprint = configuredFingerprint(env.IB_STAGING_BITRIX24_WEBHOOK_SECRET_SHA256);
+    if (isConfigured(env.IB_STAGING_BITRIX24_WEBHOOK_SECRET_SHA256) && !expectedFingerprint) {
+      mark("IB_STAGING_BITRIX24_WEBHOOK_SECRET_SHA256");
+    }
+    if (expectedFingerprint && webhookSecret && sha256Hex(webhookSecret) !== expectedFingerprint) {
+      mark("BITRIX24_WEBHOOK_SECRET", "IB_STAGING_BITRIX24_WEBHOOK_SECRET_SHA256");
+    }
+    if (expectedPortal && expectedUserId && expectedFingerprint) {
+      const expectedConfirmation = `BITRIX-VERIFY:${expectedPortal.hostname}:${expectedUserId}:${expectedFingerprint}`;
+      if (isConfigured(env.IB_STAGING_BITRIX24_CONFIRM) && env.IB_STAGING_BITRIX24_CONFIRM?.trim() !== expectedConfirmation) {
+        mark("IB_STAGING_BITRIX24_CONFIRM");
+      }
+    }
   }
 
   if (phase === "maintenance") {

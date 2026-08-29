@@ -5,6 +5,10 @@ import {
   STAGING_ENVIRONMENT_PHASES,
 } from "../scripts/staging-environment-inventory";
 
+const openAiFingerprint = "805bb5b5affe92b006f210a21cb86312f42bb2b4a318f192f8638750013c588f";
+const scannerFingerprint = "22019c0cb7a42ff3ea5487f63789a42d9e63d8a861f8363923707551ae6017a6";
+const bitrixFingerprint = "c8407c6caf027b8f9ed7a2d90a218f15d540d15792543c5d1392cb1cb26e64dc";
+
 const secretValues = {
   IB_RUNTIME_TARGET: "staging",
   DATABASE_URL: "postgresql://stage_user@stage.pg.internal:5432/iburo_stage",
@@ -45,10 +49,10 @@ const secretValues = {
   IB_FILE_SCANNER_ORIGIN: "https://scanner.stage.iburo.test",
   IB_FILE_SCANNER_SECRET: "scanner-secret-that-must-never-print-123456",
   IB_STAGING_FILE_SCANNER_ORIGIN: "https://scanner.stage.iburo.test",
-  IB_STAGING_FILE_SCANNER_SECRET_SHA256: "a".repeat(64),
+  IB_STAGING_FILE_SCANNER_SECRET_SHA256: scannerFingerprint,
   IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY: "security-fixtures/file-scanner/clean.txt",
   IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY: "security-fixtures/file-scanner/malicious.txt",
-  IB_STAGING_FILE_SCANNER_CONFIRM: "FILE-SCANNER-SMOKE:scanner.stage.iburo.test:iburo-stage-private:placeholder-fingerprint",
+  IB_STAGING_FILE_SCANNER_CONFIRM: `FILE-SCANNER-SMOKE:scanner.stage.iburo.test:iburo-stage-private:${scannerFingerprint}`,
   IB_EMAIL_TARGET: "staging",
   YANDEX_POSTBOX_FROM_EMAIL: "stage@iburo.test",
   YANDEX_POSTBOX_ACCESS_KEY_ID: "stage-postbox-access-key",
@@ -60,8 +64,8 @@ const secretValues = {
   OPENAI_API_KEY: "openai-secret-that-must-never-print",
   IB_AI_OPENAI_MODEL: "gpt-stage-model",
   IB_STAGING_OPENAI_MODEL: "gpt-stage-model",
-  IB_STAGING_OPENAI_KEY_SHA256: "b".repeat(64),
-  IB_STAGING_AI_CONFIRM: "AI-SMOKE:gpt-stage-model:placeholder-fingerprint",
+  IB_STAGING_OPENAI_KEY_SHA256: openAiFingerprint,
+  IB_STAGING_AI_CONFIRM: `AI-SMOKE:gpt-stage-model:${openAiFingerprint}`,
   IB_BITRIX24_TARGET: "staging",
   BITRIX24_PORTAL_ORIGIN: "https://stage.bitrix24.test",
   IB_BITRIX24_ALLOWED_HOST: "stage.bitrix24.test",
@@ -71,8 +75,8 @@ const secretValues = {
   BITRIX24_CASE_FIELD_MAP: "{}",
   IB_STAGING_BITRIX24_PORTAL_ORIGIN: "https://stage.bitrix24.test",
   IB_STAGING_BITRIX24_WEBHOOK_USER_ID: "42",
-  IB_STAGING_BITRIX24_WEBHOOK_SECRET_SHA256: "c".repeat(64),
-  IB_STAGING_BITRIX24_CONFIRM: "BITRIX-VERIFY:stage.bitrix24.test:42:placeholder-fingerprint",
+  IB_STAGING_BITRIX24_WEBHOOK_SECRET_SHA256: bitrixFingerprint,
+  IB_STAGING_BITRIX24_CONFIRM: `BITRIX-VERIFY:stage.bitrix24.test:42:${bitrixFingerprint}`,
   IB_MAINTENANCE_SECRET: "maintenance-secret-that-must-never-print-123456",
   IB_MAINTENANCE_BASE_URL: "https://stage.iburo.test",
 } as const;
@@ -194,6 +198,42 @@ const malformedEncodedDatabase = buildStagingEnvironmentInventory({
 });
 assert.equal(malformedEncodedDatabase.phases.database.ready, false);
 assert.ok(malformedEncodedDatabase.phases.database.invalidOrInconsistent.includes("DATABASE_URL"));
+
+const secretIdentityConflict = buildStagingEnvironmentInventory({
+  ...secretValues,
+  IB_STAGING_OPENAI_KEY_SHA256: "0".repeat(64),
+  IB_STAGING_FILE_SCANNER_SECRET_SHA256: "1".repeat(64),
+  IB_STAGING_BITRIX24_WEBHOOK_SECRET_SHA256: "2".repeat(64),
+});
+for (const [phase, secretName, fingerprintName] of [
+  ["openai", "OPENAI_API_KEY", "IB_STAGING_OPENAI_KEY_SHA256"],
+  ["scanner", "IB_FILE_SCANNER_SECRET", "IB_STAGING_FILE_SCANNER_SECRET_SHA256"],
+  ["bitrix24", "BITRIX24_WEBHOOK_SECRET", "IB_STAGING_BITRIX24_WEBHOOK_SECRET_SHA256"],
+] as const) {
+  assert.equal(secretIdentityConflict.phases[phase].ready, false);
+  assert.ok(secretIdentityConflict.phases[phase].invalidOrInconsistent.includes(secretName));
+  assert.ok(secretIdentityConflict.phases[phase].invalidOrInconsistent.includes(fingerprintName));
+}
+
+const confirmationConflict = buildStagingEnvironmentInventory({
+  ...secretValues,
+  IB_STAGING_AI_CONFIRM: "AI-SMOKE:wrong",
+  IB_STAGING_FILE_SCANNER_CONFIRM: "FILE-SCANNER-SMOKE:wrong",
+  IB_STAGING_BITRIX24_CONFIRM: "BITRIX-VERIFY:wrong",
+});
+assert.deepEqual(confirmationConflict.phases.openai.invalidOrInconsistent, ["IB_STAGING_AI_CONFIRM"]);
+assert.deepEqual(confirmationConflict.phases.scanner.invalidOrInconsistent, ["IB_STAGING_FILE_SCANNER_CONFIRM"]);
+assert.deepEqual(confirmationConflict.phases.bitrix24.invalidOrInconsistent, ["IB_STAGING_BITRIX24_CONFIRM"]);
+
+const invalidFingerprints = buildStagingEnvironmentInventory({
+  ...secretValues,
+  IB_STAGING_OPENAI_KEY_SHA256: "not-a-sha256",
+  IB_STAGING_FILE_SCANNER_SECRET_SHA256: "not-a-sha256",
+  IB_STAGING_BITRIX24_WEBHOOK_SECRET_SHA256: "not-a-sha256",
+});
+assert.ok(invalidFingerprints.phases.openai.invalidOrInconsistent.includes("IB_STAGING_OPENAI_KEY_SHA256"));
+assert.ok(invalidFingerprints.phases.scanner.invalidOrInconsistent.includes("IB_STAGING_FILE_SCANNER_SECRET_SHA256"));
+assert.ok(invalidFingerprints.phases.bitrix24.invalidOrInconsistent.includes("IB_STAGING_BITRIX24_WEBHOOK_SECRET_SHA256"));
 
 const serialized = JSON.stringify(inventory);
 for (const value of Object.values(secretValues)) {
