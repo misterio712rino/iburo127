@@ -548,6 +548,13 @@ function invalidSemantics(
         mark("IB_STAGING_BITRIX24_CONFIRM");
       }
     }
+
+    if (isConfigured(env.BITRIX24_REQUEST_TIMEOUT_MS)) {
+      const timeoutMs = Number(env.BITRIX24_REQUEST_TIMEOUT_MS!.trim());
+      if (!Number.isInteger(timeoutMs) || timeoutMs < 1_000 || timeoutMs > 30_000) {
+        mark("BITRIX24_REQUEST_TIMEOUT_MS");
+      }
+    }
   }
 
   if (phase === "maintenance") {
