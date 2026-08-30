@@ -131,4 +131,54 @@ for (const secret of [scanFixture.IB_STAGING_OTHER_CLIENT_COOKIE, scanFixture.IB
   assert.equal(serialized.includes(secret), false, "inventory must not expose optional E2E secrets");
 }
 
+const baseMaintenanceEnv = {
+  IB_RUNTIME_TARGET: "staging",
+  BETTER_AUTH_URL: "https://stage.iburo.test",
+  IB_STAGING_BASE_URL: "https://stage.iburo.test",
+  IB_MAINTENANCE_SECRET: "maintenance-secret-that-must-never-print-123456",
+  IB_MAINTENANCE_BASE_URL: "https://stage.iburo.test",
+} as const;
+
+function maintenance(overrides: Record<string, string | undefined> = {}) {
+  return buildStagingEnvironmentInventory({
+    ...baseMaintenanceEnv,
+    ...overrides,
+  }).phases.maintenance;
+}
+
+assert.equal(
+  maintenance().ready,
+  true,
+  "optional maintenance timeouts must preserve runtime defaults when absent",
+);
+
+for (const timeoutName of [
+  "IB_MAINTENANCE_REQUEST_TIMEOUT_MS",
+  "IB_MAINTENANCE_FILE_SCAN_TIMEOUT_MS",
+] as const) {
+  for (const invalidValue of ["999", "300001", "1.5", "not-a-number"]) {
+    const phase = maintenance({ [timeoutName]: invalidValue });
+    assert.equal(phase.ready, false, `${timeoutName}=${invalidValue} must fail inventory readiness`);
+    assert.ok(
+      phase.invalidOrInconsistent.includes(timeoutName),
+      `${timeoutName} must be reported without exposing its value`,
+    );
+  }
+  for (const validValue of ["1000", "300000"]) {
+    assert.equal(
+      maintenance({ [timeoutName]: validValue }).ready,
+      true,
+      `${timeoutName}=${validValue} must match runtime bounds`,
+    );
+  }
+}
+
+const maintenanceSerialized = JSON.stringify(buildStagingEnvironmentInventory({
+  ...baseMaintenanceEnv,
+  IB_MAINTENANCE_REQUEST_TIMEOUT_MS: "15000",
+  IB_MAINTENANCE_FILE_SCAN_TIMEOUT_MS: "120000",
+}));
+assert.equal(maintenanceSerialized.includes("15000"), false);
+assert.equal(maintenanceSerialized.includes("120000"), false);
+
 console.log("STAGING_ENVIRONMENT_OPTIONAL_E2E_TEST_PASS");

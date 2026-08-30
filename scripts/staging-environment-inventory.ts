@@ -557,6 +557,16 @@ function invalidSemantics(
     if (isConfigured(env.IB_MAINTENANCE_SECRET) && !isSafeSecret(env.IB_MAINTENANCE_SECRET, 32)) {
       mark("IB_MAINTENANCE_SECRET");
     }
+    for (const timeoutName of [
+      "IB_MAINTENANCE_REQUEST_TIMEOUT_MS",
+      "IB_MAINTENANCE_FILE_SCAN_TIMEOUT_MS",
+    ]) {
+      if (!isConfigured(env[timeoutName])) continue;
+      const timeoutMs = Number(env[timeoutName]!.trim());
+      if (!Number.isInteger(timeoutMs) || timeoutMs < 1_000 || timeoutMs > 300_000) {
+        mark(timeoutName);
+      }
+    }
   }
 
   return [...invalid].sort();
