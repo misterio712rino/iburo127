@@ -8,6 +8,14 @@ function requireEnv(env: NodeJS.ProcessEnv, name: string) {
   return value;
 }
 
+function requireSafeCredential(env: NodeJS.ProcessEnv, name: string) {
+  const value = requireEnv(env, name);
+  if (/[\r\n\0]/.test(value)) {
+    throw new Error(`${PRODUCTION_CONFIG_ERROR}:${name}`);
+  }
+  return value;
+}
+
 function readIntegerEnv(
   env: NodeJS.ProcessEnv,
   name: string,
@@ -157,8 +165,8 @@ export function readYandexObjectStorageConfig(
     bucket: requireEnv(env, "YANDEX_STORAGE_BUCKET"),
     region: "ru-central1",
     endpoint: "https://storage.yandexcloud.net",
-    accessKeyId: requireEnv(env, "YANDEX_STORAGE_ACCESS_KEY_ID"),
-    secretAccessKey: requireEnv(env, "YANDEX_STORAGE_SECRET_ACCESS_KEY"),
+    accessKeyId: requireSafeCredential(env, "YANDEX_STORAGE_ACCESS_KEY_ID"),
+    secretAccessKey: requireSafeCredential(env, "YANDEX_STORAGE_SECRET_ACCESS_KEY"),
   };
 }
 
