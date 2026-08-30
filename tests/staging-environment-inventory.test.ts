@@ -186,6 +186,31 @@ const malformedAuthz = buildStagingEnvironmentInventory({
 assert.equal(malformedAuthz.ready, false);
 assert.ok(malformedAuthz.invalidOrInconsistent.includes("IB_STAGING_CLIENT_USER_ID"));
 
+const invalidDatabaseAuthSchema = buildStagingEnvironmentInventory({
+  ...secretValues,
+  IB_STAGING_BETTER_AUTH_SCHEMA: "auth",
+}).phases.database;
+assert.equal(invalidDatabaseAuthSchema.ready, false);
+assert.ok(
+  invalidDatabaseAuthSchema.invalidOrInconsistent.includes("IB_STAGING_BETTER_AUTH_SCHEMA"),
+);
+
+const invalidAuthzAuthSchema = buildStagingEnvironmentInventory({
+  ...secretValues,
+  IB_STAGING_BETTER_AUTH_SCHEMA: "auth",
+}).phases.authz;
+assert.equal(invalidAuthzAuthSchema.ready, false);
+assert.ok(
+  invalidAuthzAuthSchema.invalidOrInconsistent.includes("IB_STAGING_BETTER_AUTH_SCHEMA"),
+);
+
+const optionalAuthzAuthSchema = buildStagingEnvironmentInventory({
+  ...secretValues,
+  IB_STAGING_BETTER_AUTH_SCHEMA: undefined,
+}).phases.authz;
+assert.equal(optionalAuthzAuthSchema.ready, true);
+assert.deepEqual(optionalAuthzAuthSchema.invalidOrInconsistent, []);
+
 const serialized = JSON.stringify(inventory);
 for (const [name, value] of Object.entries(secretValues)) {
   assert.equal(serialized.includes(value), false, `${name} value must not be exposed`);
