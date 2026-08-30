@@ -234,6 +234,30 @@ assert.ok(
   ),
 );
 
+const invalidPostboxSender = buildStagingEnvironmentInventory({
+  ...secretValues,
+  YANDEX_POSTBOX_FROM_EMAIL: "not-an-email",
+  IB_STAGING_POSTBOX_FROM_EMAIL: "not-an-email",
+  IB_STAGING_POSTBOX_CONFIRM: "SIMULATOR:not-an-email",
+}).phases.postbox;
+assert.equal(invalidPostboxSender.ready, false);
+assert.ok(invalidPostboxSender.invalidOrInconsistent.includes("YANDEX_POSTBOX_FROM_EMAIL"));
+assert.ok(invalidPostboxSender.invalidOrInconsistent.includes("IB_STAGING_POSTBOX_FROM_EMAIL"));
+
+const postboxSenderWithControlCharacter = buildStagingEnvironmentInventory({
+  ...secretValues,
+  YANDEX_POSTBOX_FROM_EMAIL: "stage\n@iburo.test",
+  IB_STAGING_POSTBOX_FROM_EMAIL: "stage\n@iburo.test",
+  IB_STAGING_POSTBOX_CONFIRM: "SIMULATOR:stage\n@iburo.test",
+}).phases.postbox;
+assert.equal(postboxSenderWithControlCharacter.ready, false);
+assert.ok(
+  postboxSenderWithControlCharacter.invalidOrInconsistent.includes("YANDEX_POSTBOX_FROM_EMAIL"),
+);
+assert.ok(
+  postboxSenderWithControlCharacter.invalidOrInconsistent.includes("IB_STAGING_POSTBOX_FROM_EMAIL"),
+);
+
 const serialized = JSON.stringify(inventory);
 for (const [name, value] of Object.entries(secretValues)) {
   assert.equal(serialized.includes(value), false, `${name} value must not be exposed`);
