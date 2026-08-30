@@ -73,6 +73,28 @@ assert.doesNotMatch(
   "legacy .online canonical domain must not return",
 );
 
+const publicHomeSource = await readFile(resolve("app/(public)/page.tsx"), "utf8");
+for (const publicSection of [
+  "Hero",
+  "AboutCompany",
+  "WhyChooseUs",
+  "PracticeHighlight",
+  "ReviewsPreview",
+  "FAQPreview",
+  "ContactCTA",
+]) {
+  assert.match(
+    publicHomeSource,
+    new RegExp(`<${publicSection}\\s*/>`),
+    `public homepage must render ${publicSection}`,
+  );
+}
+assert.doesNotMatch(
+  publicHomeSource,
+  /from "next\/navigation"|redirect\("\/app"\)/,
+  "public homepage must not redirect visitors into the investor/demo /app surface",
+);
+
 const robotsSource = await readFile(resolve("app/robots.ts"), "utf8");
 assert.ok(
   robotsSource.includes('const SITE_URL = "https://www.iburo127.ru";'),
