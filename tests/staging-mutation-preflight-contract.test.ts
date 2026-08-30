@@ -97,6 +97,38 @@ for (const entrypoint of entrypoints) {
   assert.ok(mutation > preflightCall, `${entrypoint.path} must preflight before mutation setup/execution`);
 }
 
+const migrationEntrypointSource = await readFile(
+  resolve("scripts/apply-staging-migrations.ts"),
+  "utf8",
+);
+const migrationRuntimeIndex = migrationEntrypointSource.indexOf(
+  'process.env.IB_RUNTIME_TARGET?.trim() !== "staging"',
+);
+const migrationHistoryIndex = migrationEntrypointSource.indexOf("await inspectMigrationHistory()");
+const migrationTargetIndex = migrationEntrypointSource.indexOf("requireStagingDatabaseTarget()");
+const migrationPoolIndex = migrationEntrypointSource.indexOf("new Pool({");
+const migrationSpawnIndex = migrationEntrypointSource.indexOf("const child = spawn(");
+assert.ok(
+  migrationRuntimeIndex >= 0,
+  "direct staging migration entrypoint must require global staging runtime identity",
+);
+assert.ok(
+  migrationHistoryIndex > migrationRuntimeIndex,
+  "staging runtime identity must be checked before migration-history processing",
+);
+assert.ok(
+  migrationTargetIndex > migrationRuntimeIndex,
+  "staging runtime identity must be checked before database target resolution",
+);
+assert.ok(
+  migrationPoolIndex > migrationRuntimeIndex,
+  "staging runtime identity must be checked before PostgreSQL Pool construction",
+);
+assert.ok(
+  migrationSpawnIndex > migrationPoolIndex,
+  "prisma migrate deploy must remain after guarded read-only database identity verification",
+);
+
 const authLinkSource = await readFile(
   resolve("scripts/provision-auth-identity.ts"),
   "utf8",

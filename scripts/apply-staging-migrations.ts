@@ -13,6 +13,10 @@ function fail(message: string): never {
   process.exit(1);
 }
 
+if (process.env.IB_RUNTIME_TARGET?.trim() !== "staging") {
+  fail('IB_RUNTIME_TARGET must be exactly "staging" for staging migrations');
+}
+
 // Fail before any database connection unless a reviewed migration history exists
 // and its exact fingerprint is pinned for this staging operation.
 let migrationHistory;
