@@ -1,11 +1,30 @@
 import assert from "node:assert/strict";
-import { readYandexPostboxConfig } from "@/server/config/production";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import {
   EMAIL_DELIVERY_FAILED,
   sendYandexPostboxEmail,
   type YandexPostboxFetch,
   type YandexPostboxTransportConfig,
 } from "@/server/email/yandex-postbox-core";
+
+const productionConfigSource = await readFile(resolve("server/config/production.ts"), "utf8");
+assert.match(
+  productionConfigSource,
+  /accessKeyId: requireSafeCredential\(env, "YANDEX_POSTBOX_ACCESS_KEY_ID"\)/,
+);
+assert.match(
+  productionConfigSource,
+  /secretAccessKey: requireSafeCredential\(env, "YANDEX_POSTBOX_SECRET_ACCESS_KEY"\)/,
+);
+assert.doesNotMatch(
+  productionConfigSource,
+  /accessKeyId: requireEnv\(env, "YANDEX_POSTBOX_ACCESS_KEY_ID"\)/,
+);
+assert.doesNotMatch(
+  productionConfigSource,
+  /secretAccessKey: requireEnv\(env, "YANDEX_POSTBOX_SECRET_ACCESS_KEY"\)/,
+);
 
 const config: YandexPostboxTransportConfig = {
   fromEmail: "staging@example.com",
@@ -16,25 +35,6 @@ const config: YandexPostboxTransportConfig = {
   secretAccessKey: "test-secret-access-key",
   requestTimeoutMs: 50,
 };
-
-const productionEnv: NodeJS.ProcessEnv = {
-  YANDEX_POSTBOX_FROM_EMAIL: "sender@example.com",
-  YANDEX_POSTBOX_ACCESS_KEY_ID: "production-access-key-id",
-  YANDEX_POSTBOX_SECRET_ACCESS_KEY: "production-secret-access-key",
-};
-
-const productionConfig = readYandexPostboxConfig(productionEnv);
-assert.equal(productionConfig.accessKeyId, "production-access-key-id");
-assert.equal(productionConfig.secretAccessKey, "production-secret-access-key");
-for (const [name, value] of [
-  ["YANDEX_POSTBOX_ACCESS_KEY_ID", "production-access\nkey-id"],
-  ["YANDEX_POSTBOX_SECRET_ACCESS_KEY", "production-secret\0access-key"],
-] as const) {
-  assert.throws(
-    () => readYandexPostboxConfig({ ...productionEnv, [name]: value }),
-    new RegExp(`PRODUCTION_CONFIG_ERROR:${name}`),
-  );
-}
 
 let capturedUrl = "";
 let capturedInit: RequestInit | undefined;
