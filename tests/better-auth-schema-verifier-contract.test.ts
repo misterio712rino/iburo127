@@ -57,6 +57,13 @@ const requiredPhysicalColumns: Record<string, readonly string[]> = {
   rateLimit: ["id", "key", "count", "lastRequest"],
 };
 
+const guardIndex = source.indexOf("requireStagingDatabaseTarget()");
+const poolIndex = source.indexOf("new Pool(");
+assert.ok(guardIndex >= 0, "Better Auth schema verifier must use the shared staging database target guard");
+assert.ok(poolIndex > guardIndex, "staging database target guard must execute before Pool construction");
+assert.match(source, /connectionString:\s*target\.databaseUrl/);
+assert.match(source, /identityRow\.database_name !== target\.expectedDatabaseName/);
+
 for (const [tableName, columns] of Object.entries(requiredPhysicalColumns)) {
   const declaration = new RegExp(
     `${tableName}:\\s*\\[([\\s\\S]*?)\\]`,

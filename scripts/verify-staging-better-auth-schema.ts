@@ -2,6 +2,7 @@ import "dotenv/config";
 
 import { createHash } from "node:crypto";
 import { Pool } from "pg";
+import { requireStagingDatabaseTarget } from "./staging-target-guard";
 
 const REQUIRED_COLUMNS = {
   user: [
@@ -123,18 +124,18 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-const databaseUrl = process.env.DATABASE_URL?.trim();
-const expectedDatabaseName = process.env.IB_STAGING_DATABASE_NAME?.trim();
-const expectedSchema = process.env.IB_STAGING_BETTER_AUTH_SCHEMA?.trim();
-const target = process.env.IB_DB_TARGET?.trim();
+let target: ReturnType<typeof requireStagingDatabaseTarget>;
+try {
+  target = requireStagingDatabaseTarget();
+} catch (error) {
+  fail(error instanceof Error ? error.message : "invalid staging database target");
+}
 
-if (!databaseUrl) fail("missing DATABASE_URL");
-if (!expectedDatabaseName) fail("missing IB_STAGING_DATABASE_NAME");
+const expectedSchema = process.env.IB_STAGING_BETTER_AUTH_SCHEMA?.trim();
 if (!expectedSchema) fail("missing IB_STAGING_BETTER_AUTH_SCHEMA");
-if (target !== "staging") fail('IB_DB_TARGET must be exactly "staging"');
 
 const pool = new Pool({
-  connectionString: databaseUrl,
+  connectionString: target.databaseUrl,
   connectionTimeoutMillis: 10_000,
   statement_timeout: 10_000,
   max: 1,
@@ -158,9 +159,9 @@ try {
   );
   const identityRow = identity.rows[0];
   if (!identityRow) fail("database identity query returned no rows");
-  if (identityRow.database_name !== expectedDatabaseName) {
+  if (identityRow.database_name !== target.expectedDatabaseName) {
     fail(
-      `connected database ${identityRow.database_name} does not match IB_STAGING_DATABASE_NAME ${expectedDatabaseName}`,
+      `connected database ${identityRow.database_name} does not match preflight staging database identity`,
     );
   }
   if (identityRow.current_schema !== expectedSchema) {
