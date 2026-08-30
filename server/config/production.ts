@@ -1,5 +1,7 @@
 import "server-only";
 
+import { readPostgresDatabaseUrl } from "@/server/database/database-url";
+
 export const PRODUCTION_CONFIG_ERROR = "PRODUCTION_CONFIG_ERROR";
 
 function requireEnv(env: NodeJS.ProcessEnv, name: string) {
@@ -124,7 +126,7 @@ export type MaintenanceRuntimeConfig = {
 export function readProductionDatabaseConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): ProductionDatabaseConfig {
-  return { databaseUrl: requireEnv(env, "DATABASE_URL") };
+  return { databaseUrl: readPostgresDatabaseUrl(env) };
 }
 
 export function readBetterAuthRuntimeConfig(
