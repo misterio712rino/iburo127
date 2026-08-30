@@ -211,6 +211,29 @@ const optionalAuthzAuthSchema = buildStagingEnvironmentInventory({
 assert.equal(optionalAuthzAuthSchema.ready, true);
 assert.deepEqual(optionalAuthzAuthSchema.invalidOrInconsistent, []);
 
+const scannerAccessKeyWithControlCharacter = buildStagingEnvironmentInventory({
+  ...secretValues,
+  YANDEX_STORAGE_ACCESS_KEY_ID: "stage-storage\naccess-key",
+  IB_STAGING_STORAGE_ACCESS_KEY_ID: "stage-storage\naccess-key",
+}).phases.scanner;
+assert.equal(scannerAccessKeyWithControlCharacter.ready, false);
+assert.ok(
+  scannerAccessKeyWithControlCharacter.invalidOrInconsistent.includes(
+    "YANDEX_STORAGE_ACCESS_KEY_ID",
+  ),
+);
+
+const scannerSecretWithControlCharacter = buildStagingEnvironmentInventory({
+  ...secretValues,
+  YANDEX_STORAGE_SECRET_ACCESS_KEY: "storage-secret\ninvalid",
+}).phases.scanner;
+assert.equal(scannerSecretWithControlCharacter.ready, false);
+assert.ok(
+  scannerSecretWithControlCharacter.invalidOrInconsistent.includes(
+    "YANDEX_STORAGE_SECRET_ACCESS_KEY",
+  ),
+);
+
 const serialized = JSON.stringify(inventory);
 for (const [name, value] of Object.entries(secretValues)) {
   assert.equal(serialized.includes(value), false, `${name} value must not be exposed`);
