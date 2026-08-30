@@ -32,6 +32,7 @@ export type StagingAiTarget = {
 export function assertStagingAiTarget(
   env: Readonly<Record<string, string | undefined>>,
 ): StagingAiTarget {
+  if (env.IB_RUNTIME_TARGET?.trim() !== "staging") fail("RUNTIME_TARGET_NOT_STAGING");
   if (env.IB_AI_TARGET?.trim() !== "staging") fail("TARGET_NOT_STAGING");
 
   const apiKey = requireValue(env, "OPENAI_API_KEY");

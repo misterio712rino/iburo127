@@ -15,6 +15,9 @@ function requireValue(env: Env, name: string) {
 }
 
 export function assertStagingPostboxTarget(env: Env): StagingPostboxTarget {
+  if (env.IB_RUNTIME_TARGET?.trim() !== "staging") {
+    throw new Error(`${STAGING_POSTBOX_TARGET_GUARD}:RUNTIME_TARGET_NOT_STAGING`);
+  }
   if (env.IB_EMAIL_TARGET?.trim() !== "staging") {
     throw new Error(`${STAGING_POSTBOX_TARGET_GUARD}:TARGET`);
   }

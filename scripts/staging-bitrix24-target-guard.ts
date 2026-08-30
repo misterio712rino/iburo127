@@ -50,6 +50,7 @@ export function bitrix24SecretFingerprint(secret: string): string {
 export function assertStagingBitrix24Target(
   env: NodeJS.ProcessEnv,
 ): Bitrix24WebhookConfig {
+  if (env.IB_RUNTIME_TARGET?.trim() !== "staging") fail("RUNTIME_TARGET_NOT_STAGING");
   if (env.IB_BITRIX24_TARGET?.trim() !== "staging") fail("TARGET");
 
   const portal = parseOrigin(required(env, "BITRIX24_PORTAL_ORIGIN"), "PORTAL_ORIGIN");

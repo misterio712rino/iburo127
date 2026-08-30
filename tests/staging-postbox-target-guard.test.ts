@@ -6,6 +6,7 @@ import {
 } from "@/scripts/staging-postbox-target-guard";
 
 const validEnv: Readonly<Record<string, string | undefined>> = {
+  IB_RUNTIME_TARGET: "staging",
   IB_EMAIL_TARGET: "staging",
   YANDEX_POSTBOX_FROM_EMAIL: "staging@example.com",
   IB_STAGING_POSTBOX_FROM_EMAIL: "staging@example.com",
@@ -20,6 +21,12 @@ assert.deepEqual(assertStagingPostboxTarget(validEnv), {
 });
 assert.equal(STAGING_POSTBOX_SIMULATOR_RECIPIENT, "success@simulator.pstbx.ru");
 
+for (const runtimeTarget of [undefined, "production"]) {
+  assert.throws(
+    () => assertStagingPostboxTarget({ ...validEnv, IB_RUNTIME_TARGET: runtimeTarget }),
+    new RegExp(`${STAGING_POSTBOX_TARGET_GUARD}:RUNTIME_TARGET_NOT_STAGING`),
+  );
+}
 assert.throws(
   () => assertStagingPostboxTarget({ ...validEnv, IB_EMAIL_TARGET: "production" }),
   new RegExp(`${STAGING_POSTBOX_TARGET_GUARD}:TARGET`),
