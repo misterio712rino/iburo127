@@ -83,7 +83,7 @@ const plans = [
     button: "Записаться",
 
     href:
-      "#popup:myform",
+      "/contacts",
 
     type: "vip",
   },
