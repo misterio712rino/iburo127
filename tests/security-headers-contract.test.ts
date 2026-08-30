@@ -119,6 +119,18 @@ assert.ok(
   "homepage practicum CTA must not return to the removed nested route",
 );
 
+const pricingSource = await readFile(resolve("components/sections/Pricing.tsx"), "utf8");
+assert.match(
+  pricingSource,
+  /name:\s*"Эксклюзив"[\s\S]*?button:\s*"Записаться"[\s\S]*?href:\s*"\/contacts"/,
+  "VIP practicum CTA must route to the public contacts flow",
+);
+assert.doesNotMatch(
+  pricingSource,
+  /#popup:myform/,
+  "legacy constructor popup fragment must not return in active pricing",
+);
+
 const robotsSource = await readFile(resolve("app/robots.ts"), "utf8");
 assert.ok(
   robotsSource.includes('const SITE_URL = "https://www.iburo127.ru";'),
