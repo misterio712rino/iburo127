@@ -199,4 +199,23 @@ assert.ok(storageGuardIndex >= 0, "staging storage verifier must assert storage 
 assert.ok(s3ClientIndex > storageGuardIndex, "storage target identity must be asserted before S3 network client creation");
 assert.ok(storagePassIndex > s3ClientIndex, "storage PASS marker must remain after guarded S3 verification");
 
+const mutationPreflightSource = await readFile(resolve("scripts/staging-mutation-preflight.ts"), "utf8");
+const mutationRuntimeGuardIndex = mutationPreflightSource.indexOf('env.IB_RUNTIME_TARGET?.trim() !== "staging"');
+const migrationHistoryIndex = mutationPreflightSource.indexOf("inspectMigrationHistory(");
+const mutationTargetIndex = mutationPreflightSource.indexOf("requireStagingDatabaseTarget(env)");
+const schemaVerifyIndex = mutationPreflightSource.indexOf("verifyStagingDatabaseSchema(target)");
+assert.ok(mutationRuntimeGuardIndex >= 0, "staging DB mutation preflight must require global staging runtime");
+assert.ok(
+  migrationHistoryIndex > mutationRuntimeGuardIndex,
+  "global staging runtime must be verified before migration-history processing",
+);
+assert.ok(
+  mutationTargetIndex > mutationRuntimeGuardIndex,
+  "global staging runtime must be verified before staging DB target evaluation",
+);
+assert.ok(
+  schemaVerifyIndex > mutationRuntimeGuardIndex,
+  "global staging runtime must be verified before staging schema network access",
+);
+
 console.log("STAGING_TARGET_GUARD_TEST_PASS");

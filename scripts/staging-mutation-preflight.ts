@@ -35,6 +35,10 @@ export async function requireReviewedStagingMutationPreflight(
   options: StagingMutationPreflightOptions,
 ): Promise<StagingMutationPreflightResult> {
   const env = options.env ?? process.env;
+  if (env.IB_RUNTIME_TARGET?.trim() !== "staging") {
+    throw new Error('IB_RUNTIME_TARGET must be exactly "staging" for staging database mutations');
+  }
+
   const migrationHistory = await inspectMigrationHistory(
     options.migrationsDirectory ?? resolve("prisma/migrations"),
   );
