@@ -77,4 +77,109 @@ const passIndex = release.indexOf("STAGING_RELEASE_READINESS_PASS");
 assert.ok(passIndex > previousIndex, "release PASS marker must only be reachable after every required verifier");
 assert.doesNotMatch(release, /\|\||;\s*npm run/, "release verifiers must remain fail-closed through && chaining");
 
+async function requireGuardBefore(
+  path: string,
+  guardMarkers: readonly string[],
+  activeMarker: string,
+): Promise<void> {
+  const source = await readFile(resolve(path), "utf8");
+  const activeIndex = source.indexOf(activeMarker);
+  assert.ok(activeIndex >= 0, `${path} must contain active operation marker ${activeMarker}`);
+  for (const marker of guardMarkers) {
+    const guardIndex = source.indexOf(marker);
+    assert.ok(guardIndex >= 0, `${path} must contain staging guard ${marker}`);
+    assert.ok(
+      guardIndex < activeIndex,
+      `${path} must execute ${marker} before ${activeMarker}`,
+    );
+  }
+}
+
+const directEntryPoints = {
+  "check:staging:core": "tsx scripts/check-staging-readiness.ts",
+  "check:staging:auth-schema": "npm run check:staging:target && tsx scripts/verify-staging-better-auth-schema.ts",
+  "check:staging:storage": "tsx scripts/verify-staging-object-storage.ts",
+  "check:staging:file-scanner": "tsx scripts/verify-staging-file-scanner.ts",
+  "check:staging:authz": "tsx scripts/verify-staging-authz-fixtures.ts",
+  "check:staging:email-delivery": "tsx scripts/verify-staging-postbox-delivery.ts",
+  "check:staging:ai-provider": "tsx scripts/verify-staging-openai.ts",
+  "check:staging:bitrix24": "tsx scripts/verify-staging-bitrix24.ts",
+  "check:staging:bitrix24-schema": "tsx scripts/verify-staging-bitrix24-schema.ts",
+  "check:staging:http-authz": "tsx scripts/verify-staging-http-authz.ts",
+  "check:staging:http-ai-authz": "tsx scripts/verify-staging-ai-http-authz.ts",
+} as const;
+for (const [scriptName, expectedCommand] of Object.entries(directEntryPoints)) {
+  assert.equal(
+    scripts[scriptName],
+    expectedCommand,
+    `${scriptName} staging entrypoint changed without boundary review`,
+  );
+}
+
+await requireGuardBefore(
+  "scripts/check-staging-readiness.ts",
+  ["requireStagingDatabaseTarget()", "requireStagingAuthRuntimeTarget()"],
+  "new Pool(",
+);
+await requireGuardBefore(
+  "scripts/verify-staging-better-auth-schema.ts",
+  ["requireStagingDatabaseTarget()"],
+  "new Pool(",
+);
+await requireGuardBefore(
+  "scripts/verify-staging-object-storage.ts",
+  ["assertStagingStorageTarget()"],
+  "new S3Client(",
+);
+await requireGuardBefore(
+  "scripts/verify-staging-file-scanner.ts",
+  ["assertStagingFileScannerTarget(process.env)"],
+  "new S3Client(",
+);
+await requireGuardBefore(
+  "scripts/verify-staging-authz-fixtures.ts",
+  ["requireStagingDatabaseTarget()"],
+  "new Pool(",
+);
+await requireGuardBefore(
+  "scripts/verify-staging-postbox-delivery.ts",
+  ["assertStagingPostboxTarget(process.env)"],
+  "await sendYandexPostboxEmail(",
+);
+await requireGuardBefore(
+  "scripts/verify-staging-openai.ts",
+  ["assertStagingAiTarget(process.env)"],
+  "new OpenAiResponsesGateway(",
+);
+await requireGuardBefore(
+  "scripts/verify-staging-bitrix24.ts",
+  ["assertStagingBitrix24Target(process.env)"],
+  "await getBitrix24ProfileIdentity(",
+);
+await requireGuardBefore(
+  "scripts/verify-staging-bitrix24-schema.ts",
+  ["assertStagingBitrix24Target(process.env)"],
+  "await getBitrix24ItemFields(",
+);
+await requireGuardBefore(
+  "scripts/verify-staging-http-authz.ts",
+  ["requireStagingHttpTarget(process.env)"],
+  "fetch(",
+);
+await requireGuardBefore(
+  "scripts/verify-staging-ai-http-authz.ts",
+  ["requireStagingHttpTarget(process.env)"],
+  "fetch(",
+);
+await requireGuardBefore(
+  "scripts/verify-staging-http-mutations.ts",
+  ["requireStagingHttpMutationPreflight(process.env)"],
+  'await import("./verify-staging-http-mutations-impl")',
+);
+await requireGuardBefore(
+  "scripts/verify-staging-http-mutation-audit.ts",
+  ["requireStagingHttpMutationPreflight(process.env)"],
+  'await import("./verify-staging-http-mutation-audit-impl")',
+);
+
 console.log("STAGING_RELEASE_GATE_CONTRACT_PASS");
