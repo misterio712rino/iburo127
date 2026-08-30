@@ -96,4 +96,26 @@ assert.match(
   "mobile dialog must cycle keyboard focus in both directions",
 );
 
+for (const [legacyPath, canonicalPath] of [
+  ["app/(public)/proverka/page.tsx", "/bankruptcy-check"],
+  ["app/(public)/oferta/page.tsx", "/offer"],
+  ["app/(public)/uslugi/page.tsx", "/services"],
+] as const) {
+  const legacySource = await readFile(resolve(legacyPath), "utf8");
+  assert.match(
+    legacySource,
+    /import \{ permanentRedirect \} from "next\/navigation"/,
+    `${legacyPath} must use a permanent redirect instead of serving duplicate content`,
+  );
+  assert.ok(
+    legacySource.includes(`permanentRedirect("${canonicalPath}")`),
+    `${legacyPath} must redirect to ${canonicalPath}`,
+  );
+  assert.doesNotMatch(
+    legacySource,
+    /Здесь будет размещ|canonical:/,
+    `${legacyPath} must not return to placeholder or self-canonical content`,
+  );
+}
+
 console.log("PUBLIC_CONTACT_LINKS_CONTRACT_TEST_PASS");
