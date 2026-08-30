@@ -11,7 +11,7 @@ import {
 export const metadata: Metadata = {
   title: "О компании",
   description:
-    "127PRO — современная правовая платформа, которая помогает людям законно пройти процедуру банкротства физических лиц самостоятельно.",
+    "iБюро — современная правовая платформа, которая помогает людям законно пройти процедуру банкротства физических лиц самостоятельно.",
   alternates: {
     canonical: "/about",
   },
@@ -67,7 +67,7 @@ export default function AboutPage() {
             </h1>
 
             <p className="mt-10 max-w-3xl text-xl leading-9 text-[#666]">
-              127PRO — это не юридическая компания в привычном понимании.
+              iБюро — это не юридическая компания в привычном понимании.
               Мы создаём современные цифровые инструменты,
               которые позволяют человеку самостоятельно разобраться
               в процедуре банкротства и пройти её законно,
@@ -182,7 +182,7 @@ export default function AboutPage() {
             <div className="mt-12 flex flex-wrap justify-center gap-6">
 
               <Link
-                href="/services/praktikum"
+                href="/praktikum"
                 className="rounded-full bg-white px-8 py-4 text-lg font-semibold text-[#7B2330] transition hover:opacity-90"
               >
                 Получить доступ
