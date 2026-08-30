@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import type {
   ActorRepository,
   AuthSession,
@@ -9,6 +11,18 @@ import {
   StaffMfaEnforcingSessionProvider,
 } from "@/server/auth/staff-mfa-policy";
 import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
+
+const productionConfigSource = await readFile(resolve("server/config/production.ts"), "utf8");
+assert.match(
+  productionConfigSource,
+  /parsed\.protocol === "https:" \|\|\s*\(parsed\.protocol === "http:" && parsed\.hostname === "localhost"\)/,
+  "Better Auth base URL must be HTTPS or HTTP on localhost only",
+);
+assert.doesNotMatch(
+  productionConfigSource,
+  /parsed\.protocol === "https:" \|\| parsed\.hostname === "localhost"/,
+  "localhost must not bypass the Better Auth protocol check",
+);
 
 class StaticSessionProvider implements SessionProvider {
   constructor(private readonly session: AuthSession | null) {}
