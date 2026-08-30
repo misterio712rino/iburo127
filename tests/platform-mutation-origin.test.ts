@@ -192,11 +192,19 @@ assert.throws(
 const proxySource = await readFile(resolve("proxy.ts"), "utf8");
 assert.match(proxySource, /isVercelPreviewBackendAllowed\(\)/);
 assert.match(proxySource, /evaluatePlatformMutationOrigin\(request\)/);
-assert.match(proxySource, /matcher:\s*\["\/app\/:path\*", "\/api\/:path\*"\]/);
+assert.match(
+  proxySource,
+  /matcher:\s*\["\/app\/:path\*", "\/portal\/:path\*", "\/auth\/:path\*", "\/api\/:path\*"\]/,
+);
 assert.match(proxySource, /Cache-Control": "private, no-store"/);
 assert.match(proxySource, /STAGING_BACKEND_DISABLED/);
 assert.doesNotMatch(proxySource, /\/api\/auth/);
 assert.doesNotMatch(proxySource, /\/api\/internal/);
+
+const portalLayoutSource = await readFile(resolve("app/portal/layout.tsx"), "utf8");
+assert.match(portalLayoutSource, /resolveProductionStaffMfaState\(\)/);
+const mfaEnrollSource = await readFile(resolve("app/auth/mfa-enroll/page.tsx"), "utf8");
+assert.match(mfaEnrollSource, /resolveProductionStaffMfaState\(\)/);
 
 const stagingIdentitySource = await readFile(
   resolve("app/_iburo/staging-identity/route.ts"),
