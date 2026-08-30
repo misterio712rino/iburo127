@@ -144,7 +144,9 @@ export function readBetterAuthRuntimeConfig(
     throw new Error(`${PRODUCTION_CONFIG_ERROR}:BETTER_AUTH_URL`);
   }
 
-  const secureProtocol = parsed.protocol === "https:" || parsed.hostname === "localhost";
+  const secureProtocol =
+    parsed.protocol === "https:" ||
+    (parsed.protocol === "http:" && parsed.hostname === "localhost");
   const originOnly =
     (parsed.pathname === "/" || parsed.pathname === "") &&
     !parsed.search &&
