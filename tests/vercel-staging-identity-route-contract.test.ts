@@ -13,7 +13,7 @@ assert.match(routeSource, /backendEnabled:\s*isVercelPreviewBackendAllowed\(env\
 
 await assert.rejects(
   access(privateFolderPath),
-  undefined,
+  /ENOENT/,
   "staging identity route must not live under a Next.js private _-prefixed folder",
 );
 
