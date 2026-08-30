@@ -2,6 +2,7 @@ import "dotenv/config";
 
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
+import { requireStagingAuthzFixtures } from "./staging-authz-fixture-guard";
 
 export type StagingEnvironment = Readonly<Record<string, string | undefined>>;
 
@@ -20,6 +21,15 @@ const STAGING_AUTH_FLOW_REQUIREMENTS = [
   "IB_STAGING_MANAGER_TOTP_SECRET",
 ] as const;
 
+const STAGING_AUTHZ_FIXTURE_REQUIREMENTS = [
+  "IB_STAGING_CLIENT_USER_ID",
+  "IB_STAGING_CLIENT_SUBJECT",
+  "IB_STAGING_LAWYER_USER_ID",
+  "IB_STAGING_LAWYER_SUBJECT",
+  "IB_STAGING_MANAGER_USER_ID",
+  "IB_STAGING_MANAGER_SUBJECT",
+] as const;
+
 export const STAGING_ENVIRONMENT_PHASES = {
   runtime: ["IB_RUNTIME_TARGET"],
   database: [
@@ -29,6 +39,14 @@ export const STAGING_ENVIRONMENT_PHASES = {
     "IB_STAGING_DATABASE_NAME",
     "IB_STAGING_DATABASE_USER",
     "IB_STAGING_BETTER_AUTH_SCHEMA",
+  ],
+  authz: [
+    "DATABASE_URL",
+    "IB_DB_TARGET",
+    "IB_STAGING_DATABASE_HOST",
+    "IB_STAGING_DATABASE_NAME",
+    "IB_STAGING_DATABASE_USER",
+    ...STAGING_AUTHZ_FIXTURE_REQUIREMENTS,
   ],
   auth: ["IB_RUNTIME_TARGET", "BETTER_AUTH_SECRET", "BETTER_AUTH_URL", "IB_STAGING_BASE_URL"],
   authFlow: [...STAGING_AUTH_FLOW_REQUIREMENTS],
@@ -125,6 +143,7 @@ const PLACEHOLDER_PATTERNS = [
 const STAGING_TARGET_VARIABLES: Partial<Record<StagingEnvironmentPhase, readonly string[]>> = {
   runtime: ["IB_RUNTIME_TARGET"],
   database: ["IB_DB_TARGET"],
+  authz: ["IB_DB_TARGET"],
   auth: ["IB_RUNTIME_TARGET"],
   authFlow: ["IB_RUNTIME_TARGET", "IB_STAGING_AUTH_FLOW_TARGET"],
   storage: ["IB_RUNTIME_TARGET", "IB_STORAGE_TARGET"],
@@ -298,7 +317,7 @@ function invalidSemantics(
     if (isConfigured(env[name]) && env[name]?.trim() !== "staging") mark(name);
   }
 
-  if (phase === "database") {
+  if (phase === "database" || phase === "authz") {
     const databaseUrl = safeDatabaseUrl(env.DATABASE_URL);
     if (isConfigured(env.DATABASE_URL) && !databaseUrl) {
       mark("DATABASE_URL");
@@ -325,6 +344,14 @@ function invalidSemantics(
       } else if (isConfigured(env.IB_STAGING_DATABASE_USER) && actualUser !== expectedUser) {
         mark("DATABASE_URL", "IB_STAGING_DATABASE_USER");
       }
+    }
+  }
+
+  if (phase === "authz" && STAGING_AUTHZ_FIXTURE_REQUIREMENTS.every((name) => isConfigured(env[name]))) {
+    try {
+      requireStagingAuthzFixtures(env);
+    } catch {
+      mark(...STAGING_AUTHZ_FIXTURE_REQUIREMENTS);
     }
   }
 
