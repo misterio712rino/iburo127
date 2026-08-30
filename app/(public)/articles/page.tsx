@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
-import {
-  Calendar,
-  ArrowRight,
-  BookOpen,
-} from "lucide-react";
+import { Calendar, BookOpen } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Статьи",
   description:
-    "Полезные статьи о банкротстве физических лиц и списании долгов.",
+    "База знаний iБюро готовится к публикации. Материалы будут открыты после редакционной и юридической проверки.",
   alternates: {
     canonical: "/articles",
+  },
+  robots: {
+    index: false,
+    follow: false,
   },
 };
 
@@ -50,11 +50,8 @@ const articles = [
 export default function ArticlesPage() {
   return (
     <main className="bg-[#F7F5F2]">
-
       <section className="py-24">
-
         <div className="mx-auto max-w-7xl px-6">
-
           <span className="text-sm font-semibold uppercase tracking-[0.35em] text-[#7B2330]">
             База знаний
           </span>
@@ -66,66 +63,43 @@ export default function ArticlesPage() {
           </h1>
 
           <p className="mt-8 max-w-3xl text-xl leading-9 text-[#666]">
-            Простые объяснения сложных юридических вопросов.
-            Только практическая информация без лишней терминологии.
+            База знаний готовится к публикации. Мы откроем материалы после
+            редакционной и юридической проверки, чтобы не публиковать неполный
+            или неподтверждённый контент.
           </p>
-
         </div>
-
       </section>
 
       <section className="pb-28">
-
         <div className="mx-auto grid max-w-7xl gap-8 px-6 md:grid-cols-2 xl:grid-cols-3">
-
           {articles.map((article) => (
-
             <article
               key={article.title}
-              className="rounded-[32px] border border-[#E8DED5] bg-white p-8 shadow-lg transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl"
+              className="rounded-[32px] border border-[#E8DED5] bg-white p-8 shadow-lg"
             >
-
               <div className="flex items-center justify-between">
-
                 <span className="rounded-full bg-[#7B2330]/10 px-4 py-2 text-sm font-semibold text-[#7B2330]">
                   {article.category}
                 </span>
-
                 <BookOpen className="h-6 w-6 text-[#C89A4A]" />
-
               </div>
 
-              <h2 className="mt-8 text-2xl font-bold text-[#2B2B2B] leading-snug">
+              <h2 className="mt-8 text-2xl font-bold leading-snug text-[#2B2B2B]">
                 {article.title}
               </h2>
 
               <div className="mt-8 flex items-center text-[#777]">
-
                 <Calendar className="mr-3 h-5 w-5" />
-
                 {article.date}
-
               </div>
 
-              <button
-                type="button"
-                className="mt-10 flex items-center font-semibold text-[#7B2330] transition hover:translate-x-1"
-              >
-
-                Читать статью
-
-                <ArrowRight className="ml-3 h-5 w-5" />
-
-              </button>
-
+              <span className="mt-10 inline-flex rounded-full bg-[#F7F5F2] px-4 py-2 text-sm font-semibold text-[#666]">
+                Материал готовится
+              </span>
             </article>
-
           ))}
-
         </div>
-
       </section>
-
     </main>
   );
 }
