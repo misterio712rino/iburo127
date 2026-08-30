@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Calculator, Wallet, CreditCard, Scale } from "lucide-react";
+import { Wallet, CreditCard, Scale } from "lucide-react";
 
 import DebtLoadCalculator from "@/components/sections/DebtLoadCalculator";
 
