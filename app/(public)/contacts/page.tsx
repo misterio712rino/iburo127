@@ -98,9 +98,14 @@ export default function ContactsPage() {
                     Telegram
                   </p>
 
-                  <p className="text-[#666]">
+                  <a
+                    href="https://t.me/iburo127"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#666] transition hover:text-[#7B2330]"
+                  >
                     @iburo127
-                  </p>
+                  </a>
                 </div>
               </div>
 
