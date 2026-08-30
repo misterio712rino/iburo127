@@ -8,6 +8,7 @@ import {
   REQUIRED_STORED_FILE_STATUS_VALUES,
   StagingSchemaContractError,
 } from "@/scripts/staging-schema-contract";
+import { requireStagingDatabaseTarget } from "@/scripts/staging-target-guard";
 
 const validInput = {
   tables: [...REQUIRED_STAGING_DOMAIN_TABLES, "_prisma_migrations"],
@@ -27,6 +28,30 @@ assert.ok(REQUIRED_STAGING_DOMAIN_TABLES.includes("UserSecurityEvent"));
 assert.ok(REQUIRED_STORED_FILE_STATUS_VALUES.includes("QUARANTINED"));
 assert.ok(REQUIRED_STORED_FILE_SCAN_COLUMNS.includes("scanLeaseToken"));
 assert.doesNotThrow(() => assertStagingSchemaContract(validInput));
+
+const stagingTargetEnv = {
+  IB_DB_TARGET: "staging",
+  DATABASE_URL: "postgresql://stage_user@stage.pg.internal:5432/iburo_stage",
+  IB_STAGING_DATABASE_NAME: "iburo_stage",
+  IB_STAGING_DATABASE_HOST: "stage.pg.internal",
+  IB_STAGING_DATABASE_USER: "stage_user",
+  IB_STAGING_BETTER_AUTH_SCHEMA: "public",
+};
+assert.doesNotThrow(() => requireStagingDatabaseTarget(stagingTargetEnv));
+assert.throws(
+  () =>
+    requireStagingDatabaseTarget({
+      ...stagingTargetEnv,
+      IB_STAGING_BETTER_AUTH_SCHEMA: "auth",
+    }),
+  /IB_STAGING_BETTER_AUTH_SCHEMA must be exactly "public"/,
+);
+assert.doesNotThrow(() =>
+  requireStagingDatabaseTarget({
+    ...stagingTargetEnv,
+    IB_STAGING_BETTER_AUTH_SCHEMA: undefined,
+  }),
+);
 
 assert.throws(
   () =>
