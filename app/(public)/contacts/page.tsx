@@ -7,6 +7,8 @@ import {
   MessageCircle,
 } from "lucide-react";
 
+import ContactRequestForm from "@/components/sections/ContactRequestForm";
+
 export const metadata: Metadata = {
   title: "Контакты",
   description: "Свяжитесь с нами любым удобным способом.",
@@ -144,37 +146,7 @@ export default function ContactsPage() {
               в ближайшее время.
             </p>
 
-            <form className="mt-10 space-y-6">
-              <input
-                type="text"
-                placeholder="Ваше имя"
-                className="w-full rounded-2xl border border-[#E8DED5] px-5 py-4 outline-none transition focus:border-[#7B2330]"
-              />
-
-              <input
-                type="tel"
-                placeholder="Телефон"
-                className="w-full rounded-2xl border border-[#E8DED5] px-5 py-4 outline-none transition focus:border-[#7B2330]"
-              />
-
-              <input
-                type="email"
-                placeholder="Email"
-                className="w-full rounded-2xl border border-[#E8DED5] px-5 py-4 outline-none transition focus:border-[#7B2330]"
-              />
-
-              <textarea
-                rows={6}
-                placeholder="Ваш вопрос..."
-                className="w-full rounded-2xl border border-[#E8DED5] px-5 py-4 outline-none transition focus:border-[#7B2330]"
-              />
-
-              <button
-                className="w-full rounded-full bg-[#7B2330] py-4 text-lg font-semibold text-white transition hover:bg-[#641B25]"
-              >
-                Отправить сообщение
-              </button>
-            </form>
+            <ContactRequestForm />
           </div>
         </div>
       </section>
