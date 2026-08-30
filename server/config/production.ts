@@ -250,7 +250,7 @@ export function readFileScannerRuntimeConfig(
 export function readMaintenanceRuntimeConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): MaintenanceRuntimeConfig {
-  const secret = requireEnv(env, "IB_MAINTENANCE_SECRET");
+  const secret = requireSafeCredential(env, "IB_MAINTENANCE_SECRET");
   if (secret.length < 32) throw new Error(`${PRODUCTION_CONFIG_ERROR}:IB_MAINTENANCE_SECRET`);
 
   const fileScanLeaseSeconds = readIntegerEnv(
