@@ -31,7 +31,7 @@ export default function PublicLayout({
   return (
     <div className="flex min-h-screen flex-col bg-[#F7F5F2] text-[#2B2B2B]">
       <Header />
-      <main className="flex-1">{children}</main>
+      <div className="flex-1">{children}</div>
       <Footer />
     </div>
   );
