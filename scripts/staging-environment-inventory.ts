@@ -493,6 +493,12 @@ function invalidSemantics(
       const expected = `SIMULATOR:${env.IB_STAGING_POSTBOX_FROM_EMAIL?.trim()}`;
       if (isConfigured(env.IB_STAGING_POSTBOX_CONFIRM) && env.IB_STAGING_POSTBOX_CONFIRM?.trim() !== expected) mark("IB_STAGING_POSTBOX_CONFIRM");
     }
+    if (isConfigured(env.YANDEX_POSTBOX_REQUEST_TIMEOUT_MS)) {
+      const timeoutMs = Number(env.YANDEX_POSTBOX_REQUEST_TIMEOUT_MS!.trim());
+      if (!Number.isInteger(timeoutMs) || timeoutMs < 1_000 || timeoutMs > 30_000) {
+        mark("YANDEX_POSTBOX_REQUEST_TIMEOUT_MS");
+      }
+    }
   }
 
   if (phase === "openai") {
