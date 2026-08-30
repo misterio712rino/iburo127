@@ -10,6 +10,7 @@ import {
 const clientCookie = "client-cookie-secret";
 const baseEnv: NodeJS.ProcessEnv = {
   NODE_ENV: "test",
+  IB_RUNTIME_TARGET: "staging",
   IB_STAGING_BASE_URL: "https://staging-app.example.com",
   IB_STAGING_MUTATION_TARGET: "staging",
   IB_STAGING_MUTATION_CONFIRM: "MUTATE:staging-app.example.com",
@@ -47,12 +48,27 @@ assert.deepEqual(base, {
 assert.equal("clientCookie" in base, false);
 assert.equal("maintenanceSecret" in base, false);
 
-expectFail({ IB_STAGING_BASE_URL: "://invalid" }, /IB_STAGING_BASE_URL is invalid/);
+expectFail({ IB_RUNTIME_TARGET: "" }, /IB_RUNTIME_TARGET/);
+expectFail({ IB_RUNTIME_TARGET: "production" }, /IB_RUNTIME_TARGET/);
+expectFail({ IB_STAGING_BASE_URL: "://invalid" }, /IB_STAGING_BASE_URL/);
 expectFail({ IB_STAGING_BASE_URL: "http://staging-app.example.com" }, /must use https/);
 expectFail({ IB_STAGING_BASE_URL: "https://user:pass@staging-app.example.com" }, /origin without credentials/);
 expectFail({ IB_STAGING_BASE_URL: "https://staging-app.example.com/path" }, /origin without credentials/);
 expectFail({ IB_STAGING_BASE_URL: "https://staging-app.example.com/?x=1" }, /origin without credentials/);
-expectFail({ IB_STAGING_BASE_URL: "https://www.iburo127.ru" }, /production hostname is explicitly blocked/);
+for (const productionUrl of [
+  "https://iburo127.ru",
+  "https://www.iburo127.ru",
+  "https://api.iburo127.ru",
+  "https://API.IBURO127.RU.",
+]) {
+  expectFail(
+    {
+      IB_STAGING_BASE_URL: productionUrl,
+      IB_STAGING_MUTATION_CONFIRM: `MUTATE:${new URL(productionUrl).host}`,
+    },
+    /production hostname is explicitly blocked/,
+  );
+}
 expectFail({ IB_STAGING_MUTATION_TARGET: "production" }, /must equal staging/);
 expectFail({ IB_STAGING_MUTATION_CONFIRM: "MUTATE:other.example.com" }, /IB_STAGING_MUTATION_CONFIRM/);
 expectFail({ IB_STAGING_CLIENT_COOKIE: "" }, /missing IB_STAGING_CLIENT_COOKIE/);
@@ -135,6 +151,7 @@ const loopback = requireStagingHttpMutationPreflight(
 assert.equal(loopback.baseUrl, "http://127.0.0.1:3000");
 
 const source = await readFile(resolve("scripts/staging-http-mutation-preflight.ts"), "utf8");
+assert.match(source, /requireStagingHttpTarget\(env\)/);
 assert.doesNotMatch(source, /\bfetch\s*\(/);
 assert.doesNotMatch(source, /\bPool\b/);
 assert.doesNotMatch(source, /\bPrisma\b/);

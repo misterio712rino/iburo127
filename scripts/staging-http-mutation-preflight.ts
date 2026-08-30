@@ -1,3 +1,8 @@
+import {
+  requireStagingHttpTarget,
+  STAGING_HTTP_TARGET_GUARD,
+} from "./staging-http-target-guard";
+
 export const STAGING_HTTP_MUTATION_PREFLIGHT_FAIL = "STAGING_HTTP_MUTATION_PREFLIGHT_FAIL";
 
 export type StagingHttpMutationPreflight = {
@@ -52,41 +57,21 @@ function readBoundedInteger(
   return value;
 }
 
-function requireStagingBaseUrl(env: NodeJS.ProcessEnv): URL {
-  const raw = required(env, "IB_STAGING_BASE_URL");
-  let url: URL;
+function requireMutationBaseUrl(env: NodeJS.ProcessEnv): URL {
   try {
-    url = new URL(raw);
-  } catch {
-    fail("IB_STAGING_BASE_URL is invalid");
+    return requireStagingHttpTarget(env);
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith(`${STAGING_HTTP_TARGET_GUARD}:`)) {
+      fail(error.message);
+    }
+    fail(`${STAGING_HTTP_TARGET_GUARD}:unexpected target guard failure`);
   }
-
-  const loopback =
-    url.hostname === "localhost" ||
-    url.hostname === "127.0.0.1" ||
-    url.hostname === "[::1]";
-  if (url.protocol !== "https:" && !(loopback && url.protocol === "http:")) {
-    fail("IB_STAGING_BASE_URL must use https unless it targets loopback");
-  }
-  if (
-    url.username ||
-    url.password ||
-    (url.pathname !== "/" && url.pathname !== "") ||
-    url.search ||
-    url.hash
-  ) {
-    fail("IB_STAGING_BASE_URL must be an origin without credentials/path/query/hash");
-  }
-  if (url.hostname === "iburo127.ru" || url.hostname === "www.iburo127.ru") {
-    fail("production hostname is explicitly blocked");
-  }
-  return url;
 }
 
 export function requireStagingHttpMutationPreflight(
   env: NodeJS.ProcessEnv = process.env,
 ): StagingHttpMutationPreflight {
-  const baseUrl = requireStagingBaseUrl(env);
+  const baseUrl = requireMutationBaseUrl(env);
 
   if (required(env, "IB_STAGING_MUTATION_TARGET") !== "staging") {
     fail("IB_STAGING_MUTATION_TARGET must equal staging");
