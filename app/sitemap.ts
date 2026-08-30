@@ -5,6 +5,7 @@ const SITE_URL = "https://www.iburo127.ru";
 const INDEXABLE_ROUTES = [
   "/",
   "/about",
+  "/services",
   "/praktikum",
   "/faq",
   "/contacts",
