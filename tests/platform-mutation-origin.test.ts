@@ -158,14 +158,36 @@ for (const previewEnv of [
   );
 }
 
+const confirmedCommitSha = "12a4155acd473838b3e4f48bc318016187854a68";
 const confirmedPreviewEnv = {
   VERCEL_ENV: "preview",
   VERCEL_GIT_COMMIT_REF: VERCEL_STAGING_BRANCH,
+  VERCEL_GIT_COMMIT_SHA: confirmedCommitSha,
   IB_RUNTIME_TARGET: "staging",
-  IB_VERCEL_PREVIEW_BACKEND_CONFIRM: VERCEL_STAGING_CONFIRMATION,
+  IB_VERCEL_PREVIEW_BACKEND_CONFIRM: `${VERCEL_STAGING_CONFIRMATION}:${confirmedCommitSha}`,
 };
 assert.equal(isVercelPreviewBackendAllowed(confirmedPreviewEnv), true);
 assert.doesNotThrow(() => assertVercelPreviewBackendAllowed(confirmedPreviewEnv));
+
+const legacyBranchOnlyConfirmation = {
+  ...confirmedPreviewEnv,
+  IB_VERCEL_PREVIEW_BACKEND_CONFIRM: VERCEL_STAGING_CONFIRMATION,
+};
+assert.equal(isVercelPreviewBackendAllowed(legacyBranchOnlyConfirmation), false);
+assert.throws(
+  () => assertVercelPreviewBackendAllowed(legacyBranchOnlyConfirmation),
+  new RegExp(VERCEL_PREVIEW_BOUNDARY_ERROR),
+);
+
+const mismatchedShaPreview = {
+  ...confirmedPreviewEnv,
+  VERCEL_GIT_COMMIT_SHA: "22a4155acd473838b3e4f48bc318016187854a68",
+};
+assert.equal(isVercelPreviewBackendAllowed(mismatchedShaPreview), false);
+assert.throws(
+  () => assertVercelPreviewBackendAllowed(mismatchedShaPreview),
+  new RegExp(VERCEL_PREVIEW_BOUNDARY_ERROR),
+);
 
 const proxySource = await readFile(resolve("proxy.ts"), "utf8");
 assert.match(proxySource, /isVercelPreviewBackendAllowed\(\)/);
