@@ -11,11 +11,8 @@ export const metadata: Metadata = {
 export default function OfferPage() {
   return (
     <main className="bg-[#F7F5F2]">
-
       <section className="py-24">
-
         <div className="mx-auto max-w-5xl px-6">
-
           <span className="text-sm font-semibold uppercase tracking-[0.35em] text-[#7B2330]">
             Документы
           </span>
@@ -25,13 +22,11 @@ export default function OfferPage() {
           </h1>
 
           <div className="mt-12 rounded-[36px] border border-[#E8DED5] bg-white p-10 shadow-lg">
-
             <div className="prose prose-lg max-w-none">
-
               <p>
                 Настоящий документ является официальным предложением
                 (публичной офертой) на оказание информационно-консультационных
-                услуг посредством платформы 127PRO.
+                услуг посредством платформы iБюро.
               </p>
 
               <h2>1. Предмет договора</h2>
@@ -82,17 +77,12 @@ export default function OfferPage() {
               <h2>7. Контактная информация</h2>
 
               <p>
-                Email: <strong>info@127pro.ru</strong>
+                Email: <a href="mailto:127pro@mail.ru">127pro@mail.ru</a>
               </p>
-
             </div>
-
           </div>
-
         </div>
-
       </section>
-
     </main>
   );
 }
