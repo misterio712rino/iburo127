@@ -98,6 +98,13 @@ assert.deepEqual(STAGING_ENVIRONMENT_PHASES.maintenance, [
   "IB_MAINTENANCE_SECRET",
   "IB_MAINTENANCE_BASE_URL",
 ]);
+for (const phase of ["scanner", "postbox", "openai", "bitrix24"] as const) {
+  assert.equal(
+    (STAGING_ENVIRONMENT_PHASES[phase] as readonly string[]).includes("IB_RUNTIME_TARGET"),
+    true,
+    `${phase} inventory must require the global staging runtime target`,
+  );
+}
 
 const scannerRequirements = STAGING_ENVIRONMENT_PHASES.scanner as readonly string[];
 for (const storageRequirement of [
@@ -159,7 +166,16 @@ assert.ok(
   conflictInventory.phases.applicationE2e.invalidOrInconsistent.includes("IB_STAGING_MUTATION_TARGET"),
 );
 assert.equal(conflictInventory.phases.openai.ready, false);
-assert.deepEqual(conflictInventory.phases.openai.invalidOrInconsistent, ["IB_AI_TARGET"]);
+assert.deepEqual(conflictInventory.phases.openai.invalidOrInconsistent, [
+  "IB_AI_TARGET",
+  "IB_RUNTIME_TARGET",
+]);
+for (const phase of ["scanner", "postbox", "bitrix24"] as const) {
+  assert.ok(
+    conflictInventory.phases[phase].invalidOrInconsistent.includes("IB_RUNTIME_TARGET"),
+    `${phase} must fail semantic readiness outside staging runtime`,
+  );
+}
 assert.equal(conflictInventory.phases.storage.ready, false);
 assert.ok(conflictInventory.phases.storage.invalidOrInconsistent.includes("YANDEX_STORAGE_BUCKET"));
 assert.equal(conflictInventory.phases.scanner.ready, false);
@@ -317,6 +333,12 @@ assert.equal(placeholderInventory.phases.applicationE2e.ready, false);
 assert.ok(
   placeholderInventory.phases.applicationE2e.missingOrPlaceholder.includes("IB_STAGING_CLIENT_EMAIL"),
 );
+for (const phase of ["scanner", "postbox", "openai", "bitrix24"] as const) {
+  assert.ok(
+    placeholderInventory.phases[phase].missingOrPlaceholder.includes("IB_RUNTIME_TARGET"),
+    `${phase} inventory must be incomplete when global runtime target is absent`,
+  );
+}
 assert.equal(placeholderInventory.phases.maintenance.ready, false);
 assert.deepEqual(
   placeholderInventory.phases.maintenance.missingOrPlaceholder.sort(),

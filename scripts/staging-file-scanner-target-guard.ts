@@ -74,6 +74,7 @@ export type StagingFileScannerTarget = {
 export function assertStagingFileScannerTarget(
   env: Readonly<Record<string, string | undefined>>,
 ): StagingFileScannerTarget {
+  if (env.IB_RUNTIME_TARGET?.trim() !== "staging") fail("RUNTIME_TARGET_NOT_STAGING");
   if (env.IB_FILE_SCANNER_TARGET?.trim() !== "staging") fail("SCANNER_TARGET_NOT_STAGING");
   if (env.IB_STORAGE_TARGET?.trim() !== "staging") fail("STORAGE_TARGET_NOT_STAGING");
 

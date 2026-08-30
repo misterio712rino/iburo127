@@ -10,6 +10,7 @@ const scannerSecretFingerprint = createHash("sha256")
   .update(scannerSecret, "utf8")
   .digest("hex");
 const base = {
+  IB_RUNTIME_TARGET: "staging",
   IB_FILE_SCANNER_TARGET: "staging",
   IB_STORAGE_TARGET: "staging",
   IB_FILE_SCANNER_ORIGIN: "https://scanner-staging.example.com",
@@ -44,6 +45,7 @@ function expectGuardFailure(
   );
 }
 
+expectGuardFailure({ IB_RUNTIME_TARGET: "production" }, "RUNTIME_TARGET_NOT_STAGING");
 expectGuardFailure({ IB_FILE_SCANNER_TARGET: "production" }, "SCANNER_TARGET_NOT_STAGING");
 expectGuardFailure({ IB_STORAGE_TARGET: "production" }, "STORAGE_TARGET_NOT_STAGING");
 expectGuardFailure({ IB_FILE_SCANNER_ORIGIN: "http://scanner-staging.example.com" }, "INVALID_SCANNER_ORIGIN");
