@@ -15,6 +15,21 @@ import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts"
 const productionConfigSource = await readFile(resolve("server/config/production.ts"), "utf8");
 assert.match(
   productionConfigSource,
+  /const secret = requireSafeCredential\(env, "BETTER_AUTH_SECRET"\);/,
+  "Better Auth signing secret must use the control-character-safe credential reader",
+);
+assert.doesNotMatch(
+  productionConfigSource,
+  /const secret = requireEnv\(env, "BETTER_AUTH_SECRET"\);/,
+  "Better Auth signing secret must not bypass credential sanitation",
+);
+assert.match(
+  productionConfigSource,
+  /function requireSafeCredential[\s\S]*?\/\[\\r\\n\\0\]\//,
+  "safe credential reader must reject CR/LF/NUL",
+);
+assert.match(
+  productionConfigSource,
   /parsed\.protocol === "https:" \|\|\s*\(parsed\.protocol === "http:" && parsed\.hostname === "localhost"\)/,
   "Better Auth base URL must be HTTPS or HTTP on localhost only",
 );
