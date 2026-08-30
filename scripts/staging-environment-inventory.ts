@@ -598,6 +598,15 @@ function invalidSemantics(
         mark(emailName);
       }
     }
+    for (const credentialName of [
+      "YANDEX_POSTBOX_ACCESS_KEY_ID",
+      "YANDEX_POSTBOX_SECRET_ACCESS_KEY",
+      "IB_STAGING_POSTBOX_ACCESS_KEY_ID",
+    ]) {
+      if (isConfigured(env[credentialName]) && /[\r\n\0]/.test(env[credentialName]!.trim())) {
+        mark(credentialName);
+      }
+    }
     if (isConfigured(env.YANDEX_POSTBOX_FROM_EMAIL) && isConfigured(env.IB_STAGING_POSTBOX_FROM_EMAIL) && env.YANDEX_POSTBOX_FROM_EMAIL?.trim() !== env.IB_STAGING_POSTBOX_FROM_EMAIL?.trim()) {
       mark("YANDEX_POSTBOX_FROM_EMAIL", "IB_STAGING_POSTBOX_FROM_EMAIL");
     }
