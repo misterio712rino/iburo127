@@ -259,6 +259,37 @@ const shortSecretInventory = buildStagingEnvironmentInventory({
 assert.deepEqual(shortSecretInventory.phases.auth.invalidOrInconsistent, ["BETTER_AUTH_SECRET"]);
 assert.deepEqual(shortSecretInventory.phases.maintenance.invalidOrInconsistent, ["IB_MAINTENANCE_SECRET"]);
 
+const invalidAuthFixtures = buildStagingEnvironmentInventory({
+  ...secretValues,
+  IB_STAGING_CLIENT_EMAIL: "invalid-client-email",
+  IB_STAGING_CLIENT_PASSWORD: "too-short",
+  IB_STAGING_LAWYER_EMAIL: "invalid-lawyer-email",
+  IB_STAGING_LAWYER_PASSWORD: "short",
+  IB_STAGING_LAWYER_TOTP_SECRET: "INVALID-BASE32",
+  IB_STAGING_MANAGER_EMAIL: "invalid-manager-email",
+  IB_STAGING_MANAGER_PASSWORD: "x".repeat(129),
+  IB_STAGING_MANAGER_TOTP_SECRET: "***",
+});
+const invalidAuthFixtureNames = [
+  "IB_STAGING_CLIENT_EMAIL",
+  "IB_STAGING_CLIENT_PASSWORD",
+  "IB_STAGING_LAWYER_EMAIL",
+  "IB_STAGING_LAWYER_PASSWORD",
+  "IB_STAGING_LAWYER_TOTP_SECRET",
+  "IB_STAGING_MANAGER_EMAIL",
+  "IB_STAGING_MANAGER_PASSWORD",
+  "IB_STAGING_MANAGER_TOTP_SECRET",
+];
+for (const phase of ["authFlow", "applicationE2e"] as const) {
+  assert.equal(invalidAuthFixtures.phases[phase].ready, false);
+  for (const name of invalidAuthFixtureNames) {
+    assert.ok(
+      invalidAuthFixtures.phases[phase].invalidOrInconsistent.includes(name),
+      `${phase} inventory must flag invalid auth fixture ${name}`,
+    );
+  }
+}
+
 const unsafeScannerKeys = buildStagingEnvironmentInventory({
   ...secretValues,
   IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY: "security-fixtures/file-scanner/../escape.txt",

@@ -210,6 +210,18 @@ function isSafeSecret(value: string | undefined, minLength: number): boolean {
   return normalized.length >= minLength && !/[\r\n\0]/.test(normalized);
 }
 
+function isValidAuthFixturePassword(value: string | undefined): boolean {
+  if (!isConfigured(value)) return false;
+  const normalized = value!.trim();
+  return normalized.length >= 12 && normalized.length <= 128;
+}
+
+function isValidTotpSecret(value: string | undefined): boolean {
+  if (!isConfigured(value)) return false;
+  const normalized = value!.trim().toUpperCase().replace(/\s+/g, "").replace(/=+$/g, "");
+  return normalized.length >= 2 && /^[A-Z2-7]+$/.test(normalized);
+}
+
 function isSafeScannerFixtureKey(value: string | undefined): boolean {
   if (!isConfigured(value)) return false;
   const normalized = value!.trim();
@@ -286,6 +298,37 @@ function invalidSemantics(
 
   if (phase === "auth" && isConfigured(env.BETTER_AUTH_SECRET) && !isSafeSecret(env.BETTER_AUTH_SECRET, 32)) {
     mark("BETTER_AUTH_SECRET");
+  }
+
+  if (phase === "authFlow" || phase === "applicationE2e") {
+    for (const emailName of [
+      "IB_STAGING_CLIENT_EMAIL",
+      "IB_STAGING_LAWYER_EMAIL",
+      "IB_STAGING_MANAGER_EMAIL",
+    ]) {
+      if (isConfigured(env[emailName]) && !env[emailName]!.trim().includes("@")) {
+        mark(emailName);
+      }
+    }
+
+    for (const passwordName of [
+      "IB_STAGING_CLIENT_PASSWORD",
+      "IB_STAGING_LAWYER_PASSWORD",
+      "IB_STAGING_MANAGER_PASSWORD",
+    ]) {
+      if (isConfigured(env[passwordName]) && !isValidAuthFixturePassword(env[passwordName])) {
+        mark(passwordName);
+      }
+    }
+
+    for (const totpName of [
+      "IB_STAGING_LAWYER_TOTP_SECRET",
+      "IB_STAGING_MANAGER_TOTP_SECRET",
+    ]) {
+      if (isConfigured(env[totpName]) && !isValidTotpSecret(env[totpName])) {
+        mark(totpName);
+      }
+    }
   }
 
   if ((phase === "authFlow" || phase === "applicationE2e") && stagingBase) {
