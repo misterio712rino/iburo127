@@ -21,6 +21,14 @@ function required(env: Environment, name: string): string {
   return value;
 }
 
+function safeCredential(env: Environment, name: string): string {
+  const value = required(env, name);
+  if (/[\r\n\0]/.test(value)) {
+    fail(`${name} contains unsafe control characters`);
+  }
+  return value;
+}
+
 function normalizeAllowedOrigin(value: string): string {
   let parsed: URL;
   try {
@@ -65,12 +73,13 @@ export function assertStagingStorageTarget(
     fail("YANDEX_STORAGE_BUCKET must match IB_STAGING_STORAGE_BUCKET");
   }
 
-  const accessKeyId = required(env, "YANDEX_STORAGE_ACCESS_KEY_ID");
-  const expectedAccessKeyId = required(env, "IB_STAGING_STORAGE_ACCESS_KEY_ID");
+  const accessKeyId = safeCredential(env, "YANDEX_STORAGE_ACCESS_KEY_ID");
+  const expectedAccessKeyId = safeCredential(env, "IB_STAGING_STORAGE_ACCESS_KEY_ID");
   if (accessKeyId !== expectedAccessKeyId) {
     fail("YANDEX_STORAGE_ACCESS_KEY_ID must match IB_STAGING_STORAGE_ACCESS_KEY_ID");
   }
 
+  const secretAccessKey = safeCredential(env, "YANDEX_STORAGE_SECRET_ACCESS_KEY");
   const allowedOrigin = normalizeAllowedOrigin(required(env, "IB_STAGING_STORAGE_ALLOWED_ORIGIN"));
   if (allowedOrigin !== stagingUrl.origin) {
     fail("IB_STAGING_STORAGE_ALLOWED_ORIGIN must match IB_STAGING_BASE_URL origin");
@@ -79,7 +88,7 @@ export function assertStagingStorageTarget(
   return {
     bucket,
     accessKeyId,
-    secretAccessKey: required(env, "YANDEX_STORAGE_SECRET_ACCESS_KEY"),
+    secretAccessKey,
     allowedOrigin,
   };
 }
