@@ -95,6 +95,30 @@ assert.doesNotMatch(
   "public homepage must not redirect visitors into the investor/demo /app surface",
 );
 
+const heroSource = await readFile(resolve("components/sections/Hero.tsx"), "utf8");
+assert.ok(
+  heroSource.includes('href="#how"'),
+  "homepage how-it-works CTA must retain its local anchor",
+);
+assert.match(
+  heroSource,
+  /id="how"[\s\S]*?Как это работает/,
+  "homepage how-it-works CTA must have a matching semantic target",
+);
+
+const practiceHighlightSource = await readFile(
+  resolve("components/sections/PracticeHighlight.tsx"),
+  "utf8",
+);
+assert.ok(
+  practiceHighlightSource.includes('href="/praktikum"'),
+  "homepage practicum CTA must target the existing public practicum route",
+);
+assert.ok(
+  !practiceHighlightSource.includes('href="/services/praktikum"'),
+  "homepage practicum CTA must not return to the removed nested route",
+);
+
 const robotsSource = await readFile(resolve("app/robots.ts"), "utf8");
 assert.ok(
   robotsSource.includes('const SITE_URL = "https://www.iburo127.ru";'),
