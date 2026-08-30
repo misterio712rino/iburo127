@@ -80,7 +80,8 @@ for (const requiredMobileDialogContract of [
   'event.key === "Escape"',
   'event.key !== "Tab"',
   'closeButtonRef.current?.focus()',
-  'triggerRef.current?.focus()',
+  'const triggerButton = triggerRef.current',
+  'triggerButton?.focus()',
   'document.body.style.overflow = "hidden"',
   'panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)',
 ]) {
