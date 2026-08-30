@@ -17,6 +17,12 @@ const secretValues = {
   IB_STAGING_DATABASE_NAME: "iburo_stage",
   IB_STAGING_DATABASE_USER: "stage_user",
   IB_STAGING_BETTER_AUTH_SCHEMA: "public",
+  IB_STAGING_CLIENT_USER_ID: "11111111-1111-4111-8111-111111111111",
+  IB_STAGING_CLIENT_SUBJECT: "better-auth-client-subject",
+  IB_STAGING_LAWYER_USER_ID: "22222222-2222-4222-8222-222222222222",
+  IB_STAGING_LAWYER_SUBJECT: "better-auth-lawyer-subject",
+  IB_STAGING_MANAGER_USER_ID: "33333333-3333-4333-8333-333333333333",
+  IB_STAGING_MANAGER_SUBJECT: "better-auth-manager-subject",
   BETTER_AUTH_SECRET: "better-auth-secret-that-must-never-print",
   BETTER_AUTH_URL: "https://stage.iburo.test",
   IB_STAGING_BASE_URL: "https://stage.iburo.test",
@@ -99,6 +105,19 @@ assert.deepEqual(STAGING_ENVIRONMENT_PHASES.maintenance, [
   "IB_MAINTENANCE_SECRET",
   "IB_MAINTENANCE_BASE_URL",
 ]);
+assert.deepEqual(STAGING_ENVIRONMENT_PHASES.authz, [
+  "DATABASE_URL",
+  "IB_DB_TARGET",
+  "IB_STAGING_DATABASE_HOST",
+  "IB_STAGING_DATABASE_NAME",
+  "IB_STAGING_DATABASE_USER",
+  "IB_STAGING_CLIENT_USER_ID",
+  "IB_STAGING_CLIENT_SUBJECT",
+  "IB_STAGING_LAWYER_USER_ID",
+  "IB_STAGING_LAWYER_SUBJECT",
+  "IB_STAGING_MANAGER_USER_ID",
+  "IB_STAGING_MANAGER_SUBJECT",
+]);
 for (const phase of ["scanner", "postbox", "openai", "bitrix24"] as const) {
   assert.equal(
     (STAGING_ENVIRONMENT_PHASES[phase] as readonly string[]).includes("IB_RUNTIME_TARGET"),
@@ -136,6 +155,36 @@ for (const cookieName of [
     `${cookieName} must not be a static application E2E requirement because core sessions are created dynamically`,
   );
 }
+
+const missingAuthz = buildStagingEnvironmentInventory({
+  ...secretValues,
+  IB_STAGING_MANAGER_SUBJECT: undefined,
+}).phases.authz;
+assert.equal(missingAuthz.ready, false);
+assert.deepEqual(missingAuthz.missingOrPlaceholder, ["IB_STAGING_MANAGER_SUBJECT"]);
+
+const collapsedAuthz = buildStagingEnvironmentInventory({
+  ...secretValues,
+  IB_STAGING_LAWYER_USER_ID: secretValues.IB_STAGING_CLIENT_USER_ID,
+}).phases.authz;
+assert.equal(collapsedAuthz.ready, false);
+for (const name of [
+  "IB_STAGING_CLIENT_USER_ID",
+  "IB_STAGING_CLIENT_SUBJECT",
+  "IB_STAGING_LAWYER_USER_ID",
+  "IB_STAGING_LAWYER_SUBJECT",
+  "IB_STAGING_MANAGER_USER_ID",
+  "IB_STAGING_MANAGER_SUBJECT",
+]) {
+  assert.ok(collapsedAuthz.invalidOrInconsistent.includes(name));
+}
+
+const malformedAuthz = buildStagingEnvironmentInventory({
+  ...secretValues,
+  IB_STAGING_CLIENT_USER_ID: "not-a-uuid",
+}).phases.authz;
+assert.equal(malformedAuthz.ready, false);
+assert.ok(malformedAuthz.invalidOrInconsistent.includes("IB_STAGING_CLIENT_USER_ID"));
 
 const serialized = JSON.stringify(inventory);
 for (const [name, value] of Object.entries(secretValues)) {
