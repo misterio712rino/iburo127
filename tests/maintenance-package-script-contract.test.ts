@@ -41,4 +41,33 @@ assert.ok(
   "production maintenance confirmation must be validated before the maintenance secret is used",
 );
 
+const productionConfig = await readFile(resolve("server/config/production.ts"), "utf8");
+assert.match(
+  productionConfig,
+  /const secret = requireSafeCredential\(env, "IB_MAINTENANCE_SECRET"\)/,
+  "production maintenance secret must reject CR/LF/NUL before HTTP authorization use",
+);
+assert.match(
+  productionConfig,
+  /if \(secret\.length < 32\).*IB_MAINTENANCE_SECRET/,
+  "production maintenance secret must retain its minimum length requirement",
+);
+
+const maintenanceRoute = await readFile(
+  resolve("app/api/internal/maintenance/file-scans/route.ts"),
+  "utf8",
+);
+const configIndex = maintenanceRoute.indexOf("readMaintenanceRuntimeConfig()");
+const authorizationIndex = maintenanceRoute.indexOf("isAuthorizedMaintenanceRequest(request, config.secret)");
+const workerIndex = maintenanceRoute.indexOf("getStoredFileScanWorker().runBatch");
+assert.ok(configIndex >= 0, "maintenance route must read production maintenance config");
+assert.ok(
+  authorizationIndex > configIndex,
+  "maintenance config validation must occur before maintenance authorization",
+);
+assert.ok(
+  workerIndex > authorizationIndex,
+  "maintenance authorization must occur before maintenance worker execution",
+);
+
 console.log("MAINTENANCE_PACKAGE_SCRIPT_CONTRACT_PASS");
