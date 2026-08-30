@@ -9,6 +9,7 @@ const preflightSource = await readFile(
   resolve("scripts/staging-mutation-preflight.ts"),
   "utf8",
 );
+const runtimeIndex = preflightSource.indexOf('env.IB_RUNTIME_TARGET?.trim() !== "staging"');
 const inspectIndex = preflightSource.indexOf("await inspectMigrationHistory(");
 const targetIndex = preflightSource.indexOf("requireStagingDatabaseTarget(env)");
 const confirmationIndex = preflightSource.indexOf(
@@ -16,7 +17,8 @@ const confirmationIndex = preflightSource.indexOf(
 );
 const schemaVerifyIndex = preflightSource.indexOf("await verifyStagingDatabaseSchema(target)");
 
-assert.ok(inspectIndex >= 0, "mutation preflight must inspect repository migration history");
+assert.ok(runtimeIndex >= 0, "mutation preflight must require global staging runtime identity");
+assert.ok(inspectIndex > runtimeIndex, "runtime identity must be verified before migration-history processing");
 assert.ok(targetIndex > inspectIndex, "staging target validation must follow migration-history validation");
 assert.ok(
   confirmationIndex > targetIndex,
@@ -27,13 +29,38 @@ assert.ok(
   "no PostgreSQL schema verification connection may occur before operation confirmation",
 );
 
+await assert.rejects(
+  () =>
+    requireReviewedStagingMutationPreflight({
+      env: {},
+      confirmation: {
+        variableName: "IB_TEST_CONFIRM",
+        expectedValue: () => "TEST",
+      },
+    }),
+  /IB_RUNTIME_TARGET/,
+  "missing staging runtime identity must block before migration history or network access",
+);
+await assert.rejects(
+  () =>
+    requireReviewedStagingMutationPreflight({
+      env: { IB_RUNTIME_TARGET: "production" },
+      confirmation: {
+        variableName: "IB_TEST_CONFIRM",
+        expectedValue: () => "TEST",
+      },
+    }),
+  /IB_RUNTIME_TARGET/,
+  "non-staging runtime identity must block before migration history or network access",
+);
+
 const root = await mkdtemp(join(tmpdir(), "iburo-staging-mutation-preflight-"));
 try {
   const missingMigrations = join(root, "missing");
   await assert.rejects(
     () =>
       requireReviewedStagingMutationPreflight({
-        env: {},
+        env: { IB_RUNTIME_TARGET: "staging" },
         migrationsDirectory: missingMigrations,
         confirmation: {
           variableName: "IB_TEST_CONFIRM",
@@ -41,7 +68,7 @@ try {
         },
       }),
     /authoritative database baseline is unresolved/,
-    "missing reviewed migration history must block before target parsing or network access",
+    "missing reviewed migration history must block before target parsing or network access once runtime is staging",
   );
 } finally {
   await rm(root, { recursive: true, force: true });
