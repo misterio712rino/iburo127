@@ -587,6 +587,17 @@ function invalidSemantics(
   }
 
   if (phase === "postbox") {
+    for (const emailName of ["YANDEX_POSTBOX_FROM_EMAIL", "IB_STAGING_POSTBOX_FROM_EMAIL"]) {
+      if (!isConfigured(env[emailName])) continue;
+      const email = env[emailName]!.trim();
+      if (
+        email.length > 254 ||
+        /[\r\n\0]/.test(email) ||
+        !/^[^\s@]+@[^\s@]+$/.test(email)
+      ) {
+        mark(emailName);
+      }
+    }
     if (isConfigured(env.YANDEX_POSTBOX_FROM_EMAIL) && isConfigured(env.IB_STAGING_POSTBOX_FROM_EMAIL) && env.YANDEX_POSTBOX_FROM_EMAIL?.trim() !== env.IB_STAGING_POSTBOX_FROM_EMAIL?.trim()) {
       mark("YANDEX_POSTBOX_FROM_EMAIL", "IB_STAGING_POSTBOX_FROM_EMAIL");
     }
