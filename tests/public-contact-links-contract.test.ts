@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 const footerSource = await readFile(resolve("components/layout/Footer.tsx"), "utf8");
 const contactsSource = await readFile(resolve("app/(public)/contacts/page.tsx"), "utf8");
 const aboutSource = await readFile(resolve("app/(public)/about/page.tsx"), "utf8");
+const mobileMenuSource = await readFile(resolve("components/layout/MobileMenu.tsx"), "utf8");
 
 for (const [surface, source] of [
   ["footer", footerSource],
@@ -71,6 +72,27 @@ assert.doesNotMatch(
 assert.ok(
   aboutSource.includes('href="/bankruptcy-check"'),
   "about preliminary check CTA must target the existing bankruptcy check route",
+);
+
+for (const requiredMobileDialogContract of [
+  'role="dialog"',
+  'aria-modal="true"',
+  'event.key === "Escape"',
+  'event.key !== "Tab"',
+  'closeButtonRef.current?.focus()',
+  'triggerRef.current?.focus()',
+  'document.body.style.overflow = "hidden"',
+  'panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)',
+]) {
+  assert.ok(
+    mobileMenuSource.includes(requiredMobileDialogContract),
+    `mobile dialog must preserve keyboard/focus contract: ${requiredMobileDialogContract}`,
+  );
+}
+assert.match(
+  mobileMenuSource,
+  /if \(event\.shiftKey\)[\s\S]*?last\.focus\(\)[\s\S]*?activeElement === last[\s\S]*?first\.focus\(\)/,
+  "mobile dialog must cycle keyboard focus in both directions",
 );
 
 console.log("PUBLIC_CONTACT_LINKS_CONTRACT_TEST_PASS");
