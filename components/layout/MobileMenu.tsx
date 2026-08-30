@@ -37,6 +37,7 @@ export default function MobileMenu({
       return;
     }
 
+    const triggerButton = triggerRef.current;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
@@ -94,7 +95,7 @@ export default function MobileMenu({
       window.cancelAnimationFrame(focusFrame);
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
-      triggerRef.current?.focus();
+      triggerButton?.focus();
     };
   }, [isOpen, onOpenChange]);
 
