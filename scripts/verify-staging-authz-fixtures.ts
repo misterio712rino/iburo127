@@ -1,6 +1,7 @@
 import "dotenv/config";
 
 import { Pool } from "pg";
+import { requireStagingAuthzFixtures } from "./staging-authz-fixture-guard";
 import { requireStagingDatabaseTarget } from "./staging-target-guard";
 
 function fail(message: string): never {
@@ -9,36 +10,12 @@ function fail(message: string): never {
 }
 
 let target: ReturnType<typeof requireStagingDatabaseTarget>;
+let fixtures: ReturnType<typeof requireStagingAuthzFixtures>;
 try {
   target = requireStagingDatabaseTarget();
+  fixtures = requireStagingAuthzFixtures();
 } catch (error) {
-  fail(error instanceof Error ? error.message : "invalid staging database target");
-}
-
-const fixtures = [
-  {
-    label: "CLIENT",
-    userId: process.env.IB_STAGING_CLIENT_USER_ID?.trim(),
-    subject: process.env.IB_STAGING_CLIENT_SUBJECT?.trim(),
-    requiredRole: "CLIENT",
-  },
-  {
-    label: "LAWYER",
-    userId: process.env.IB_STAGING_LAWYER_USER_ID?.trim(),
-    subject: process.env.IB_STAGING_LAWYER_SUBJECT?.trim(),
-    requiredRole: "LAWYER",
-  },
-  {
-    label: "MANAGER",
-    userId: process.env.IB_STAGING_MANAGER_USER_ID?.trim(),
-    subject: process.env.IB_STAGING_MANAGER_SUBJECT?.trim(),
-    requiredRole: "MANAGER",
-  },
-] as const;
-
-for (const fixture of fixtures) {
-  if (!fixture.userId) fail(`missing IB_STAGING_${fixture.label}_USER_ID`);
-  if (!fixture.subject) fail(`missing IB_STAGING_${fixture.label}_SUBJECT`);
+  fail(error instanceof Error ? error.message : "invalid staging authz target or fixture configuration");
 }
 
 const pool = new Pool({
