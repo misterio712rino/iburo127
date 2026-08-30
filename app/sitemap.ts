@@ -6,12 +6,10 @@ const INDEXABLE_ROUTES = [
   "/",
   "/about",
   "/praktikum",
-  "/reviews",
   "/faq",
   "/contacts",
   "/calculator",
   "/bankruptcy-check",
-  "/articles",
   "/offer",
   "/privacy",
 ] as const;
