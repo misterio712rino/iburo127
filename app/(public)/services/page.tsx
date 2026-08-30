@@ -30,7 +30,7 @@ const services = [
       "Практические инструкции",
     ],
     button: "Подробнее",
-    href: "/services/praktikum",
+    href: "/praktikum",
   },
   {
     icon: Users,
