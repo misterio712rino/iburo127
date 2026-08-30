@@ -207,7 +207,7 @@ const mfaEnrollSource = await readFile(resolve("app/auth/mfa-enroll/page.tsx"), 
 assert.match(mfaEnrollSource, /resolveProductionStaffMfaState\(\)/);
 
 const stagingIdentitySource = await readFile(
-  resolve("app/_iburo/staging-identity/route.ts"),
+  resolve("app/%5Fiburo/staging-identity/route.ts"),
   "utf8",
 );
 assert.match(stagingIdentitySource, /VERCEL_GIT_COMMIT_SHA/);
