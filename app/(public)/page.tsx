@@ -8,7 +8,7 @@ import ContactCTA from "@/components/sections/ContactCTA";
 
 export default function HomePage() {
   return (
-    <>
+    <main>
       <Hero />
       <AboutCompany />
       <WhyChooseUs />
@@ -16,6 +16,6 @@ export default function HomePage() {
       <ReviewsPreview />
       <FAQPreview />
       <ContactCTA />
-    </>
+    </main>
   );
 }
