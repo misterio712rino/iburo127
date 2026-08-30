@@ -286,12 +286,10 @@ for (const requiredRoute of [
   "/",
   "/about",
   "/praktikum",
-  "/reviews",
   "/faq",
   "/contacts",
   "/calculator",
   "/bankruptcy-check",
-  "/articles",
   "/offer",
   "/privacy",
 ]) {
@@ -301,6 +299,8 @@ for (const requiredRoute of [
   );
 }
 for (const excludedRoute of [
+  "/reviews",
+  "/articles",
   "/api/",
   "/auth/",
   "/portal/",
