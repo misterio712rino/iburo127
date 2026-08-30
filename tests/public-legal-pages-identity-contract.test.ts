@@ -18,8 +18,13 @@ for (const path of [
   );
   assert.doesNotMatch(
     source,
-    /127PRO|info@127pro\.ru/i,
-    `${path} must not return to legacy 127PRO identity or obsolete email`,
+    /127PRO/,
+    `${path} must not return to the legacy 127PRO identity`,
+  );
+  assert.doesNotMatch(
+    source,
+    /info@127pro\.ru/i,
+    `${path} must not return to the obsolete contact email`,
   );
 }
 
