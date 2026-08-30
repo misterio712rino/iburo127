@@ -73,4 +73,64 @@ assert.doesNotMatch(
   "legacy .online canonical domain must not return",
 );
 
+const robotsSource = await readFile(resolve("app/robots.ts"), "utf8");
+assert.ok(
+  robotsSource.includes('const SITE_URL = "https://www.iburo127.ru";'),
+  "robots metadata must use the production iБюро domain",
+);
+assert.ok(
+  robotsSource.includes('sitemap: `${SITE_URL}/sitemap.xml`'),
+  "robots metadata must publish the production sitemap location",
+);
+for (const privatePrefix of ["/api/", "/auth/", "/portal/", "/app/", "/_iburo/"]) {
+  assert.ok(
+    robotsSource.includes(`"${privatePrefix}"`),
+    `robots metadata must disallow ${privatePrefix}`,
+  );
+}
+
+const sitemapSource = await readFile(resolve("app/sitemap.ts"), "utf8");
+assert.ok(
+  sitemapSource.includes('const SITE_URL = "https://www.iburo127.ru";'),
+  "sitemap must use the production iБюро domain",
+);
+for (const requiredRoute of [
+  "/",
+  "/about",
+  "/praktikum",
+  "/reviews",
+  "/faq",
+  "/contacts",
+  "/calculator",
+  "/bankruptcy-check",
+  "/articles",
+  "/offer",
+  "/privacy",
+]) {
+  assert.ok(
+    sitemapSource.includes(`"${requiredRoute}"`),
+    `sitemap must include ${requiredRoute}`,
+  );
+}
+for (const excludedRoute of [
+  "/api/",
+  "/auth/",
+  "/portal/",
+  "/app/",
+  "/_iburo/",
+  "/uslugi",
+  "/proverka",
+  "/oferta",
+]) {
+  assert.ok(
+    !sitemapSource.includes(`"${excludedRoute}"`),
+    `sitemap must not include ${excludedRoute}`,
+  );
+}
+assert.doesNotMatch(
+  `${robotsSource}\n${sitemapSource}`,
+  /iburo127\.online/,
+  "legacy .online domain must not return in crawler metadata",
+);
+
 console.log("SECURITY_HEADERS_CONTRACT_TEST_PASS");
