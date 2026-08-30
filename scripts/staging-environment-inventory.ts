@@ -345,6 +345,13 @@ function invalidSemantics(
         mark("DATABASE_URL", "IB_STAGING_DATABASE_USER");
       }
     }
+
+    if (
+      isConfigured(env.IB_STAGING_BETTER_AUTH_SCHEMA) &&
+      env.IB_STAGING_BETTER_AUTH_SCHEMA?.trim() !== "public"
+    ) {
+      mark("IB_STAGING_BETTER_AUTH_SCHEMA");
+    }
   }
 
   if (phase === "authz" && STAGING_AUTHZ_FIXTURE_REQUIREMENTS.every((name) => isConfigured(env[name]))) {
