@@ -518,6 +518,12 @@ function invalidSemantics(
         mark("IB_STAGING_AI_CONFIRM");
       }
     }
+    if (isConfigured(env.IB_AI_OPENAI_REQUEST_TIMEOUT_MS)) {
+      const timeoutMs = Number(env.IB_AI_OPENAI_REQUEST_TIMEOUT_MS!.trim());
+      if (!Number.isInteger(timeoutMs) || timeoutMs < 1_000 || timeoutMs > 60_000) {
+        mark("IB_AI_OPENAI_REQUEST_TIMEOUT_MS");
+      }
+    }
   }
 
   if (phase === "bitrix24") {
