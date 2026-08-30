@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   },
   description:
     "Практикум iБюро поможет самостоятельно пройти процедуру банкротства физических лиц законно, безопасно и без дорогостоящих юридических услуг.",
-  metadataBase: new URL("https://iburo127.online"),
+  metadataBase: new URL("https://www.iburo127.ru"),
   alternates: {
     canonical: "/",
   },
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     title: "iБюро — Практикум по самостоятельному банкротству",
     description:
       "Научитесь самостоятельно пройти процедуру банкротства с помощью пошагового практикума iБюро.",
-    url: "https://iburo127.online",
+    url: "https://www.iburo127.ru",
     type: "website",
   },
 };
