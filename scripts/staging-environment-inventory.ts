@@ -30,6 +30,12 @@ const STAGING_AUTHZ_FIXTURE_REQUIREMENTS = [
   "IB_STAGING_MANAGER_SUBJECT",
 ] as const;
 
+const STAGING_SESSION_COOKIE_ENV_NAMES = [
+  "IB_STAGING_CLIENT_COOKIE",
+  "IB_STAGING_LAWYER_COOKIE",
+  "IB_STAGING_MANAGER_COOKIE",
+] as const;
+
 export const STAGING_ENVIRONMENT_PHASES = {
   runtime: ["IB_RUNTIME_TARGET"],
   database: [
@@ -431,6 +437,12 @@ function invalidSemantics(
   }
 
   if (phase === "applicationE2e") {
+    for (const cookieName of STAGING_SESSION_COOKIE_ENV_NAMES) {
+      if (Boolean(env[cookieName]?.trim())) {
+        mark(cookieName);
+      }
+    }
+
     const clientCaseNumber = env.IB_STAGING_CLIENT_CASE_NUMBER?.trim();
     const lawyerCaseNumber = env.IB_STAGING_LAWYER_CASE_NUMBER?.trim();
     const aiCaseNumber = env.IB_STAGING_CLIENT_AI_CASE_NUMBER?.trim();
