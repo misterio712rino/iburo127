@@ -75,7 +75,7 @@ export default function PracticeHighlight() {
             <div className="mt-12 flex flex-wrap gap-5">
 
               <Link
-                href="/services/praktikum"
+                href="/praktikum"
                 className="inline-flex items-center rounded-full bg-[#7B2330] px-8 py-4 font-semibold text-white transition hover:bg-[#641B25]"
               >
                 Получить доступ
