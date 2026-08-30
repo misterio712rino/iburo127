@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import {
+  VERCEL_STAGING_BRANCH,
+  VERCEL_STAGING_CONFIRMATION,
+  isVercelPreviewBackendAllowed,
+} from "@/server/config/vercel-preview-boundary";
 
 const packageJson = JSON.parse(await readFile(resolve("package.json"), "utf8")) as {
   scripts?: Record<string, string>;
@@ -180,6 +185,40 @@ await requireGuardBefore(
   "scripts/verify-staging-http-mutation-audit.ts",
   ["requireStagingHttpMutationPreflight(process.env)"],
   'await import("./verify-staging-http-mutation-audit-impl")',
+);
+
+const certifiedSha = "12a4155acd473838b3e4f48bc318016187854a68";
+const laterSha = "22a4155acd473838b3e4f48bc318016187854a68";
+const exactPreviewEnv = {
+  VERCEL_ENV: "preview",
+  VERCEL_GIT_COMMIT_REF: VERCEL_STAGING_BRANCH,
+  VERCEL_GIT_COMMIT_SHA: certifiedSha,
+  IB_RUNTIME_TARGET: "staging",
+  IB_VERCEL_PREVIEW_BACKEND_CONFIRM: `${VERCEL_STAGING_CONFIRMATION}:${certifiedSha}`,
+};
+
+assert.equal(
+  isVercelPreviewBackendAllowed(exactPreviewEnv),
+  true,
+  "the exact confirmed Preview SHA must be allowed",
+);
+assert.equal(
+  isVercelPreviewBackendAllowed({ ...exactPreviewEnv, VERCEL_GIT_COMMIT_SHA: laterSha }),
+  false,
+  "a confirmation for an older SHA must not authorize a later Preview commit",
+);
+assert.equal(
+  isVercelPreviewBackendAllowed({
+    ...exactPreviewEnv,
+    IB_VERCEL_PREVIEW_BACKEND_CONFIRM: VERCEL_STAGING_CONFIRMATION,
+  }),
+  false,
+  "the legacy branch-only confirmation must fail closed",
+);
+assert.equal(
+  isVercelPreviewBackendAllowed({ ...exactPreviewEnv, VERCEL_GIT_COMMIT_SHA: "not-a-sha" }),
+  false,
+  "a malformed Vercel commit SHA must fail closed",
 );
 
 console.log("STAGING_RELEASE_GATE_CONTRACT_PASS");

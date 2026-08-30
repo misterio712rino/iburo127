@@ -46,6 +46,14 @@ The staging branch must have dedicated non-production values for every external 
 
 Do not copy production secret values into Preview merely because the variable names are the same.
 
+`IB_VERCEL_PREVIEW_BACKEND_CONFIRM` is a provenance grant, not a branch-wide feature flag. It must never be configured as only `STAGING:audit/production-readiness`. After the initial disabled-backend identity check passes, its only accepted value is:
+
+```text
+STAGING:audit/production-readiness:<exact-40-character-candidate-sha>
+```
+
+The SHA suffix must equal the deployment's `VERCEL_GIT_COMMIT_SHA`. A later commit on the same branch is not authorized by the older confirmation and must fail closed until the complete candidate certification and activation sequence is repeated.
+
 ## Forbidden production-env shortcuts
 
 For staging validation, do not use commands or settings that intentionally load Production environment variables, including production-target builds/deployments such as:
@@ -63,7 +71,7 @@ A Preview deployment that receives production database/provider credentials is s
 Before creating or using a staging Preview deployment:
 
 1. Confirm the candidate repository SHA has fully successful exact-head GitHub Actions CI.
-2. Configure branch-scoped Preview environment variables for `audit/production-readiness` using dedicated staging credentials only.
+2. Configure branch-scoped Preview environment variables for `audit/production-readiness` using dedicated staging credentials only. Keep `IB_VERCEL_PREVIEW_BACKEND_CONFIRM` unset for the initial deployment.
 3. Run the repository's network-free environment inventory on a trusted staging-capable machine:
 
 ```bash
@@ -73,15 +81,37 @@ npm run staging:env:inventory -- --phase=database
 
 4. Do not proceed if any required value is missing or still a placeholder.
 5. Create/use only the Preview deployment for the exact audit-branch candidate SHA.
-6. Record the resulting staging hostname; use it as the exact host input for application E2E confirmation guards.
-7. The first real PostgreSQL operation remains:
+6. Verify that exact Preview identity while the backend is still disabled:
+
+```bash
+npx --no-install tsx scripts/verify-vercel-preview-identity.ts <preview-url> <exact-candidate-sha> false
+```
+
+The check must return `VERCEL_PREVIEW_IDENTITY_PASS` and the endpoint must report the exact candidate SHA with `backendEnabled=false`.
+7. Only after step 6 passes, configure the branch-scoped Preview confirmation as exactly:
+
+```text
+IB_VERCEL_PREVIEW_BACKEND_CONFIRM=STAGING:audit/production-readiness:<exact-candidate-sha>
+```
+
+8. Redeploy the **same exact candidate SHA** as Preview. Do not accept a redeploy whose Git SHA changed.
+9. Re-run the identity verifier against the activated Preview and the same SHA:
+
+```bash
+npx --no-install tsx scripts/verify-vercel-preview-identity.ts <preview-url> <exact-candidate-sha> true
+```
+
+The check must return `VERCEL_PREVIEW_IDENTITY_PASS` with `backendEnabled=true`.
+10. If `audit/production-readiness` advances to any new SHA, the previous confirmation is invalid by design. Repeat exact-head CI, initial disabled identity verification, confirmation rotation and enabled identity verification for the new SHA before backend access is allowed.
+11. Record the resulting staging hostname; use it as the exact host input for application E2E confirmation guards.
+12. The first real PostgreSQL operation remains:
 
 ```bash
 npm run db:inspect:baseline:summary
 ```
 
 This operation is read-only and must pass the staging database target guard.
-8. Follow `docs/STAGING_ACTIVATION_RUNBOOK.md` from database baseline onward.
+13. Follow `docs/STAGING_ACTIVATION_RUNBOOK.md` from database baseline onward.
 
 ## Release boundary
 

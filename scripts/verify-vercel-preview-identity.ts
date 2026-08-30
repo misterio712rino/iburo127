@@ -16,6 +16,13 @@ function requireExpectedSha(value: string | undefined) {
   return sha;
 }
 
+function requireExpectedBackendEnabled(value: string | undefined) {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized || normalized === "false") return false;
+  if (normalized === "true") return true;
+  fail("expected backend state must be exactly true or false");
+}
+
 function requirePreviewBaseUrl(value: string | undefined) {
   if (!value?.trim()) fail("preview URL is required");
 
@@ -37,6 +44,9 @@ function requirePreviewBaseUrl(value: string | undefined) {
 async function main() {
   const previewUrl = requirePreviewBaseUrl(process.argv[2] ?? process.env.IB_STAGING_BASE_URL);
   const expectedSha = requireExpectedSha(process.argv[3] ?? process.env.IB_STAGING_EXPECTED_SHA);
+  const expectedBackendEnabled = requireExpectedBackendEnabled(
+    process.argv[4] ?? process.env.IB_STAGING_EXPECTED_BACKEND_ENABLED,
+  );
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -95,11 +105,15 @@ async function main() {
     fail("deployment commit SHA does not match the expected exact candidate SHA");
   }
   if (identity.runtimeTarget !== "staging") fail("runtime target is not staging");
-  if (identity.backendEnabled !== false) {
-    fail("backend must remain disabled for the initial Preview identity verification");
+  if (identity.backendEnabled !== expectedBackendEnabled) {
+    fail(
+      `backendEnabled does not match expected ${expectedBackendEnabled ? "enabled" : "disabled"} phase`,
+    );
   }
 
-  console.log(`VERCEL_PREVIEW_IDENTITY_PASS: branch=${VERCEL_STAGING_BRANCH} sha=${expectedSha}`);
+  console.log(
+    `VERCEL_PREVIEW_IDENTITY_PASS: branch=${VERCEL_STAGING_BRANCH} sha=${expectedSha} backendEnabled=${expectedBackendEnabled}`,
+  );
 }
 
 await main();

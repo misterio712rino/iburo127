@@ -13,7 +13,9 @@ assert.match(source, /16_384/);
 assert.match(source, /identity\.environment !== "preview"/);
 assert.match(source, /identity\.branch !== VERCEL_STAGING_BRANCH/);
 assert.match(source, /identity\.runtimeTarget !== "staging"/);
-assert.match(source, /identity\.backendEnabled !== false/);
+assert.match(source, /requireExpectedBackendEnabled/);
+assert.match(source, /IB_STAGING_EXPECTED_BACKEND_ENABLED/);
+assert.match(source, /identity\.backendEnabled !== expectedBackendEnabled/);
 assert.match(source, /Object\.keys\(identity\)\.sort/);
 assert.match(source, /VERCEL_PREVIEW_IDENTITY_PASS/);
 
