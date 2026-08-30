@@ -56,4 +56,21 @@ assert.doesNotMatch(
   "API responses should not carry the HTML CSP bundle",
 );
 
+const publicLayoutSource = await readFile(resolve("app/(public)/layout.tsx"), "utf8");
+assert.match(
+  publicLayoutSource,
+  /metadataBase:\s*new URL\("https:\/\/www\.iburo127\.ru"\)/,
+  "public canonical metadata must use the production iБюро domain",
+);
+assert.match(
+  publicLayoutSource,
+  /url:\s*"https:\/\/www\.iburo127\.ru"/,
+  "OpenGraph URL must use the production iБюро domain",
+);
+assert.doesNotMatch(
+  publicLayoutSource,
+  /iburo127\.online/,
+  "legacy .online canonical domain must not return",
+);
+
 console.log("SECURITY_HEADERS_CONTRACT_TEST_PASS");
