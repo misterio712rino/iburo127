@@ -140,6 +140,9 @@ const STAGING_TARGET_VARIABLES: Partial<Record<StagingEnvironmentPhase, readonly
   maintenance: ["IB_RUNTIME_TARGET"],
 };
 
+const BITRIX24_CASE_PROJECTION_KEYS = ["caseNumber", "planCode", "stageCode", "status"] as const;
+const BITRIX24_RESERVED_FIELD_NAMES = new Set(["__proto__", "prototype", "constructor"]);
+
 function isConfigured(value: string | undefined): boolean {
   if (!value) return false;
   const trimmed = value.trim();
@@ -239,6 +242,49 @@ function isSafeScannerFixtureKey(value: string | undefined): boolean {
     !/[\r\n\0]/.test(normalized) &&
     /^[A-Za-z0-9._/-]+$/.test(normalized)
   );
+}
+
+function isValidBitrix24CaseEntityTypeId(value: string | undefined): boolean {
+  if (!isConfigured(value)) return false;
+  const raw = value!.trim();
+  const entityTypeId = Number(raw);
+  return (
+    Number.isSafeInteger(entityTypeId) &&
+    entityTypeId >= 1 &&
+    entityTypeId <= 2_147_483_647 &&
+    String(entityTypeId) === raw
+  );
+}
+
+function isValidBitrix24CaseFieldMap(value: string | undefined): boolean {
+  if (!isConfigured(value)) return false;
+  const entries = value!.trim().split(",").map((entry) => entry.trim());
+  if (entries.length !== BITRIX24_CASE_PROJECTION_KEYS.length || entries.some((entry) => !entry)) {
+    return false;
+  }
+
+  const sourceKeys = new Set<string>();
+  const targetNames = new Set<string>();
+  const allowedSources = new Set<string>(BITRIX24_CASE_PROJECTION_KEYS);
+
+  for (const entry of entries) {
+    const separator = entry.indexOf("=");
+    if (separator <= 0 || separator !== entry.lastIndexOf("=")) return false;
+    const source = entry.slice(0, separator).trim();
+    const target = entry.slice(separator + 1).trim();
+    if (!allowedSources.has(source) || sourceKeys.has(source)) return false;
+    if (
+      !/^[A-Za-z][A-Za-z0-9_]{0,127}$/.test(target) ||
+      BITRIX24_RESERVED_FIELD_NAMES.has(target.toLowerCase()) ||
+      targetNames.has(target)
+    ) {
+      return false;
+    }
+    sourceKeys.add(source);
+    targetNames.add(target);
+  }
+
+  return BITRIX24_CASE_PROJECTION_KEYS.every((key) => sourceKeys.has(key));
 }
 
 function invalidSemantics(
@@ -574,6 +620,12 @@ function invalidSemantics(
       }
     }
 
+    if (isConfigured(env.BITRIX24_CASE_ENTITY_TYPE_ID) && !isValidBitrix24CaseEntityTypeId(env.BITRIX24_CASE_ENTITY_TYPE_ID)) {
+      mark("BITRIX24_CASE_ENTITY_TYPE_ID");
+    }
+    if (isConfigured(env.BITRIX24_CASE_FIELD_MAP) && !isValidBitrix24CaseFieldMap(env.BITRIX24_CASE_FIELD_MAP)) {
+      mark("BITRIX24_CASE_FIELD_MAP");
+    }
     if (isConfigured(env.BITRIX24_REQUEST_TIMEOUT_MS)) {
       const timeoutMs = Number(env.BITRIX24_REQUEST_TIMEOUT_MS!.trim());
       if (!Number.isInteger(timeoutMs) || timeoutMs < 1_000 || timeoutMs > 30_000) {
