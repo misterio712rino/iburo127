@@ -2,22 +2,42 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-const source = await readFile(resolve("scripts/verify-staging-object-storage.ts"), "utf8");
+const verifierSource = await readFile(resolve("scripts/verify-staging-object-storage.ts"), "utf8");
+const guardSource = await readFile(resolve("scripts/staging-storage-target-guard.ts"), "utf8");
 
-assert.match(source, /IB_STORAGE_TARGET/);
-assert.match(source, /YANDEX_STORAGE_BUCKET/);
-assert.match(source, /IB_STAGING_STORAGE_BUCKET/);
-assert.match(source, /YANDEX_STORAGE_ACCESS_KEY_ID/);
-assert.match(source, /IB_STAGING_STORAGE_ACCESS_KEY_ID/);
-assert.match(
-  source,
-  /YANDEX_STORAGE_ACCESS_KEY_ID does not match IB_STAGING_STORAGE_ACCESS_KEY_ID/,
+for (const requiredGuardToken of [
+  "requireStagingHttpTarget",
+  "IB_STORAGE_TARGET",
+  "YANDEX_STORAGE_BUCKET",
+  "IB_STAGING_STORAGE_BUCKET",
+  "YANDEX_STORAGE_ACCESS_KEY_ID",
+  "IB_STAGING_STORAGE_ACCESS_KEY_ID",
+  "YANDEX_STORAGE_SECRET_ACCESS_KEY",
+  "IB_STAGING_STORAGE_ALLOWED_ORIGIN",
+  "IB_STAGING_BASE_URL origin",
+  "production storage CORS origin is explicitly blocked",
+]) {
+  assert.match(
+    guardSource,
+    new RegExp(requiredGuardToken.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    `staging storage guard must enforce ${requiredGuardToken}`,
+  );
+}
+
+const targetGuardIndex = verifierSource.indexOf("assertStagingStorageTarget()");
+const clientIndex = verifierSource.indexOf("new S3Client(");
+assert.ok(targetGuardIndex >= 0, "storage verifier must invoke the staging storage target guard");
+assert.ok(
+  clientIndex > targetGuardIndex,
+  "storage target identity must be verified before S3Client construction/network access",
 );
-assert.match(source, /HeadBucketCommand/);
-assert.match(source, /GetBucketAclCommand/);
-assert.match(source, /GetBucketPolicyCommand/);
-assert.match(source, /GetBucketCorsCommand/);
-assert.match(source, /Object enumeration\/content operations performed: 0/);
+
+assert.match(verifierSource, /HeadBucketCommand/);
+assert.match(verifierSource, /GetBucketAclCommand/);
+assert.match(verifierSource, /GetBucketPolicyCommand/);
+assert.match(verifierSource, /GetBucketCorsCommand/);
+assert.match(verifierSource, /assertCorsRules\(corsRules, target\.allowedOrigin\)/);
+assert.match(verifierSource, /Object enumeration\/content operations performed: 0/);
 
 for (const forbidden of [
   "ListObjectsCommand",
@@ -26,10 +46,10 @@ for (const forbidden of [
   "PutObjectCommand",
   "DeleteObjectCommand",
 ]) {
-  assert.doesNotMatch(source, new RegExp(forbidden));
+  assert.doesNotMatch(verifierSource, new RegExp(forbidden));
 }
 
-assert.doesNotMatch(source, /console\.(?:log|error)\([^\n]*configuredAccessKeyId/);
-assert.doesNotMatch(source, /console\.(?:log|error)\([^\n]*expectedAccessKeyId/);
+assert.doesNotMatch(verifierSource, /console\.(?:log|error)\([^\n]*target\.accessKeyId/);
+assert.doesNotMatch(verifierSource, /console\.(?:log|error)\([^\n]*target\.secretAccessKey/);
 
 console.log("STAGING_STORAGE_VERIFIER_CONTRACT_PASS");
