@@ -338,10 +338,30 @@ function invalidSemantics(
     }
   }
 
-  if (phase === "applicationE2e" && stagingBase) {
-    const expected = `MUTATE:${stagingBase.host}`;
-    if (isConfigured(env.IB_STAGING_MUTATION_CONFIRM) && env.IB_STAGING_MUTATION_CONFIRM?.trim() !== expected) {
-      mark("IB_STAGING_MUTATION_CONFIRM");
+  if (phase === "applicationE2e") {
+    const clientCaseNumber = env.IB_STAGING_CLIENT_CASE_NUMBER?.trim();
+    const lawyerCaseNumber = env.IB_STAGING_LAWYER_CASE_NUMBER?.trim();
+    const aiCaseNumber = env.IB_STAGING_CLIENT_AI_CASE_NUMBER?.trim();
+    const noAiCaseNumber = env.IB_STAGING_CLIENT_NO_AI_CASE_NUMBER?.trim();
+
+    if (clientCaseNumber && lawyerCaseNumber && clientCaseNumber === lawyerCaseNumber) {
+      mark("IB_STAGING_CLIENT_CASE_NUMBER", "IB_STAGING_LAWYER_CASE_NUMBER");
+    }
+    if (aiCaseNumber && noAiCaseNumber && aiCaseNumber === noAiCaseNumber) {
+      mark("IB_STAGING_CLIENT_AI_CASE_NUMBER", "IB_STAGING_CLIENT_NO_AI_CASE_NUMBER");
+    }
+    if (lawyerCaseNumber && aiCaseNumber && lawyerCaseNumber === aiCaseNumber) {
+      mark("IB_STAGING_LAWYER_CASE_NUMBER", "IB_STAGING_CLIENT_AI_CASE_NUMBER");
+    }
+    if (lawyerCaseNumber && noAiCaseNumber && lawyerCaseNumber === noAiCaseNumber) {
+      mark("IB_STAGING_LAWYER_CASE_NUMBER", "IB_STAGING_CLIENT_NO_AI_CASE_NUMBER");
+    }
+
+    if (stagingBase) {
+      const expected = `MUTATE:${stagingBase.host}`;
+      if (isConfigured(env.IB_STAGING_MUTATION_CONFIRM) && env.IB_STAGING_MUTATION_CONFIRM?.trim() !== expected) {
+        mark("IB_STAGING_MUTATION_CONFIRM");
+      }
     }
   }
 

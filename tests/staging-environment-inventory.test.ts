@@ -290,6 +290,54 @@ for (const phase of ["authFlow", "applicationE2e"] as const) {
   }
 }
 
+const duplicateCaseFixtures = buildStagingEnvironmentInventory({
+  ...secretValues,
+  IB_STAGING_LAWYER_CASE_NUMBER: secretValues.IB_STAGING_CLIENT_CASE_NUMBER,
+  IB_STAGING_CLIENT_NO_AI_CASE_NUMBER: secretValues.IB_STAGING_CLIENT_AI_CASE_NUMBER,
+});
+assert.equal(duplicateCaseFixtures.phases.applicationE2e.ready, false);
+for (const name of [
+  "IB_STAGING_CLIENT_CASE_NUMBER",
+  "IB_STAGING_LAWYER_CASE_NUMBER",
+  "IB_STAGING_CLIENT_AI_CASE_NUMBER",
+  "IB_STAGING_CLIENT_NO_AI_CASE_NUMBER",
+]) {
+  assert.ok(
+    duplicateCaseFixtures.phases.applicationE2e.invalidOrInconsistent.includes(name),
+    `applicationE2e inventory must flag duplicate case fixture ${name}`,
+  );
+}
+
+for (const [label, collision] of [
+  [
+    "LAWYER/AI-enabled",
+    { IB_STAGING_LAWYER_CASE_NUMBER: secretValues.IB_STAGING_CLIENT_AI_CASE_NUMBER },
+  ],
+  [
+    "LAWYER/AI-disabled",
+    { IB_STAGING_LAWYER_CASE_NUMBER: secretValues.IB_STAGING_CLIENT_NO_AI_CASE_NUMBER },
+  ],
+] as const) {
+  const collisionInventory = buildStagingEnvironmentInventory({
+    ...secretValues,
+    ...collision,
+  });
+  assert.equal(collisionInventory.phases.applicationE2e.ready, false);
+  assert.ok(
+    collisionInventory.phases.applicationE2e.invalidOrInconsistent.includes(
+      "IB_STAGING_LAWYER_CASE_NUMBER",
+    ),
+    `applicationE2e inventory must flag ${label} LAWYER fixture collision`,
+  );
+  const clientFixtureName = label === "LAWYER/AI-enabled"
+    ? "IB_STAGING_CLIENT_AI_CASE_NUMBER"
+    : "IB_STAGING_CLIENT_NO_AI_CASE_NUMBER";
+  assert.ok(
+    collisionInventory.phases.applicationE2e.invalidOrInconsistent.includes(clientFixtureName),
+    `applicationE2e inventory must flag ${label} client fixture collision`,
+  );
+}
+
 const unsafeScannerKeys = buildStagingEnvironmentInventory({
   ...secretValues,
   IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY: "security-fixtures/file-scanner/../escape.txt",
