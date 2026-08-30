@@ -17,7 +17,7 @@ const footerLinks = [
 
 const socialLinks = [
   {
-    href: "https://t.me/",
+    href: "https://t.me/iburo127",
     label: "Telegram",
     icon: MessageCircleMore,
   },
