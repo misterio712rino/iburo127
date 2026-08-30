@@ -139,4 +139,27 @@ assert.doesNotMatch(
   "public error recovery must not expose or log runtime error details",
 );
 
+const publicLayoutSource = await readFile(resolve("app/(public)/layout.tsx"), "utf8");
+const publicHomeSource = await readFile(resolve("app/(public)/page.tsx"), "utf8");
+assert.doesNotMatch(
+  publicLayoutSource,
+  /<main(?:\s|>)/,
+  "public layout must not create a main landmark around pages that already own one",
+);
+assert.match(
+  publicLayoutSource,
+  /<div className="flex-1">\{children\}<\/div>/,
+  "public layout must preserve the flexible content wrapper without using a main landmark",
+);
+assert.match(
+  publicHomeSource,
+  /<main>[\s\S]*?<Hero \/>[\s\S]*?<ContactCTA \/>[\s\S]*?<\/main>/,
+  "public homepage must own its main landmark after the layout wrapper becomes neutral",
+);
+assert.match(
+  contactsSource,
+  /<main className=/,
+  "representative public subpage must continue to own its main landmark",
+);
+
 console.log("PUBLIC_CONTACT_LINKS_CONTRACT_TEST_PASS");
