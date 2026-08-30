@@ -195,7 +195,7 @@ export default function Hero() {
 
           {/* RIGHT */}
 
-          <div className="relative">
+          <div id="how" className="relative scroll-mt-28">
 
             <div className="absolute -left-12 top-20 h-56 w-56 rounded-full bg-[#7B2330]/10 blur-[120px]" />
 
