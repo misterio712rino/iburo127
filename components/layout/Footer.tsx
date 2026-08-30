@@ -32,7 +32,7 @@ const socialLinks = [
     icon: Phone,
   },
   {
-    href: "https://iburo127.online",
+    href: "https://www.iburo127.ru",
     label: "Сайт",
     icon: Globe,
   },
