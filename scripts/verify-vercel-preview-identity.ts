@@ -2,6 +2,7 @@ import { VERCEL_STAGING_BRANCH } from "@/server/config/vercel-preview-boundary";
 
 const PREVIEW_IDENTITY_PATH = "/_iburo/staging-identity";
 const REQUEST_TIMEOUT_MS = 10_000;
+const RELEASE_MODE_FLAG = "--release";
 
 function fail(message: string): never {
   console.error(`VERCEL_PREVIEW_IDENTITY_FAIL: ${message}`);
@@ -42,11 +43,18 @@ function requirePreviewBaseUrl(value: string | undefined) {
 }
 
 async function main() {
-  const previewUrl = requirePreviewBaseUrl(process.argv[2] ?? process.env.IB_STAGING_BASE_URL);
-  const expectedSha = requireExpectedSha(process.argv[3] ?? process.env.IB_STAGING_EXPECTED_SHA);
-  const expectedBackendEnabled = requireExpectedBackendEnabled(
-    process.argv[4] ?? process.env.IB_STAGING_EXPECTED_BACKEND_ENABLED,
+  const releaseMode = process.argv[2] === RELEASE_MODE_FLAG;
+  const previewUrl = requirePreviewBaseUrl(
+    releaseMode ? process.env.IB_STAGING_BASE_URL : process.argv[2] ?? process.env.IB_STAGING_BASE_URL,
   );
+  const expectedSha = requireExpectedSha(
+    releaseMode ? process.env.IB_STAGING_EXPECTED_SHA : process.argv[3] ?? process.env.IB_STAGING_EXPECTED_SHA,
+  );
+  const expectedBackendEnabled = releaseMode
+    ? true
+    : requireExpectedBackendEnabled(
+        process.argv[4] ?? process.env.IB_STAGING_EXPECTED_BACKEND_ENABLED,
+      );
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
