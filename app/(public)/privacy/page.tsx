@@ -11,11 +11,8 @@ export const metadata: Metadata = {
 export default function PrivacyPage() {
   return (
     <main className="bg-[#F7F5F2]">
-
       <section className="py-24">
-
         <div className="mx-auto max-w-5xl px-6">
-
           <span className="text-sm font-semibold uppercase tracking-[0.35em] text-[#7B2330]">
             Документы
           </span>
@@ -25,13 +22,11 @@ export default function PrivacyPage() {
           </h1>
 
           <div className="mt-12 rounded-[36px] border border-[#E8DED5] bg-white p-10 shadow-lg">
-
             <div className="prose prose-lg max-w-none">
-
               <p>
                 Настоящая Политика конфиденциальности определяет порядок
                 обработки и защиты персональных данных пользователей сайта
-                127PRO.
+                iБюро.
               </p>
 
               <h2>1. Общие положения</h2>
@@ -77,17 +72,13 @@ export default function PrivacyPage() {
 
               <p>
                 По вопросам обработки персональных данных вы можете обратиться
-                по электронной почте: <strong>info@127pro.ru</strong>
+                по электронной почте:{" "}
+                <a href="mailto:127pro@mail.ru">127pro@mail.ru</a>
               </p>
-
             </div>
-
           </div>
-
         </div>
-
       </section>
-
     </main>
   );
 }
