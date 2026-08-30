@@ -1,3 +1,4 @@
+import { isValidYandexStorageBucketName } from "@/server/files/yandex-storage-bucket-name";
 import { requireStagingHttpTarget } from "./staging-http-target-guard";
 
 export const STAGING_STORAGE_TARGET_GUARD = "STAGING_STORAGE_TARGET_GUARD";
@@ -69,6 +70,12 @@ export function assertStagingStorageTarget(
 
   const bucket = required(env, "YANDEX_STORAGE_BUCKET");
   const expectedBucket = required(env, "IB_STAGING_STORAGE_BUCKET");
+  if (!isValidYandexStorageBucketName(bucket)) {
+    fail("YANDEX_STORAGE_BUCKET is not a valid Yandex Object Storage bucket name");
+  }
+  if (!isValidYandexStorageBucketName(expectedBucket)) {
+    fail("IB_STAGING_STORAGE_BUCKET is not a valid Yandex Object Storage bucket name");
+  }
   if (bucket !== expectedBucket) {
     fail("YANDEX_STORAGE_BUCKET must match IB_STAGING_STORAGE_BUCKET");
   }

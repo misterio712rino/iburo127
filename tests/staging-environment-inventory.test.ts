@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 
 import {
   buildStagingEnvironmentInventory,
   STAGING_ENVIRONMENT_PHASES,
 } from "../scripts/staging-environment-inventory";
+import { isValidYandexStorageBucketName } from "../server/files/yandex-storage-bucket-name";
 
 const openAiFingerprint = "805bb5b5affe92b006f210a21cb86312f42bb2b4a318f192f8638750013c588f";
 const scannerFingerprint = "22019c0cb7a42ff3ea5487f63789a42d9e63d8a861f8363923707551ae6017a6";
@@ -217,6 +220,43 @@ const optionalAuthzAuthSchema = buildStagingEnvironmentInventory({
 }).phases.authz;
 assert.equal(optionalAuthzAuthSchema.ready, true);
 assert.deepEqual(optionalAuthzAuthSchema.invalidOrInconsistent, []);
+
+for (const validBucket of ["abc", "iburo-stage-private", "iburo.stage-1"]) {
+  assert.equal(isValidYandexStorageBucketName(validBucket), true, `${validBucket} must be accepted`);
+}
+for (const invalidBucket of [
+  "ab",
+  "A-uppercase",
+  "-starts-with-hyphen",
+  "ends-with-hyphen-",
+  "bad..dots",
+  "bad.-separator",
+  "bad-.separator",
+  "10.1.3.9",
+  "a".repeat(64),
+]) {
+  assert.equal(isValidYandexStorageBucketName(invalidBucket), false, `${invalidBucket} must be rejected`);
+
+  for (const phase of ["storage", "scanner"] as const) {
+    const invalidBucketInventory = buildStagingEnvironmentInventory({
+      ...secretValues,
+      YANDEX_STORAGE_BUCKET: invalidBucket,
+      IB_STAGING_STORAGE_BUCKET: invalidBucket,
+      IB_STAGING_FILE_SCANNER_CONFIRM: `FILE-SCANNER-SMOKE:scanner.stage.iburo.test:${invalidBucket}:${scannerFingerprint}`,
+    }).phases[phase];
+    assert.equal(invalidBucketInventory.ready, false, `${phase} must reject ${invalidBucket}`);
+    assert.ok(invalidBucketInventory.invalidOrInconsistent.includes("YANDEX_STORAGE_BUCKET"));
+    assert.ok(invalidBucketInventory.invalidOrInconsistent.includes("IB_STAGING_STORAGE_BUCKET"));
+  }
+}
+
+const productionConfigSource = await readFile(resolve("server/config/production.ts"), "utf8");
+assert.match(productionConfigSource, /assertValidYandexStorageBucketName/);
+assert.ok(
+  productionConfigSource.indexOf("assertValidYandexStorageBucketName") <
+    productionConfigSource.indexOf('endpoint: "https:\/\/storage.yandexcloud.net"'),
+  "production bucket guard must run before object-storage configuration reaches the signer",
+);
 
 const scannerAccessKeyWithControlCharacter = buildStagingEnvironmentInventory({
   ...secretValues,

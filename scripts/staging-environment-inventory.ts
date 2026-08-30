@@ -2,6 +2,7 @@ import "dotenv/config";
 
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
+import { isValidYandexStorageBucketName } from "@/server/files/yandex-storage-bucket-name";
 import { requireStagingAuthzFixtures } from "./staging-authz-fixture-guard";
 
 export type StagingEnvironment = Readonly<Record<string, string | undefined>>;
@@ -520,6 +521,11 @@ function invalidSemantics(
   }
 
   if (phase === "storage") {
+    for (const bucketName of ["YANDEX_STORAGE_BUCKET", "IB_STAGING_STORAGE_BUCKET"]) {
+      if (isConfigured(env[bucketName]) && !isValidYandexStorageBucketName(env[bucketName]!.trim())) {
+        mark(bucketName);
+      }
+    }
     if (isConfigured(env.YANDEX_STORAGE_BUCKET) && isConfigured(env.IB_STAGING_STORAGE_BUCKET) && env.YANDEX_STORAGE_BUCKET?.trim() !== env.IB_STAGING_STORAGE_BUCKET?.trim()) {
       mark("YANDEX_STORAGE_BUCKET", "IB_STAGING_STORAGE_BUCKET");
     }
@@ -551,6 +557,11 @@ function invalidSemantics(
     if (isConfigured(env.IB_STAGING_FILE_SCANNER_ORIGIN) && !expectedScannerOrigin) mark("IB_STAGING_FILE_SCANNER_ORIGIN");
     if (scannerOrigin && expectedScannerOrigin && scannerOrigin.origin !== expectedScannerOrigin.origin) {
       mark("IB_FILE_SCANNER_ORIGIN", "IB_STAGING_FILE_SCANNER_ORIGIN");
+    }
+    for (const bucketName of ["YANDEX_STORAGE_BUCKET", "IB_STAGING_STORAGE_BUCKET"]) {
+      if (isConfigured(env[bucketName]) && !isValidYandexStorageBucketName(env[bucketName]!.trim())) {
+        mark(bucketName);
+      }
     }
     if (isConfigured(env.YANDEX_STORAGE_BUCKET) && isConfigured(env.IB_STAGING_STORAGE_BUCKET) && env.YANDEX_STORAGE_BUCKET?.trim() !== env.IB_STAGING_STORAGE_BUCKET?.trim()) {
       mark("YANDEX_STORAGE_BUCKET", "IB_STAGING_STORAGE_BUCKET");
