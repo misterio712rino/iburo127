@@ -617,6 +617,19 @@ function invalidSemantics(
   }
 
   if (phase === "openai") {
+    if (isConfigured(env.OPENAI_API_KEY)) {
+      const apiKey = env.OPENAI_API_KEY!.trim();
+      if (apiKey.length < 20 || /[\r\n\0]/.test(apiKey)) {
+        mark("OPENAI_API_KEY");
+      }
+    }
+    for (const modelName of ["IB_AI_OPENAI_MODEL", "IB_STAGING_OPENAI_MODEL"]) {
+      if (!isConfigured(env[modelName])) continue;
+      const model = env[modelName]!.trim();
+      if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(model)) {
+        mark(modelName);
+      }
+    }
     if (isConfigured(env.IB_AI_OPENAI_MODEL) && isConfigured(env.IB_STAGING_OPENAI_MODEL) && env.IB_AI_OPENAI_MODEL?.trim() !== env.IB_STAGING_OPENAI_MODEL?.trim()) {
       mark("IB_AI_OPENAI_MODEL", "IB_STAGING_OPENAI_MODEL");
     }

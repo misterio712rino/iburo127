@@ -258,6 +258,27 @@ assert.ok(
   postboxSenderWithControlCharacter.invalidOrInconsistent.includes("IB_STAGING_POSTBOX_FROM_EMAIL"),
 );
 
+const shortOpenAiKeyFingerprint =
+  "0f969cf0405c642d7d8d1eabdcf4d6ade6cd5ebd77733eb768f023a5824f6223";
+const shortOpenAiKey = buildStagingEnvironmentInventory({
+  ...secretValues,
+  OPENAI_API_KEY: "short-openai-key",
+  IB_STAGING_OPENAI_KEY_SHA256: shortOpenAiKeyFingerprint,
+  IB_STAGING_AI_CONFIRM: `AI-SMOKE:gpt-stage-model:${shortOpenAiKeyFingerprint}`,
+}).phases.openai;
+assert.equal(shortOpenAiKey.ready, false);
+assert.ok(shortOpenAiKey.invalidOrInconsistent.includes("OPENAI_API_KEY"));
+
+const invalidOpenAiModel = buildStagingEnvironmentInventory({
+  ...secretValues,
+  IB_AI_OPENAI_MODEL: "gpt stage model",
+  IB_STAGING_OPENAI_MODEL: "gpt stage model",
+  IB_STAGING_AI_CONFIRM: `AI-SMOKE:gpt stage model:${openAiFingerprint}`,
+}).phases.openai;
+assert.equal(invalidOpenAiModel.ready, false);
+assert.ok(invalidOpenAiModel.invalidOrInconsistent.includes("IB_AI_OPENAI_MODEL"));
+assert.ok(invalidOpenAiModel.invalidOrInconsistent.includes("IB_STAGING_OPENAI_MODEL"));
+
 const serialized = JSON.stringify(inventory);
 for (const [name, value] of Object.entries(secretValues)) {
   assert.equal(serialized.includes(value), false, `${name} value must not be exposed`);
