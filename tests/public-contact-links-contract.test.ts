@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 
 const footerSource = await readFile(resolve("components/layout/Footer.tsx"), "utf8");
 const contactsSource = await readFile(resolve("app/(public)/contacts/page.tsx"), "utf8");
+const aboutSource = await readFile(resolve("app/(public)/about/page.tsx"), "utf8");
 
 for (const [surface, source] of [
   ["footer", footerSource],
@@ -55,5 +56,21 @@ for (const [href, label] of [
     `published contact value must remain inside its actionable link: ${label}`,
   );
 }
+
+assert.ok(aboutSource.includes("iБюро"), "about page must use the current iБюро identity");
+assert.doesNotMatch(aboutSource, /127PRO/, "about page must not return to the legacy 127PRO identity");
+assert.ok(
+  aboutSource.includes('href="/praktikum"'),
+  "about primary access CTA must target the existing /praktikum route",
+);
+assert.doesNotMatch(
+  aboutSource,
+  /href="\/services\/praktikum"/,
+  "about CTA must not return to the nonexistent /services/praktikum route",
+);
+assert.ok(
+  aboutSource.includes('href="/bankruptcy-check"'),
+  "about preliminary check CTA must target the existing bankruptcy check route",
+);
 
 console.log("PUBLIC_CONTACT_LINKS_CONTRACT_TEST_PASS");
