@@ -58,13 +58,19 @@ export default function ContactsPage() {
                     Телефоны
                   </p>
 
-                  <p className="text-[#666]">
+                  <a
+                    href="tel:+78432145640"
+                    className="block text-[#666] transition hover:text-[#7B2330]"
+                  >
                     +7 (843) 214-56-40
-                  </p>
+                  </a>
 
-                  <p className="text-[#666]">
+                  <a
+                    href="tel:+79520397884"
+                    className="block text-[#666] transition hover:text-[#7B2330]"
+                  >
                     +7 (952) 039-78-84
-                  </p>
+                  </a>
                 </div>
               </div>
 
@@ -76,17 +82,26 @@ export default function ContactsPage() {
                     Электронная почта
                   </p>
 
-                  <p className="text-[#666]">
+                  <a
+                    href="mailto:127pro@mail.ru"
+                    className="block text-[#666] transition hover:text-[#7B2330]"
+                  >
                     127pro@mail.ru
-                  </p>
+                  </a>
 
-                  <p className="text-[#666]">
+                  <a
+                    href="mailto:SRO.GAU@mail.ru"
+                    className="block text-[#666] transition hover:text-[#7B2330]"
+                  >
                     SRO.GAU@mail.ru
-                  </p>
+                  </a>
 
-                  <p className="text-[#666]">
+                  <a
+                    href="mailto:Bconsalt@internet.ru"
+                    className="block text-[#666] transition hover:text-[#7B2330]"
+                  >
                     Bconsalt@internet.ru
-                  </p>
+                  </a>
                 </div>
               </div>
 
