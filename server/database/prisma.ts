@@ -2,6 +2,7 @@ import "server-only";
 
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
+import { readPostgresDatabaseUrl } from "@/server/database/database-url";
 
 const globalForPrisma = globalThis as unknown as {
   prismaClient?: PrismaClient;
@@ -14,12 +15,7 @@ export function getPrismaClient(): PrismaClient {
     return prismaClient;
   }
 
-  const databaseUrl = process.env.DATABASE_URL;
-
-  if (!databaseUrl) {
-    throw new Error("DATABASE_URL is not configured.");
-  }
-
+  const databaseUrl = readPostgresDatabaseUrl();
   const adapter = new PrismaPg({ connectionString: databaseUrl });
   prismaClient = new PrismaClient({ adapter });
 
