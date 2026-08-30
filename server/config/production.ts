@@ -133,7 +133,7 @@ export function readProductionDatabaseConfig(
 export function readBetterAuthRuntimeConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): BetterAuthRuntimeConfig {
-  const secret = requireEnv(env, "BETTER_AUTH_SECRET");
+  const secret = requireSafeCredential(env, "BETTER_AUTH_SECRET");
   if (secret.length < 32) throw new Error(`${PRODUCTION_CONFIG_ERROR}:BETTER_AUTH_SECRET`);
 
   const baseUrl = requireEnv(env, "BETTER_AUTH_URL");
