@@ -27,4 +27,33 @@ assert.match(
   "published Telegram handle must be actionable on the contacts page",
 );
 
+for (const href of [
+  "tel:+78432145640",
+  "tel:+79520397884",
+  "mailto:127pro@mail.ru",
+  "mailto:SRO.GAU@mail.ru",
+  "mailto:Bconsalt@internet.ru",
+]) {
+  assert.ok(
+    contactsSource.includes(`href="${href}"`),
+    `contacts page must expose actionable contact link: ${href}`,
+  );
+}
+
+for (const [href, label] of [
+  ["tel:+78432145640", "+7 (843) 214-56-40"],
+  ["tel:+79520397884", "+7 (952) 039-78-84"],
+  ["mailto:127pro@mail.ru", "127pro@mail.ru"],
+  ["mailto:SRO.GAU@mail.ru", "SRO.GAU@mail.ru"],
+  ["mailto:Bconsalt@internet.ru", "Bconsalt@internet.ru"],
+] as const) {
+  const escapedHref = href.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  assert.match(
+    contactsSource,
+    new RegExp(`<a[\\s\\S]*?href="${escapedHref}"[\\s\\S]*?>[\\s\\S]*?${escapedLabel}[\\s\\S]*?<\\/a>`),
+    `published contact value must remain inside its actionable link: ${label}`,
+  );
+}
+
 console.log("PUBLIC_CONTACT_LINKS_CONTRACT_TEST_PASS");
