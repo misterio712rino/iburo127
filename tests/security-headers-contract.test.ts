@@ -133,4 +133,14 @@ assert.doesNotMatch(
   "legacy .online domain must not return in crawler metadata",
 );
 
+const servicesPageSource = await readFile(resolve("app/(public)/services/page.tsx"), "utf8");
+assert.ok(
+  servicesPageSource.includes('href: "/praktikum"'),
+  "services practicum CTA must target the existing public practicum route",
+);
+assert.ok(
+  !servicesPageSource.includes('href: "/services/praktikum"'),
+  "services practicum CTA must not return to the removed nested route",
+);
+
 console.log("SECURITY_HEADERS_CONTRACT_TEST_PASS");
