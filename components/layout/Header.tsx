@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
-import { Button } from "@/components/ui/button";
 import Navigation from "./Navigation";
 import MobileMenu from "./MobileMenu";
 
@@ -95,12 +94,13 @@ export default function Header() {
             +7 (843) 214-56-40
           </a>
 
-          <Button
+          <Link
+            href="/contacts"
             className="
               rounded-full
               bg-[#7B2330]
               px-7
-              py-6
+              py-3
               text-[15px]
               font-semibold
               tracking-[-0.01em]
@@ -115,7 +115,7 @@ export default function Header() {
             "
           >
             Бесплатная консультация
-          </Button>
+          </Link>
 
         </div>
 
