@@ -61,7 +61,13 @@ function assertTransportConfig(config: YandexPostboxTransportConfig) {
     config.region === "ru-central1" &&
     config.endpoint === "https://postbox.cloud.yandex.net" &&
     config.host === "postbox.cloud.yandex.net";
-  const validCredentials = Boolean(config.accessKeyId.trim()) && Boolean(config.secretAccessKey);
+  const accessKeyId = config.accessKeyId.trim();
+  const secretAccessKey = config.secretAccessKey.trim();
+  const validCredentials =
+    Boolean(accessKeyId) &&
+    Boolean(secretAccessKey) &&
+    !/[\r\n\0]/.test(accessKeyId) &&
+    !/[\r\n\0]/.test(secretAccessKey);
   const validTimeout =
     Number.isInteger(config.requestTimeoutMs) &&
     config.requestTimeoutMs >= 1 &&
@@ -81,6 +87,8 @@ function assertTransportConfig(config: YandexPostboxTransportConfig) {
   return {
     ...config,
     fromEmail,
+    accessKeyId,
+    secretAccessKey,
   };
 }
 
