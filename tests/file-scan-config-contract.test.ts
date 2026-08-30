@@ -14,6 +14,10 @@ const scannerCore = await readFile(
   resolve("server/files/http-malware-scanner-core.ts"),
   "utf8",
 );
+const objectStorageSigner = await readFile(
+  resolve("server/files/yandex-s3-signer.ts"),
+  "utf8",
+);
 
 assert.match(productionConfig, /IB_FILE_SCANNER_ORIGIN/);
 assert.match(productionConfig, /IB_FILE_SCANNER_SECRET/);
@@ -32,6 +36,21 @@ assert.match(productionConfig, /IB_FILE_SCAN_RETRY_MAX_SECONDS/);
 assert.match(
   productionConfig,
   /fileScanRetryMaxSeconds < fileScanRetryBaseSeconds/,
+);
+
+assert.match(productionConfig, /function requireSafeCredential/);
+assert.match(productionConfig, /\/\[\\r\\n\\0\]\/\.test\(value\)/);
+assert.match(
+  productionConfig,
+  /accessKeyId: requireSafeCredential\(env, "YANDEX_STORAGE_ACCESS_KEY_ID"\)/,
+);
+assert.match(
+  productionConfig,
+  /secretAccessKey: requireSafeCredential\(env, "YANDEX_STORAGE_SECRET_ACCESS_KEY"\)/,
+);
+assert.match(
+  objectStorageSigner,
+  /const config = readYandexObjectStorageConfig\(\);[\s\S]*new S3Client\(/,
 );
 
 assert.match(
