@@ -180,8 +180,8 @@ export function readYandexPostboxConfig(
     region: "ru-central1",
     endpoint: "https://postbox.cloud.yandex.net",
     host: "postbox.cloud.yandex.net",
-    accessKeyId: requireEnv(env, "YANDEX_POSTBOX_ACCESS_KEY_ID"),
-    secretAccessKey: requireEnv(env, "YANDEX_POSTBOX_SECRET_ACCESS_KEY"),
+    accessKeyId: requireSafeCredential(env, "YANDEX_POSTBOX_ACCESS_KEY_ID"),
+    secretAccessKey: requireSafeCredential(env, "YANDEX_POSTBOX_SECRET_ACCESS_KEY"),
     requestTimeoutMs: readIntegerEnv(
       env,
       "YANDEX_POSTBOX_REQUEST_TIMEOUT_MS",
