@@ -334,6 +334,13 @@ function invalidSemantics(
         mark(totpName);
       }
     }
+
+    if (isConfigured(env.IB_STAGING_AUTH_REQUEST_TIMEOUT_MS)) {
+      const timeoutMs = Number(env.IB_STAGING_AUTH_REQUEST_TIMEOUT_MS!.trim());
+      if (!Number.isInteger(timeoutMs) || timeoutMs < 1_000 || timeoutMs > 60_000) {
+        mark("IB_STAGING_AUTH_REQUEST_TIMEOUT_MS");
+      }
+    }
   }
 
   if ((phase === "authFlow" || phase === "applicationE2e") && stagingBase) {
