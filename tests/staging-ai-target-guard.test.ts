@@ -5,7 +5,7 @@ import {
   STAGING_AI_TARGET_GUARD,
 } from "@/scripts/staging-ai-target-guard";
 
-const apiKey = "sk-staging-example-key-material-that-is-long-enough";
+const apiKey = "fixture-openai-key-material-that-is-long-enough";
 const model = "gpt-5.6-terra";
 const fingerprint = createHash("sha256").update(apiKey, "utf8").digest("hex");
 
@@ -32,7 +32,7 @@ for (const [name, overrides, code] of [
   ["fingerprint-format", { IB_STAGING_OPENAI_KEY_SHA256: "bad" }, "INVALID_KEY_FINGERPRINT"],
   [
     "key",
-    { OPENAI_API_KEY: "sk-different-staging-key-material-that-is-long-enough" },
+    { OPENAI_API_KEY: "different-fixture-key-material-that-is-long-enough" },
     "KEY_MISMATCH",
   ],
   ["confirmation", { IB_STAGING_AI_CONFIRM: "" }, "CONFIRMATION_MISMATCH"],
