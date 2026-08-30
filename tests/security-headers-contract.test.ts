@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
+import {
+  formatPublicContactEmail,
+  parsePublicContactRequest,
+} from "../server/public-contact/core";
+
 const source = await readFile(resolve("next.config.ts"), "utf8");
 
 for (const directive of [
@@ -130,6 +135,87 @@ assert.doesNotMatch(
   /#popup:myform/,
   "legacy constructor popup fragment must not return in active pricing",
 );
+
+const contactsPageSource = await readFile(resolve("app/(public)/contacts/page.tsx"), "utf8");
+assert.match(
+  contactsPageSource,
+  /import ContactRequestForm from "@\/components\/sections\/ContactRequestForm"/,
+  "contacts page must use the functional intake form",
+);
+assert.match(
+  contactsPageSource,
+  /<ContactRequestForm\s*\/>/,
+  "contacts page must render the functional intake form",
+);
+
+const contactFormSource = await readFile(
+  resolve("components/sections/ContactRequestForm.tsx"),
+  "utf8",
+);
+assert.match(contactFormSource, /fetch\("\/api\/public\/contact"/);
+for (const fieldName of ["name", "phone", "email", "message", "website", "consent"]) {
+  assert.ok(
+    contactFormSource.includes(`name="${fieldName}"`),
+    `contact form must submit ${fieldName}`,
+  );
+}
+assert.match(contactFormSource, /name="consent"[\s\S]*?required/);
+assert.match(contactFormSource, /href="\/privacy"/);
+
+const contactRouteSource = await readFile(resolve("app/api/public/contact/route.ts"), "utf8");
+assert.match(contactRouteSource, /evaluatePlatformMutationOrigin\(request\)/);
+assert.match(contactRouteSource, /readBoundedJsonBody\(request, PUBLIC_CONTACT_BODY_MAX_BYTES\)/);
+assert.match(contactRouteSource, /const PUBLIC_CONTACT_BODY_MAX_BYTES = 8 \* 1024;/);
+assert.match(contactRouteSource, /const PUBLIC_CONTACT_RECIPIENT = "127pro@mail\.ru";/);
+assert.match(contactRouteSource, /to: PUBLIC_CONTACT_RECIPIENT/);
+assert.match(contactRouteSource, /if \(contactRequest\.spam\) \{[\s\S]*?return privateJsonResponse\(\{ ok: true \}\);/);
+assert.doesNotMatch(contactRouteSource, /console\.(?:log|info|warn|error|debug)/);
+
+const validContactRequest = parsePublicContactRequest({
+  name: " Иван Иванов ",
+  phone: "+7 (999) 123-45-67",
+  email: " USER@example.com ",
+  message: "Нужна консультация",
+  website: "",
+  consent: true,
+});
+assert.equal(validContactRequest.name, "Иван Иванов");
+assert.equal(validContactRequest.email, "user@example.com");
+assert.equal(validContactRequest.spam, false);
+assert.match(formatPublicContactEmail(validContactRequest), /Иван Иванов/);
+assert.throws(
+  () =>
+    parsePublicContactRequest({
+      name: "Иван",
+      phone: "",
+      email: "",
+      message: "",
+      website: "",
+      consent: true,
+    }),
+  /PUBLIC_CONTACT_INVALID:CONTACT_METHOD/,
+);
+assert.throws(
+  () =>
+    parsePublicContactRequest({
+      name: "Иван",
+      phone: "+79991234567",
+      email: "",
+      message: "",
+      website: "",
+      consent: false,
+    }),
+  /PUBLIC_CONTACT_INVALID:CONSENT/,
+);
+const honeypotContactRequest = parsePublicContactRequest({
+  name: "Bot",
+  phone: "+79991234567",
+  email: "",
+  message: "",
+  website: "https://spam.example",
+  consent: true,
+});
+assert.equal(honeypotContactRequest.spam, true);
 
 const robotsSource = await readFile(resolve("app/robots.ts"), "utf8");
 assert.ok(
