@@ -8,6 +8,8 @@ import {
 
 const webhookSecret = "bitrix-timeout-test-secret";
 const fingerprint = createHash("sha256").update(webhookSecret, "utf8").digest("hex");
+const validFieldMap =
+  "caseNumber=ufCrmCaseNumber,planCode=ufCrmPlanCode,stageCode=ufCrmStageCode,status=ufCrmStatus";
 
 const baseBitrixEnv = {
   IB_RUNTIME_TARGET: "staging",
@@ -17,7 +19,7 @@ const baseBitrixEnv = {
   BITRIX24_WEBHOOK_USER_ID: "42",
   BITRIX24_WEBHOOK_SECRET: webhookSecret,
   BITRIX24_CASE_ENTITY_TYPE_ID: "123",
-  BITRIX24_CASE_FIELD_MAP: "{}",
+  BITRIX24_CASE_FIELD_MAP: validFieldMap,
   IB_STAGING_BITRIX24_PORTAL_ORIGIN: "https://stage.bitrix24.test",
   IB_STAGING_BITRIX24_WEBHOOK_USER_ID: "42",
   IB_STAGING_BITRIX24_WEBHOOK_SECRET_SHA256: fingerprint,
@@ -36,7 +38,7 @@ assert.equal(
   false,
   "Bitrix request timeout must remain optional because runtime has a default",
 );
-assert.equal(bitrix24().ready, true, "absent Bitrix timeout must preserve runtime default readiness");
+assert.equal(bitrix24().ready, true, "valid Bitrix schema with absent timeout must preserve runtime default readiness");
 
 for (const value of ["1000", "30000"]) {
   const phase = bitrix24({ BITRIX24_REQUEST_TIMEOUT_MS: value });
@@ -53,6 +55,36 @@ for (const value of ["999", "30001", "1.5", "abc"]) {
     false,
     "inventory must report only the variable name and never the configured timeout value",
   );
+}
+
+for (const value of ["0", "2147483648", "1.5", "01", "abc"]) {
+  const phase = bitrix24({ BITRIX24_CASE_ENTITY_TYPE_ID: value });
+  assert.equal(phase.ready, false, `runtime-rejected Bitrix entity type ${value} must fail inventory`);
+  assert.ok(phase.invalidOrInconsistent.includes("BITRIX24_CASE_ENTITY_TYPE_ID"));
+  assert.equal(JSON.stringify(phase).includes(`\"${value}\"`), false);
+}
+
+for (const value of ["1", "2147483647"]) {
+  const phase = bitrix24({ BITRIX24_CASE_ENTITY_TYPE_ID: value });
+  assert.equal(phase.ready, true, `runtime-supported Bitrix entity type ${value} must be ready`);
+}
+
+const invalidFieldMaps = [
+  "{}",
+  "caseNumber=ufCase,planCode=ufPlan,stageCode=ufStage",
+  "caseNumber=ufCase,planCode=ufPlan,stageCode=ufStage,status",
+  "caseNumber=ufCase,planCode=ufPlan,stageCode=ufStage,unknown=ufStatus",
+  "caseNumber=ufCase,caseNumber=ufPlan,stageCode=ufStage,status=ufStatus",
+  "caseNumber=ufSame,planCode=ufSame,stageCode=ufStage,status=ufStatus",
+  "caseNumber=constructor,planCode=ufPlan,stageCode=ufStage,status=ufStatus",
+  "caseNumber=9invalid,planCode=ufPlan,stageCode=ufStage,status=ufStatus",
+] as const;
+
+for (const value of invalidFieldMaps) {
+  const phase = bitrix24({ BITRIX24_CASE_FIELD_MAP: value });
+  assert.equal(phase.ready, false, "runtime-rejected Bitrix field map must fail inventory");
+  assert.ok(phase.invalidOrInconsistent.includes("BITRIX24_CASE_FIELD_MAP"));
+  assert.equal(JSON.stringify(phase).includes(value), false, "inventory must not expose Bitrix field-map values");
 }
 
 console.log("STAGING_ENVIRONMENT_BITRIX_TIMEOUT_TEST_PASS");
