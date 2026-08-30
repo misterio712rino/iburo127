@@ -217,6 +217,50 @@ const honeypotContactRequest = parsePublicContactRequest({
 });
 assert.equal(honeypotContactRequest.spam, true);
 
+const bankruptcyCheckSource = await readFile(
+  resolve("app/(public)/bankruptcy-check/page.tsx"),
+  "utf8",
+);
+assert.match(
+  bankruptcyCheckSource,
+  /import BankruptcyPrecheck from "@\/components\/sections\/BankruptcyPrecheck"/,
+  "bankruptcy check page must use the functional preliminary assessment",
+);
+assert.match(bankruptcyCheckSource, /<BankruptcyPrecheck\s*\/>/);
+assert.doesNotMatch(
+  bankruptcyCheckSource,
+  /Здесь позже будет|интерактивный AI-опросник/,
+  "public bankruptcy check must not expose a future-placeholder experience",
+);
+
+const bankruptcyPrecheckSource = await readFile(
+  resolve("components/sections/BankruptcyPrecheck.tsx"),
+  "utf8",
+);
+for (const requiredPhrase of [
+  "Предварительная онлайн-проверка",
+  "не является юридическим заключением",
+  "Есть основания обсудить ситуацию с юристом",
+  "Нужна дополнительная оценка ситуации",
+  "не подтверждает возможность или невозможность банкротства",
+  'href="/contacts"',
+]) {
+  assert.ok(
+    bankruptcyPrecheckSource.includes(requiredPhrase),
+    `bankruptcy precheck must preserve safe preliminary wording: ${requiredPhrase}`,
+  );
+}
+assert.doesNotMatch(
+  bankruptcyPrecheckSource,
+  /вы точно подходите|вы точно не подходите|гарантирован(?:о|ный)|100%|вероятность успешного/i,
+  "bankruptcy precheck must not present a final legal conclusion or guaranteed outcome",
+);
+assert.doesNotMatch(
+  bankruptcyPrecheckSource,
+  /fetch\(|axios|\/api\//,
+  "preliminary bankruptcy answers must remain local and must not be transmitted",
+);
+
 const robotsSource = await readFile(resolve("app/robots.ts"), "utf8");
 assert.ok(
   robotsSource.includes('const SITE_URL = "https://www.iburo127.ru";'),
