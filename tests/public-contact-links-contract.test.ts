@@ -118,4 +118,25 @@ for (const [legacyPath, canonicalPath] of [
   );
 }
 
+const notFoundSource = await readFile(resolve("app/not-found.tsx"), "utf8");
+assert.match(notFoundSource, /Страница не найдена/);
+assert.ok(notFoundSource.includes('href="/"'), "404 recovery must link to the homepage");
+assert.ok(notFoundSource.includes('href="/services"'), "404 recovery must link to services");
+assert.doesNotMatch(
+  notFoundSource,
+  /console\.(?:log|info|warn|error|debug)/,
+  "404 recovery must not add runtime logging",
+);
+
+const publicErrorSource = await readFile(resolve("app/(public)/error.tsx"), "utf8");
+assert.match(publicErrorSource, /^"use client";/);
+assert.match(publicErrorSource, /onClick=\{reset\}/);
+assert.ok(publicErrorSource.includes('href="/"'), "public error recovery must link home");
+assert.ok(publicErrorSource.includes('href="/contacts"'), "public error recovery must link to contacts");
+assert.doesNotMatch(
+  publicErrorSource,
+  /error\.message|error\.stack|error\.digest|console\.(?:log|info|warn|error|debug)/,
+  "public error recovery must not expose or log runtime error details",
+);
+
 console.log("PUBLIC_CONTACT_LINKS_CONTRACT_TEST_PASS");
