@@ -6,6 +6,7 @@ const footerSource = await readFile(resolve("components/layout/Footer.tsx"), "ut
 const contactsSource = await readFile(resolve("app/(public)/contacts/page.tsx"), "utf8");
 const aboutSource = await readFile(resolve("app/(public)/about/page.tsx"), "utf8");
 const mobileMenuSource = await readFile(resolve("components/layout/MobileMenu.tsx"), "utf8");
+const contactFormSource = await readFile(resolve("components/sections/ContactRequestForm.tsx"), "utf8");
 
 for (const [surface, source] of [
   ["footer", footerSource],
@@ -95,6 +96,26 @@ assert.match(
   /if \(event\.shiftKey\)[\s\S]*?last\.focus\(\)[\s\S]*?activeElement === last[\s\S]*?first\.focus\(\)/,
   "mobile dialog must cycle keyboard focus in both directions",
 );
+
+for (const [fieldId, label] of [
+  ["contact-name", "Ваше имя"],
+  ["contact-phone", "Телефон"],
+  ["contact-email", "Email"],
+  ["contact-message", "Ваш вопрос"],
+] as const) {
+  assert.ok(
+    contactFormSource.includes(`htmlFor="${fieldId}"`),
+    `contact form must label ${fieldId}`,
+  );
+  assert.ok(
+    contactFormSource.includes(`id="${fieldId}"`),
+    `contact form field ${fieldId} must match its label`,
+  );
+  assert.ok(
+    contactFormSource.includes(label),
+    `contact form accessible label must describe ${fieldId}`,
+  );
+}
 
 for (const [legacyPath, canonicalPath] of [
   ["app/(public)/proverka/page.tsx", "/bankruptcy-check"],
