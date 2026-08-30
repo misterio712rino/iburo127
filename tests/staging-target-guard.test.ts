@@ -150,10 +150,51 @@ assert.throws(
   () => assertStagingStorageTarget({ ...storageEnv, YANDEX_STORAGE_ACCESS_KEY_ID: "production-access-key" }),
   /IB_STAGING_STORAGE_ACCESS_KEY_ID/,
 );
+assert.throws(
+  () => assertStagingStorageTarget({
+    ...storageEnv,
+    YANDEX_STORAGE_ACCESS_KEY_ID: "staging-storage\naccess-key",
+    IB_STAGING_STORAGE_ACCESS_KEY_ID: "staging-storage\naccess-key",
+  }),
+  /YANDEX_STORAGE_ACCESS_KEY_ID/,
+);
+assert.throws(
+  () => assertStagingStorageTarget({
+    ...storageEnv,
+    YANDEX_STORAGE_SECRET_ACCESS_KEY: "fixture-storage\0secret",
+  }),
+  /YANDEX_STORAGE_SECRET_ACCESS_KEY/,
+);
 
 const storageInventory = buildStagingEnvironmentInventory(storageEnv);
 assert.equal(storageInventory.phases.storage.ready, true);
 assert.deepEqual(storageInventory.phases.storage.invalidOrInconsistent, []);
+const unsafeStorageAccessInventory = buildStagingEnvironmentInventory({
+  ...storageEnv,
+  YANDEX_STORAGE_ACCESS_KEY_ID: "staging-storage\raccess-key",
+  IB_STAGING_STORAGE_ACCESS_KEY_ID: "staging-storage\raccess-key",
+});
+assert.equal(unsafeStorageAccessInventory.phases.storage.ready, false);
+assert.ok(
+  unsafeStorageAccessInventory.phases.storage.invalidOrInconsistent.includes(
+    "YANDEX_STORAGE_ACCESS_KEY_ID",
+  ),
+);
+assert.ok(
+  unsafeStorageAccessInventory.phases.storage.invalidOrInconsistent.includes(
+    "IB_STAGING_STORAGE_ACCESS_KEY_ID",
+  ),
+);
+const unsafeStorageSecretInventory = buildStagingEnvironmentInventory({
+  ...storageEnv,
+  YANDEX_STORAGE_SECRET_ACCESS_KEY: "fixture-storage\nsecret",
+});
+assert.equal(unsafeStorageSecretInventory.phases.storage.ready, false);
+assert.ok(
+  unsafeStorageSecretInventory.phases.storage.invalidOrInconsistent.includes(
+    "YANDEX_STORAGE_SECRET_ACCESS_KEY",
+  ),
+);
 const mismatchedStorageInventory = buildStagingEnvironmentInventory({
   ...storageEnv,
   IB_STAGING_STORAGE_ALLOWED_ORIGIN: "https://other.example.vercel.app",
