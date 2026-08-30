@@ -64,41 +64,65 @@ export default function ContactRequestForm() {
 
   return (
     <form className="mt-10 space-y-6" onSubmit={handleSubmit}>
-      <input
-        type="text"
-        name="name"
-        required
-        maxLength={120}
-        autoComplete="name"
-        placeholder="Ваше имя"
-        className="w-full rounded-2xl border border-[#E8DED5] px-5 py-4 outline-none transition focus:border-[#7B2330]"
-      />
+      <div>
+        <label htmlFor="contact-name" className="sr-only">
+          Ваше имя
+        </label>
+        <input
+          id="contact-name"
+          type="text"
+          name="name"
+          required
+          maxLength={120}
+          autoComplete="name"
+          placeholder="Ваше имя"
+          className="w-full rounded-2xl border border-[#E8DED5] px-5 py-4 outline-none transition focus:border-[#7B2330]"
+        />
+      </div>
 
-      <input
-        type="tel"
-        name="phone"
-        maxLength={32}
-        autoComplete="tel"
-        placeholder="Телефон"
-        className="w-full rounded-2xl border border-[#E8DED5] px-5 py-4 outline-none transition focus:border-[#7B2330]"
-      />
+      <div>
+        <label htmlFor="contact-phone" className="sr-only">
+          Телефон
+        </label>
+        <input
+          id="contact-phone"
+          type="tel"
+          name="phone"
+          maxLength={32}
+          autoComplete="tel"
+          placeholder="Телефон"
+          className="w-full rounded-2xl border border-[#E8DED5] px-5 py-4 outline-none transition focus:border-[#7B2330]"
+        />
+      </div>
 
-      <input
-        type="email"
-        name="email"
-        maxLength={254}
-        autoComplete="email"
-        placeholder="Email"
-        className="w-full rounded-2xl border border-[#E8DED5] px-5 py-4 outline-none transition focus:border-[#7B2330]"
-      />
+      <div>
+        <label htmlFor="contact-email" className="sr-only">
+          Email
+        </label>
+        <input
+          id="contact-email"
+          type="email"
+          name="email"
+          maxLength={254}
+          autoComplete="email"
+          placeholder="Email"
+          className="w-full rounded-2xl border border-[#E8DED5] px-5 py-4 outline-none transition focus:border-[#7B2330]"
+        />
+      </div>
 
-      <textarea
-        rows={6}
-        name="message"
-        maxLength={4000}
-        placeholder="Ваш вопрос..."
-        className="w-full rounded-2xl border border-[#E8DED5] px-5 py-4 outline-none transition focus:border-[#7B2330]"
-      />
+      <div>
+        <label htmlFor="contact-message" className="sr-only">
+          Ваш вопрос
+        </label>
+        <textarea
+          id="contact-message"
+          rows={6}
+          name="message"
+          maxLength={4000}
+          placeholder="Ваш вопрос..."
+          className="w-full rounded-2xl border border-[#E8DED5] px-5 py-4 outline-none transition focus:border-[#7B2330]"
+        />
+      </div>
 
       <div className="absolute left-[-10000px] top-auto h-px w-px overflow-hidden" aria-hidden="true">
         <label htmlFor="contact-website">Не заполняйте это поле</label>
