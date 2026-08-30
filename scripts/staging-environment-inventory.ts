@@ -210,6 +210,11 @@ function isSafeSecret(value: string | undefined, minLength: number): boolean {
   return normalized.length >= minLength && !/[\r\n\0]/.test(normalized);
 }
 
+function isExactSafeSecret(value: string | undefined, minLength: number): boolean {
+  if (!value || !isConfigured(value)) return false;
+  return value === value.trim() && value.length >= minLength && !/[\r\n\0]/.test(value);
+}
+
 function isValidAuthFixturePassword(value: string | undefined): boolean {
   if (!isConfigured(value)) return false;
   const normalized = value!.trim();
@@ -361,6 +366,56 @@ function invalidSemantics(
       const expected = `MUTATE:${stagingBase.host}`;
       if (isConfigured(env.IB_STAGING_MUTATION_CONFIRM) && env.IB_STAGING_MUTATION_CONFIRM?.trim() !== expected) {
         mark("IB_STAGING_MUTATION_CONFIRM");
+      }
+    }
+
+    const filesE2eRaw = env.IB_STAGING_FILES_E2E?.trim() ?? "0";
+    const fileScanE2eRaw = env.IB_STAGING_FILE_SCAN_E2E?.trim() ?? "0";
+    const filesE2eValid = filesE2eRaw === "0" || filesE2eRaw === "1";
+    const fileScanE2eValid = fileScanE2eRaw === "0" || fileScanE2eRaw === "1";
+
+    if (!filesE2eValid) mark("IB_STAGING_FILES_E2E");
+    if (!fileScanE2eValid) mark("IB_STAGING_FILE_SCAN_E2E");
+
+    if (isConfigured(env.IB_STAGING_FILE_SCAN_E2E_MAX_RUNS)) {
+      const maxRuns = Number(env.IB_STAGING_FILE_SCAN_E2E_MAX_RUNS!.trim());
+      if (!Number.isInteger(maxRuns) || maxRuns < 1 || maxRuns > 20) {
+        mark("IB_STAGING_FILE_SCAN_E2E_MAX_RUNS");
+      }
+    }
+
+    const filesE2e = filesE2eValid && filesE2eRaw === "1";
+    const fileScanE2e = fileScanE2eValid && fileScanE2eRaw === "1";
+
+    if (fileScanE2e && !filesE2e) {
+      mark("IB_STAGING_FILE_SCAN_E2E", "IB_STAGING_FILES_E2E");
+    }
+
+    if (filesE2e) {
+      if (!isConfigured(env.IB_STAGING_OTHER_CLIENT_COOKIE)) {
+        mark("IB_STAGING_OTHER_CLIENT_COOKIE");
+      }
+      if (stagingBase) {
+        const expected = `PRIVATE_STAGING_BUCKET:${stagingBase.host}`;
+        if (env.IB_STAGING_PRIVATE_BUCKET_CONFIRM?.trim() !== expected) {
+          mark("IB_STAGING_PRIVATE_BUCKET_CONFIRM");
+        }
+      } else if (!isConfigured(env.IB_STAGING_PRIVATE_BUCKET_CONFIRM)) {
+        mark("IB_STAGING_PRIVATE_BUCKET_CONFIRM");
+      }
+    }
+
+    if (fileScanE2e) {
+      if (stagingBase) {
+        const expected = `SCAN:${stagingBase.host}`;
+        if (env.IB_STAGING_FILE_SCAN_E2E_CONFIRM?.trim() !== expected) {
+          mark("IB_STAGING_FILE_SCAN_E2E_CONFIRM");
+        }
+      } else if (!isConfigured(env.IB_STAGING_FILE_SCAN_E2E_CONFIRM)) {
+        mark("IB_STAGING_FILE_SCAN_E2E_CONFIRM");
+      }
+      if (!isExactSafeSecret(env.IB_MAINTENANCE_SECRET, 32)) {
+        mark("IB_MAINTENANCE_SECRET");
       }
     }
   }
