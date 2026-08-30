@@ -514,6 +514,15 @@ function invalidSemantics(
     if (isConfigured(env.YANDEX_STORAGE_ACCESS_KEY_ID) && isConfigured(env.IB_STAGING_STORAGE_ACCESS_KEY_ID) && env.YANDEX_STORAGE_ACCESS_KEY_ID?.trim() !== env.IB_STAGING_STORAGE_ACCESS_KEY_ID?.trim()) {
       mark("YANDEX_STORAGE_ACCESS_KEY_ID", "IB_STAGING_STORAGE_ACCESS_KEY_ID");
     }
+    for (const credentialName of [
+      "YANDEX_STORAGE_ACCESS_KEY_ID",
+      "IB_STAGING_STORAGE_ACCESS_KEY_ID",
+      "YANDEX_STORAGE_SECRET_ACCESS_KEY",
+    ]) {
+      if (isConfigured(env[credentialName]) && /[\r\n\0]/.test(env[credentialName]!.trim())) {
+        mark(credentialName);
+      }
+    }
     const allowedOrigin = safeOrigin(env.IB_STAGING_STORAGE_ALLOWED_ORIGIN, true);
     if (isConfigured(env.IB_STAGING_STORAGE_ALLOWED_ORIGIN) && (!allowedOrigin || isProductionHostname(allowedOrigin))) {
       mark("IB_STAGING_STORAGE_ALLOWED_ORIGIN");
