@@ -52,6 +52,24 @@ assert.equal(
   }).allowed,
   false,
 );
+for (const host of [
+  "iburo127.ru",
+  "www.iburo127.ru",
+  "api.iburo127.ru",
+  "API.IBURO127.RU.",
+  "api.iburo127.ru:443",
+]) {
+  assert.deepEqual(
+    evaluateStagingAuthFlowGuard({
+      runtimeTarget: "staging",
+      authFlowTarget: "staging",
+      confirmation: `AUTH-FLOW:${host}`,
+      host,
+    }),
+    { allowed: false, code: "PRODUCTION_HOST_BLOCKED" },
+    `auth-flow guard must reject production host ${host}`,
+  );
+}
 
 assert.equal(
   requireStagingHttpTarget({
@@ -158,6 +176,16 @@ assert.doesNotMatch(
   orchestratorSource,
   /process\.env\.IB_STAGING_(?:CLIENT|LAWYER|MANAGER)_COOKIE\s*=/,
   "parent orchestrator must not write fresh session cookies into its own process.env",
+);
+
+const sessionFactoryIndex = sessionSource.indexOf("export async function createStagingAuthenticatedSessions");
+const authFlowGuardIndex = sessionSource.indexOf("evaluateStagingAuthFlowGuard({", sessionFactoryIndex);
+const firstAnonymousNetworkPathIndex = sessionSource.indexOf("await requirePlatformUnauthenticated(", authFlowGuardIndex);
+assert.ok(sessionFactoryIndex >= 0, "staging session bootstrap factory must exist");
+assert.ok(authFlowGuardIndex > sessionFactoryIndex, "staging session bootstrap must evaluate auth-flow guard");
+assert.ok(
+  firstAnonymousNetworkPathIndex > authFlowGuardIndex,
+  "auth-flow target guard must reject unsafe execution before the first anonymous network path",
 );
 
 assert.match(sessionSource, /trustDevice:\s*false/);

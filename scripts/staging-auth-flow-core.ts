@@ -14,8 +14,23 @@ export type StagingAuthFlowGuardDecision =
       code:
         | "RUNTIME_TARGET_NOT_STAGING"
         | "AUTH_FLOW_TARGET_NOT_STAGING"
+        | "PRODUCTION_HOST_BLOCKED"
         | "CONFIRMATION_MISMATCH";
     };
+
+function normalizedHostnameFromHost(host: string): string {
+  const trimmed = host.trim();
+  try {
+    return new URL(`https://${trimmed}`).hostname.toLowerCase().replace(/\.+$/, "");
+  } catch {
+    return trimmed.toLowerCase().replace(/\.+$/, "").replace(/:\d+$/, "");
+  }
+}
+
+function isProductionHostname(host: string): boolean {
+  const hostname = normalizedHostnameFromHost(host);
+  return hostname === "iburo127.ru" || hostname.endsWith(".iburo127.ru");
+}
 
 export function evaluateStagingAuthFlowGuard(
   input: StagingAuthFlowGuardInput,
@@ -25,6 +40,9 @@ export function evaluateStagingAuthFlowGuard(
   }
   if (input.authFlowTarget?.trim() !== "staging") {
     return { allowed: false, code: "AUTH_FLOW_TARGET_NOT_STAGING" };
+  }
+  if (isProductionHostname(input.host)) {
+    return { allowed: false, code: "PRODUCTION_HOST_BLOCKED" };
   }
   if (input.confirmation?.trim() !== `AUTH-FLOW:${input.host}`) {
     return { allowed: false, code: "CONFIRMATION_MISMATCH" };
