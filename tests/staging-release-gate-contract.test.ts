@@ -12,10 +12,12 @@ const packageJson = JSON.parse(await readFile(resolve("package.json"), "utf8")) 
 };
 const scripts = packageJson.scripts ?? {};
 const release = scripts["check:staging:release"] ?? "";
+const previewIdentity = scripts["check:staging:preview-identity"] ?? "";
 const maintenanceHealth = scripts["check:staging:maintenance-health"] ?? "";
 
 const requiredSteps = [
   "npm run db:check:migrations",
+  "npm run check:staging:preview-identity",
   "npm run check:staging:core",
   "npm run db:verify:staging",
   "npm run check:staging:auth-schema",
@@ -37,6 +39,30 @@ for (const step of requiredSteps) {
   assert.ok(index > previousIndex, `${step} must exist in check:staging:release in the required order`);
   previousIndex = index;
 }
+
+assert.equal(
+  previewIdentity,
+  "tsx scripts/verify-vercel-preview-identity.ts --release",
+  "staging release identity must use the portable release-mode verifier",
+);
+
+const previewVerifier = await readFile(resolve("scripts/verify-vercel-preview-identity.ts"), "utf8");
+assert.match(previewVerifier, /const RELEASE_MODE_FLAG = "--release"/);
+assert.match(previewVerifier, /const releaseMode = process\.argv\[2\] === RELEASE_MODE_FLAG/);
+assert.match(
+  previewVerifier,
+  /releaseMode \? process\.env\.IB_STAGING_EXPECTED_SHA/,
+  "release mode must require the candidate SHA from IB_STAGING_EXPECTED_SHA",
+);
+assert.match(
+  previewVerifier,
+  /const expectedBackendEnabled = releaseMode\s*\? true\s*:/,
+  "release mode must require a backend-enabled Preview",
+);
+
+const identityIndex = release.indexOf("npm run check:staging:preview-identity");
+const coreIndex = release.indexOf("npm run check:staging:core");
+assert.ok(identityIndex >= 0 && identityIndex < coreIndex, "exact Preview identity must be verified before the first staging DB/network verifier");
 
 assert.equal(
   maintenanceHealth,
@@ -101,6 +127,7 @@ async function requireGuardBefore(
 }
 
 const directEntryPoints = {
+  "check:staging:preview-identity": "tsx scripts/verify-vercel-preview-identity.ts --release",
   "check:staging:core": "tsx scripts/check-staging-readiness.ts",
   "check:staging:auth-schema": "npm run check:staging:target && tsx scripts/verify-staging-better-auth-schema.ts",
   "check:staging:storage": "tsx scripts/verify-staging-object-storage.ts",
