@@ -154,4 +154,16 @@ assert.doesNotMatch(
   "legacy .online website link must not return in the public footer",
 );
 
+const headerSource = await readFile(resolve("components/layout/Header.tsx"), "utf8");
+assert.match(
+  headerSource,
+  /<Link\s+[\s\S]*?href="\/contacts"[\s\S]*?>[\s\S]*?Бесплатная консультация[\s\S]*?<\/Link>/,
+  "desktop header consultation CTA must navigate to /contacts",
+);
+assert.doesNotMatch(
+  headerSource,
+  /<Button[\s\S]*?Бесплатная консультация[\s\S]*?<\/Button>/,
+  "desktop header consultation CTA must not be a non-navigating button",
+);
+
 console.log("SECURITY_HEADERS_CONTRACT_TEST_PASS");
