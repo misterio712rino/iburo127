@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { navigationLinks } from "@/lib/navigation";
 
 type MobileMenuProps = {
@@ -6,6 +7,9 @@ type MobileMenuProps = {
   isOpen: boolean;
   onOpenChange: (value: boolean) => void;
 };
+
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 function isActiveLink(href: string, pathname: string) {
   if (href === "/") {
@@ -24,9 +28,80 @@ export default function MobileMenu({
   isOpen,
   onOpenChange,
 }: MobileMenuProps) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      closeButtonRef.current?.focus();
+    });
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onOpenChange(false);
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const panel = panelRef.current;
+      if (!panel) {
+        return;
+      }
+
+      const focusable = Array.from(
+        panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+      ).filter((element) => !element.hasAttribute("disabled"));
+
+      if (focusable.length === 0) {
+        event.preventDefault();
+        panel.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const activeElement = document.activeElement;
+
+      if (event.shiftKey) {
+        if (activeElement === first || !panel.contains(activeElement)) {
+          event.preventDefault();
+          last.focus();
+        }
+        return;
+      }
+
+      if (activeElement === last || !panel.contains(activeElement)) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      triggerRef.current?.focus();
+    };
+  }, [isOpen, onOpenChange]);
+
   return (
     <div className="lg:hidden">
       <button
+        ref={triggerRef}
         type="button"
         aria-expanded={isOpen}
         aria-controls="mobile-navigation-panel"
@@ -46,11 +121,13 @@ export default function MobileMenu({
       ) : null}
 
       <div
+        ref={panelRef}
         id="mobile-navigation-panel"
         role="dialog"
         aria-modal="true"
         aria-hidden={!isOpen}
         inert={!isOpen}
+        tabIndex={-1}
         aria-label="Мобильное меню"
         className={`fixed right-0 top-0 z-[60] flex h-screen w-[85vw] max-w-sm flex-col border-l border-black/10 bg-[#f8f7f3] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.12)] transition-transform duration-300 ${
           isOpen ? "translate-x-0" : "translate-x-full"
@@ -62,6 +139,7 @@ export default function MobileMenu({
           </p>
 
           <button
+            ref={closeButtonRef}
             type="button"
             aria-label="Закрыть меню"
             className="rounded-full border border-black/10 px-3 py-1.5 text-sm font-semibold text-[#111111]"
