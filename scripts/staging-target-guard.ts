@@ -18,6 +18,11 @@ export function requireStagingDatabaseTarget(env: Environment = process.env): St
     throw new Error('IB_DB_TARGET must be exactly "staging"');
   }
 
+  const configuredAuthSchema = env.IB_STAGING_BETTER_AUTH_SCHEMA?.trim();
+  if (configuredAuthSchema && configuredAuthSchema !== "public") {
+    throw new Error('IB_STAGING_BETTER_AUTH_SCHEMA must be exactly "public"');
+  }
+
   const databaseUrl = requireValue(env, "DATABASE_URL");
   const expectedDatabaseName = requireValue(env, "IB_STAGING_DATABASE_NAME");
   const expectedHost = requireValue(env, "IB_STAGING_DATABASE_HOST").toLowerCase();
