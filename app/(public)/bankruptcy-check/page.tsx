@@ -7,10 +7,12 @@ import {
   ArrowRight,
 } from "lucide-react";
 
+import BankruptcyPrecheck from "@/components/sections/BankruptcyPrecheck";
+
 export const metadata: Metadata = {
   title: "Проверка возможности списания долгов",
   description:
-    "Узнайте, подходит ли вам процедура банкротства физических лиц.",
+    "Узнайте, какие обстоятельства стоит обсудить при предварительной оценке процедуры банкротства физических лиц.",
   alternates: {
     canonical: "/bankruptcy-check",
   },
@@ -20,7 +22,7 @@ const points = [
   "Проверка занимает менее 3 минут",
   "Никаких обязательств",
   "Полностью конфиденциально",
-  "На основании законодательства РФ",
+  "Предварительная информационная оценка",
 ];
 
 export default function BankruptcyCheckPage() {
@@ -38,17 +40,17 @@ export default function BankruptcyCheckPage() {
             </span>
 
             <h1 className="mt-6 text-6xl font-bold leading-tight text-[#2B2B2B]">
-              Подходит ли вам
+              Оцените вашу
               <br />
-              процедура
+              долговую
               <br />
-              банкротства?
+              ситуацию
             </h1>
 
             <p className="mt-10 text-xl leading-9 text-[#666]">
               Ответьте на несколько простых вопросов.
-              Мы поможем понять, возможно ли законное списание
-              долгов именно в вашей ситуации.
+              Проверка поможет определить, какие обстоятельства
+              стоит дополнительно обсудить со специалистом.
             </p>
 
             <div className="mt-12 space-y-5">
@@ -92,7 +94,7 @@ export default function BankruptcyCheckPage() {
             <div className="rounded-[40px] bg-[#111111] p-10 text-white shadow-2xl">
 
               <h2 className="text-3xl font-bold">
-                Что вы узнаете
+                Что вы получите
               </h2>
 
               <div className="mt-10 space-y-6">
@@ -104,11 +106,11 @@ export default function BankruptcyCheckPage() {
                   <div>
 
                     <h3 className="text-xl font-semibold">
-                      Можно ли списать долги
+                      Предварительную оценку
                     </h3>
 
                     <p className="mt-2 text-white/70">
-                      Предварительная оценка вашей ситуации.
+                      Поймёте, есть ли факторы, которые стоит обсудить подробнее.
                     </p>
 
                   </div>
@@ -122,11 +124,11 @@ export default function BankruptcyCheckPage() {
                   <div>
 
                     <h3 className="text-xl font-semibold">
-                      Возможные риски
+                      Контекст для консультации
                     </h3>
 
                     <p className="mt-2 text-white/70">
-                      На что стоит обратить внимание заранее.
+                      Увидите, какие сведения могут потребовать дополнительного анализа.
                     </p>
 
                   </div>
@@ -144,7 +146,7 @@ export default function BankruptcyCheckPage() {
                     </h3>
 
                     <p className="mt-2 text-white/70">
-                      Получите понятный план дальнейших действий.
+                      При необходимости сможете перейти к консультации через форму iБюро.
                     </p>
 
                   </div>
@@ -163,23 +165,9 @@ export default function BankruptcyCheckPage() {
 
       <section
         id="quiz"
-        className="pb-28"
+        className="scroll-mt-28 pb-28"
       >
-
-        <div className="mx-auto max-w-4xl rounded-[36px] border border-[#E8DED5] bg-white p-14 shadow-xl">
-
-          <h2 className="text-4xl font-bold text-center text-[#2B2B2B]">
-            Онлайн-проверка
-          </h2>
-
-          <p className="mt-6 text-center text-[#666] text-lg">
-            Здесь позже будет размещён интерактивный AI-опросник,
-            который автоматически определит вероятность успешного
-            прохождения процедуры банкротства.
-          </p>
-
-        </div>
-
+        <BankruptcyPrecheck />
       </section>
 
     </main>
