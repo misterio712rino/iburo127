@@ -51,6 +51,27 @@ assert.deepEqual(capturedPayload.Destination.ToAddresses, ["recipient@example.co
 assert.equal(capturedPayload.Content.Simple.Subject.Data, "Test subject");
 assert.equal(capturedPayload.Content.Simple.Body.Text.Data, "Test body");
 
+let unsafeCredentialFetchCalled = false;
+const unsafeCredentialFetch: YandexPostboxFetch = async () => {
+  unsafeCredentialFetchCalled = true;
+  return new Response("{}", { status: 200 });
+};
+for (const unsafeConfig of [
+  { ...config, accessKeyId: "test-access\nkey-id" },
+  { ...config, secretAccessKey: "test-secret\0access-key" },
+]) {
+  await assert.rejects(
+    sendYandexPostboxEmail(
+      unsafeConfig,
+      { to: "recipient@example.com", subject: "subject", text: "body" },
+      unsafeCredentialFetch,
+    ),
+    (error: unknown) =>
+      error instanceof Error && error.message === `${EMAIL_DELIVERY_FAILED}:INVALID_CONFIG`,
+  );
+}
+assert.equal(unsafeCredentialFetchCalled, false, "unsafe credentials must fail before fetch");
+
 const networkFetch: YandexPostboxFetch = async () => {
   throw new Error("raw transport secret must not escape");
 };
