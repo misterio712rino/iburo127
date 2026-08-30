@@ -154,6 +154,13 @@ for (const cookieName of [
     false,
     `${cookieName} must not be a static application E2E requirement because core sessions are created dynamically`,
   );
+
+  const preSuppliedCookieInventory = buildStagingEnvironmentInventory({
+    ...secretValues,
+    [cookieName]: "example.com",
+  }).phases.applicationE2e;
+  assert.equal(preSuppliedCookieInventory.ready, false);
+  assert.ok(preSuppliedCookieInventory.invalidOrInconsistent.includes(cookieName));
 }
 
 const missingAuthz = buildStagingEnvironmentInventory({
