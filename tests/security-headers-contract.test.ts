@@ -143,4 +143,15 @@ assert.ok(
   "services practicum CTA must not return to the removed nested route",
 );
 
+const footerSource = await readFile(resolve("components/layout/Footer.tsx"), "utf8");
+assert.ok(
+  footerSource.includes('href: "https://www.iburo127.ru"'),
+  "footer website link must target the production iБюро domain",
+);
+assert.doesNotMatch(
+  footerSource,
+  /iburo127\.online/,
+  "legacy .online website link must not return in the public footer",
+);
+
 console.log("SECURITY_HEADERS_CONTRACT_TEST_PASS");
