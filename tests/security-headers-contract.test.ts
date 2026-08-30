@@ -285,6 +285,7 @@ assert.ok(
 for (const requiredRoute of [
   "/",
   "/about",
+  "/services",
   "/praktikum",
   "/faq",
   "/contacts",
