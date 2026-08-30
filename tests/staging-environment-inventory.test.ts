@@ -258,6 +258,34 @@ assert.ok(
   postboxSenderWithControlCharacter.invalidOrInconsistent.includes("IB_STAGING_POSTBOX_FROM_EMAIL"),
 );
 
+const postboxAccessKeyWithControlCharacter = buildStagingEnvironmentInventory({
+  ...secretValues,
+  YANDEX_POSTBOX_ACCESS_KEY_ID: "stage-postbox\naccess-key",
+  IB_STAGING_POSTBOX_ACCESS_KEY_ID: "stage-postbox\naccess-key",
+}).phases.postbox;
+assert.equal(postboxAccessKeyWithControlCharacter.ready, false);
+assert.ok(
+  postboxAccessKeyWithControlCharacter.invalidOrInconsistent.includes(
+    "YANDEX_POSTBOX_ACCESS_KEY_ID",
+  ),
+);
+assert.ok(
+  postboxAccessKeyWithControlCharacter.invalidOrInconsistent.includes(
+    "IB_STAGING_POSTBOX_ACCESS_KEY_ID",
+  ),
+);
+
+const postboxSecretWithControlCharacter = buildStagingEnvironmentInventory({
+  ...secretValues,
+  YANDEX_POSTBOX_SECRET_ACCESS_KEY: "postbox-secret\0invalid",
+}).phases.postbox;
+assert.equal(postboxSecretWithControlCharacter.ready, false);
+assert.ok(
+  postboxSecretWithControlCharacter.invalidOrInconsistent.includes(
+    "YANDEX_POSTBOX_SECRET_ACCESS_KEY",
+  ),
+);
+
 const shortOpenAiKeyFingerprint =
   "0f969cf0405c642d7d8d1eabdcf4d6ade6cd5ebd77733eb768f023a5824f6223";
 const shortOpenAiKey = buildStagingEnvironmentInventory({
