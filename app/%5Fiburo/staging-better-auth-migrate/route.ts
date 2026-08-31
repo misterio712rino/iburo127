@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { Pool } from "pg";
+import { Pool, type PoolClient } from "pg";
 import { requireStagingDatabaseTarget } from "@/scripts/staging-target-guard";
 import {
   VERCEL_STAGING_BRANCH,
@@ -264,7 +264,7 @@ export async function POST(request: Request) {
     max: 1,
   });
 
-  let client: Awaited<ReturnType<typeof pool.connect>> | null = null;
+  let client: PoolClient | null = null;
   let transactionOpen = false;
   let failureStage: FailureStage = "connect";
   try {
