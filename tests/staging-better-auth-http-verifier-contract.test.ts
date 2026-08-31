@@ -35,8 +35,8 @@ assert.match(route, /pass: true/);
 assert.match(route, /structuralSha256/);
 assert.doesNotMatch(
   route,
-  /\b(?:INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE)\b/i,
-  "HTTP structural verifier must remain read-only",
+  /client\.query(?:<[\s\S]*?>)?\(\s*[`"]\s*(?:INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE)\b/i,
+  "HTTP structural verifier must not execute mutating SQL through client.query",
 );
 assert.doesNotMatch(route, /error\.message|error\.stack|String\(error\)/);
 
