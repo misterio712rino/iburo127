@@ -104,8 +104,8 @@ try {
         ) +
         (
           select count(*)
-          from pg_collation collation
-          join pg_namespace namespace on namespace.oid = collation.collnamespace
+          from pg_collation pg_coll
+          join pg_namespace namespace on namespace.oid = pg_coll.collnamespace
           where namespace.nspname not in ('pg_catalog', 'information_schema')
             and namespace.nspname not like 'pg_toast%'
             and namespace.nspname not like 'pg_temp_%'
