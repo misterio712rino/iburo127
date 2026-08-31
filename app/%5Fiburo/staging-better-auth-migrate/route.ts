@@ -240,7 +240,9 @@ export async function POST(request: Request) {
 
   const requestUrl = new URL(request.url);
   const origin = request.headers.get("origin");
-  if (!origin || origin !== requestUrl.origin) return fail("origin", 403);
+  const secFetchSite = request.headers.get("sec-fetch-site");
+  const sameOriginRequest = origin === requestUrl.origin || secFetchSite === "same-origin";
+  if (!sameOriginRequest) return fail("origin", 403);
 
   const sha = exactPreviewCommitSha(env);
   if (!sha) return fail("preview-boundary", 404);
