@@ -332,7 +332,11 @@ export async function inspectDomainFixtures(db: DomainFixtureDb): Promise<Domain
     rolesByUserId.set(userRole.userId, current);
   }
 
-  const usersByEmail = new Map(users.map((user) => [user.email.toLowerCase(), user]));
+  const usersByEmail = new Map<string, (typeof users)[number]>();
+  for (const user of users) {
+    if (typeof user.email === "string") usersByEmail.set(user.email.toLowerCase(), user);
+  }
+
   let usersReady = 0;
   for (const expected of STAGING_DEMO_USERS) {
     const user = usersByEmail.get(expected.email);
