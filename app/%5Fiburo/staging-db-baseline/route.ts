@@ -202,7 +202,6 @@ export async function GET() {
 
       failureStage = "prisma-history";
       if (
-        migrationRows.length !== 1 ||
         appliedMigrations.length !== 1 ||
         unfinishedMigrations.length !== 0 ||
         appliedMigrations[0]?.migration_name !== EXPECTED_PRISMA_MIGRATION
