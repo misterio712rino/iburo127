@@ -24,20 +24,26 @@ import { buildStaffTaskQueue, summarizeStaffTaskQueue } from "@/server/tasks/sta
 assert.deepEqual(PLATFORM_ROLE_CODES, ["CLIENT", "LAWYER", "MANAGER"]);
 
 const seedSource = await readFile(resolve("prisma/seed.ts"), "utf8");
+const fixtureHelperSource = await readFile(resolve("server/staging/domain-fixtures.ts"), "utf8");
 const actorRepositorySource = await readFile(
   resolve("server/repositories/prisma/actor-repository.ts"),
   "utf8",
 );
 
 assert.match(
-  seedSource,
+  fixtureHelperSource,
   /PLATFORM_ROLE_CODES\.map/,
-  "reference seed must derive role rows from PLATFORM_ROLE_CODES",
+  "shared reference seed helper must derive role rows from PLATFORM_ROLE_CODES",
+);
+assert.match(
+  seedSource,
+  /seedReferenceData/,
+  "guarded reference seed CLI must reuse the shared role/reference fixture helper",
 );
 assert.doesNotMatch(
-  seedSource,
+  fixtureHelperSource,
   /code:\s*["']ADMIN["']/,
-  "reference seed must not create an unsupported ADMIN role",
+  "reference seed helper must not create an unsupported ADMIN role",
 );
 assert.match(
   actorRepositorySource,
