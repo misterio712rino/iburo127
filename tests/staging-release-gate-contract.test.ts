@@ -214,6 +214,37 @@ await requireGuardBefore(
   'await import("./verify-staging-http-mutation-audit-impl")',
 );
 
+const stagingDbProbe = await readFile(
+  resolve("app/%5Fiburo/staging-db-baseline/route.ts"),
+  "utf8",
+);
+const probePoolIndex = stagingDbProbe.indexOf("new Pool(");
+for (const marker of [
+  'env.VERCEL_ENV?.trim() === "preview"',
+  "env.VERCEL_GIT_COMMIT_REF?.trim() === VERCEL_STAGING_BRANCH",
+  'env.IB_RUNTIME_TARGET?.trim() === "staging"',
+  "isVercelPreviewBackendAllowed(env)",
+  "requireStagingDatabaseTarget(env)",
+]) {
+  const markerIndex = stagingDbProbe.indexOf(marker);
+  assert.ok(markerIndex >= 0, `staging DB probe must contain guard ${marker}`);
+  assert.ok(markerIndex < probePoolIndex, `staging DB probe must enforce ${marker} before DB access`);
+}
+assert.match(stagingDbProbe, /export const dynamic = "force-dynamic"/);
+assert.match(stagingDbProbe, /export const runtime = "nodejs"/);
+assert.match(stagingDbProbe, /BEGIN READ ONLY/);
+assert.match(stagingDbProbe, /ROLLBACK/);
+assert.match(stagingDbProbe, /assertStagingSchemaContract\(/);
+assert.match(stagingDbProbe, /20260831_initial_baseline/);
+assert.match(stagingDbProbe, /BETTER_AUTH_TABLES/);
+assert.match(stagingDbProbe, /Cache-Control/);
+assert.doesNotMatch(
+  stagingDbProbe,
+  /\b(?:INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE)\b/i,
+  "staging DB probe must remain read-only",
+);
+assert.doesNotMatch(stagingDbProbe, /expectedHost|expectedUser/);
+
 const certifiedSha = "12a4155acd473838b3e4f48bc318016187854a68";
 const laterSha = "22a4155acd473838b3e4f48bc318016187854a68";
 const exactPreviewEnv = {
