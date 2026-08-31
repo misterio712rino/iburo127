@@ -40,12 +40,15 @@ The command is staging-only and has no HTTP/admin endpoint. It:
 
 1. passes the reviewed staging mutation preflight before creating its operational DB pool;
 2. requires the internal user to exist and remain `ACTIVE`;
-3. refuses to overwrite/reuse an existing Better Auth email;
-4. creates the credential account through a dedicated CLI-only Better Auth instance using the reviewed password policy and `autoSignIn=false`;
-5. re-reads the persisted Better Auth row and requires its real subject to match the signup result, preventing a synthetic duplicate/race response from being linked;
-6. links that subject to the internal user through `AuthIdentity`;
-7. deletes only the newly created Better Auth account if the domain identity link fails before commit;
-8. never prints the password, email, Better Auth subject or connection string.
+3. refuses to create a second `better-auth` identity for the same internal User and repeats that check after locking the User to close concurrent-bootstrap races;
+4. refuses to overwrite/reuse an existing Better Auth email;
+5. creates the credential account through a dedicated CLI-only Better Auth instance using the reviewed password policy and `autoSignIn=false`;
+6. re-reads the persisted Better Auth row and requires its real subject to match the signup result, preventing a synthetic duplicate/race response from being linked;
+7. links that subject to the internal user through `AuthIdentity`;
+8. deletes only the newly created Better Auth account if the domain identity link fails before commit;
+9. never prints the password, email, Better Auth subject or connection string.
+
+The general `AuthIdentity` model remains provider-neutral and may support multiple external identities. The stricter one-`better-auth`-credential rule applies only to this controlled staging bootstrap so repeated or concurrent bootstrap operations cannot silently multiply credential accounts for one internal User.
 
 For LAWYER and MANAGER accounts, complete TOTP enrollment through the normal application flow before the staging auth-flow verifier is run. Do not enable trusted-device bypass for staff fixtures.
 
@@ -79,6 +82,7 @@ The CLI is intentionally executed with Node's `react-server` condition so the ap
 
 - staging target identity fails closed before provisioning;
 - the target internal user must already exist and be `ACTIVE`;
+- controlled credential bootstrap refuses a second `better-auth` identity for the same internal User;
 - an existing `(provider, subject)` mapping to the same user is idempotent in the recovery linker;
 - a mapping conflict fails closed with `AUTH_IDENTITY_PROVISIONING_CONFLICT`;
 - neither command creates roles or cases;
@@ -93,7 +97,7 @@ A production provisioning procedure must not be introduced or used without an ex
 1. Establish staging PostgreSQL baseline and reviewed domain migration.
 2. Apply and structurally verify the reviewed Better Auth schema.
 3. Create/verify the internal `User` and roles.
-4. Run `npm run auth:bootstrap:staging` for each new controlled staging credential account.
+4. Run `npm run auth:bootstrap:staging` exactly once for each new controlled staging credential identity.
 5. For LAWYER/MANAGER, enroll TOTP and store the dedicated staging fixture secret through the approved secret-management path.
 6. Use `auth:link:staging` only when recovering/linking an already-existing verified Better Auth subject.
 7. Sign in through Better Auth and verify session -> `AuthIdentity` -> internal actor resolution.

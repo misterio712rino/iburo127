@@ -31,6 +31,16 @@ assert.match(source, /production Better Auth hostname is explicitly blocked/);
 assert.match(source, /select id, status, email, "displayName" from "User"/);
 assert.match(source, /domainUser\.status !== "ACTIVE"/);
 assert.match(source, /IB_AUTH_BOOTSTRAP_EMAIL does not match the internal User email/);
+
+const providerIdentityQuery = /select subject from "AuthIdentity" where "userId" = \$1::uuid and provider = \$2 limit 1/g;
+assert.equal(
+  source.match(providerIdentityQuery)?.length,
+  2,
+  "bootstrap must reject an existing Better Auth identity both before account creation and after locking the User",
+);
+assert.match(source, /internal User already has a Better Auth identity/);
+assert.match(source, /internal User acquired a Better Auth identity during bootstrap/);
+
 assert.match(source, /select id, email from "user" where lower\(email\) = lower\(\$1\)/);
 assert.match(source, /Better Auth account already exists for the requested email/);
 
@@ -40,7 +50,20 @@ assert.match(source, /auth\.api\.signUpEmail/);
 assert.match(source, /persisted\.id !== returnedSubject/);
 assert.match(source, /createdSubject = persisted\.id/);
 
-assert.match(source, /select id, status from "User" where id = \$1::uuid for update/);
+const userLockIndex = source.indexOf('select id, status from "User" where id = $1::uuid for update');
+const racedProviderIdentityIndex = source.indexOf("internal User acquired a Better Auth identity during bootstrap");
+const insertIdentityIndex = source.indexOf('insert into "AuthIdentity"');
+assert.ok(userLockIndex >= 0, "bootstrap must lock the internal User before the final identity link");
+assert.ok(
+  racedProviderIdentityIndex > userLockIndex,
+  "bootstrap must re-check provider identity after acquiring the User lock",
+);
+assert.ok(
+  insertIdentityIndex > racedProviderIdentityIndex,
+  "bootstrap must reject a raced provider identity before inserting AuthIdentity",
+);
+
+assert.match(source, /select "userId" from "AuthIdentity" where provider = \$1 and subject = \$2/);
 assert.match(source, /insert into "AuthIdentity"/);
 assert.match(source, /PROVIDER = "better-auth"/);
 assert.match(source, /delete from "user" where id = \$1 and lower\(email\) = lower\(\$2\)/);

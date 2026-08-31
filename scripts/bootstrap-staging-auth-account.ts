@@ -138,6 +138,14 @@ try {
     fail("IB_AUTH_BOOTSTRAP_EMAIL does not match the internal User email");
   }
 
+  const existingProviderIdentity = await pool.query<{ subject: string }>(
+    `select subject from "AuthIdentity" where "userId" = $1::uuid and provider = $2 limit 1`,
+    [userId, PROVIDER],
+  );
+  if (existingProviderIdentity.rowCount !== 0) {
+    fail("internal User already has a Better Auth identity; use the guarded recovery/link procedure instead");
+  }
+
   const existingAuthUser = await pool.query<BetterAuthUserRow>(
     `select id, email from "user" where lower(email) = lower($1) limit 2`,
     [email],
@@ -197,6 +205,14 @@ try {
     );
     if (lockedUser.rows[0]?.status !== "ACTIVE") {
       fail("internal User is no longer ACTIVE");
+    }
+
+    const racedProviderIdentity = await client.query<{ subject: string }>(
+      `select subject from "AuthIdentity" where "userId" = $1::uuid and provider = $2 limit 1`,
+      [userId, PROVIDER],
+    );
+    if (racedProviderIdentity.rowCount !== 0) {
+      fail("internal User acquired a Better Auth identity during bootstrap");
     }
 
     const existingIdentity = await client.query<{ userId: string }>(
