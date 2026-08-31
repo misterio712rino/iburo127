@@ -79,8 +79,11 @@ for (const tableName of ["session", "account", "twoFactor"]) {
   assert.ok(route.includes(`"${tableName}"`), `${tableName} cascading user FK must remain represented`);
 }
 
-const rollbackIndex = route.lastIndexOf('await client.query("ROLLBACK")');
+const successRollbackIndex = route.indexOf('await client.query("ROLLBACK")');
 const passIndex = route.indexOf("pass: true");
-assert.ok(rollbackIndex >= 0 && passIndex > rollbackIndex, "HTTP verifier must rollback before reporting PASS");
+assert.ok(
+  successRollbackIndex >= 0 && passIndex > successRollbackIndex,
+  "HTTP verifier must rollback the success-path read-only transaction before reporting PASS",
+);
 
 console.log("STAGING_BETTER_AUTH_HTTP_VERIFIER_CONTRACT_PASS");
