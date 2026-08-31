@@ -155,4 +155,6 @@ assert.doesNotMatch(
   "HTTP fixture bootstrap responses must keep exception details bounded",
 );
 
+await import("./staging-domain-fixtures-contract.test");
+
 console.log("STAGING_AUTH_ACCOUNT_BOOTSTRAP_CONTRACT_PASS");
