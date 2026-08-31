@@ -269,7 +269,7 @@ try {
         table_rel.relname as table_name,
         index_rel.relname as index_name,
         idx.indisunique as is_unique,
-        array_agg(attr.attname order by key_cols.ordinality) as columns
+        array_agg(attr.attname::text order by key_cols.ordinality) as columns
       from pg_index idx
       join pg_class table_rel on table_rel.oid = idx.indrelid
       join pg_namespace ns on ns.oid = table_rel.relnamespace
