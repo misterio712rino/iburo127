@@ -94,8 +94,12 @@ for (const [label, email, passwordEnv] of [
   assert.ok(fixtureRoute.includes(`label: "${label}"`), `${label} fixed fixture label must remain pinned`);
   assert.ok(fixtureRoute.includes(`email: "${email}"`), `${label} fixed fixture email must remain pinned`);
   assert.ok(fixtureRoute.includes(passwordEnv), `${label} fixture must use the reviewed E2E password env`);
-  assert.ok(fixtureRoute.includes(`IB_STAGING_${label}_EMAIL`), `${label} fixture email env must be checked`);
 }
+assert.match(
+  fixtureRoute,
+  /const emailName = `IB_STAGING_\$\{fixture\.label\}_EMAIL`;/,
+  "fixture bootstrap must derive the reviewed E2E email env from the pinned fixture label",
+);
 
 const clientFixtureBlock = fixtureRoute.slice(
   fixtureRoute.indexOf('label: "CLIENT"'),
