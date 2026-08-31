@@ -40,6 +40,16 @@ type MigrationRow = {
   rolled_back_at: Date | null;
 };
 
+type ProbeFailureStage =
+  | "target"
+  | "connect"
+  | "begin"
+  | "identity"
+  | "catalog"
+  | "domain-contract"
+  | "prisma-history"
+  | "rollback";
+
 function exactPreviewCommitSha(env: NodeJS.ProcessEnv): string | null {
   const value = env.VERCEL_GIT_COMMIT_SHA?.trim();
   return value && EXACT_GIT_SHA_PATTERN.test(value) ? value.toLowerCase() : null;
@@ -55,9 +65,14 @@ function isExactStagingPreview(env: NodeJS.ProcessEnv): boolean {
   );
 }
 
-function unavailable(status = 404) {
+function unavailable(status = 404, failureStage?: ProbeFailureStage) {
   return NextResponse.json(
-    { service: "iburo127", probe: "staging-db-baseline", available: false },
+    {
+      service: "iburo127",
+      probe: "staging-db-baseline",
+      available: false,
+      ...(failureStage ? { failureStage } : {}),
+    },
     { status, headers: NO_STORE_HEADERS },
   );
 }
@@ -70,7 +85,7 @@ export async function GET() {
   try {
     target = requireStagingDatabaseTarget(env);
   } catch {
-    return unavailable(503);
+    return unavailable(503, "target");
   }
 
   const pool = new Pool({
@@ -83,10 +98,12 @@ export async function GET() {
   try {
     const client = await pool.connect();
     let transactionOpen = false;
+    let failureStage: ProbeFailureStage = "begin";
     try {
       await client.query("BEGIN READ ONLY");
       transactionOpen = true;
 
+      failureStage = "identity";
       const identity = await client.query<{ database_name: string; current_schema: string | null }>(
         "select current_database() as database_name, current_schema() as current_schema",
       );
@@ -98,6 +115,7 @@ export async function GET() {
         throw new Error("staging schema identity mismatch");
       }
 
+      failureStage = "catalog";
       const tableResult = await client.query<{ table_name: string }>(
         `
           select table_name
@@ -149,6 +167,7 @@ export async function GET() {
       const prismaMigrationTablePresent = tableSet.has("_prisma_migrations");
       let migrationRows: MigrationRow[] = [];
       if (prismaMigrationTablePresent) {
+        failureStage = "prisma-history";
         const migrationResult = await client.query<MigrationRow>(
           `
             select migration_name, finished_at, rolled_back_at
@@ -166,6 +185,7 @@ export async function GET() {
         (row) => row.finished_at === null && row.rolled_back_at === null,
       );
 
+      failureStage = "domain-contract";
       assertStagingSchemaContract({
         tables: tableNames,
         enums: enumNames,
@@ -180,6 +200,7 @@ export async function GET() {
         },
       });
 
+      failureStage = "prisma-history";
       if (
         migrationRows.length !== 1 ||
         appliedMigrations.length !== 1 ||
@@ -202,6 +223,7 @@ export async function GET() {
             ? "complete"
             : "partial";
 
+      failureStage = "rollback";
       await client.query("ROLLBACK");
       transactionOpen = false;
 
@@ -259,15 +281,15 @@ export async function GET() {
         try {
           await client.query("ROLLBACK");
         } catch {
-          // Preserve the original verification failure.
+          // Preserve the original verification stage without exposing exception details.
         }
       }
-      return unavailable(503);
+      return unavailable(503, failureStage);
     } finally {
       client.release();
     }
   } catch {
-    return unavailable(503);
+    return unavailable(503, "connect");
   } finally {
     await pool.end();
   }
