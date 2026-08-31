@@ -1,11 +1,23 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const source = await readFile(
   resolve("scripts/verify-staging-better-auth-schema.ts"),
   "utf8",
 );
+const prismaConfigSource = await readFile(resolve("prisma.config.ts"), "utf8");
+const deploySource = await readFile(
+  resolve("scripts/apply-staging-better-auth-schema.ts"),
+  "utf8",
+);
+const reviewedSql = await readFile(
+  resolve("database/better-auth/1.7.2/schema.sql"),
+  "utf8",
+);
+const prismaMigrationEntries = await readdir(resolve("prisma/migrations"), {
+  withFileTypes: true,
+});
 
 const requiredPhysicalColumns: Record<string, readonly string[]> = {
   user: [
@@ -114,5 +126,35 @@ assert.match(source, /hasUniqueIndex\("account", \["issuer", "accountId"\]\)/);
 assert.match(source, /hasUniqueIndex\("rateLimit", \["key"\]\)/);
 assert.match(source, /\["session", "account", "twoFactor"\]/);
 assert.match(source, /userId -> user\.id foreign key is missing/);
+
+assert.match(prismaConfigSource, /externalTables:\s*true/);
+for (const tableName of Object.keys(requiredPhysicalColumns)) {
+  assert.match(
+    prismaConfigSource,
+    new RegExp(`"public\\.${tableName}"`),
+    `Prisma must declare public.${tableName} as externally managed`,
+  );
+}
+assert.ok(
+  !prismaMigrationEntries.some(
+    (entry) => entry.isDirectory() && /better[-_]?auth/i.test(entry.name),
+  ),
+  "Better Auth SQL must not live inside prisma/migrations",
+);
+
+for (const tableName of Object.keys(requiredPhysicalColumns)) {
+  assert.match(
+    reviewedSql,
+    new RegExp(`create table "${tableName}"`, "i"),
+    `reviewed Better Auth SQL must create ${tableName}`,
+  );
+}
+assert.match(deploySource, /requireStagingDatabaseTarget\(\)/);
+assert.match(deploySource, /IB_RUNTIME_TARGET/);
+assert.match(deploySource, /IB_STAGING_BETTER_AUTH_SQL_SHA256/);
+assert.match(deploySource, /IB_STAGING_BETTER_AUTH_MIGRATION_CONFIRM/);
+assert.match(deploySource, /BEGIN/);
+assert.match(deploySource, /COMMIT/);
+assert.match(deploySource, /STAGING_BETTER_AUTH_MIGRATION_PASS/);
 
 console.log("BETTER_AUTH_SCHEMA_VERIFIER_CONTRACT_PASS");

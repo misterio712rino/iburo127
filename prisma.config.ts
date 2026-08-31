@@ -11,4 +11,17 @@ export default defineConfig({
   datasource: {
     url: process.env.DATABASE_URL,
   },
+  experimental: {
+    externalTables: true,
+  },
+  tables: {
+    external: [
+      "public.user",
+      "public.session",
+      "public.account",
+      "public.verification",
+      "public.twoFactor",
+      "public.rateLimit",
+    ],
+  },
 });
