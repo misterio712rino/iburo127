@@ -77,14 +77,24 @@ try {
 
 console.log("Running reviewed Prisma migrations with `prisma migrate deploy`...");
 
-const child = spawn(
-  process.platform === "win32" ? "npx.cmd" : "npx",
-  ["prisma", "migrate", "deploy"],
-  {
-    stdio: "inherit",
-    env: process.env,
-  },
-);
+// Node.js on Windows can reject direct spawning of .cmd shims with EINVAL.
+// Use cmd.exe explicitly there; the command is a fixed literal with no user input.
+const prismaLauncher =
+  process.platform === "win32"
+    ? {
+        command: process.env.ComSpec?.trim() || "cmd.exe",
+        args: ["/d", "/s", "/c", "npx prisma migrate deploy"],
+      }
+    : {
+        command: "npx",
+        args: ["prisma", "migrate", "deploy"],
+      };
+
+const child = spawn(prismaLauncher.command, prismaLauncher.args, {
+  stdio: "inherit",
+  env: process.env,
+  windowsHide: true,
+});
 
 const exitCode = await new Promise<number>((resolve, reject) => {
   child.once("error", reject);
