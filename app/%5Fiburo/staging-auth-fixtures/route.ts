@@ -85,6 +85,13 @@ type BootstrapConfiguration = {
   passwords: Readonly<Record<FixtureLabel, string>>;
 };
 
+type FixtureSignUp = (body: {
+  name: string;
+  email: string;
+  password: string;
+  rememberMe: boolean;
+}) => Promise<unknown>;
+
 type FailureStage =
   | "preview-boundary"
   | "target"
@@ -150,6 +157,14 @@ function htmlEscape(value: string): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function readSignUpSubject(result: unknown): string | null {
+  if (typeof result !== "object" || result === null || !("user" in result)) return null;
+  const user = result.user;
+  if (typeof user !== "object" || user === null || !("id" in user)) return null;
+  const id = user.id;
+  return typeof id === "string" && id.trim() ? id.trim() : null;
 }
 
 function requiredSafePassword(env: NodeJS.ProcessEnv, name: string): string {
@@ -445,7 +460,7 @@ async function linkNewAuthSubject(
 
 async function bootstrapFixture(
   pool: Pool,
-  auth: ReturnType<typeof betterAuth>,
+  signUpFixture: FixtureSignUp,
   fixture: FixtureDefinition,
   password: string,
 ): Promise<{ label: FixtureLabel; email: string; userId: string; subject: string; internalCreated: boolean; authCreated: boolean }> {
@@ -473,15 +488,13 @@ async function bootstrapFixture(
   }
 
   const userId = state.userId;
-  const signUp = await auth.api.signUpEmail({
-    body: {
-      name: fixture.displayName,
-      email: fixture.email,
-      password,
-      rememberMe: false,
-    },
+  const signUp = await signUpFixture({
+    name: fixture.displayName,
+    email: fixture.email,
+    password,
+    rememberMe: false,
   });
-  const subject = signUp?.user?.id?.trim();
+  const subject = readSignUpSubject(signUp);
   if (!subject) throw new Error("Better Auth did not return a fixture subject");
 
   let linked = false;
@@ -655,6 +668,7 @@ export async function POST(request: Request) {
         },
       },
     });
+    const signUpFixture: FixtureSignUp = async (body) => auth.api.signUpEmail({ body });
 
     const results: Array<Awaited<ReturnType<typeof bootstrapFixture>>> = [];
     for (const fixture of FIXTURES) {
@@ -667,7 +681,7 @@ export async function POST(request: Request) {
       results.push(
         await bootstrapFixture(
           pool,
-          auth,
+          signUpFixture,
           fixture,
           configuration.passwords[fixture.label],
         ),
