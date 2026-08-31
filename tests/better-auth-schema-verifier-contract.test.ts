@@ -75,6 +75,8 @@ assert.ok(guardIndex >= 0, "Better Auth schema verifier must use the shared stag
 assert.ok(poolIndex > guardIndex, "staging database target guard must execute before Pool construction");
 assert.match(source, /connectionString:\s*target\.databaseUrl/);
 assert.match(source, /identityRow\.database_name !== target\.expectedDatabaseName/);
+assert.match(source, /const BETTER_AUTH_SCHEMA = "public"/);
+assert.match(source, /expectedSchema !== BETTER_AUTH_SCHEMA/);
 
 for (const [tableName, columns] of Object.entries(requiredPhysicalColumns)) {
   const declaration = new RegExp(
@@ -89,6 +91,28 @@ for (const [tableName, columns] of Object.entries(requiredPhysicalColumns)) {
     );
   }
 }
+
+for (const nullableColumn of [
+  "user.image",
+  "user.twoFactorEnabled",
+  "session.ipAddress",
+  "session.userAgent",
+  "account.accessToken",
+  "account.refreshToken",
+  "account.accessTokenExpiresAt",
+  "account.refreshTokenExpiresAt",
+  "account.scope",
+  "account.idToken",
+  "account.password",
+  "twoFactor.verified",
+  "twoFactor.failedVerificationCount",
+  "twoFactor.lockedUntil",
+]) {
+  assert.match(source, new RegExp(`"${nullableColumn.replace(".", "\\.")}"`));
+}
+assert.match(source, /NULLABLE_COLUMNS\.has\(`\$\{tableName\}\.\$\{columnName\}`\)/);
+assert.match(source, /column\.nullable !== expectedNullable/);
+assert.match(source, /nullability mismatch/);
 
 for (const columnName of [
   "image",
@@ -117,15 +141,27 @@ assert.match(source, /BEGIN READ ONLY/);
 assert.match(source, /information_schema\.columns/);
 assert.match(source, /from pg_index idx/);
 assert.match(source, /information_schema\.table_constraints/);
+assert.match(source, /information_schema\.referential_constraints/);
 assert.doesNotMatch(source, /select\s+\*\s+from\s+"?(?:user|session|account|verification|twoFactor|rateLimit)"?/i);
 assert.doesNotMatch(source, /\.(?:password|secret|backupCodes|accessToken|refreshToken)\s*[,)]/);
 
-assert.match(source, /hasUniqueIndex\("user", \["email"\]\)/);
-assert.match(source, /hasUniqueIndex\("session", \["token"\]\)/);
-assert.match(source, /hasUniqueIndex\("account", \["issuer", "accountId"\]\)/);
-assert.match(source, /hasUniqueIndex\("rateLimit", \["key"\]\)/);
+assert.match(source, /hasIndex\("user", \["email"\], true\)/);
+assert.match(source, /hasIndex\("session", \["token"\], true\)/);
+assert.match(source, /hasIndex\("account", \["issuer", "accountId"\], true\)/);
+assert.match(source, /hasIndex\("rateLimit", \["key"\], true\)/);
+for (const supportingIndex of [
+  '["session", ["userId"]]',
+  '["account", ["userId"]]',
+  '["verification", ["identifier"]]',
+  '["twoFactor", ["secret"]]',
+  '["twoFactor", ["userId"]]',
+]) {
+  assert.ok(source.includes(supportingIndex), `missing required supporting index contract ${supportingIndex}`);
+}
+
 assert.match(source, /\["session", "account", "twoFactor"\]/);
-assert.match(source, /userId -> user\.id foreign key is missing/);
+assert.match(source, /row\.delete_rule === "CASCADE"/);
+assert.match(source, /userId -> user\.id foreign key with ON DELETE CASCADE is missing/);
 
 assert.match(prismaConfigSource, /externalTables:\s*true/);
 for (const tableName of Object.keys(requiredPhysicalColumns)) {

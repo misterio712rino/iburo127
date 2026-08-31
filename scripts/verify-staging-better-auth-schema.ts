@@ -4,6 +4,8 @@ import { createHash } from "node:crypto";
 import { Pool } from "pg";
 import { requireStagingDatabaseTarget } from "./staging-target-guard";
 
+const BETTER_AUTH_SCHEMA = "public";
+
 const REQUIRED_COLUMNS = {
   user: [
     "id",
@@ -55,6 +57,23 @@ const REQUIRED_COLUMNS = {
 } as const;
 
 const REQUIRED_TABLES = Object.keys(REQUIRED_COLUMNS);
+const NULLABLE_COLUMNS = new Set<string>([
+  "user.image",
+  "user.twoFactorEnabled",
+  "session.ipAddress",
+  "session.userAgent",
+  "account.accessToken",
+  "account.refreshToken",
+  "account.accessTokenExpiresAt",
+  "account.refreshTokenExpiresAt",
+  "account.scope",
+  "account.idToken",
+  "account.password",
+  "twoFactor.verified",
+  "twoFactor.failedVerificationCount",
+  "twoFactor.lockedUntil",
+]);
+
 const STRING_TYPES = new Set(["text", "character varying", "character", "uuid"]);
 const TIMESTAMP_TYPES = new Set(["timestamp with time zone", "timestamp without time zone"]);
 const INTEGER_TYPES = new Set(["smallint", "integer", "bigint", "numeric"]);
@@ -132,7 +151,9 @@ try {
 }
 
 const expectedSchema = process.env.IB_STAGING_BETTER_AUTH_SCHEMA?.trim();
-if (!expectedSchema) fail("missing IB_STAGING_BETTER_AUTH_SCHEMA");
+if (expectedSchema !== BETTER_AUTH_SCHEMA) {
+  fail(`IB_STAGING_BETTER_AUTH_SCHEMA must be exactly ${BETTER_AUTH_SCHEMA}`);
+}
 
 const pool = new Pool({
   connectionString: target.databaseUrl,
@@ -203,6 +224,17 @@ try {
     if (missingColumns.length > 0) {
       fail(`missing columns on ${tableName}: ${missingColumns.join(", ")}`);
     }
+
+    for (const columnName of requiredColumns) {
+      const column = table.get(columnName);
+      if (!column) fail(`missing ${tableName}.${columnName}`);
+      const expectedNullable = NULLABLE_COLUMNS.has(`${tableName}.${columnName}`);
+      if (column.nullable !== expectedNullable) {
+        fail(
+          `${tableName}.${columnName} nullability mismatch: expected ${expectedNullable ? "NULL" : "NOT NULL"}`,
+        );
+      }
+    }
   }
 
   function requireType(tableName: string, columnName: string, allowed: ReadonlySet<string>) {
@@ -254,23 +286,35 @@ try {
     [expectedSchema, REQUIRED_TABLES],
   );
 
-  function hasUniqueIndex(tableName: string, columns: readonly string[]) {
+  function hasIndex(tableName: string, columns: readonly string[], isUnique: boolean) {
     return indexResult.rows.some(
       (row) =>
         row.table_name === tableName &&
-        row.is_unique &&
+        row.is_unique === isUnique &&
         row.columns.length === columns.length &&
         row.columns.every((column, index) => column === columns[index]),
     );
   }
 
-  if (!hasUniqueIndex("user", ["email"])) fail("user.email unique index/constraint is missing");
-  if (!hasUniqueIndex("session", ["token"])) fail("session.token unique index/constraint is missing");
-  if (!hasUniqueIndex("account", ["issuer", "accountId"])) {
+  if (!hasIndex("user", ["email"], true)) fail("user.email unique index/constraint is missing");
+  if (!hasIndex("session", ["token"], true)) fail("session.token unique index/constraint is missing");
+  if (!hasIndex("account", ["issuer", "accountId"], true)) {
     fail("account unique index on (issuer, accountId) is missing");
   }
-  if (!hasUniqueIndex("rateLimit", ["key"])) {
+  if (!hasIndex("rateLimit", ["key"], true)) {
     fail("rateLimit.key unique index/constraint is missing");
+  }
+
+  for (const [tableName, columns] of [
+    ["session", ["userId"]],
+    ["account", ["userId"]],
+    ["verification", ["identifier"]],
+    ["twoFactor", ["secret"]],
+    ["twoFactor", ["userId"]],
+  ] as const) {
+    if (!hasIndex(tableName, columns, false)) {
+      fail(`${tableName} supporting index on (${columns.join(", ")}) is missing`);
+    }
   }
 
   const primaryKeyResult = await client.query<{
@@ -301,13 +345,15 @@ try {
     column_name: string;
     foreign_table_name: string;
     foreign_column_name: string;
+    delete_rule: string;
   }>(
     `
       select
         tc.table_name,
         kcu.column_name,
         ccu.table_name as foreign_table_name,
-        ccu.column_name as foreign_column_name
+        ccu.column_name as foreign_column_name,
+        rc.delete_rule
       from information_schema.table_constraints tc
       join information_schema.key_column_usage kcu
         on kcu.constraint_catalog = tc.constraint_catalog
@@ -317,6 +363,10 @@ try {
         on ccu.constraint_catalog = tc.constraint_catalog
        and ccu.constraint_schema = tc.constraint_schema
        and ccu.constraint_name = tc.constraint_name
+      join information_schema.referential_constraints rc
+        on rc.constraint_catalog = tc.constraint_catalog
+       and rc.constraint_schema = tc.constraint_schema
+       and rc.constraint_name = tc.constraint_name
       where tc.table_schema = $1
         and tc.constraint_type = 'FOREIGN KEY'
         and tc.table_name = any($2::text[])
@@ -325,18 +375,21 @@ try {
     [expectedSchema, REQUIRED_TABLES],
   );
 
-  function hasUserForeignKey(tableName: string) {
+  function hasCascadingUserForeignKey(tableName: string) {
     return foreignKeyResult.rows.some(
       (row) =>
         row.table_name === tableName &&
         row.column_name === "userId" &&
         row.foreign_table_name === "user" &&
-        row.foreign_column_name === "id",
+        row.foreign_column_name === "id" &&
+        row.delete_rule === "CASCADE",
     );
   }
 
   for (const tableName of ["session", "account", "twoFactor"] as const) {
-    if (!hasUserForeignKey(tableName)) fail(`${tableName}.userId -> user.id foreign key is missing`);
+    if (!hasCascadingUserForeignKey(tableName)) {
+      fail(`${tableName}.userId -> user.id foreign key with ON DELETE CASCADE is missing`);
+    }
   }
 
   const fingerprintPayload = {
@@ -355,7 +408,7 @@ try {
   console.log(`Staging database identity verified: ${identityRow.database_name}`);
   console.log(`Better Auth schema/search_path verified: ${expectedSchema}`);
   console.log(`Better Auth 1.7 core + 2FA + rate-limit tables verified: ${REQUIRED_TABLES.length}`);
-  console.log("Better Auth required columns, types, unique indexes and user foreign keys verified");
+  console.log("Better Auth required columns, nullability, types, indexes and cascading user foreign keys verified");
   console.log(`Better Auth structural SHA-256: ${fingerprint}`);
   console.log("STAGING_BETTER_AUTH_SCHEMA_VERIFY_PASS");
 
