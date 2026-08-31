@@ -72,6 +72,19 @@ for (const marker of [
   assert.ok(route.includes(marker), `route must retain required index contract ${marker}`);
 }
 
+for (const verifierSource of [route, cliVerifier]) {
+  assert.match(
+    verifierSource,
+    /array_agg\(attr\.attname::text order by key_cols\.ordinality\) as columns/,
+    "index catalog columns must be normalized to PostgreSQL text[] for deterministic pg decoding",
+  );
+  assert.doesNotMatch(
+    verifierSource,
+    /array_agg\(attr\.attname order by key_cols\.ordinality\) as columns/,
+    "raw PostgreSQL name[] index columns must not be used",
+  );
+}
+
 assert.match(route, /constraint_type = 'PRIMARY KEY'/);
 assert.match(route, /constraint_type = 'FOREIGN KEY'/);
 assert.match(route, /row\.delete_rule === "CASCADE"/);
