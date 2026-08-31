@@ -110,6 +110,7 @@ export const STAGING_DEMO_CASES = [
     clientEmail: "client.lite@example.test",
     planCode: "LITE",
     stageCode: "EDUCATION",
+    assignLawyer: true,
     openedAt: new Date("2026-01-15T09:00:00.000Z"),
   },
   {
@@ -117,6 +118,7 @@ export const STAGING_DEMO_CASES = [
     clientEmail: "client.pro@example.test",
     planCode: "PRO",
     stageCode: "QUESTIONNAIRE",
+    assignLawyer: true,
     openedAt: new Date("2026-02-03T09:00:00.000Z"),
   },
   {
@@ -124,7 +126,16 @@ export const STAGING_DEMO_CASES = [
     clientEmail: "client.individual@example.test",
     planCode: "INDIVIDUAL",
     stageCode: "DOCUMENT_PREPARATION",
+    assignLawyer: true,
     openedAt: new Date("2026-02-20T09:00:00.000Z"),
+  },
+  {
+    caseNumber: "IBR-2026-000104",
+    clientEmail: "client.individual@example.test",
+    planCode: "LITE",
+    stageCode: "QUESTIONNAIRE",
+    assignLawyer: false,
+    openedAt: new Date("2026-02-21T09:00:00.000Z"),
   },
 ] as const;
 
@@ -265,7 +276,7 @@ export async function seedDemoData(db: DomainFixtureDb): Promise<void> {
       clientId,
       planId,
       stageId,
-      assignedLawyerId,
+      assignedLawyerId: demoCase.assignLawyer ? assignedLawyerId : null,
       status: "ACTIVE" as const,
       openedAt: demoCase.openedAt,
       closedAt: null,
@@ -353,12 +364,13 @@ export async function inspectDomainFixtures(db: DomainFixtureDb): Promise<Domain
   for (const expected of STAGING_DEMO_CASES) {
     const row = casesByNumber.get(expected.caseNumber);
     const clientId = usersByEmail.get(expected.clientEmail)?.id ?? null;
+    const expectedAssignedLawyerId = expected.assignLawyer ? assignedLawyerId : null;
     if (
       row &&
       clientId &&
       assignedLawyerId &&
       row.clientId === clientId &&
-      row.assignedLawyerId === assignedLawyerId &&
+      row.assignedLawyerId === expectedAssignedLawyerId &&
       row.status === "ACTIVE" &&
       row.plan.code === expected.planCode &&
       row.stage.code === expected.stageCode

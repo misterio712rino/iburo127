@@ -89,9 +89,29 @@ for (const email of [
 ]) {
   assert.ok(helper.includes(email), `shared staging fixture helper must pin ${email}`);
 }
-for (const caseNumber of ["IBR-2026-000101", "IBR-2026-000102", "IBR-2026-000103"]) {
+for (const caseNumber of [
+  "IBR-2026-000101",
+  "IBR-2026-000102",
+  "IBR-2026-000103",
+  "IBR-2026-000104",
+]) {
   assert.ok(helper.includes(caseNumber), `shared staging fixture helper must pin ${caseNumber}`);
 }
+assert.match(
+  helper,
+  /caseNumber: "IBR-2026-000104"[\s\S]*?clientEmail: "client\.individual@example\.test"[\s\S]*?planCode: "LITE"[\s\S]*?assignLawyer: false/,
+  "E2E boundary fixture must be a CLIENT-owned LITE case that is intentionally unassigned",
+);
+assert.match(
+  helper,
+  /assignedLawyerId:\s*demoCase\.assignLawyer \? assignedLawyerId : null/,
+  "shared seeder must preserve the per-case lawyer assignment boundary",
+);
+assert.match(
+  helper,
+  /expectedAssignedLawyerId = expected\.assignLawyer \? assignedLawyerId : null/,
+  "fixture inspection must verify assigned and intentionally unassigned cases distinctly",
+);
 assert.match(helper, /PLATFORM_ROLE_CODES/, "shared fixture helper must derive platform roles from the domain contract");
 assert.match(helper, /AI_ASSISTANT/, "INDIVIDUAL reference fixture must preserve the AI assistant feature");
 assert.match(helper, /upsert\(/, "shared fixture helper must use idempotent targeted upserts");
@@ -109,6 +129,11 @@ assert.equal(
   demoSeed.includes("IBR-2026-000103"),
   false,
   "CLI demo wrapper must not duplicate demo case definitions",
+);
+assert.equal(
+  demoSeed.includes("IBR-2026-000104"),
+  false,
+  "CLI demo wrapper must not duplicate E2E boundary fixture definitions",
 );
 
 console.log("STAGING_DOMAIN_FIXTURE_ROUTE_CONTRACT_PASS");
