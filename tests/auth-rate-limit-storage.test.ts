@@ -47,7 +47,7 @@ const integerColumns = stagingVerifier.match(
 )?.[1] ?? "";
 assert.match(integerColumns, /\["rateLimit", "count"\]/);
 assert.match(integerColumns, /\["rateLimit", "lastRequest"\]/);
-assert.match(stagingVerifier, /hasUniqueIndex\("rateLimit", \["key"\]\)/);
+assert.match(stagingVerifier, /hasIndex\("rateLimit", \["key"\], true\)/);
 assert.match(stagingVerifier, /for \(const tableName of REQUIRED_TABLES\)/);
 
 console.log("AUTH_RATE_LIMIT_STORAGE_TEST_PASS");
