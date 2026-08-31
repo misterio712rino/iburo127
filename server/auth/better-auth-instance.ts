@@ -66,9 +66,6 @@ function createBetterAuthInstance() {
     secret: runtime.secret,
     baseURL: runtime.baseUrl,
     database: pool,
-    account: {
-      identityStrategy: "provider-id",
-    },
     rateLimit: {
       enabled: true,
       storage: "database",
