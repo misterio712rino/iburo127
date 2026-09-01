@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 
 const hubSource = await readFile(resolve("app/portal/cases/[caseId]/page.tsx"), "utf8");
 const clientFrameSource = await readFile(resolve("components/portal/ClientCaseFrame.tsx"), "utf8");
+const clientNavigationSource = await readFile(resolve("components/portal/ClientCaseNavigation.tsx"), "utf8");
 const progressSource = await readFile(resolve("app/portal/cases/[caseId]/progress/page.tsx"), "utf8");
 const activitySource = await readFile(resolve("app/portal/cases/[caseId]/activity/page.tsx"), "utf8");
 const questionnaireSource = await readFile(resolve("app/portal/cases/[caseId]/questionnaire/page.tsx"), "utf8");
@@ -31,8 +32,13 @@ assert.match(
 );
 assert.match(
   clientFrameSource,
+  /<ClientCaseNavigation caseId=\{caseId\}/,
+  "production client shell must render the shared demo-style navigation",
+);
+assert.match(
+  clientNavigationSource,
   /Главная[\s\S]*Практикум[\s\S]*Анкета[\s\S]*Документы[\s\S]*Мой прогресс[\s\S]*AI-помощник[\s\S]*Профиль/,
-  "production client shell must retain the approved demo-style navigation hierarchy",
+  "production client navigation must retain the approved demo-style hierarchy",
 );
 assert.match(
   clientFrameSource,
