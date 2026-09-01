@@ -236,10 +236,10 @@ assert.match(coreSource, /Better Auth runtime config: staging origin identity ve
 const storageVerifierSource = await readFile(resolve("scripts/verify-staging-object-storage.ts"), "utf8");
 const storageGuardIndex = storageVerifierSource.indexOf("assertStagingStorageTarget()");
 const s3ClientIndex = storageVerifierSource.indexOf("new S3Client(");
-const storagePassIndex = storageVerifierSource.indexOf("STAGING_OBJECT_STORAGE_VERIFY_PASS");
+const storagePassIndex = storageVerifierSource.lastIndexOf("STAGING_OBJECT_STORAGE_VERIFY_PASS");
 assert.ok(storageGuardIndex >= 0, "staging storage verifier must assert storage target identity");
 assert.ok(s3ClientIndex > storageGuardIndex, "storage target identity must be asserted before S3 network client creation");
-assert.ok(storagePassIndex > s3ClientIndex, "storage PASS marker must remain after guarded S3 verification");
+assert.ok(storagePassIndex > s3ClientIndex, "Yandex storage PASS marker must remain after guarded S3 verification");
 
 const mutationPreflightSource = await readFile(resolve("scripts/staging-mutation-preflight.ts"), "utf8");
 const mutationRuntimeGuardIndex = mutationPreflightSource.indexOf('env.IB_RUNTIME_TARGET?.trim() !== "staging"');
