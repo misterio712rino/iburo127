@@ -45,6 +45,10 @@ const EXPECTED_INDEXES = [
   "PotentialClientLead_status_lastSeenAt_idx",
   "PotentialClientLead_contactType_lastSeenAt_idx",
 ] as const;
+const EXPECTED_ENUMS = [
+  "PotentialClientLeadContactType",
+  "PotentialClientLeadStatus",
+] as const;
 
 const NO_STORE_HEADERS = {
   "Cache-Control": "private, no-store, max-age=0",
@@ -61,16 +65,26 @@ type FailureStage =
   | "begin"
   | "lock"
   | "identity"
-  | "history-count"
-  | "history-name"
-  | "history-finished"
-  | "history-rolled-back"
-  | "history-steps"
+  | "history-baseline"
   | "schema-baseline"
   | "migration"
   | "history-write"
   | "verification"
   | "commit";
+
+type MigrationHistoryRow = {
+  migration_name: string;
+  checksum: string;
+  finished_at: Date | null;
+  rolled_back_at: Date | null;
+  applied_steps_count: number;
+};
+
+type SchemaArtifacts = {
+  tableExists: boolean;
+  enums: string[];
+  indexes: string[];
+};
 
 function safeJson(status: number, body: Record<string, unknown>) {
   return Response.json(body, { status, headers: NO_STORE_HEADERS });
@@ -105,20 +119,14 @@ function migrationChecksum(): string {
 }
 
 async function readAppliedHistory(client: PoolClient) {
-  return client.query<{
-    migration_name: string;
-    checksum: string;
-    finished_at: Date | null;
-    rolled_back_at: Date | null;
-    applied_steps_count: number;
-  }>(`
+  return client.query<MigrationHistoryRow>(`
     select migration_name, checksum, finished_at, rolled_back_at, applied_steps_count
     from public."_prisma_migrations"
     order by started_at, migration_name
   `);
 }
 
-async function schemaArtifacts(client: PoolClient) {
+async function schemaArtifacts(client: PoolClient): Promise<SchemaArtifacts> {
   const table = await client.query<{ exists: boolean }>(`
     select to_regclass('public."PotentialClientLead"') is not null as exists
   `);
@@ -129,7 +137,7 @@ async function schemaArtifacts(client: PoolClient) {
     where n.nspname = 'public'
       and t.typname = any($1::text[])
     order by t.typname
-  `, [["PotentialClientLeadContactType", "PotentialClientLeadStatus"]]);
+  `, [[...EXPECTED_ENUMS]]);
   const indexes = await client.query<{ indexname: string }>(`
     select indexname
     from pg_indexes
@@ -142,6 +150,50 @@ async function schemaArtifacts(client: PoolClient) {
     enums: enums.rows.map((row) => row.name),
     indexes: indexes.rows.map((row) => row.indexname),
   };
+}
+
+function artifactsReady(artifacts: SchemaArtifacts): boolean {
+  return (
+    artifacts.tableExists &&
+    [...artifacts.enums].sort().join(",") === [...EXPECTED_ENUMS].sort().join(",") &&
+    [...artifacts.indexes].sort().join(",") === [...EXPECTED_INDEXES].sort().join(",")
+  );
+}
+
+function validAppliedMigration(row: MigrationHistoryRow | undefined, name: string): boolean {
+  return Boolean(
+    row &&
+      row.migration_name === name &&
+      row.finished_at &&
+      !row.rolled_back_at &&
+      Number.isInteger(row.applied_steps_count) &&
+      row.applied_steps_count >= 0,
+  );
+}
+
+function successResponse(input: {
+  sha: string;
+  database: string;
+  alreadyApplied: boolean;
+}) {
+  return safeJson(200, {
+    service: "iburo127",
+    operation: "staging-access-gate-migrate",
+    environment: "preview",
+    branch: VERCEL_STAGING_BRANCH,
+    commitSha: input.sha,
+    runtimeTarget: "staging",
+    database: input.database,
+    migration: MIGRATION_NAME,
+    migrationChecksum: EXPECTED_SQL_SHA256,
+    migrationCount: 2,
+    tableReady: true,
+    enumsReady: true,
+    indexesReady: true,
+    alreadyApplied: input.alreadyApplied,
+    valuesPrinted: false,
+    pass: true,
+  });
 }
 
 export async function POST(request: Request) {
@@ -195,22 +247,42 @@ export async function POST(request: Request) {
       throw new Error("identity mismatch");
     }
 
+    failureStage = "history-baseline";
     const history = await readAppliedHistory(client);
-    failureStage = "history-count";
-    if (history.rows.length !== 1) throw new Error("unexpected migration count");
-    const baseline = history.rows[0]!;
-    failureStage = "history-name";
-    if (baseline.migration_name !== EXPECTED_INITIAL_MIGRATION) throw new Error("unexpected migration name");
-    failureStage = "history-finished";
-    if (!baseline.finished_at) throw new Error("baseline is unfinished");
-    failureStage = "history-rolled-back";
-    if (baseline.rolled_back_at) throw new Error("baseline is rolled back");
-    failureStage = "history-steps";
-    if (baseline.applied_steps_count !== 1) throw new Error("unexpected baseline applied step count");
+    const artifactsBefore = await schemaArtifacts(client);
+    const baseline = history.rows.find((row) => row.migration_name === EXPECTED_INITIAL_MIGRATION);
+    const accessGateMigration = history.rows.find((row) => row.migration_name === MIGRATION_NAME);
+
+    if (
+      history.rows.length === 2 &&
+      validAppliedMigration(baseline, EXPECTED_INITIAL_MIGRATION) &&
+      validAppliedMigration(accessGateMigration, MIGRATION_NAME) &&
+      accessGateMigration?.checksum === EXPECTED_SQL_SHA256 &&
+      artifactsReady(artifactsBefore)
+    ) {
+      await client.query("ROLLBACK");
+      transactionOpen = false;
+      return successResponse({
+        sha,
+        database: target.expectedDatabaseName,
+        alreadyApplied: true,
+      });
+    }
+
+    if (
+      history.rows.length !== 1 ||
+      !validAppliedMigration(baseline, EXPECTED_INITIAL_MIGRATION) ||
+      accessGateMigration
+    ) {
+      throw new Error("unexpected migration baseline");
+    }
 
     failureStage = "schema-baseline";
-    const before = await schemaArtifacts(client);
-    if (before.tableExists || before.enums.length !== 0 || before.indexes.length !== 0) {
+    if (
+      artifactsBefore.tableExists ||
+      artifactsBefore.enums.length !== 0 ||
+      artifactsBefore.indexes.length !== 0
+    ) {
       throw new Error("lead schema is not clean");
     }
 
@@ -228,28 +300,18 @@ export async function POST(request: Request) {
 
     failureStage = "verification";
     const after = await schemaArtifacts(client);
-    if (!after.tableExists) throw new Error("lead table missing after migration");
-    if (
-      after.enums.join(",") !==
-      ["PotentialClientLeadContactType", "PotentialClientLeadStatus"].sort().join(",")
-    ) {
-      throw new Error("lead enums incomplete");
-    }
-    if (
-      [...EXPECTED_INDEXES].sort().join(",") !== [...after.indexes].sort().join(",")
-    ) {
-      throw new Error("lead indexes incomplete");
-    }
+    if (!artifactsReady(after)) throw new Error("lead schema verification failed");
 
     const updatedHistory = await readAppliedHistory(client);
+    const newBaseline = updatedHistory.rows.find(
+      (row) => row.migration_name === EXPECTED_INITIAL_MIGRATION,
+    );
     const newEntry = updatedHistory.rows.find((row) => row.migration_name === MIGRATION_NAME);
     if (
       updatedHistory.rows.length !== 2 ||
-      !newEntry ||
-      newEntry.checksum !== EXPECTED_SQL_SHA256 ||
-      !newEntry.finished_at ||
-      newEntry.rolled_back_at ||
-      newEntry.applied_steps_count !== 1
+      !validAppliedMigration(newBaseline, EXPECTED_INITIAL_MIGRATION) ||
+      !validAppliedMigration(newEntry, MIGRATION_NAME) ||
+      newEntry?.checksum !== EXPECTED_SQL_SHA256
     ) {
       throw new Error("migration history verification failed");
     }
@@ -258,22 +320,10 @@ export async function POST(request: Request) {
     await client.query("COMMIT");
     transactionOpen = false;
 
-    return safeJson(200, {
-      service: "iburo127",
-      operation: "staging-access-gate-migrate",
-      environment: "preview",
-      branch: VERCEL_STAGING_BRANCH,
-      commitSha: sha,
-      runtimeTarget: "staging",
+    return successResponse({
+      sha,
       database: target.expectedDatabaseName,
-      migration: MIGRATION_NAME,
-      migrationChecksum: EXPECTED_SQL_SHA256,
-      migrationCount: 2,
-      tableReady: true,
-      enumsReady: true,
-      indexesReady: true,
-      valuesPrinted: false,
-      pass: true,
+      alreadyApplied: false,
     });
   } catch {
     if (transactionOpen && client) {
