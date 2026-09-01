@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Bell, ClipboardList, House, KeyRound, ShieldCheck, UserRound } from "lucide-react";
+import { Bell, ClipboardList, House, KeyRound, ShieldCheck, UserRound, Users } from "lucide-react";
 import { IBuroBrand } from "@/components/platform/IBuroBrand";
 import { SignOutButton } from "@/components/platform/auth/SignOutButton";
 
@@ -11,11 +11,13 @@ export function PortalFrame({
   sectionLabel,
   accessLabel = "Сессия подтверждена",
   showStaffTasks = false,
+  showProspectLeads = false,
 }: {
   children: ReactNode;
   sectionLabel: string;
   accessLabel?: string;
   showStaffTasks?: boolean;
+  showProspectLeads?: boolean;
 }) {
   return (
     <div className="platform-shell mx-auto min-h-screen w-full max-w-7xl px-5 py-6 sm:px-8 sm:py-8 [&_button]:min-h-11 [&_a]:min-h-11">
@@ -62,6 +64,12 @@ export function PortalFrame({
           <Link href="/portal/tasks" className={NAV_LINK_CLASS}>
             <ClipboardList className="size-4" aria-hidden="true" />
             Задачи
+          </Link>
+        ) : null}
+        {showProspectLeads ? (
+          <Link href="/portal/leads" className={NAV_LINK_CLASS}>
+            <Users className="size-4" aria-hidden="true" />
+            Потенциальные клиенты
           </Link>
         ) : null}
       </nav>

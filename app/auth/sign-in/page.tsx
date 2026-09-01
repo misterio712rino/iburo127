@@ -8,10 +8,10 @@ export default function SignInPage() {
         <div className="mb-8">
           <IBuroBrand className="font-[var(--font-iburo-display)] text-4xl font-semibold tracking-tight" dot />
           <h1 className="mt-7 font-[var(--font-iburo-display)] text-4xl font-semibold leading-none text-slate-900">
-            Вход в личный кабинет
+            Вход в приложение
           </h1>
           <p className="mt-3 text-sm leading-6 text-slate-500">
-            Используйте учётные данные, выданные iБюро. Самостоятельная регистрация отключена.
+            Введите телефон или электронную почту, которые вы указывали при покупке программы iБюро. Самостоятельная регистрация отключена.
           </p>
         </div>
 

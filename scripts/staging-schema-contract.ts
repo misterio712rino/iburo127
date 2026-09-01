@@ -18,6 +18,7 @@ export const REQUIRED_STAGING_DOMAIN_TABLES = [
   "Notification",
   "NotificationDelivery",
   "StoredFile",
+  "PotentialClientLead",
 ] as const;
 
 export const REQUIRED_STAGING_ENUMS = [
@@ -30,6 +31,8 @@ export const REQUIRED_STAGING_ENUMS = [
   "StoredFileStatus",
   "NotificationDeliveryChannel",
   "NotificationDeliveryStatus",
+  "PotentialClientLeadContactType",
+  "PotentialClientLeadStatus",
 ] as const;
 
 export const REQUIRED_STORED_FILE_STATUS_VALUES = [

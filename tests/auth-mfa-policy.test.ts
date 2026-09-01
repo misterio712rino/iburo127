@@ -7,6 +7,11 @@ import type {
   SessionProvider,
 } from "@/server/auth/contracts";
 import {
+  issueAccessChallenge,
+  normalizeAccessIdentifier,
+  verifyAccessChallenge,
+} from "@/server/auth/access-gate-core";
+import {
   requiresStaffMfa,
   StaffMfaEnforcingSessionProvider,
 } from "@/server/auth/staff-mfa-policy";
@@ -37,6 +42,49 @@ assert.doesNotMatch(
   productionConfigSource,
   /parsed\.protocol === "https:" \|\| parsed\.hostname === "localhost"/,
   "localhost must not bypass the Better Auth protocol check",
+);
+
+const betterAuthSource = await readFile(resolve("server/auth/better-auth-instance.ts"), "utf8");
+const signInFormSource = await readFile(resolve("components/platform/auth/SignInForm.tsx"), "utf8");
+const rootPageSource = await readFile(resolve("app/(public)/page.tsx"), "utf8");
+const schemaSource = await readFile(resolve("prisma/schema.prisma"), "utf8");
+assert.match(betterAuthSource, /disableSignUp:\s*true/, "self-service registration must remain disabled");
+assert.doesNotMatch(signInFormSource, /Зарегистр/i, "sign-in UI must not expose a registration action");
+assert.match(signInFormSource, /Телефон или электронная почта/);
+assert.match(signInFormSource, /https:\/\/iburo127\.ru\//);
+assert.match(rootPageSource, /redirect\("\/auth\/sign-in"\)/);
+assert.match(schemaSource, /model PotentialClientLead/);
+
+const emailIdentifier = normalizeAccessIdentifier("  Client@Example.Test ");
+assert.deepEqual(emailIdentifier, {
+  type: "EMAIL",
+  normalized: "client@example.test",
+  contactKey: "email:client@example.test",
+  email: "client@example.test",
+  phone: null,
+});
+const phoneIdentifier = normalizeAccessIdentifier("8 (999) 123-45-67");
+assert.equal(phoneIdentifier.type, "PHONE");
+assert.equal(phoneIdentifier.normalized, "+79991234567");
+assert.throws(() => normalizeAccessIdentifier("not-a-contact"));
+
+const challengeSecret = "access-gate-contract-secret-0123456789";
+const nowMs = Date.UTC(2026, 8, 1, 12, 0, 0);
+const challenge = issueAccessChallenge({
+  userId: "12700000-9901-4000-8000-000000000001",
+  secret: challengeSecret,
+  nowMs,
+  ttlSeconds: 300,
+});
+assert.equal(
+  verifyAccessChallenge({ challenge, secret: challengeSecret, nowMs: nowMs + 60_000 }).sub,
+  "12700000-9901-4000-8000-000000000001",
+);
+assert.throws(() =>
+  verifyAccessChallenge({ challenge, secret: challengeSecret, nowMs: nowMs + 301_000 }),
+);
+assert.throws(() =>
+  verifyAccessChallenge({ challenge: `${challenge}x`, secret: challengeSecret, nowMs }),
 );
 
 class StaticSessionProvider implements SessionProvider {
@@ -89,4 +137,4 @@ const unknownProvider = new StaffMfaEnforcingSessionProvider(
 );
 assert.equal(await unknownProvider.getSession(), null);
 
-console.log("auth MFA policy tests: PASS");
+console.log("auth MFA and access-gate policy tests: PASS");
