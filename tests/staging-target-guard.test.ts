@@ -27,7 +27,7 @@ const baseEnv: Record<string, string | undefined> = {
 };
 
 assert.deepEqual(requireStagingDatabaseTarget(baseEnv), {
-  databaseUrl: baseEnv.DATABASE_URL,
+  databaseUrl: stagingDatabaseUrl.replace("sslmode=require", "sslmode=verify-full"),
   expectedDatabaseName: "iburo_staging",
   expectedHost: "staging.pg.example.net",
   expectedUser: "iburo_staging_user",
