@@ -31,7 +31,12 @@ const clientCookie = required("IB_STAGING_CLIENT_COOKIE");
 const lawyerCookie = required("IB_STAGING_LAWYER_COOKIE");
 const managerCookie = required("IB_STAGING_MANAGER_COOKIE");
 const clientCaseNumber = required("IB_STAGING_CLIENT_CASE_NUMBER");
+const clientUnassignedCaseNumber = required("IB_STAGING_CLIENT_UNASSIGNED_CASE_NUMBER");
 const lawyerCaseNumber = required("IB_STAGING_LAWYER_CASE_NUMBER");
+
+if (clientUnassignedCaseNumber === lawyerCaseNumber) {
+  fail("CLIENT unassigned boundary case must differ from the LAWYER assigned case");
+}
 
 type JsonEnvelope<T> = {
   ok: boolean;
@@ -108,22 +113,28 @@ function hasCase(cases: CaseData[], caseNumber: string) {
 
 async function verifyCaseScopes() {
   const clientCases = await listCases("CLIENT", clientCookie);
-  if (!hasCase(clientCases, clientCaseNumber)) fail("CLIENT cannot see its staging case");
+  if (!hasCase(clientCases, clientCaseNumber)) fail("CLIENT cannot see its primary staging case");
+  if (!hasCase(clientCases, clientUnassignedCaseNumber)) {
+    fail("CLIENT cannot see its unassigned boundary staging case");
+  }
   if (hasCase(clientCases, lawyerCaseNumber) && lawyerCaseNumber !== clientCaseNumber) {
     fail("CLIENT can see the LAWYER-only staging case");
   }
 
   const lawyerCases = await listCases("LAWYER", lawyerCookie);
   if (!hasCase(lawyerCases, lawyerCaseNumber)) fail("LAWYER cannot see its assigned staging case");
-  if (hasCase(lawyerCases, clientCaseNumber) && clientCaseNumber !== lawyerCaseNumber) {
+  if (hasCase(lawyerCases, clientUnassignedCaseNumber)) {
     fail("LAWYER can see an unassigned CLIENT-only staging case");
   }
 
   const managerCases = await listCases("MANAGER", managerCookie);
-  if (!hasCase(managerCases, clientCaseNumber)) fail("MANAGER cannot see CLIENT staging case");
+  if (!hasCase(managerCases, clientCaseNumber)) fail("MANAGER cannot see CLIENT primary staging case");
+  if (!hasCase(managerCases, clientUnassignedCaseNumber)) {
+    fail("MANAGER cannot see CLIENT unassigned staging case");
+  }
   if (!hasCase(managerCases, lawyerCaseNumber)) fail("MANAGER cannot see LAWYER staging case");
 
-  console.log("CASE_SCOPES: CLIENT/Lawyer/Manager visibility verified through HTTP API");
+  console.log("CASE_SCOPES: CLIENT/LAWYER/MANAGER visibility verified through HTTP API");
 }
 
 async function verifyClientCannotUseStaffTasks() {
