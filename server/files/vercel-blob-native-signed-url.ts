@@ -1,5 +1,3 @@
-import "server-only";
-
 import type { VercelBlobSdkCredentialOptions } from "@/server/files/vercel-blob-driver-auth";
 import type {
   VercelBlobSignedUrlDependencies,
@@ -262,6 +260,10 @@ async function nativePresignUrl(
  * @vercel/blob@2.8.0 upstream tag. Uses only Node 24 native fetch/WebCrypto.
  * This keeps the runtime dependency-free until the audited SDK lockfile can be
  * materialized through normal package-manager tooling.
+ *
+ * The module deliberately has no `server-only` package import so its pure
+ * signing contract can run under the Node foundation suite. Its only runtime
+ * consumer, object-storage-runtime.ts, remains guarded by `server-only`.
  */
 export function createVercelBlobNativeSignedUrlDependencies(): VercelBlobSignedUrlDependencies {
   return {
