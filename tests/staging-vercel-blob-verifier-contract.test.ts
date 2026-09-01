@@ -9,6 +9,7 @@ import { verifyVercelBlobStagingAccess } from "../scripts/staging-vercel-blob-ve
 const commitSha = "17833cfeef245e756202011f0d5201fa94fdf69e";
 const tokenValue = "vercel_blob_rw_abcd1234_test-secret-value";
 const env = {
+  IB_OBJECT_STORAGE_PROVIDER: VERCEL_BLOB_STORAGE_PROVIDER,
   VERCEL_ENV: "preview",
   VERCEL_GIT_COMMIT_REF: "audit/production-readiness",
   VERCEL_GIT_COMMIT_SHA: commitSha,
