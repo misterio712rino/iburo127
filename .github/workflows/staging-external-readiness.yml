@@ -73,7 +73,22 @@ jobs:
             if [ "$status" = "200" ]; then
               break
             fi
-            echo "Waiting for exact Preview migration endpoint (attempt ${attempt}/24, status=${status:-network})"
+            failure_stage="$(node --input-type=module - "$response_file" <<'NODE'
+          import { readFile } from "node:fs/promises";
+          const allowed = new Set([
+            "preview-boundary", "target", "confirmation", "connect", "begin", "lock",
+            "identity", "history-baseline", "schema-baseline", "migration",
+            "history-write", "verification", "commit"
+          ]);
+          try {
+            const body = JSON.parse(await readFile(process.argv[2], "utf8"));
+            process.stdout.write(allowed.has(body.failureStage) ? body.failureStage : "unavailable");
+          } catch {
+            process.stdout.write("unavailable");
+          }
+          NODE
+          )"
+            echo "Waiting for exact Preview migration endpoint (attempt ${attempt}/24, status=${status:-network}, stage=${failure_stage})"
             sleep 10
           done
           if [ "$status" != "200" ]; then
