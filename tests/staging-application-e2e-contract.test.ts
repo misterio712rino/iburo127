@@ -10,6 +10,47 @@ import {
   requireStagingHttpTarget,
   STAGING_HTTP_TARGET_GUARD,
 } from "../scripts/staging-http-target-guard";
+import {
+  isVercelPreviewBackendAllowed,
+  VERCEL_STAGING_CONFIRMATION,
+} from "../server/config/vercel-preview-boundary";
+
+const previewCommitSha = "a".repeat(40);
+const previewBoundaryEnv = {
+  VERCEL_ENV: "preview",
+  VERCEL_GIT_COMMIT_REF: "audit/production-readiness",
+  VERCEL_GIT_COMMIT_SHA: previewCommitSha,
+  IB_RUNTIME_TARGET: "staging",
+  IB_VERCEL_PREVIEW_BACKEND_CONFIRM: VERCEL_STAGING_CONFIRMATION,
+};
+assert.equal(
+  isVercelPreviewBackendAllowed(previewBoundaryEnv),
+  true,
+  "Preview backend confirmation must be stable for the staging branch and must not require manual SHA rebinding",
+);
+assert.equal(
+  isVercelPreviewBackendAllowed({
+    ...previewBoundaryEnv,
+    IB_VERCEL_PREVIEW_BACKEND_CONFIRM: `${VERCEL_STAGING_CONFIRMATION}:${previewCommitSha}`,
+  }),
+  false,
+  "legacy SHA-bound Preview confirmation must not become the active contract again",
+);
+assert.equal(
+  isVercelPreviewBackendAllowed({ ...previewBoundaryEnv, VERCEL_GIT_COMMIT_SHA: "not-a-sha" }),
+  false,
+  "Preview backend must still require a valid Vercel commit SHA",
+);
+assert.equal(
+  isVercelPreviewBackendAllowed({ ...previewBoundaryEnv, VERCEL_GIT_COMMIT_REF: "main" }),
+  false,
+  "Preview backend must remain restricted to the staging branch",
+);
+assert.equal(
+  isVercelPreviewBackendAllowed({ ...previewBoundaryEnv, IB_RUNTIME_TARGET: "production" }),
+  false,
+  "Preview backend must remain restricted to the staging runtime target",
+);
 
 const rfcSecret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
 assert.equal(generateTotp(rfcSecret, { timestampMs: 59_000, digits: 8 }), "94287082");

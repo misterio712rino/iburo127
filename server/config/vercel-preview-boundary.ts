@@ -18,7 +18,7 @@ export function isVercelPreviewBackendAllowed(env: EnvironmentLike = process.env
     env.VERCEL_GIT_COMMIT_REF?.trim() === VERCEL_STAGING_BRANCH &&
     env.IB_RUNTIME_TARGET?.trim() === "staging" &&
     env.IB_VERCEL_PREVIEW_BACKEND_CONFIRM?.trim().toLowerCase() ===
-      `${VERCEL_STAGING_CONFIRMATION}:${commitSha}`.toLowerCase()
+      VERCEL_STAGING_CONFIRMATION.toLowerCase()
   );
 }
 
