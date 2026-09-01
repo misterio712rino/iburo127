@@ -1,5 +1,7 @@
 import "server-only";
 
+import { stabilizePostgresSslMode } from "@/lib/database/postgres-ssl";
+
 export const DATABASE_CONFIG_ERROR = "DATABASE_CONFIG_ERROR";
 
 function fail(): never {
@@ -23,5 +25,5 @@ export function readPostgresDatabaseUrl(
   if (!parsed.hostname || parsed.pathname === "/" || parsed.pathname === "") fail();
   if (parsed.hash) fail();
 
-  return databaseUrl;
+  return stabilizePostgresSslMode(databaseUrl);
 }

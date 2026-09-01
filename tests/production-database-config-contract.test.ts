@@ -1,11 +1,37 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import {
+  POSTGRES_EXPLICIT_STRICT_SSL_MODE,
+  stabilizePostgresSslMode,
+} from "../lib/database/postgres-ssl";
 
 const guard = await readFile(resolve("server/database/database-url.ts"), "utf8");
 const productionConfig = await readFile(resolve("server/config/production.ts"), "utf8");
 const prismaRuntime = await readFile(resolve("server/database/prisma.ts"), "utf8");
 const betterAuthRuntime = await readFile(resolve("server/auth/better-auth-instance.ts"), "utf8");
+const stagingTargetGuard = await readFile(resolve("scripts/staging-target-guard.ts"), "utf8");
+
+assert.equal(POSTGRES_EXPLICIT_STRICT_SSL_MODE, "verify-full");
+for (const legacyMode of ["prefer", "require", "verify-ca", "REQUIRE"]) {
+  const normalized = stabilizePostgresSslMode(
+    `postgresql://user:pass@db.example.com/app?sslmode=${legacyMode}&application_name=iburo`,
+  );
+  const parsed = new URL(normalized);
+  assert.equal(parsed.searchParams.get("sslmode"), "verify-full");
+  assert.equal(parsed.searchParams.get("application_name"), "iburo");
+}
+for (const stableUrl of [
+  "postgresql://user:pass@db.example.com/app?sslmode=verify-full",
+  "postgresql://user:pass@db.example.com/app?sslmode=disable",
+  "postgresql://user:pass@db.example.com/app",
+]) {
+  assert.equal(
+    stabilizePostgresSslMode(stableUrl),
+    stableUrl,
+    "non-legacy SSL modes must not be rewritten",
+  );
+}
 
 assert.match(guard, /DATABASE_URL\?\.trim\(\)/);
 assert.match(guard, /\[\\r\\n\\0\]/);
@@ -15,6 +41,7 @@ assert.match(guard, /parsed\.protocol !== "postgres:"/);
 assert.match(guard, /!parsed\.hostname/);
 assert.match(guard, /parsed\.pathname === "\/"/);
 assert.match(guard, /parsed\.hash/);
+assert.match(guard, /stabilizePostgresSslMode\(databaseUrl\)/);
 
 assert.match(productionConfig, /readPostgresDatabaseUrl/);
 assert.match(
@@ -41,5 +68,12 @@ assert.ok(
   "validated production database config must be read before Better Auth pg.Pool construction",
 );
 assert.doesNotMatch(betterAuthRuntime, /process\.env\.DATABASE_URL/);
+
+assert.match(stagingTargetGuard, /stabilizePostgresSslMode/);
+assert.match(
+  stagingTargetGuard,
+  /databaseUrl:\s*stabilizePostgresSslMode\(databaseUrl\)/,
+  "staging DB consumers must preserve pg@8 strict TLS semantics without rewriting staging env",
+);
 
 console.log("PRODUCTION_DATABASE_CONFIG_CONTRACT_PASS");

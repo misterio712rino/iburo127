@@ -1,3 +1,5 @@
+import { stabilizePostgresSslMode } from "@/lib/database/postgres-ssl";
+
 export type Environment = Readonly<Record<string, string | undefined>>;
 
 export type StagingDatabaseTarget = {
@@ -53,7 +55,12 @@ export function requireStagingDatabaseTarget(env: Environment = process.env): St
     throw new Error("DATABASE_URL user does not match IB_STAGING_DATABASE_USER");
   }
 
-  return { databaseUrl, expectedDatabaseName, expectedHost, expectedUser };
+  return {
+    databaseUrl: stabilizePostgresSslMode(databaseUrl),
+    expectedDatabaseName,
+    expectedHost,
+    expectedUser,
+  };
 }
 
 export function requireStagingMutationConfirmation(
