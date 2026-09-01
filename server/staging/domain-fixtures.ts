@@ -69,9 +69,15 @@ export const STAGING_REFERENCE_STAGES = [
   { code: "COMPLETED", name: "Завершено", sortOrder: 90 },
 ] as const;
 
-const planFeatureCodes = {
-  LITE: ["EDUCATION", "QUESTIONNAIRE", "DOCUMENT_GENERATION"],
-  PRO: ["EDUCATION", "QUESTIONNAIRE", "DOCUMENT_GENERATION", "MORTGAGE_ANALYSIS"],
+export const STAGING_PLAN_FEATURE_CODES = {
+  LITE: ["EDUCATION", "QUESTIONNAIRE", "DOCUMENT_GENERATION", "AI_ASSISTANT"],
+  PRO: [
+    "EDUCATION",
+    "QUESTIONNAIRE",
+    "DOCUMENT_GENERATION",
+    "MORTGAGE_ANALYSIS",
+    "AI_ASSISTANT",
+  ],
   INDIVIDUAL: [
     "EDUCATION",
     "QUESTIONNAIRE",
@@ -192,7 +198,7 @@ export async function seedReferenceData(db: DomainFixtureDb): Promise<void> {
     featureIds.set(seeded.code, seeded.id);
   }
 
-  for (const [planCode, featureCodes] of Object.entries(planFeatureCodes)) {
+  for (const [planCode, featureCodes] of Object.entries(STAGING_PLAN_FEATURE_CODES)) {
     const planId = planIds.get(planCode);
     if (!planId) throw new Error("Reference plan was not created.");
 

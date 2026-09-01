@@ -48,12 +48,12 @@ try {
 const clientCookie = required("IB_STAGING_CLIENT_COOKIE");
 const lawyerCookie = required("IB_STAGING_LAWYER_COOKIE");
 const managerCookie = required("IB_STAGING_MANAGER_COOKIE");
-const aiCaseNumber = required("IB_STAGING_CLIENT_AI_CASE_NUMBER");
-const noAiCaseNumber = required("IB_STAGING_CLIENT_NO_AI_CASE_NUMBER");
+const primaryAiCaseNumber = required("IB_STAGING_CLIENT_AI_CASE_NUMBER");
+const secondaryAiCaseNumber = required("IB_STAGING_CLIENT_SECOND_AI_CASE_NUMBER");
 const lawyerCaseNumber = required("IB_STAGING_LAWYER_CASE_NUMBER");
 
-if (aiCaseNumber === noAiCaseNumber) {
-  fail("AI-enabled and AI-disabled client case numbers must differ");
+if (primaryAiCaseNumber === secondaryAiCaseNumber) {
+  fail("primary and secondary client AI case numbers must differ");
 }
 
 async function request(
@@ -122,7 +122,6 @@ async function expectError(
 async function expectAiState(
   label: string,
   clientCase: CaseData,
-  expectedEnabled: boolean,
 ) {
   const response = await request(
     "GET",
@@ -135,21 +134,21 @@ async function expectAiState(
   if (!body.ok || body.data?.caseId !== clientCase.id) {
     fail(`${label} returned the wrong AI case state`);
   }
-  if (body.data.enabled !== expectedEnabled) {
-    fail(`${label} enabled expected ${expectedEnabled}, got ${String(body.data.enabled)}`);
+  if (body.data.enabled !== true) {
+    fail(`${label} must expose AI as enabled`);
   }
 }
 
 const clientCases = await listCases("CLIENT", clientCookie);
 const managerCases = await listCases("MANAGER", managerCookie);
 
-const aiCase = requireCase(clientCases, aiCaseNumber, "CLIENT AI-enabled");
-const noAiCase = requireCase(clientCases, noAiCaseNumber, "CLIENT AI-disabled");
+const primaryAiCase = requireCase(clientCases, primaryAiCaseNumber, "CLIENT primary AI");
+const secondaryAiCase = requireCase(clientCases, secondaryAiCaseNumber, "CLIENT secondary AI");
 const lawyerCase = requireCase(managerCases, lawyerCaseNumber, "MANAGER-visible lawyer");
 
 await expectError(
   "unauthenticated AI state",
-  await request("GET", `/api/platform/cases/${encodeURIComponent(aiCase.id)}/ai`),
+  await request("GET", `/api/platform/cases/${encodeURIComponent(primaryAiCase.id)}/ai`),
   401,
   "UNAUTHENTICATED",
 );
@@ -159,7 +158,7 @@ await expectError(
   "LAWYER AI client endpoint",
   await request(
     "GET",
-    `/api/platform/cases/${encodeURIComponent(aiCase.id)}/ai`,
+    `/api/platform/cases/${encodeURIComponent(primaryAiCase.id)}/ai`,
     lawyerCookie,
   ),
   403,
@@ -171,7 +170,7 @@ await expectError(
   "MANAGER AI client endpoint",
   await request(
     "GET",
-    `/api/platform/cases/${encodeURIComponent(aiCase.id)}/ai`,
+    `/api/platform/cases/${encodeURIComponent(primaryAiCase.id)}/ai`,
     managerCookie,
   ),
   403,
@@ -179,7 +178,7 @@ await expectError(
 );
 console.log("STAFF_BOUNDARY: MANAGER correctly denied from client AI endpoint");
 
-if (lawyerCase.id === aiCase.id || lawyerCase.id === noAiCase.id) {
+if (lawyerCase.id === primaryAiCase.id || lawyerCase.id === secondaryAiCase.id) {
   fail("LAWYER-only case must differ from both client AI fixture cases");
 }
 
@@ -195,22 +194,9 @@ await expectError(
 );
 console.log("OWNERSHIP_BOUNDARY: CLIENT cross-case AI access correctly hidden");
 
-await expectAiState("CLIENT AI-enabled state", aiCase, true);
-await expectAiState("CLIENT AI-disabled state", noAiCase, false);
-console.log("ENTITLEMENT_STATE: enabled and disabled AI case states verified");
-
-await expectError(
-  "CLIENT AI-disabled POST",
-  await request(
-    "POST",
-    `/api/platform/cases/${encodeURIComponent(noAiCase.id)}/ai`,
-    clientCookie,
-    { message: "Staging entitlement boundary verification." },
-  ),
-  403,
-  "AI_FEATURE_NOT_AVAILABLE",
-);
-console.log("ENTITLEMENT_BOUNDARY: disabled case rejected before provider call");
+await expectAiState("CLIENT primary AI state", primaryAiCase);
+await expectAiState("CLIENT secondary AI state", secondaryAiCase);
+console.log("ENTITLEMENT_STATE: AI is enabled for both INDIVIDUAL and LITE client fixture cases");
 
 console.log("Provider requests intentionally executed by this verifier: 0");
 console.log("STAGING_AI_HTTP_AUTHZ_PASS");

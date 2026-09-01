@@ -34,10 +34,10 @@ jobs:
       IB_STAGING_CLIENT_EMAIL: client.individual@example.test
       IB_STAGING_LAWYER_EMAIL: lawyer.demo@example.test
       IB_STAGING_MANAGER_EMAIL: manager.demo@example.test
-      IB_STAGING_CLIENT_CASE_NUMBER: IBR-2026-000104
+      IB_STAGING_CLIENT_CASE_NUMBER: IBR-2026-000103
       IB_STAGING_LAWYER_CASE_NUMBER: IBR-2026-000102
       IB_STAGING_CLIENT_AI_CASE_NUMBER: IBR-2026-000103
-      IB_STAGING_CLIENT_NO_AI_CASE_NUMBER: IBR-2026-000104
+      IB_STAGING_CLIENT_SECOND_AI_CASE_NUMBER: IBR-2026-000104
       IB_STAGING_MUTATION_TARGET: staging
       IB_STAGING_MUTATION_CONFIRM: MUTATE:iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
       IB_STAGING_MUTATION_CASE_NUMBER: IBR-2026-009901
@@ -113,6 +113,42 @@ jobs:
                 process.exit(1);
               }
               console.log("STAGING_APPLICATION_E2E_IDENTITY_PASS");
+            '
+
+      - name: Reconcile guarded staging plan entitlements
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          curl --silent --show-error --fail-with-body \
+            -X POST \
+            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+            -H "Origin: $IB_STAGING_BASE_URL" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            --data-urlencode "confirm=SEED_DOMAIN_FIXTURES:${IB_STAGING_DATABASE_NAME}:public:${GITHUB_SHA}" \
+            "$IB_STAGING_BASE_URL/_iburo/staging-domain-fixtures" \
+          | node --input-type=module -e '
+              let input = "";
+              for await (const chunk of process.stdin) input += chunk;
+              const body = JSON.parse(input);
+              if (
+                body.service !== "iburo127" ||
+                body.operation !== "staging-domain-fixtures" ||
+                body.environment !== "preview" ||
+                body.branch !== "audit/production-readiness" ||
+                body.commitSha !== process.env.GITHUB_SHA ||
+                body.runtimeTarget !== "staging" ||
+                body.database !== process.env.IB_STAGING_DATABASE_NAME ||
+                body.schema !== "public" ||
+                body.reference?.pass !== true ||
+                body.demo?.pass !== true ||
+                body.pass !== true
+              ) {
+                console.error("STAGING_PLAN_ENTITLEMENT_RECONCILE_FAIL");
+                process.exit(1);
+              }
+              console.log("STAGING_PLAN_ENTITLEMENT_RECONCILE_PASS");
             '
 
       - name: Reset dedicated application E2E fixtures

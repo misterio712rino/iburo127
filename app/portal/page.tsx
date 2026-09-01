@@ -13,6 +13,7 @@ import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { getCaseProgressSummaryForActor } from "@/server/case-progress/operations";
 import { getCurrentPlatformActor } from "@/server/client-cases/operations";
 import { clientCaseService } from "@/server/client-cases/runtime";
+import type { ClientCaseRecord } from "@/server/domain/client-cases/contracts";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,30 @@ const ROLE_LABELS = {
   LAWYER: "Юрист",
   MANAGER: "Руководитель",
 } as const;
+
+const PLAN_PRIORITY: Readonly<Record<string, number>> = {
+  INDIVIDUAL: 30,
+  PRO: 20,
+  LITE: 10,
+};
+
+const STATUS_PRIORITY: Readonly<Record<ClientCaseRecord["status"], number>> = {
+  ACTIVE: 50,
+  DRAFT: 40,
+  PAUSED: 30,
+  COMPLETED: 20,
+  ARCHIVED: 10,
+};
+
+export function selectPrimaryClientCase(cases: readonly ClientCaseRecord[]) {
+  return [...cases].sort((left, right) => {
+    const statusDelta = STATUS_PRIORITY[right.status] - STATUS_PRIORITY[left.status];
+    if (statusDelta !== 0) return statusDelta;
+    const planDelta = (PLAN_PRIORITY[right.planCode] ?? 0) - (PLAN_PRIORITY[left.planCode] ?? 0);
+    if (planDelta !== 0) return planDelta;
+    return left.caseNumber.localeCompare(right.caseNumber, "ru");
+  })[0];
+}
 
 export default async function PortalPage() {
   const sessionProvider = createProductionSessionProvider();
@@ -40,6 +65,14 @@ export default async function PortalPage() {
   const clientOwnedCases = cases.filter(
     (clientCase) => resolveCasePortalAudience(actor, clientCase) === "CLIENT",
   );
+  const isClientOnly = actor.roles.includes("CLIENT") && !isStaff;
+
+  if (isClientOnly) {
+    const primaryClientCase = selectPrimaryClientCase(clientOwnedCases);
+    if (primaryClientCase) {
+      redirect(`/portal/cases/${primaryClientCase.id}`);
+    }
+  }
 
   const clientProgressEntries = await Promise.all(
     clientOwnedCases.map(async (clientCase) => [
@@ -48,22 +81,23 @@ export default async function PortalPage() {
     ] as const),
   );
   const clientProgressByCase = new Map(clientProgressEntries);
-  const primaryClientCase =
-    clientOwnedCases.find((clientCase) => clientCase.status === "ACTIVE") ?? clientOwnedCases[0];
+  const primaryClientCase = selectPrimaryClientCase(clientOwnedCases);
   const primaryNextAction = primaryClientCase
     ? clientProgressByCase.get(primaryClientCase.id)?.nextAction
     : undefined;
 
   return (
-    <PortalFrame sectionLabel="Личный кабинет" showStaffTasks={isStaff}>
+    <PortalFrame sectionLabel="Личный кабинет" showStaffTasks={isStaff} showProspectLeads={actor.roles.includes("MANAGER")}>
       <section className="py-10 sm:py-14">
         <div className="max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#7B2330]">iБюро · сопровождение дела</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#7B2330]">iБюро · рабочий кабинет</p>
           <h1 className="mt-4 font-[var(--font-iburo-display)] text-5xl font-semibold leading-none text-slate-900 sm:text-6xl">
-            Ваш личный кабинет
+            {isStaff ? "Рабочее пространство" : "Ваш личный кабинет"}
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-slate-500">
-            Здесь собраны ваши дела, текущие этапы, документы, обучение и уведомления. Состав разделов зависит от вашей роли и доступных дел.
+            {isStaff
+              ? "Здесь собраны доступные вам дела. Клиентские тарифы отображаются сотрудникам только как атрибут конкретного дела."
+              : "Когда активное дело будет создано, личный кабинет откроет его автоматически."}
           </p>
         </div>
 
@@ -99,7 +133,7 @@ export default async function PortalPage() {
       <section aria-labelledby="cases-heading" className="pb-12">
         <div className="mb-5 flex items-center gap-3">
           <BriefcaseBusiness className="size-5 text-slate-500" aria-hidden="true" />
-          <h2 id="cases-heading" className="text-lg font-bold text-slate-900">Ваши дела</h2>
+          <h2 id="cases-heading" className="text-lg font-bold text-slate-900">{isStaff ? "Доступные дела" : "Ваши дела"}</h2>
         </div>
 
         {cases.length ? (
