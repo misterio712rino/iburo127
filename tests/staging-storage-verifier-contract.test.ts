@@ -1,12 +1,41 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import {
+  OBJECT_STORAGE_PROVIDER_CONFIG_ERROR,
+  readPrivateObjectStorageProvider,
+  VERCEL_BLOB_STORAGE_PROVIDER,
+  YANDEX_OBJECT_STORAGE_PROVIDER,
+} from "../server/files/object-storage-provider";
 
 const verifierSource = await readFile(resolve("scripts/verify-staging-object-storage.ts"), "utf8");
 const guardSource = await readFile(resolve("scripts/staging-storage-target-guard.ts"), "utf8");
 const readinessRouteSource = await readFile(
   resolve("app/%5Fiburo/staging-external-readiness/route.ts"),
   "utf8",
+);
+const runtimeSource = await readFile(resolve("server/files/object-storage-runtime.ts"), "utf8");
+
+assert.equal(readPrivateObjectStorageProvider({}), YANDEX_OBJECT_STORAGE_PROVIDER);
+assert.equal(
+  readPrivateObjectStorageProvider({ IB_OBJECT_STORAGE_PROVIDER: YANDEX_OBJECT_STORAGE_PROVIDER }),
+  YANDEX_OBJECT_STORAGE_PROVIDER,
+);
+assert.equal(
+  readPrivateObjectStorageProvider({ IB_OBJECT_STORAGE_PROVIDER: VERCEL_BLOB_STORAGE_PROVIDER }),
+  VERCEL_BLOB_STORAGE_PROVIDER,
+);
+assert.throws(
+  () => readPrivateObjectStorageProvider({ IB_OBJECT_STORAGE_PROVIDER: "unexpected-provider" }),
+  new RegExp(`${OBJECT_STORAGE_PROVIDER_CONFIG_ERROR}:IB_OBJECT_STORAGE_PROVIDER`),
+);
+assert.match(runtimeSource, /readPrivateObjectStorageProvider\(\)/);
+assert.match(runtimeSource, /provider === VERCEL_BLOB_STORAGE_PROVIDER/);
+assert.match(runtimeSource, /OBJECT_STORAGE_PROVIDER_UNAVAILABLE/);
+assert.ok(
+  runtimeSource.indexOf("provider === VERCEL_BLOB_STORAGE_PROVIDER") <
+    runtimeSource.indexOf("readYandexObjectStorageConfig()"),
+  "unsupported Blob activation must fail closed before any Yandex credential read",
 );
 
 for (const requiredGuardToken of [
