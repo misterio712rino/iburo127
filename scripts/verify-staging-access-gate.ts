@@ -17,6 +17,10 @@ function required(name: string): string {
   return value;
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 let baseUrl: URL;
 try {
   baseUrl = requireStagingHttpTarget(process.env);
@@ -118,9 +122,13 @@ async function verifyProspect(): Promise<void> {
     fail(`MANAGER leads page expected 200, got ${leadsResponse.status}`);
   }
   const html = await leadsResponse.text();
-  const occurrences = html.split(prospectEmail).length - 1;
-  if (occurrences !== 1) {
-    fail(`expected one deduplicated prospect row, observed ${occurrences}`);
+  const renderedCellPattern = new RegExp(
+    `<td[^>]*>${escapeRegExp(prospectEmail)}</td>`,
+    "g",
+  );
+  const renderedRows = html.match(renderedCellPattern)?.length ?? 0;
+  if (renderedRows !== 1) {
+    fail(`expected one rendered prospect row, observed ${renderedRows}`);
   }
 
   console.log("ACCESS_GATE_PROSPECT: redirect target and deduplicated manager lead verified");
