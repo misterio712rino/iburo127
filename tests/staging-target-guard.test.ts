@@ -117,6 +117,7 @@ const storageEnv: Record<string, string | undefined> = {
   IB_STAGING_STORAGE_ALLOWED_ORIGIN: "https://preview.example.vercel.app",
 };
 assert.deepEqual(assertStagingStorageTarget(storageEnv), {
+  provider: "yandex-object-storage",
   bucket: "iburo-staging-private",
   accessKeyId: "staging-storage-access-key",
   secretAccessKey: "fixture-storage-secret",
