@@ -1,4 +1,5 @@
 name: Staging Application E2E
+# Branch-local push trigger exists because workflow_dispatch requires default-branch workflow presence.
 
 on:
   workflow_dispatch:
