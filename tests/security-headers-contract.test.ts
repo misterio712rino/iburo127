@@ -79,7 +79,17 @@ assert.doesNotMatch(
 );
 
 const publicHomeSource = await readFile(resolve("app/(public)/page.tsx"), "utf8");
-for (const publicSection of [
+assert.match(
+  publicHomeSource,
+  /import \{ redirect \} from "next\/navigation";/,
+  "application root must use a server redirect",
+);
+assert.match(
+  publicHomeSource,
+  /redirect\("\/auth\/sign-in"\)/,
+  "application root must route directly to sign-in",
+);
+for (const removedRootSection of [
   "Hero",
   "AboutCompany",
   "WhyChooseUs",
@@ -88,27 +98,22 @@ for (const publicSection of [
   "FAQPreview",
   "ContactCTA",
 ]) {
-  assert.match(
+  assert.doesNotMatch(
     publicHomeSource,
-    new RegExp(`<${publicSection}\\s*/>`),
-    `public homepage must render ${publicSection}`,
+    new RegExp(`(?:import|<)${removedRootSection}`),
+    `application root must not render marketing section ${removedRootSection}`,
   );
 }
-assert.doesNotMatch(
-  publicHomeSource,
-  /from "next\/navigation"|redirect\("\/app"\)/,
-  "public homepage must not redirect visitors into the investor/demo /app surface",
-);
 
 const heroSource = await readFile(resolve("components/sections/Hero.tsx"), "utf8");
 assert.ok(
   heroSource.includes('href="#how"'),
-  "homepage how-it-works CTA must retain its local anchor",
+  "legacy marketing how-it-works CTA must retain its local anchor while the component remains in the repository",
 );
 assert.match(
   heroSource,
   /id="how"[\s\S]*?Как это работает/,
-  "homepage how-it-works CTA must have a matching semantic target",
+  "legacy marketing how-it-works CTA must have a matching semantic target",
 );
 
 const practiceHighlightSource = await readFile(
@@ -117,11 +122,11 @@ const practiceHighlightSource = await readFile(
 );
 assert.ok(
   practiceHighlightSource.includes('href="/praktikum"'),
-  "homepage practicum CTA must target the existing public practicum route",
+  "legacy marketing practicum CTA must target the existing public practicum route",
 );
 assert.ok(
   !practiceHighlightSource.includes('href="/services/praktikum"'),
-  "homepage practicum CTA must not return to the removed nested route",
+  "legacy marketing practicum CTA must not return to the removed nested route",
 );
 
 const pricingSource = await readFile(resolve("components/sections/Pricing.tsx"), "utf8");
