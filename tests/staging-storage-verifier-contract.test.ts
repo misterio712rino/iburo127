@@ -7,6 +7,10 @@ import {
   VERCEL_BLOB_STORAGE_PROVIDER,
   YANDEX_OBJECT_STORAGE_PROVIDER,
 } from "../server/files/object-storage-provider";
+import {
+  readVercelBlobAuthConfig,
+  VERCEL_BLOB_CONFIG_ERROR,
+} from "../server/files/vercel-blob-config";
 
 const verifierSource = await readFile(resolve("scripts/verify-staging-object-storage.ts"), "utf8");
 const guardSource = await readFile(resolve("scripts/staging-storage-target-guard.ts"), "utf8");
@@ -40,6 +44,61 @@ assert.ok(
   runtimeSource.indexOf("provider === VERCEL_BLOB_STORAGE_PROVIDER") <
     runtimeSource.indexOf("readYandexObjectStorageConfig()"),
   "unsupported Blob activation must fail closed before any Yandex credential read",
+);
+
+assert.deepEqual(
+  readVercelBlobAuthConfig({
+    IB_VERCEL_BLOB_AUTH_MODE: "read-write-token",
+    BLOB_READ_WRITE_TOKEN: "private-blob-token",
+  }),
+  { mode: "read-write-token", token: "private-blob-token" },
+);
+assert.deepEqual(
+  readVercelBlobAuthConfig({
+    IB_VERCEL_BLOB_AUTH_MODE: "oidc",
+    VERCEL_OIDC_TOKEN: "oidc-token",
+    IB_VERCEL_BLOB_STORE_ID: "store-id",
+  }),
+  { mode: "oidc", oidcToken: "oidc-token", storeId: "store-id" },
+);
+assert.deepEqual(
+  readVercelBlobAuthConfig({
+    IB_VERCEL_BLOB_AUTH_MODE: "read-write-token",
+    BLOB_READ_WRITE_TOKEN: "private-blob-token",
+    VERCEL_OIDC_TOKEN: "ambient-oidc-token",
+    IB_VERCEL_BLOB_STORE_ID: "ambient-store-id",
+  }),
+  { mode: "read-write-token", token: "private-blob-token" },
+  "ambient OIDC credentials must not change an explicitly selected auth mode",
+);
+assert.throws(
+  () => readVercelBlobAuthConfig({ BLOB_READ_WRITE_TOKEN: "private-blob-token" }),
+  new RegExp(`${VERCEL_BLOB_CONFIG_ERROR}:missing IB_VERCEL_BLOB_AUTH_MODE`),
+);
+assert.throws(
+  () => readVercelBlobAuthConfig({ IB_VERCEL_BLOB_AUTH_MODE: "read-write-token" }),
+  new RegExp(`${VERCEL_BLOB_CONFIG_ERROR}:missing BLOB_READ_WRITE_TOKEN`),
+);
+assert.throws(
+  () =>
+    readVercelBlobAuthConfig({
+      IB_VERCEL_BLOB_AUTH_MODE: "oidc",
+      VERCEL_OIDC_TOKEN: "oidc-token",
+    }),
+  new RegExp(`${VERCEL_BLOB_CONFIG_ERROR}:missing IB_VERCEL_BLOB_STORE_ID`),
+);
+assert.throws(
+  () =>
+    readVercelBlobAuthConfig({
+      IB_VERCEL_BLOB_AUTH_MODE: "oidc",
+      VERCEL_OIDC_TOKEN: "bad\nsecret",
+      IB_VERCEL_BLOB_STORE_ID: "store-id",
+    }),
+  new RegExp(`${VERCEL_BLOB_CONFIG_ERROR}:VERCEL_OIDC_TOKEN contains unsafe control characters`),
+);
+assert.throws(
+  () => readVercelBlobAuthConfig({ IB_VERCEL_BLOB_AUTH_MODE: "unexpected" }),
+  new RegExp(`${VERCEL_BLOB_CONFIG_ERROR}:unsupported IB_VERCEL_BLOB_AUTH_MODE:unexpected`),
 );
 
 assert.match(vercelBlobSource, /export type VercelBlobStorageDriver/);
