@@ -141,7 +141,7 @@ for (const [legacyPath, canonicalPath] of [
 
 const notFoundSource = await readFile(resolve("app/not-found.tsx"), "utf8");
 assert.match(notFoundSource, /Страница не найдена/);
-assert.ok(notFoundSource.includes('href="/"'), "404 recovery must link to the homepage");
+assert.ok(notFoundSource.includes('href="/"'), "404 recovery must link to the application root");
 assert.ok(notFoundSource.includes('href="/services"'), "404 recovery must link to services");
 assert.doesNotMatch(
   notFoundSource,
@@ -152,7 +152,7 @@ assert.doesNotMatch(
 const publicErrorSource = await readFile(resolve("app/(public)/error.tsx"), "utf8");
 assert.match(publicErrorSource, /^"use client";/);
 assert.match(publicErrorSource, /onClick=\{reset\}/);
-assert.ok(publicErrorSource.includes('href="/"'), "public error recovery must link home");
+assert.ok(publicErrorSource.includes('href="/"'), "public error recovery must link to the application root");
 assert.ok(publicErrorSource.includes('href="/contacts"'), "public error recovery must link to contacts");
 assert.doesNotMatch(
   publicErrorSource,
@@ -174,13 +174,18 @@ assert.match(
 );
 assert.match(
   publicHomeSource,
-  /<main>[\s\S]*?<Hero \/>[\s\S]*?<ContactCTA \/>[\s\S]*?<\/main>/,
-  "public homepage must own its main landmark after the layout wrapper becomes neutral",
+  /redirect\("\/auth\/sign-in"\)/,
+  "application root must redirect to sign-in instead of owning a marketing main landmark",
+);
+assert.doesNotMatch(
+  publicHomeSource,
+  /<main(?:\s|>)|<Hero\s*\/>|<ContactCTA\s*\/>/,
+  "application root must not render the retired marketing homepage",
 );
 assert.match(
   contactsSource,
   /<main className=/,
-  "representative public subpage must continue to own its main landmark",
+  "representative public subpage must continue to own its main landmark while legacy public routes remain",
 );
 
 console.log("PUBLIC_CONTACT_LINKS_CONTRACT_TEST_PASS");
