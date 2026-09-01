@@ -1,0 +1,114 @@
+name: Staging External Readiness
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Exact 40-character candidate SHA to inspect
+        required: true
+        type: string
+      confirmation:
+        description: Type RUN_STAGING_EXTERNAL_READINESS
+        required: true
+        type: string
+  push:
+    branches:
+      - audit/production-readiness
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    if: github.ref_name == 'audit/production-readiness'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      IB_STAGING_BASE_URL: https://iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Exact staging gate
+        shell: bash
+        env:
+          REQUESTED_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.sha }}
+          CONFIRMATION: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmation || 'RUN_STAGING_EXTERNAL_READINESS' }}
+        run: |
+          if [ "$CONFIRMATION" != "RUN_STAGING_EXTERNAL_READINESS" ]; then
+            echo "STAGING_EXTERNAL_READINESS_GATE_FAIL: confirmation mismatch" >&2
+            exit 1
+          fi
+          if ! printf '%s' "$REQUESTED_SHA" | grep -Eq '^[a-f0-9]{40}$'; then
+            echo "STAGING_EXTERNAL_READINESS_GATE_FAIL: candidate SHA must be 40 lowercase hex characters" >&2
+            exit 1
+          fi
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$GITHUB_SHA" ] || [ "$actual_sha" != "$REQUESTED_SHA" ]; then
+            echo "STAGING_EXTERNAL_READINESS_GATE_FAIL: exact candidate mismatch" >&2
+            exit 1
+          fi
+          echo "STAGING_EXTERNAL_READINESS_GATE_PASS: $actual_sha"
+
+      - name: Verify exact protected Preview identity
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          curl --silent --show-error --fail-with-body \
+            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+            "$IB_STAGING_BASE_URL/_iburo/staging-identity" \
+          | node --input-type=module -e '
+              let input = "";
+              for await (const chunk of process.stdin) input += chunk;
+              const body = JSON.parse(input);
+              if (
+                body.service !== "iburo127" ||
+                body.environment !== "preview" ||
+                body.branch !== "audit/production-readiness" ||
+                body.commitSha !== process.env.GITHUB_SHA ||
+                body.runtimeTarget !== "staging" ||
+                body.backendEnabled !== true
+              ) {
+                console.error("STAGING_EXTERNAL_READINESS_IDENTITY_FAIL");
+                process.exit(1);
+              }
+              console.log("STAGING_EXTERNAL_READINESS_IDENTITY_PASS");
+            '
+
+      - name: Read external readiness inventory
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          curl --silent --show-error --fail-with-body \
+            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+            "$IB_STAGING_BASE_URL/_iburo/staging-external-readiness" \
+          | node --input-type=module -e '
+              let input = "";
+              for await (const chunk of process.stdin) input += chunk;
+              const body = JSON.parse(input);
+              if (
+                body.service !== "iburo127" ||
+                body.operation !== "staging-external-readiness" ||
+                body.environment !== "preview" ||
+                body.branch !== "audit/production-readiness" ||
+                body.commitSha !== process.env.GITHUB_SHA ||
+                body.runtimeTarget !== "staging" ||
+                body.networkAccessed !== false ||
+                body.valuesPrinted !== false ||
+                !body.phases?.storage ||
+                !body.phases?.scanner
+              ) {
+                console.error("STAGING_EXTERNAL_READINESS_INVENTORY_FAIL");
+                process.exit(1);
+              }
+              console.log(JSON.stringify({ phases: body.phases }, null, 2));
+              console.log("STAGING_EXTERNAL_READINESS_INVENTORY_PASS");
+            '
