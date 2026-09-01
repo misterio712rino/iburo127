@@ -86,6 +86,11 @@ type SchemaArtifacts = {
   indexes: string[];
 };
 
+type HistoryState = {
+  baselineApplied: MigrationHistoryRow;
+  targetApplied?: MigrationHistoryRow;
+};
+
 function safeJson(status: number, body: Record<string, unknown>) {
   return Response.json(body, { status, headers: NO_STORE_HEADERS });
 }
@@ -160,21 +165,46 @@ function artifactsReady(artifacts: SchemaArtifacts): boolean {
   );
 }
 
-function validAppliedMigration(row: MigrationHistoryRow | undefined, name: string): boolean {
-  return Boolean(
-    row &&
-      row.migration_name === name &&
-      row.finished_at &&
-      !row.rolled_back_at &&
-      Number.isInteger(row.applied_steps_count) &&
-      row.applied_steps_count >= 0,
-  );
+function stepsAreValid(row: MigrationHistoryRow): boolean {
+  const steps = Number(row.applied_steps_count);
+  return Number.isSafeInteger(steps) && steps >= 0;
+}
+
+function isApplied(row: MigrationHistoryRow): boolean {
+  return Boolean(row.finished_at && !row.rolled_back_at && stepsAreValid(row));
+}
+
+function isRolledBack(row: MigrationHistoryRow): boolean {
+  return Boolean(row.rolled_back_at && stepsAreValid(row));
+}
+
+function classifyHistory(rows: MigrationHistoryRow[]): HistoryState | null {
+  const allowedNames = new Set([EXPECTED_INITIAL_MIGRATION, MIGRATION_NAME]);
+  if (rows.some((row) => !allowedNames.has(row.migration_name))) return null;
+  if (rows.some((row) => !isApplied(row) && !isRolledBack(row))) return null;
+
+  const baselineRows = rows.filter((row) => row.migration_name === EXPECTED_INITIAL_MIGRATION);
+  const targetRows = rows.filter((row) => row.migration_name === MIGRATION_NAME);
+  const baselineAppliedRows = baselineRows.filter(isApplied);
+  const targetAppliedRows = targetRows.filter(isApplied);
+
+  if (baselineAppliedRows.length !== 1 || targetAppliedRows.length > 1) return null;
+
+  return {
+    baselineApplied: baselineAppliedRows[0]!,
+    targetApplied: targetAppliedRows[0],
+  };
+}
+
+function successfulMigrationCount(rows: MigrationHistoryRow[]): number {
+  return rows.filter(isApplied).length;
 }
 
 function successResponse(input: {
   sha: string;
   database: string;
   alreadyApplied: boolean;
+  migrationCount: number;
 }) {
   return safeJson(200, {
     service: "iburo127",
@@ -186,7 +216,7 @@ function successResponse(input: {
     database: input.database,
     migration: MIGRATION_NAME,
     migrationChecksum: EXPECTED_SQL_SHA256,
-    migrationCount: 2,
+    migrationCount: input.migrationCount,
     tableReady: true,
     enumsReady: true,
     indexesReady: true,
@@ -249,32 +279,30 @@ export async function POST(request: Request) {
 
     failureStage = "history-baseline";
     const history = await readAppliedHistory(client);
-    const artifactsBefore = await schemaArtifacts(client);
-    const baseline = history.rows.find((row) => row.migration_name === EXPECTED_INITIAL_MIGRATION);
-    const accessGateMigration = history.rows.find((row) => row.migration_name === MIGRATION_NAME);
+    const historyState = classifyHistory(history.rows);
+    if (!historyState) throw new Error("unexpected migration history");
 
-    if (
-      history.rows.length === 2 &&
-      validAppliedMigration(baseline, EXPECTED_INITIAL_MIGRATION) &&
-      validAppliedMigration(accessGateMigration, MIGRATION_NAME) &&
-      accessGateMigration?.checksum === EXPECTED_SQL_SHA256 &&
-      artifactsReady(artifactsBefore)
-    ) {
+    const artifactsBefore = await schemaArtifacts(client);
+    if (historyState.targetApplied) {
+      if (
+        historyState.targetApplied.checksum !== EXPECTED_SQL_SHA256 ||
+        successfulMigrationCount(history.rows) !== 2 ||
+        !artifactsReady(artifactsBefore)
+      ) {
+        throw new Error("applied migration does not match schema");
+      }
       await client.query("ROLLBACK");
       transactionOpen = false;
       return successResponse({
         sha,
         database: target.expectedDatabaseName,
         alreadyApplied: true,
+        migrationCount: 2,
       });
     }
 
-    if (
-      history.rows.length !== 1 ||
-      !validAppliedMigration(baseline, EXPECTED_INITIAL_MIGRATION) ||
-      accessGateMigration
-    ) {
-      throw new Error("unexpected migration baseline");
+    if (successfulMigrationCount(history.rows) !== 1) {
+      throw new Error("unexpected successful migration count");
     }
 
     failureStage = "schema-baseline";
@@ -290,12 +318,11 @@ export async function POST(request: Request) {
     await client.query(MIGRATION_SQL);
 
     failureStage = "history-write";
-    const migrationId = randomUUID();
     await client.query(
       `insert into public."_prisma_migrations"
         (id, checksum, finished_at, migration_name, logs, rolled_back_at, started_at, applied_steps_count)
        values ($1, $2, now(), $3, null, null, now(), 1)`,
-      [migrationId, EXPECTED_SQL_SHA256, MIGRATION_NAME],
+      [randomUUID(), EXPECTED_SQL_SHA256, MIGRATION_NAME],
     );
 
     failureStage = "verification";
@@ -303,15 +330,11 @@ export async function POST(request: Request) {
     if (!artifactsReady(after)) throw new Error("lead schema verification failed");
 
     const updatedHistory = await readAppliedHistory(client);
-    const newBaseline = updatedHistory.rows.find(
-      (row) => row.migration_name === EXPECTED_INITIAL_MIGRATION,
-    );
-    const newEntry = updatedHistory.rows.find((row) => row.migration_name === MIGRATION_NAME);
+    const updatedState = classifyHistory(updatedHistory.rows);
     if (
-      updatedHistory.rows.length !== 2 ||
-      !validAppliedMigration(newBaseline, EXPECTED_INITIAL_MIGRATION) ||
-      !validAppliedMigration(newEntry, MIGRATION_NAME) ||
-      newEntry?.checksum !== EXPECTED_SQL_SHA256
+      !updatedState?.targetApplied ||
+      updatedState.targetApplied.checksum !== EXPECTED_SQL_SHA256 ||
+      successfulMigrationCount(updatedHistory.rows) !== 2
     ) {
       throw new Error("migration history verification failed");
     }
@@ -324,6 +347,7 @@ export async function POST(request: Request) {
       sha,
       database: target.expectedDatabaseName,
       alreadyApplied: false,
+      migrationCount: 2,
     });
   } catch {
     if (transactionOpen && client) {
