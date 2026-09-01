@@ -317,29 +317,30 @@ export async function POST(request: Request) {
     failureStage = "fixture";
     const reset = await prisma.$transaction(
       async (tx) => {
-        const [client, lawyer, plan, stage] = await Promise.all([
-          tx.user.findUnique({
-            where: { email: CLIENT_EMAIL },
-            select: {
-              id: true,
-              status: true,
-              roles: { select: { role: { select: { code: true } } } },
-            },
-          }),
-          tx.user.findUnique({
-            where: { email: LAWYER_EMAIL },
-            select: {
-              id: true,
-              status: true,
-              roles: { select: { role: { select: { code: true } } } },
-            },
-          }),
-          tx.plan.findUnique({ where: { code: PLAN_CODE }, select: { id: true, isActive: true } }),
-          tx.caseStage.findUnique({
-            where: { code: STAGE_CODE },
-            select: { id: true, isActive: true },
-          }),
-        ]);
+        const client = await tx.user.findUnique({
+          where: { email: CLIENT_EMAIL },
+          select: {
+            id: true,
+            status: true,
+            roles: { select: { role: { select: { code: true } } } },
+          },
+        });
+        const lawyer = await tx.user.findUnique({
+          where: { email: LAWYER_EMAIL },
+          select: {
+            id: true,
+            status: true,
+            roles: { select: { role: { select: { code: true } } } },
+          },
+        });
+        const plan = await tx.plan.findUnique({
+          where: { code: PLAN_CODE },
+          select: { id: true, isActive: true },
+        });
+        const stage = await tx.caseStage.findUnique({
+          where: { code: STAGE_CODE },
+          select: { id: true, isActive: true },
+        });
 
         const clientRoles = client ? platformRoleCodes(client.roles) : [];
         const lawyerRoles = lawyer ? platformRoleCodes(lawyer.roles) : [];
