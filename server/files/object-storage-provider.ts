@@ -12,7 +12,9 @@ type ObjectStorageProviderEnvironment = {
 };
 
 export function readPrivateObjectStorageProvider(
-  env: ObjectStorageProviderEnvironment = process.env,
+  env: ObjectStorageProviderEnvironment = {
+    IB_OBJECT_STORAGE_PROVIDER: process.env.IB_OBJECT_STORAGE_PROVIDER,
+  },
 ): PrivateObjectStorageProvider {
   const configured = env.IB_OBJECT_STORAGE_PROVIDER?.trim();
   if (!configured) return YANDEX_OBJECT_STORAGE_PROVIDER;
