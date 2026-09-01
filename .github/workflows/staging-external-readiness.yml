@@ -112,3 +112,42 @@ jobs:
               console.log(JSON.stringify({ phases: body.phases }, null, 2));
               console.log("STAGING_EXTERNAL_READINESS_INVENTORY_PASS");
             '
+
+      - name: Verify private staging storage
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          curl --silent --show-error --fail-with-body \
+            --request POST \
+            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+            -H "x-iburo-staging-storage-confirm: RUN_STAGING_STORAGE_VERIFY" \
+            "$IB_STAGING_BASE_URL/_iburo/staging-storage-verify" \
+          | node --input-type=module -e '
+              let input = "";
+              for await (const chunk of process.stdin) input += chunk;
+              const body = JSON.parse(input);
+              if (
+                body.service !== "iburo127" ||
+                body.operation !== "staging-storage-verify" ||
+                body.environment !== "preview" ||
+                body.branch !== "audit/production-readiness" ||
+                body.commitSha !== process.env.GITHUB_SHA ||
+                body.runtimeTarget !== "staging" ||
+                body.provider !== "vercel-blob" ||
+                body.verified !== true ||
+                body.signedTokenIssued !== true ||
+                body.privateHostVerified !== true ||
+                body.networkAccessed !== true ||
+                body.valuesPrinted !== false ||
+                body.objectEnumerationContentOperations !== 0
+              ) {
+                console.error("STAGING_OBJECT_STORAGE_VERIFY_FAIL");
+                process.exit(1);
+              }
+              console.log("STAGING_OBJECT_STORAGE_PROVIDER: vercel-blob");
+              console.log("STAGING_OBJECT_STORAGE_NETWORK_ACCESS: signed-token-only");
+              console.log("STAGING_OBJECT_STORAGE_OBJECT_OPERATIONS: 0");
+              console.log("STAGING_OBJECT_STORAGE_VERIFY_PASS");
+            '

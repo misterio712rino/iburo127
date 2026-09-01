@@ -8,7 +8,9 @@ import {
   S3Client,
   type CORSRule,
 } from "@aws-sdk/client-s3";
+import { VERCEL_BLOB_STORAGE_PROVIDER } from "@/server/files/object-storage-provider";
 import { assertStagingStorageTarget } from "./staging-storage-target-guard";
+import { verifyVercelBlobStagingAccess } from "./staging-vercel-blob-verification";
 
 const STAGING_STORAGE_VERIFY_FAIL = "STAGING_STORAGE_VERIFY_FAIL";
 const STAGING_STORAGE_POLICY_REVIEW_REQUIRED = "STAGING_STORAGE_POLICY_REVIEW_REQUIRED";
@@ -93,6 +95,22 @@ try {
   target = assertStagingStorageTarget();
 } catch (error) {
   fail(error instanceof Error ? error.message : "invalid staging storage target");
+}
+
+if (target.provider === VERCEL_BLOB_STORAGE_PROVIDER) {
+  try {
+    const verification = await verifyVercelBlobStagingAccess(target);
+    console.log(`Staging Object Storage provider verified: ${verification.provider}`);
+    console.log("Vercel Blob credential/store signed-token issuance verified");
+    console.log("Vercel Blob private signed-host contract verified");
+    console.log("Object enumeration/content operations performed: 0");
+    console.log("Secret or signed URL values printed: 0");
+    console.log("STAGING_OBJECT_STORAGE_VERIFY_PASS");
+  } catch (error) {
+    const name = error instanceof Error ? error.name : "UnknownVercelBlobError";
+    fail(`Vercel Blob verification failed (${name})`);
+  }
+  process.exit(0);
 }
 
 const endpoint = "https://storage.yandexcloud.net";
