@@ -3,6 +3,7 @@ import "server-only";
 import type { SessionProvider } from "@/server/auth/contracts";
 import { requireServerActor } from "@/server/auth/runtime";
 import type { TaskStatus } from "@/server/domain/tasks/contracts";
+import { TASK_FORBIDDEN } from "@/server/domain/tasks/service";
 import { taskService } from "@/server/tasks/runtime";
 
 export async function getTask(sessionProvider: SessionProvider, taskId: string) {
@@ -12,6 +13,9 @@ export async function getTask(sessionProvider: SessionProvider, taskId: string) 
 
 export async function listTasks(sessionProvider: SessionProvider) {
   const actor = await requireServerActor(sessionProvider);
+  if (!actor.roles.includes("LAWYER") && !actor.roles.includes("MANAGER")) {
+    throw new Error(TASK_FORBIDDEN);
+  }
   return taskService.list(actor);
 }
 
