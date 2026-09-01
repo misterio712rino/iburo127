@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import type { PrivateObjectStorage } from "../server/files/object-storage-contract";
+import { createPrivateObjectStorageForProvider } from "../server/files/object-storage-factory";
 import {
   OBJECT_STORAGE_PROVIDER_CONFIG_ERROR,
+  OBJECT_STORAGE_PROVIDER_UNAVAILABLE,
   readPrivateObjectStorageProvider,
   VERCEL_BLOB_STORAGE_PROVIDER,
   YANDEX_OBJECT_STORAGE_PROVIDER,
@@ -20,10 +23,27 @@ const readinessRouteSource = await readFile(
   "utf8",
 );
 const runtimeSource = await readFile(resolve("server/files/object-storage-runtime.ts"), "utf8");
+const factorySource = await readFile(resolve("server/files/object-storage-factory.ts"), "utf8");
 const vercelBlobSource = await readFile(
   resolve("server/files/vercel-blob-object-storage.ts"),
   "utf8",
 );
+
+function fakeStorage(providerCode: string): PrivateObjectStorage {
+  return {
+    providerCode,
+    async createUploadUrl() {
+      throw new Error("TEST_ONLY_NOT_IMPLEMENTED");
+    },
+    async createDownloadUrl() {
+      throw new Error("TEST_ONLY_NOT_IMPLEMENTED");
+    },
+    async statObject() {
+      return null;
+    },
+    async deleteObject() {},
+  };
+}
 
 assert.equal(readPrivateObjectStorageProvider({}), YANDEX_OBJECT_STORAGE_PROVIDER);
 assert.equal(
@@ -38,13 +58,48 @@ assert.throws(
   () => readPrivateObjectStorageProvider({ IB_OBJECT_STORAGE_PROVIDER: "unexpected-provider" }),
   new RegExp(`${OBJECT_STORAGE_PROVIDER_CONFIG_ERROR}:IB_OBJECT_STORAGE_PROVIDER`),
 );
+
+const yandexStorage = fakeStorage(YANDEX_OBJECT_STORAGE_PROVIDER);
+const vercelStorage = fakeStorage(VERCEL_BLOB_STORAGE_PROVIDER);
+assert.equal(
+  createPrivateObjectStorageForProvider(YANDEX_OBJECT_STORAGE_PROVIDER, {
+    createYandex: () => yandexStorage,
+  }),
+  yandexStorage,
+);
+assert.throws(
+  () =>
+    createPrivateObjectStorageForProvider(VERCEL_BLOB_STORAGE_PROVIDER, {
+      createYandex: () => yandexStorage,
+    }),
+  new RegExp(`${OBJECT_STORAGE_PROVIDER_UNAVAILABLE}:${VERCEL_BLOB_STORAGE_PROVIDER}`),
+  "Blob must remain fail closed until a concrete driver-backed constructor is supplied",
+);
+assert.equal(
+  createPrivateObjectStorageForProvider(VERCEL_BLOB_STORAGE_PROVIDER, {
+    createYandex: () => yandexStorage,
+    createVercelBlob: () => vercelStorage,
+  }),
+  vercelStorage,
+);
+assert.throws(
+  () =>
+    createPrivateObjectStorageForProvider(VERCEL_BLOB_STORAGE_PROVIDER, {
+      createYandex: () => yandexStorage,
+      createVercelBlob: () => yandexStorage,
+    }),
+  new RegExp(`${OBJECT_STORAGE_PROVIDER_CONFIG_ERROR}:providerCode`),
+  "factory must reject a backend whose provider identity does not match the selected provider",
+);
+
 assert.match(runtimeSource, /readPrivateObjectStorageProvider\(\)/);
-assert.match(runtimeSource, /provider === VERCEL_BLOB_STORAGE_PROVIDER/);
-assert.match(runtimeSource, /OBJECT_STORAGE_PROVIDER_UNAVAILABLE/);
+assert.match(runtimeSource, /createPrivateObjectStorageForProvider\(provider/);
+assert.match(factorySource, /OBJECT_STORAGE_PROVIDER_UNAVAILABLE/);
+assert.match(factorySource, /storage\.providerCode !== provider/);
 assert.ok(
-  runtimeSource.indexOf("provider === VERCEL_BLOB_STORAGE_PROVIDER") <
-    runtimeSource.indexOf("readYandexObjectStorageConfig()"),
-  "unsupported Blob activation must fail closed before any Yandex credential read",
+  factorySource.indexOf("provider === VERCEL_BLOB_STORAGE_PROVIDER") <
+    factorySource.indexOf("dependencies.createYandex()"),
+  "Blob selection must fail closed before any Yandex factory is invoked",
 );
 
 const staticAuthConfig = readVercelBlobAuthConfig({

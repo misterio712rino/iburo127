@@ -2,11 +2,10 @@ import "server-only";
 
 import { readYandexObjectStorageConfig } from "@/server/config/production";
 import type { PrivateObjectStorage } from "@/server/files/object-storage-contract";
+import { createPrivateObjectStorageForProvider } from "@/server/files/object-storage-factory";
 import {
   OBJECT_STORAGE_PROVIDER_CONFIG_ERROR,
-  OBJECT_STORAGE_PROVIDER_UNAVAILABLE,
   readPrivateObjectStorageProvider,
-  VERCEL_BLOB_STORAGE_PROVIDER,
   type PrivateObjectStorageProvider,
 } from "@/server/files/object-storage-provider";
 import { YandexPrivateObjectStorage } from "@/server/files/yandex-object-storage";
@@ -25,15 +24,15 @@ export function getPrivateObjectStorage() {
     return storage;
   }
 
-  if (provider === VERCEL_BLOB_STORAGE_PROVIDER) {
-    throw new Error(`${OBJECT_STORAGE_PROVIDER_UNAVAILABLE}:${VERCEL_BLOB_STORAGE_PROVIDER}`);
-  }
-
-  const config = readYandexObjectStorageConfig();
-  storage = new YandexPrivateObjectStorage(
-    config.bucket,
-    new AwsSdkYandexObjectStorageSigner(),
-  );
+  storage = createPrivateObjectStorageForProvider(provider, {
+    createYandex: () => {
+      const config = readYandexObjectStorageConfig();
+      return new YandexPrivateObjectStorage(
+        config.bucket,
+        new AwsSdkYandexObjectStorageSigner(),
+      );
+    },
+  });
   storageProvider = provider;
   return storage;
 }
