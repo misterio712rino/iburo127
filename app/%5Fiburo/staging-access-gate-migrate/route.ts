@@ -61,7 +61,11 @@ type FailureStage =
   | "begin"
   | "lock"
   | "identity"
-  | "history-baseline"
+  | "history-count"
+  | "history-name"
+  | "history-finished"
+  | "history-rolled-back"
+  | "history-steps"
   | "schema-baseline"
   | "migration"
   | "history-write"
@@ -191,17 +195,18 @@ export async function POST(request: Request) {
       throw new Error("identity mismatch");
     }
 
-    failureStage = "history-baseline";
     const history = await readAppliedHistory(client);
-    if (
-      history.rows.length !== 1 ||
-      history.rows[0]?.migration_name !== EXPECTED_INITIAL_MIGRATION ||
-      !history.rows[0]?.finished_at ||
-      history.rows[0]?.rolled_back_at ||
-      history.rows[0]?.applied_steps_count !== 1
-    ) {
-      throw new Error("unexpected migration baseline");
-    }
+    failureStage = "history-count";
+    if (history.rows.length !== 1) throw new Error("unexpected migration count");
+    const baseline = history.rows[0]!;
+    failureStage = "history-name";
+    if (baseline.migration_name !== EXPECTED_INITIAL_MIGRATION) throw new Error("unexpected migration name");
+    failureStage = "history-finished";
+    if (!baseline.finished_at) throw new Error("baseline is unfinished");
+    failureStage = "history-rolled-back";
+    if (baseline.rolled_back_at) throw new Error("baseline is rolled back");
+    failureStage = "history-steps";
+    if (baseline.applied_steps_count !== 1) throw new Error("unexpected baseline applied step count");
 
     failureStage = "schema-baseline";
     const before = await schemaArtifacts(client);
