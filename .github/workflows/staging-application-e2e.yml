@@ -11,6 +11,11 @@ on:
         description: Type RUN_STAGING_APPLICATION_E2E
         required: true
         type: string
+  push:
+    branches:
+      - audit/production-readiness
+    paths:
+      - .github/workflows/staging-application-e2e.yml
 
 permissions:
   contents: read
@@ -48,11 +53,11 @@ jobs:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Exact manual staging gate
+      - name: Exact staging gate
         shell: bash
         env:
-          REQUESTED_SHA: ${{ inputs.candidate_sha }}
-          CONFIRMATION: ${{ inputs.confirmation }}
+          REQUESTED_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.sha }}
+          CONFIRMATION: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmation || 'RUN_STAGING_APPLICATION_E2E' }}
         run: |
           if [ "$CONFIRMATION" != "RUN_STAGING_APPLICATION_E2E" ]; then
             echo "STAGING_APPLICATION_E2E_GATE_FAIL: confirmation mismatch" >&2
