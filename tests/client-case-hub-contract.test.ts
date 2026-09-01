@@ -42,8 +42,18 @@ assert.match(
 );
 assert.match(
   clientFrameSource,
-  /cases\.length > 1[\s\S]*Сменить дело/,
-  "multiple real ClientCase records must remain separated by a case switcher rather than mixed tariff cards",
+  /function CaseSwitcher\(/,
+  "client shell must define a dedicated case switcher",
+);
+assert.match(
+  clientFrameSource,
+  /Сменить дело/,
+  "case switcher must expose an explicit change-case action",
+);
+assert.match(
+  clientFrameSource,
+  /cases\.length > 1 \? \([\s\S]*<CaseSwitcher/,
+  "multiple real ClientCase records must render the case switcher rather than mixed tariff cards",
 );
 
 for (const [path, source] of [
