@@ -62,6 +62,7 @@ export async function prepareStoredFileUpload(
   const signed = await storage.createUploadUrl({
     objectKey,
     mimeType: input.mimeType,
+    sizeBytes: input.sizeBytes,
     expiresInSeconds: 300,
   });
 

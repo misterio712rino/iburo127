@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   assertSafeSignedUrlTtl,
+  toSafeUploadSizeNumber,
   type CreateDownloadUrlInput,
   type CreateUploadUrlInput,
   type PrivateObjectStorage,
@@ -16,6 +17,7 @@ export type VercelBlobStorageDriver = {
   createPrivateUploadUrl(input: {
     pathname: string;
     mimeType: string;
+    maximumSizeInBytes: number;
     expiresInSeconds: number;
   }): Promise<string>;
   createPrivateDownloadUrl(input: {
@@ -48,10 +50,12 @@ export class VercelBlobPrivateObjectStorage implements PrivateObjectStorage {
   async createUploadUrl(input: CreateUploadUrlInput) {
     assertSafeObjectKey(input.objectKey);
     assertSafeSignedUrlTtl(input.expiresInSeconds);
+    const maximumSizeInBytes = toSafeUploadSizeNumber(input.sizeBytes);
 
     const url = await this.driver.createPrivateUploadUrl({
       pathname: input.objectKey,
       mimeType: input.mimeType,
+      maximumSizeInBytes,
       expiresInSeconds: input.expiresInSeconds,
     });
     return result(url, input.expiresInSeconds);
