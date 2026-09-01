@@ -8,8 +8,8 @@ import {
   type SignedObjectUrl,
   type StoredObjectMetadata,
 } from "@/server/files/object-storage-contract";
+import { YANDEX_OBJECT_STORAGE_PROVIDER } from "@/server/files/object-storage-provider";
 
-export const YANDEX_OBJECT_STORAGE_PROVIDER = "yandex-object-storage";
 export const OBJECT_STORAGE_INVALID_KEY = "OBJECT_STORAGE_INVALID_KEY";
 
 export type YandexObjectStorageSigner = {

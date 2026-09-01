@@ -10,8 +10,7 @@ import {
   type StoredObjectMetadata,
 } from "@/server/files/object-storage-contract";
 import { assertSafeObjectKey } from "@/server/files/object-key";
-
-export const VERCEL_BLOB_STORAGE_PROVIDER = "vercel-blob";
+import { VERCEL_BLOB_STORAGE_PROVIDER } from "@/server/files/object-storage-provider";
 
 export type VercelBlobStorageDriver = {
   createPrivateUploadUrl(input: {
