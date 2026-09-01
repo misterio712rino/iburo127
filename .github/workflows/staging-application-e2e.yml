@@ -1,5 +1,5 @@
 name: Staging Application E2E
-# Branch-local push trigger exists because workflow_dispatch requires default-branch workflow presence.
+# Every candidate push gets an exact-SHA E2E run; identity/backend guards block staging mutation until activation.
 
 on:
   workflow_dispatch:
@@ -15,8 +15,6 @@ on:
   push:
     branches:
       - audit/production-readiness
-    paths:
-      - .github/workflows/staging-application-e2e.yml
 
 permissions:
   contents: read
