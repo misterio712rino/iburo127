@@ -1,0 +1,118 @@
+name: Vercel Blob Lockfile Generator
+
+on:
+  push:
+    branches:
+      - audit/production-readiness
+    paths:
+      - .github/workflows/vercel-blob-lockfile-generator.yml
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Exact candidate checkout
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$EXPECTED_SHA" ]; then
+            echo "VERCEL_BLOB_LOCKFILE_GATE_FAIL: expected=$EXPECTED_SHA actual=$actual_sha" >&2
+            exit 1
+          fi
+          echo "VERCEL_BLOB_LOCKFILE_GATE_PASS: $actual_sha"
+
+      - name: GitHub Actions pin policy
+        run: npm run check:ci-action-pins
+
+      - name: GitHub workflow security policy
+        run: npm run check:ci-workflow-security
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Generate package manifests
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from "node:fs";
+
+          const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
+          packageJson.dependencies = packageJson.dependencies ?? {};
+          packageJson.dependencies["@vercel/blob"] = "2.8.0";
+          packageJson.overrides = packageJson.overrides ?? {};
+          packageJson.overrides["@vercel/blob"] = {
+            ...(packageJson.overrides["@vercel/blob"] ?? {}),
+            undici: "6.28.0",
+          };
+          writeFileSync("package.json", `${JSON.stringify(packageJson, null, 2)}\n`);
+          NODE
+
+          npm install --package-lock-only --ignore-scripts --audit=false --fund=false
+
+      - name: Verify generated dependency graph
+        shell: bash
+        run: |
+          npm ci --ignore-scripts --audit=false --fund=false
+
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+
+          const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
+          const lock = JSON.parse(readFileSync("package-lock.json", "utf8"));
+          const blob = lock.packages?.["node_modules/@vercel/blob"];
+          if (packageJson.dependencies?.["@vercel/blob"] !== "2.8.0" || blob?.version !== "2.8.0") {
+            console.error("VERCEL_BLOB_LOCKFILE_FAIL: @vercel/blob must resolve exactly to 2.8.0");
+            process.exit(1);
+          }
+          if (packageJson.overrides?.["@vercel/blob"]?.undici !== "6.28.0") {
+            console.error("VERCEL_BLOB_LOCKFILE_FAIL: undici override missing");
+            process.exit(1);
+          }
+
+          const vulnerable = Object.entries(lock.packages ?? {}).filter(([path, pkg]) =>
+            path.includes("undici") &&
+            typeof pkg?.version === "string" &&
+            /^6\.(?:2[0-6])\./.test(pkg.version),
+          );
+          if (vulnerable.length > 0) {
+            console.error("VERCEL_BLOB_LOCKFILE_FAIL: vulnerable undici 6.x resolution detected");
+            process.exit(1);
+          }
+          console.log("VERCEL_BLOB_LOCKFILE_DEPENDENCY_PASS");
+          NODE
+
+      - name: Install-script policy
+        run: node scripts/check-install-scripts-policy.mjs
+
+      - name: Dependency audit policy
+        shell: bash
+        run: |
+          npm audit --json > "$RUNNER_TEMP/npm-audit.json" || true
+          node scripts/report-npm-audit.mjs "$RUNNER_TEMP/npm-audit.json"
+          node scripts/check-npm-audit-policy.mjs "$RUNNER_TEMP/npm-audit.json" package-lock.json
+
+      - name: Upload generated manifests
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vercel-blob-package-manifests
+          path: |
+            package.json
+            package-lock.json
+          if-no-files-found: error
+          retention-days: 1
