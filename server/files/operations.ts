@@ -4,9 +4,9 @@ import { randomUUID } from "node:crypto";
 import { caseActivityService } from "@/server/activity/runtime";
 import type { SessionProvider } from "@/server/auth/contracts";
 import { requireServerActor } from "@/server/auth/runtime";
-import { storedFileService } from "@/server/files/runtime";
+import { createStoredFileObjectKey } from "@/server/files/object-key";
 import { getPrivateObjectStorage } from "@/server/files/object-storage-runtime";
-import { createStoredFileObjectKey } from "@/server/files/yandex-object-storage";
+import { storedFileService } from "@/server/files/runtime";
 
 export const FILE_UPLOAD_INCOMPLETE = "FILE_UPLOAD_INCOMPLETE";
 export const FILE_UPLOAD_METADATA_MISMATCH = "FILE_UPLOAD_METADATA_MISMATCH";
