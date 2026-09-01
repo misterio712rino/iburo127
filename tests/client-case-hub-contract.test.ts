@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const hubSource = await readFile(resolve("app/portal/cases/[caseId]/page.tsx"), "utf8");
+const clientFrameSource = await readFile(resolve("components/portal/ClientCaseFrame.tsx"), "utf8");
 const progressSource = await readFile(resolve("app/portal/cases/[caseId]/progress/page.tsx"), "utf8");
 const activitySource = await readFile(resolve("app/portal/cases/[caseId]/activity/page.tsx"), "utf8");
 const questionnaireSource = await readFile(resolve("app/portal/cases/[caseId]/questionnaire/page.tsx"), "utf8");
@@ -14,10 +15,30 @@ const tasksSource = await readFile(resolve("app/portal/cases/[caseId]/tasks/page
 assert.match(hubSource, /resolveCasePortalAudience\(actor, clientCase\)/);
 assert.match(hubSource, /getCaseProgressSummaryForActor\(actor, clientCase, audience\)/);
 assert.match(hubSource, /summary\.nextAction\.segment/);
-assert.match(hubSource, /Сейчас важно/);
-assert.match(hubSource, /module\.code === summary\.nextAction\.segment/);
-assert.match(hubSource, /CLIENT_AI_MODULE/);
-assert.match(hubSource, /STAFF_TASK_MODULE/);
+assert.match(hubSource, /Следующий шаг/);
+assert.match(hubSource, /Состояние дела/);
+assert.match(hubSource, /Этапы процедуры/);
+assert.match(hubSource, /Инструменты/);
+assert.match(hubSource, /Добрый день, \{firstName\}/);
+assert.match(hubSource, /if \(isClient\)[\s\S]*renderClientDashboard/);
+assert.match(hubSource, /const STAFF_MODULES = \[/);
+assert.match(hubSource, /code: "tasks"/);
+assert.match(hubSource, /code: "ai"[\s\S]*Доступен на вашем тарифе[\s\S]*href: `\$\{base\}\/ai`/);
+assert.match(
+  hubSource,
+  /const mortgageAvailable = planCode === "PRO" \|\| planCode === "INDIVIDUAL"/,
+  "mortgage capability must remain tariff-specific",
+);
+assert.match(
+  clientFrameSource,
+  /Главная[\s\S]*Практикум[\s\S]*Анкета[\s\S]*Документы[\s\S]*Мой прогресс[\s\S]*AI-помощник[\s\S]*Профиль/,
+  "production client shell must retain the approved demo-style navigation hierarchy",
+);
+assert.match(
+  clientFrameSource,
+  /cases\.length > 1[\s\S]*Сменить дело/,
+  "multiple real ClientCase records must remain separated by a case switcher rather than mixed tariff cards",
+);
 
 for (const [path, source] of [
   ["progress", progressSource],
