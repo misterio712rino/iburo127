@@ -8,6 +8,7 @@ import {
   readPrivateObjectStorageProvider,
   type PrivateObjectStorageProvider,
 } from "@/server/files/object-storage-provider";
+import { inferStagingVercelBlobProvider } from "@/server/files/vercel-preview-storage-provider";
 import { readVercelBlobAuthConfig } from "@/server/files/vercel-blob-config";
 import { toVercelBlobSdkCredentialOptions } from "@/server/files/vercel-blob-driver-auth";
 import { createVercelBlobNativeSignedUrlDependencies } from "@/server/files/vercel-blob-native-signed-url";
@@ -19,8 +20,14 @@ import { AwsSdkYandexObjectStorageSigner } from "@/server/files/yandex-s3-signer
 let storage: PrivateObjectStorage | undefined;
 let storageProvider: PrivateObjectStorageProvider | undefined;
 
+function selectedProvider(): PrivateObjectStorageProvider {
+  const inferred = inferStagingVercelBlobProvider(process.env);
+  if (inferred) return inferred;
+  return readPrivateObjectStorageProvider();
+}
+
 export function getPrivateObjectStorage() {
-  const provider = readPrivateObjectStorageProvider();
+  const provider = selectedProvider();
 
   if (storage) {
     if (storageProvider !== provider) {

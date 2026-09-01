@@ -15,6 +15,11 @@ import {
   VERCEL_BLOB_CONFIG_ERROR,
 } from "../server/files/vercel-blob-config";
 import { toVercelBlobSdkCredentialOptions } from "../server/files/vercel-blob-driver-auth";
+import { inferStagingVercelBlobProvider } from "../server/files/vercel-preview-storage-provider";
+import {
+  buildProviderAwareStagingStorageReadiness,
+  isExactVercelBlobStagingAutoDetectEnvironment,
+} from "../scripts/staging-storage-readiness";
 
 const verifierSource = await readFile(resolve("scripts/verify-staging-object-storage.ts"), "utf8");
 const guardSource = await readFile(resolve("scripts/staging-storage-target-guard.ts"), "utf8");
@@ -92,6 +97,7 @@ assert.throws(
   "factory must reject a backend whose provider identity does not match the selected provider",
 );
 
+assert.match(runtimeSource, /inferStagingVercelBlobProvider\(process\.env\)/);
 assert.match(runtimeSource, /readPrivateObjectStorageProvider\(\)/);
 assert.match(runtimeSource, /createPrivateObjectStorageForProvider\(provider/);
 assert.match(factorySource, /OBJECT_STORAGE_PROVIDER_UNAVAILABLE/);
@@ -111,6 +117,12 @@ assert.deepEqual(toVercelBlobSdkCredentialOptions(staticAuthConfig), {
   token: "private-blob-token",
 });
 
+assert.deepEqual(
+  readVercelBlobAuthConfig({ BLOB_READ_WRITE_TOKEN: "private-blob-token" }),
+  { mode: "read-write-token", token: "private-blob-token" },
+  "standard Vercel Blob token must safely select static-token auth when no explicit mode is configured",
+);
+
 const oidcAuthConfig = readVercelBlobAuthConfig({
   IB_VERCEL_BLOB_AUTH_MODE: "oidc",
   VERCEL_OIDC_TOKEN: "oidc-token",
@@ -121,6 +133,15 @@ assert.deepEqual(toVercelBlobSdkCredentialOptions(oidcAuthConfig), {
   oidcToken: "oidc-token",
   storeId: "store-id",
 });
+assert.deepEqual(
+  readVercelBlobAuthConfig({
+    IB_VERCEL_BLOB_AUTH_MODE: "oidc",
+    VERCEL_OIDC_TOKEN: "oidc-token",
+    BLOB_STORE_ID: "standard-store-id",
+  }),
+  { mode: "oidc", oidcToken: "oidc-token", storeId: "standard-store-id" },
+  "standard Vercel BLOB_STORE_ID must be accepted for OIDC",
+);
 
 assert.deepEqual(
   readVercelBlobAuthConfig({
@@ -143,7 +164,7 @@ assert.deepEqual(
   "OIDC SDK options must not contain a static token",
 );
 assert.throws(
-  () => readVercelBlobAuthConfig({ BLOB_READ_WRITE_TOKEN: "private-blob-token" }),
+  () => readVercelBlobAuthConfig({}),
   new RegExp(`${VERCEL_BLOB_CONFIG_ERROR}:missing IB_VERCEL_BLOB_AUTH_MODE`),
 );
 assert.throws(
@@ -156,7 +177,7 @@ assert.throws(
       IB_VERCEL_BLOB_AUTH_MODE: "oidc",
       VERCEL_OIDC_TOKEN: "oidc-token",
     }),
-  new RegExp(`${VERCEL_BLOB_CONFIG_ERROR}:missing IB_VERCEL_BLOB_STORE_ID`),
+  new RegExp(`${VERCEL_BLOB_CONFIG_ERROR}:missing IB_VERCEL_BLOB_STORE_ID or BLOB_STORE_ID`),
 );
 assert.throws(
   () =>
@@ -171,6 +192,82 @@ assert.throws(
   () => readVercelBlobAuthConfig({ IB_VERCEL_BLOB_AUTH_MODE: "unexpected" }),
   new RegExp(`${VERCEL_BLOB_CONFIG_ERROR}:unsupported IB_VERCEL_BLOB_AUTH_MODE:unexpected`),
 );
+
+const yandexReadiness = buildProviderAwareStagingStorageReadiness({
+  IB_RUNTIME_TARGET: "staging",
+  IB_STAGING_BASE_URL: "https://stage.iburo.test",
+  IB_STORAGE_TARGET: "staging",
+  IB_STAGING_STORAGE_BUCKET: "iburo-stage-private",
+  IB_STAGING_STORAGE_ALLOWED_ORIGIN: "https://stage.iburo.test",
+  IB_STAGING_STORAGE_ACCESS_KEY_ID: "stage-key",
+  YANDEX_STORAGE_BUCKET: "iburo-stage-private",
+  YANDEX_STORAGE_ACCESS_KEY_ID: "stage-key",
+  YANDEX_STORAGE_SECRET_ACCESS_KEY: "stage-secret",
+  IB_FILE_SCANNER_TARGET: "staging",
+});
+assert.equal(yandexReadiness.storage.provider, YANDEX_OBJECT_STORAGE_PROVIDER);
+assert.equal(yandexReadiness.storage.ready, true);
+
+const vercelPreviewEnv = {
+  VERCEL_ENV: "preview",
+  VERCEL_GIT_COMMIT_REF: "audit/production-readiness",
+  IB_RUNTIME_TARGET: "staging",
+  IB_STAGING_BASE_URL: "https://stage.iburo.test",
+  IB_STORAGE_TARGET: "staging",
+  BLOB_READ_WRITE_TOKEN: "vercel-blob-private-token",
+} satisfies Record<string, string>;
+assert.equal(inferStagingVercelBlobProvider(vercelPreviewEnv), VERCEL_BLOB_STORAGE_PROVIDER);
+assert.equal(isExactVercelBlobStagingAutoDetectEnvironment(vercelPreviewEnv), true);
+const vercelReadiness = buildProviderAwareStagingStorageReadiness(vercelPreviewEnv);
+assert.equal(vercelReadiness.storage.provider, VERCEL_BLOB_STORAGE_PROVIDER);
+assert.equal(vercelReadiness.storage.ready, true);
+assert.equal(vercelReadiness.storage.missingOrPlaceholder.includes("YANDEX_STORAGE_BUCKET"), false);
+assert.equal(vercelReadiness.storage.missingOrPlaceholder.includes("YANDEX_STORAGE_ACCESS_KEY_ID"), false);
+assert.equal(vercelReadiness.storage.missingOrPlaceholder.includes("YANDEX_STORAGE_SECRET_ACCESS_KEY"), false);
+
+for (const env of [
+  { ...vercelPreviewEnv, VERCEL_ENV: "production" },
+  { ...vercelPreviewEnv, VERCEL_GIT_COMMIT_REF: "main" },
+  { ...vercelPreviewEnv, IB_RUNTIME_TARGET: "production" },
+]) {
+  assert.equal(inferStagingVercelBlobProvider(env), undefined);
+  assert.equal(isExactVercelBlobStagingAutoDetectEnvironment(env), false);
+}
+
+const missingToken = buildProviderAwareStagingStorageReadiness({
+  IB_OBJECT_STORAGE_PROVIDER: VERCEL_BLOB_STORAGE_PROVIDER,
+  IB_RUNTIME_TARGET: "staging",
+  IB_STAGING_BASE_URL: "https://stage.iburo.test",
+  IB_STORAGE_TARGET: "staging",
+  IB_VERCEL_BLOB_AUTH_MODE: "read-write-token",
+});
+assert.equal(missingToken.storage.ready, false);
+assert.ok(missingToken.storage.missingOrPlaceholder.includes("BLOB_READ_WRITE_TOKEN"));
+
+const malformedProvider = buildProviderAwareStagingStorageReadiness({
+  IB_OBJECT_STORAGE_PROVIDER: "unexpected-provider",
+  IB_RUNTIME_TARGET: "staging",
+  IB_STAGING_BASE_URL: "https://stage.iburo.test",
+  IB_STORAGE_TARGET: "staging",
+});
+assert.equal(malformedProvider.storage.ready, false);
+assert.equal(malformedProvider.storage.provider, "invalid");
+assert.ok(malformedProvider.storage.invalidOrInconsistent.includes("IB_OBJECT_STORAGE_PROVIDER"));
+
+const scannerStillSeparate = buildProviderAwareStagingStorageReadiness(vercelPreviewEnv);
+assert.equal(scannerStillSeparate.scanner.provider, VERCEL_BLOB_STORAGE_PROVIDER);
+assert.equal(scannerStillSeparate.scanner.ready, false);
+assert.ok(scannerStillSeparate.scanner.missingOrPlaceholder.includes("IB_FILE_SCANNER_SECRET"));
+assert.equal(scannerStillSeparate.scanner.missingOrPlaceholder.includes("YANDEX_STORAGE_BUCKET"), false);
+
+const redactionProbe = "secret-value-must-never-print-9f3a2";
+const redacted = buildProviderAwareStagingStorageReadiness({
+  ...vercelPreviewEnv,
+  BLOB_READ_WRITE_TOKEN: redactionProbe,
+});
+const serializedReadiness = JSON.stringify(redacted);
+assert.equal(serializedReadiness.includes(redactionProbe), false);
+assert.equal(serializedReadiness.includes("BLOB_READ_WRITE_TOKEN"), false);
 
 assert.match(vercelBlobSource, /export type VercelBlobStorageDriver/);
 assert.match(vercelBlobSource, /createPrivateUploadUrl/);
@@ -236,10 +333,11 @@ assert.doesNotMatch(verifierSource, /console\.(?:log|error)\([^\n]*target\.acces
 assert.doesNotMatch(verifierSource, /console\.(?:log|error)\([^\n]*target\.secretAccessKey/);
 
 assert.match(readinessRouteSource, /buildStagingEnvironmentInventory\(env\)/);
+assert.match(readinessRouteSource, /buildProviderAwareStagingStorageReadiness\(env\)/);
 assert.match(readinessRouteSource, /isVercelPreviewBackendAllowed\(env\)/);
 assert.match(readinessRouteSource, /VERCEL_STAGING_BRANCH/);
-assert.match(readinessRouteSource, /inventory\.phases\.storage/);
-assert.match(readinessRouteSource, /inventory\.phases\.scanner/);
+assert.match(readinessRouteSource, /providerAwareStorage\.storage/);
+assert.match(readinessRouteSource, /providerAwareStorage\.scanner/);
 assert.match(readinessRouteSource, /networkAccessed:\s*inventory\.networkAccessed/);
 assert.match(readinessRouteSource, /valuesPrinted:\s*inventory\.valuesPrinted/);
 assert.match(readinessRouteSource, /status:\s*404/);
@@ -247,7 +345,7 @@ assert.match(readinessRouteSource, /Cache-Control": "private, no-store, max-age=
 assert.doesNotMatch(readinessRouteSource, /S3Client|HeadObjectCommand|GetObjectCommand|fetch\(|new Pool|PrismaClient/);
 assert.doesNotMatch(
   readinessRouteSource,
-  /process\.env\.(?:YANDEX_STORAGE_SECRET_ACCESS_KEY|IB_FILE_SCANNER_SECRET|DATABASE_URL)/,
+  /process\.env\.(?:YANDEX_STORAGE_SECRET_ACCESS_KEY|BLOB_READ_WRITE_TOKEN|IB_FILE_SCANNER_SECRET|DATABASE_URL)/,
   "readiness route must never access or serialize individual secret values",
 );
 

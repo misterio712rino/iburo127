@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { buildStagingEnvironmentInventory } from "@/scripts/staging-environment-inventory";
+import { buildProviderAwareStagingStorageReadiness } from "@/scripts/staging-storage-readiness";
 import {
   VERCEL_STAGING_BRANCH,
   isVercelPreviewBackendAllowed,
@@ -43,6 +44,7 @@ export async function GET() {
   }
 
   const inventory = buildStagingEnvironmentInventory(env);
+  const providerAwareStorage = buildProviderAwareStagingStorageReadiness(env);
 
   return NextResponse.json(
     {
@@ -55,8 +57,8 @@ export async function GET() {
       networkAccessed: inventory.networkAccessed,
       valuesPrinted: inventory.valuesPrinted,
       phases: {
-        storage: inventory.phases.storage,
-        scanner: inventory.phases.scanner,
+        storage: providerAwareStorage.storage,
+        scanner: providerAwareStorage.scanner,
       },
     },
     { headers: NO_STORE_HEADERS },
