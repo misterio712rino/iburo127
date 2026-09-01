@@ -5,6 +5,10 @@ import { resolve } from "node:path";
 const portalSource = await readFile(resolve("app/portal/page.tsx"), "utf8");
 const casePageSource = await readFile(resolve("app/portal/cases/[caseId]/page.tsx"), "utf8");
 const clientFrameSource = await readFile(resolve("components/portal/ClientCaseFrame.tsx"), "utf8");
+const clientNavigationSource = await readFile(
+  resolve("components/portal/ClientCaseNavigation.tsx"),
+  "utf8",
+);
 const progressPageSource = await readFile(
   resolve("app/portal/cases/[caseId]/progress/page.tsx"),
   "utf8",
@@ -75,8 +79,18 @@ assert.match(
 );
 assert.match(
   clientFrameSource,
+  /<ClientCaseNavigation caseId=\{caseId\}/,
+  "the production client shell must render the shared case navigation",
+);
+assert.match(
+  clientNavigationSource,
   /AI-помощник/,
-  "AI navigation must be present in the production client shell for every plan",
+  "AI navigation must be present in the production client navigation for every plan",
+);
+assert.match(
+  clientNavigationSource,
+  /Профиль/,
+  "client navigation must expose profile access on desktop and mobile",
 );
 assert.match(
   clientFrameSource,
