@@ -42,8 +42,28 @@ const privateApiHeaders = [
   { key: "Pragma", value: "no-cache" },
 ] as const;
 
+const legacyMarketingRoutes = [
+  "/about",
+  "/articles/:path*",
+  "/bankruptcy-check",
+  "/calculator",
+  "/contacts",
+  "/faq",
+  "/praktikum",
+  "/proverka",
+  "/services/:path*",
+  "/uslugi/:path*",
+] as const;
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  async redirects() {
+    return legacyMarketingRoutes.map((source) => ({
+      source,
+      destination: "https://iburo127.ru/",
+      permanent: false,
+    }));
+  },
   async headers() {
     return [
       {

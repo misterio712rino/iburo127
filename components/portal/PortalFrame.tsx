@@ -1,10 +1,9 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Bell, ClipboardList, House, KeyRound, ShieldCheck, UserRound, Users } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { IBuroBrand } from "@/components/platform/IBuroBrand";
 import { SignOutButton } from "@/components/platform/auth/SignOutButton";
-
-const NAV_LINK_CLASS = "inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-white hover:text-slate-900";
+import { PortalNavigation } from "@/components/portal/PortalNavigation";
 
 export function PortalFrame({
   children,
@@ -40,39 +39,7 @@ export function PortalFrame({
         </div>
       </header>
 
-      <nav
-        aria-label="Основная навигация защищённого кабинета"
-        className="-mx-5 flex flex-nowrap gap-2 overflow-x-auto overscroll-x-contain border-b border-slate-200 px-5 py-3 sm:mx-0 sm:flex-wrap sm:px-0 sm:py-4"
-      >
-        <Link href="/portal" className={NAV_LINK_CLASS}>
-          <House className="size-4" aria-hidden="true" />
-          Кабинет
-        </Link>
-        <Link href="/portal/profile" className={NAV_LINK_CLASS}>
-          <UserRound className="size-4" aria-hidden="true" />
-          Профиль
-        </Link>
-        <Link href="/portal/notifications" className={NAV_LINK_CLASS}>
-          <Bell className="size-4" aria-hidden="true" />
-          Уведомления
-        </Link>
-        <Link href="/portal/security" className={NAV_LINK_CLASS}>
-          <KeyRound className="size-4" aria-hidden="true" />
-          Безопасность
-        </Link>
-        {showStaffTasks ? (
-          <Link href="/portal/tasks" className={NAV_LINK_CLASS}>
-            <ClipboardList className="size-4" aria-hidden="true" />
-            Задачи
-          </Link>
-        ) : null}
-        {showProspectLeads ? (
-          <Link href="/portal/leads" className={NAV_LINK_CLASS}>
-            <Users className="size-4" aria-hidden="true" />
-            Потенциальные клиенты
-          </Link>
-        ) : null}
-      </nav>
+      <PortalNavigation showStaffTasks={showStaffTasks} showProspectLeads={showProspectLeads} />
 
       {children}
     </div>

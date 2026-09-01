@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Sparkles } from "lucide-react";
-import { PortalFrame } from "@/components/portal/PortalFrame";
+import { CasePortalFrame } from "@/components/portal/CasePortalFrame";
 import { AiAssistant } from "@/components/platform/ai/AiAssistant";
 import { getPlanDisplayLabel } from "@/lib/platform/case-progress";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
@@ -29,28 +29,28 @@ export default async function PortalCaseAiPage({ params }: { params: Promise<{ c
   if (!clientCase || clientCase.clientId !== actor.userId) notFound();
 
   return (
-    <PortalFrame sectionLabel="AI-помощник" accessLabel="Доступ подтверждён">
-      <main className="py-10 sm:py-12">
-        <Link href={`/portal/cases/${clientCase.id}`} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900">
+    <CasePortalFrame sessionProvider={sessionProvider} actor={actor} clientCase={clientCase} sectionLabel="AI-помощник">
+      <div className="py-1 sm:py-2">
+        <Link href={`/portal/cases/${clientCase.id}`} className="inline-flex items-center gap-2 text-sm font-semibold text-[#77746e] transition hover:text-[#25282d]">
           <ArrowLeft className="size-4" aria-hidden="true" />
           Назад к делу
         </Link>
 
-        <section className="mt-8 rounded-[30px] border border-white/80 bg-white/80 p-4 shadow-[0_18px_60px_rgba(15,23,42,0.06)] sm:p-7">
-          <div className="mb-7 flex min-w-0 flex-col gap-4 border-b border-slate-100 pb-6 sm:flex-row sm:items-center sm:justify-between">
+        <section className="mt-6 rounded-[30px] border border-white/80 bg-white/75 p-4 shadow-[0_18px_55px_rgba(75,57,43,0.07)] sm:p-7">
+          <div className="mb-7 flex min-w-0 flex-col gap-4 border-b border-black/[0.055] pb-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="font-mono text-xs font-semibold tracking-[0.08em] text-slate-400">{clientCase.caseNumber}</p>
-              <h1 className="mt-3 flex min-w-0 items-center gap-2 break-words font-[var(--font-iburo-display)] text-3xl font-semibold text-slate-900 sm:gap-3 sm:text-5xl">
-                <Sparkles className="size-6 shrink-0 text-[#7B2330] sm:size-7" aria-hidden="true" />
+              <p className="font-mono text-xs font-semibold tracking-[0.08em] text-[#9a9791]">{clientCase.caseNumber}</p>
+              <h1 className="mt-3 flex min-w-0 items-center gap-2 break-words font-[var(--font-iburo-display)] text-3xl font-semibold text-[#272a30] sm:gap-3 sm:text-5xl">
+                <Sparkles className="size-6 shrink-0 text-[#b9202b] sm:size-7" aria-hidden="true" />
                 AI-помощник
               </h1>
             </div>
-            <span className="w-fit rounded-full bg-slate-100 px-4 py-2 text-xs font-bold text-slate-600">{getPlanDisplayLabel(clientCase.planCode, "CLIENT")}</span>
+            <span className="w-fit rounded-full border border-black/[0.05] bg-[#f1eee9] px-4 py-2 text-xs font-bold text-[#66635e]">{getPlanDisplayLabel(clientCase.planCode, "CLIENT")}</span>
           </div>
 
           <AiAssistant caseId={clientCase.id} withShell={false} />
         </section>
-      </main>
-    </PortalFrame>
+      </div>
+    </CasePortalFrame>
   );
 }

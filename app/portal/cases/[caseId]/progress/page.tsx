@@ -10,7 +10,7 @@ import {
   GraduationCap,
   ListChecks,
 } from "lucide-react";
-import { PortalFrame } from "@/components/portal/PortalFrame";
+import { CasePortalFrame } from "@/components/portal/CasePortalFrame";
 import { CASE_STAGE_FLOW } from "@/lib/platform/case-progress";
 import { resolveCasePortalAudience } from "@/lib/platform/case-portal-audience";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
@@ -45,24 +45,23 @@ export default async function PortalCaseProgressPage({ params }: { params: Promi
   const audience = resolveCasePortalAudience(actor, clientCase);
   const isStaff = audience === "STAFF";
   const summary = await getCaseProgressSummaryForActor(actor, clientCase, audience);
-
   const caseHref = `/portal/cases/${clientCase.id}`;
   const nextHref = `${caseHref}/${summary.nextAction.segment}`;
 
   return (
-    <PortalFrame sectionLabel="Прогресс дела" accessLabel="Доступ подтверждён" showStaffTasks={isStaff}>
-      <main className="py-10 sm:py-14">
+    <CasePortalFrame sessionProvider={sessionProvider} actor={actor} clientCase={clientCase} sectionLabel="Прогресс дела" showStaffTasks={isStaff}>
+      <div className={isStaff ? "py-10 sm:py-14" : "py-1 sm:py-2"}>
         <Link href={caseHref} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900">
           <ArrowLeft className="size-4" aria-hidden="true" />
           Назад к делу {clientCase.caseNumber}
         </Link>
 
-        <section className="mt-8 rounded-[32px] border border-white/80 bg-white/90 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)] sm:p-8">
+        <section className="mt-6 rounded-[32px] border border-white/80 bg-white/80 p-6 shadow-[0_18px_55px_rgba(75,57,43,0.07)] sm:p-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-3xl">
               <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500"><Gauge className="size-4" aria-hidden="true" />Состояние дела</span>
               <p className="mt-3 font-mono text-xs font-semibold tracking-[0.08em] text-slate-400">{clientCase.caseNumber}</p>
-              <h1 className="mt-2 font-[var(--font-iburo-display)] text-4xl font-semibold leading-none text-slate-900 sm:text-5xl">Прогресс дела</h1>
+              <h1 className="mt-2 font-[var(--font-iburo-display)] text-3xl font-semibold leading-none text-slate-900 sm:text-5xl">Прогресс дела</h1>
               <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">
                 Здесь собраны текущий этап дела, готовность анкеты, практикума, документов и доступных файлов. Это не прогноз срока завершения процедуры банкротства.
               </p>
@@ -106,68 +105,25 @@ export default async function PortalCaseProgressPage({ params }: { params: Promi
         </section>
 
         <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Готовность материалов дела">
-          <ProgressCard
-            icon={ListChecks}
-            title="Анкета"
-            status={STATUS_LABELS[summary.questionnaire.status]}
-            detail={`${summary.questionnaire.completed} из ${summary.questionnaire.total} разделов`}
-            percent={summary.questionnaire.percent}
-            href={`${caseHref}/questionnaire`}
-          />
-          <ProgressCard
-            icon={GraduationCap}
-            title="Практикум"
-            status={STATUS_LABELS[summary.practicum.status]}
-            detail={`${summary.practicum.completed} из ${summary.practicum.total} уроков`}
-            percent={summary.practicum.percent}
-            href={`${caseHref}/practicum`}
-          />
-          <MetricCard
-            icon={FileText}
-            title="Документы"
-            primary={`${summary.documents.reviewed} проверено`}
-            detail={summary.documents.total ? `${summary.documents.total} всего · ${summary.documents.sentForReview} на проверке` : "Документы ещё не сформированы"}
-            href={`${caseHref}/documents`}
-          />
-          <MetricCard
-            icon={FileCheck2}
-            title="Проверенные файлы"
-            primary={`${summary.readyFileCount} шт.`}
-            detail="Показываются только файлы, прошедшие проверку безопасности."
-            href={`${caseHref}/files`}
-          />
+          <ProgressCard icon={ListChecks} title="Анкета" status={STATUS_LABELS[summary.questionnaire.status]} detail={`${summary.questionnaire.completed} из ${summary.questionnaire.total} разделов`} percent={summary.questionnaire.percent} href={`${caseHref}/questionnaire`} />
+          <ProgressCard icon={GraduationCap} title="Практикум" status={STATUS_LABELS[summary.practicum.status]} detail={`${summary.practicum.completed} из ${summary.practicum.total} уроков`} percent={summary.practicum.percent} href={`${caseHref}/practicum`} />
+          <MetricCard icon={FileText} title="Документы" primary={`${summary.documents.reviewed} проверено`} detail={summary.documents.total ? `${summary.documents.total} всего · ${summary.documents.sentForReview} на проверке` : "Документы ещё не сформированы"} href={`${caseHref}/documents`} />
+          <MetricCard icon={FileCheck2} title="Проверенные файлы" primary={`${summary.readyFileCount} шт.`} detail="Показываются только файлы, прошедшие проверку безопасности." href={`${caseHref}/files`} />
         </section>
 
         <div className="mt-6 flex items-start gap-3 rounded-2xl border border-slate-200 bg-white/65 px-4 py-4 text-xs leading-5 text-slate-500">
           <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden="true" />
           Этап и готовность материалов рассчитываются автоматически по актуальным данным вашего дела.
         </div>
-      </main>
-    </PortalFrame>
+      </div>
+    </CasePortalFrame>
   );
 }
 
-function ProgressCard({
-  icon: Icon,
-  title,
-  status,
-  detail,
-  percent,
-  href,
-}: {
-  icon: typeof ListChecks;
-  title: string;
-  status: string;
-  detail: string;
-  percent: number;
-  href: string;
-}) {
+function ProgressCard({ icon: Icon, title, status, detail, percent, href }: { icon: typeof ListChecks; title: string; status: string; detail: string; percent: number; href: string }) {
   return (
     <Link href={href} className="rounded-[26px] border border-white/80 bg-white/90 p-5 shadow-[0_12px_40px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:border-slate-300">
-      <div className="flex items-center justify-between gap-3">
-        <span className="grid size-10 place-items-center rounded-2xl bg-slate-100 text-slate-700"><Icon className="size-5" aria-hidden="true" /></span>
-        <span className="text-2xl font-bold text-slate-900">{percent}%</span>
-      </div>
+      <div className="flex items-center justify-between gap-3"><span className="grid size-10 place-items-center rounded-2xl bg-slate-100 text-slate-700"><Icon className="size-5" aria-hidden="true" /></span><span className="text-2xl font-bold text-slate-900">{percent}%</span></div>
       <h2 className="mt-5 text-lg font-bold text-slate-900">{title}</h2>
       <p className="mt-1 text-sm font-semibold text-slate-600">{status}</p>
       <p className="mt-2 text-xs leading-5 text-slate-400">{detail}</p>
@@ -176,19 +132,7 @@ function ProgressCard({
   );
 }
 
-function MetricCard({
-  icon: Icon,
-  title,
-  primary,
-  detail,
-  href,
-}: {
-  icon: typeof FileText;
-  title: string;
-  primary: string;
-  detail: string;
-  href: string;
-}) {
+function MetricCard({ icon: Icon, title, primary, detail, href }: { icon: typeof FileText; title: string; primary: string; detail: string; href: string }) {
   return (
     <Link href={href} className="rounded-[26px] border border-white/80 bg-white/90 p-5 shadow-[0_12px_40px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:border-slate-300">
       <span className="grid size-10 place-items-center rounded-2xl bg-slate-100 text-slate-700"><Icon className="size-5" aria-hidden="true" /></span>
