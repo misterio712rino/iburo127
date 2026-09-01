@@ -3,7 +3,10 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const portalFrameSource = await readFile(resolve("components/portal/PortalFrame.tsx"), "utf8");
+const clientCaseFrameSource = await readFile(resolve("components/portal/ClientCaseFrame.tsx"), "utf8");
 const portalNavigationSource = await readFile(resolve("components/portal/PortalNavigation.tsx"), "utf8");
+const portalMotionContentSource = await readFile(resolve("components/portal/PortalMotionContent.tsx"), "utf8");
+const portalMotionStylesSource = await readFile(resolve("components/portal/PortalMotionStyles.tsx"), "utf8");
 const questionnaireSource = await readFile(resolve("app/portal/cases/[caseId]/questionnaire/page.tsx"), "utf8");
 const practicumSource = await readFile(resolve("app/portal/cases/[caseId]/practicum/page.tsx"), "utf8");
 const practicumComponentSource = await readFile(resolve("components/platform/practicum/ProductionPracticum.tsx"), "utf8");
@@ -31,6 +34,20 @@ assert.match(
   /<PortalNavigation/,
   "portal shell must render the extracted responsive navigation",
 );
+assert.match(portalFrameSource, /portal-motion-shell/);
+assert.match(portalFrameSource, /<PortalMotionContent>/);
+assert.match(clientCaseFrameSource, /portal-motion-shell/);
+assert.match(clientCaseFrameSource, /<PortalMotionContent>/);
+assert.match(portalMotionContentSource, /from "framer-motion"/);
+assert.match(portalMotionContentSource, /initial=\{\{ opacity: 0, y: 12 \}\}/);
+assert.match(portalMotionContentSource, /duration: 0\.45, ease: "easeOut"/);
+assert.match(portalMotionContentSource, /reducedMotion="user"/);
+assert.match(portalMotionStylesSource, /translateY\(-4px\)/);
+assert.match(portalMotionStylesSource, /transition: width 500ms ease/);
+assert.match(portalMotionStylesSource, /iburo-portal-step-ring/);
+assert.match(portalMotionStylesSource, /iburo-portal-step-breathe/);
+assert.match(portalMotionStylesSource, /iburo-portal-progress-breathe/);
+assert.match(portalMotionStylesSource, /prefers-reduced-motion: reduce/);
 assert.match(
   portalNavigationSource,
   /flex flex-nowrap[^\"]*overflow-x-auto[^\"]*sm:flex-wrap/,

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { IBuroBrand } from "@/components/platform/IBuroBrand";
 import { SignOutButton } from "@/components/platform/auth/SignOutButton";
 import { ClientCaseNavigation } from "@/components/portal/ClientCaseNavigation";
+import { PortalMotionContent } from "@/components/portal/PortalMotionContent";
+import { PortalMotionStyles } from "@/components/portal/PortalMotionStyles";
 
 export type ClientCaseOption = {
   id: string;
@@ -80,7 +82,8 @@ export function ClientCaseFrame({
   const base = `/portal/cases/${caseId}`;
 
   return (
-    <div className="min-h-screen bg-[#f4f0ea] text-[#191d25]">
+    <div className="portal-motion-shell min-h-screen bg-[#f4f0ea] text-[#191d25]">
+      <PortalMotionStyles />
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-black/5 bg-[#f8f5f0] px-5 py-6 lg:flex">
         <Link href={base} className="inline-flex w-fit items-center rounded-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#b9202b]/15">
           <IBuroBrand dot className="text-2xl font-semibold tracking-[-0.05em]" />
@@ -126,7 +129,7 @@ export function ClientCaseFrame({
         </header>
 
         <main className="mx-auto w-full max-w-[1180px] px-4 py-8 sm:px-8 sm:py-10 lg:px-10 lg:py-12">
-          {children}
+          <PortalMotionContent>{children}</PortalMotionContent>
         </main>
       </div>
     </div>

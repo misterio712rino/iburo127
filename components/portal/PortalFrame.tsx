@@ -3,6 +3,8 @@ import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { IBuroBrand } from "@/components/platform/IBuroBrand";
 import { SignOutButton } from "@/components/platform/auth/SignOutButton";
+import { PortalMotionContent } from "@/components/portal/PortalMotionContent";
+import { PortalMotionStyles } from "@/components/portal/PortalMotionStyles";
 import { PortalNavigation } from "@/components/portal/PortalNavigation";
 
 export function PortalFrame({
@@ -19,7 +21,8 @@ export function PortalFrame({
   showProspectLeads?: boolean;
 }) {
   return (
-    <div className="platform-shell mx-auto min-h-screen w-full max-w-7xl px-5 py-6 sm:px-8 sm:py-8 [&_button]:min-h-11 [&_a]:min-h-11">
+    <div className="portal-motion-shell platform-shell mx-auto min-h-screen w-full max-w-7xl px-5 py-6 sm:px-8 sm:py-8 [&_button]:min-h-11 [&_a]:min-h-11">
+      <PortalMotionStyles />
       <header className="flex flex-col gap-5 border-b border-slate-200 pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
           <Link href="/portal" className="inline-flex items-center rounded-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#7B2330]/15">
@@ -41,7 +44,7 @@ export function PortalFrame({
 
       <PortalNavigation showStaffTasks={showStaffTasks} showProspectLeads={showProspectLeads} />
 
-      {children}
+      <PortalMotionContent>{children}</PortalMotionContent>
     </div>
   );
 }
