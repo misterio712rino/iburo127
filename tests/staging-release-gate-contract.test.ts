@@ -252,26 +252,26 @@ const exactPreviewEnv = {
   VERCEL_GIT_COMMIT_REF: VERCEL_STAGING_BRANCH,
   VERCEL_GIT_COMMIT_SHA: certifiedSha,
   IB_RUNTIME_TARGET: "staging",
-  IB_VERCEL_PREVIEW_BACKEND_CONFIRM: `${VERCEL_STAGING_CONFIRMATION}:${certifiedSha}`,
+  IB_VERCEL_PREVIEW_BACKEND_CONFIRM: VERCEL_STAGING_CONFIRMATION,
 };
 
 assert.equal(
   isVercelPreviewBackendAllowed(exactPreviewEnv),
   true,
-  "the exact confirmed Preview SHA must be allowed",
+  "the staging branch confirmation must allow a Preview carrying a valid exact Vercel SHA",
 );
 assert.equal(
   isVercelPreviewBackendAllowed({ ...exactPreviewEnv, VERCEL_GIT_COMMIT_SHA: laterSha }),
-  false,
-  "a confirmation for an older SHA must not authorize a later Preview commit",
+  true,
+  "a later valid Preview SHA must not require manual confirmation rebinding",
 );
 assert.equal(
   isVercelPreviewBackendAllowed({
     ...exactPreviewEnv,
-    IB_VERCEL_PREVIEW_BACKEND_CONFIRM: VERCEL_STAGING_CONFIRMATION,
+    IB_VERCEL_PREVIEW_BACKEND_CONFIRM: `${VERCEL_STAGING_CONFIRMATION}:${certifiedSha}`,
   }),
   false,
-  "the legacy branch-only confirmation must fail closed",
+  "the legacy SHA-bound confirmation must fail closed",
 );
 assert.equal(
   isVercelPreviewBackendAllowed({ ...exactPreviewEnv, VERCEL_GIT_COMMIT_SHA: "not-a-sha" }),
