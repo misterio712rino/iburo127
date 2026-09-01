@@ -15,6 +15,10 @@ const readinessRouteSource = await readFile(
   "utf8",
 );
 const runtimeSource = await readFile(resolve("server/files/object-storage-runtime.ts"), "utf8");
+const vercelBlobSource = await readFile(
+  resolve("server/files/vercel-blob-object-storage.ts"),
+  "utf8",
+);
 
 assert.equal(readPrivateObjectStorageProvider({}), YANDEX_OBJECT_STORAGE_PROVIDER);
 assert.equal(
@@ -36,6 +40,22 @@ assert.ok(
   runtimeSource.indexOf("provider === VERCEL_BLOB_STORAGE_PROVIDER") <
     runtimeSource.indexOf("readYandexObjectStorageConfig()"),
   "unsupported Blob activation must fail closed before any Yandex credential read",
+);
+
+assert.match(vercelBlobSource, /export type VercelBlobStorageDriver/);
+assert.match(vercelBlobSource, /createPrivateUploadUrl/);
+assert.match(vercelBlobSource, /maximumSizeInBytes/);
+assert.match(vercelBlobSource, /createPrivateDownloadUrl/);
+assert.match(vercelBlobSource, /statPrivateBlob/);
+assert.match(vercelBlobSource, /deletePrivateBlob/);
+assert.match(vercelBlobSource, /assertSafeObjectKey\(input\.objectKey\)/);
+assert.match(vercelBlobSource, /assertSafeSignedUrlTtl\(input\.expiresInSeconds\)/);
+assert.match(vercelBlobSource, /toSafeUploadSizeNumber\(input\.sizeBytes\)/);
+assert.match(vercelBlobSource, /providerCode = VERCEL_BLOB_STORAGE_PROVIDER/);
+assert.doesNotMatch(
+  vercelBlobSource,
+  /from\s+["']@vercel\/blob["']/,
+  "provider-neutral Blob adapter must not couple directly to the concrete SDK",
 );
 
 for (const requiredGuardToken of [
