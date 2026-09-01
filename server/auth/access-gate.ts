@@ -1,5 +1,7 @@
 import "server-only";
 
+import { createHmac, randomUUID } from "node:crypto";
+import { isIP } from "node:net";
 import { getPrismaClient } from "@/server/database/prisma";
 import { readBetterAuthRuntimeConfig } from "@/server/config/production";
 import {
@@ -11,6 +13,10 @@ import {
 
 const BETTER_AUTH_PROVIDER = "better-auth";
 const LEAD_SOURCE = "AUTH_GATE";
+const RATE_LIMIT_WINDOW_SECONDS = 15 * 60;
+const RATE_LIMIT_IP_MAX = 30;
+const RATE_LIMIT_CONTACT_MAX = 6;
+const RATE_LIMIT_KEY_PREFIX = "iburo:access-gate:v1";
 
 type UserAccessState = {
   id: string;
@@ -19,6 +25,81 @@ type UserAccessState = {
   roles: Array<{ role: { code: string } }>;
   authIdentities: Array<{ provider: string }>;
 };
+
+type RateLimitRow = {
+  count: number | bigint;
+};
+
+export class AccessGateRateLimitError extends Error {
+  readonly retryAfterSeconds = RATE_LIMIT_WINDOW_SECONDS;
+
+  constructor() {
+    super("ACCESS_GATE_RATE_LIMITED");
+    this.name = "AccessGateRateLimitError";
+  }
+}
+
+function rateLimitDigest(scope: "ip" | "contact", value: string, secret: string): string {
+  return createHmac("sha256", secret)
+    .update(`${RATE_LIMIT_KEY_PREFIX}:${scope}:${value}`, "utf8")
+    .digest("hex");
+}
+
+function readTrustedClientIp(request: Request): string {
+  const raw = request.headers.get("x-forwarded-for")?.trim() ?? "";
+  const first = raw.split(",", 1)[0]?.trim() ?? "";
+  if (isIP(first) === 0) throw new Error("ACCESS_GATE_CLIENT_IP_UNAVAILABLE");
+  return first;
+}
+
+async function consumeRateLimit(input: {
+  key: string;
+  limit: number;
+  nowSeconds: number;
+}): Promise<void> {
+  const prisma = getPrismaClient();
+  const windowStart = input.nowSeconds - RATE_LIMIT_WINDOW_SECONDS;
+  const rows = await prisma.$queryRaw<RateLimitRow[]>`
+    insert into "rateLimit" ("id", "key", "count", "lastRequest")
+    values (${randomUUID()}, ${input.key}, 1, ${input.nowSeconds})
+    on conflict ("key") do update
+    set
+      "count" = case
+        when "rateLimit"."lastRequest" < ${windowStart} then 1
+        else "rateLimit"."count" + 1
+      end,
+      "lastRequest" = case
+        when "rateLimit"."lastRequest" < ${windowStart} then ${input.nowSeconds}
+        else "rateLimit"."lastRequest"
+      end
+    returning "count"
+  `;
+
+  const count = Number(rows[0]?.count ?? Number.POSITIVE_INFINITY);
+  if (!Number.isSafeInteger(count) || count > input.limit) {
+    throw new AccessGateRateLimitError();
+  }
+}
+
+async function enforceAccessGateRateLimit(
+  request: Request,
+  identifier: AccessIdentifier,
+): Promise<void> {
+  const { secret } = readBetterAuthRuntimeConfig();
+  const clientIp = readTrustedClientIp(request);
+  const nowSeconds = Math.floor(Date.now() / 1000);
+
+  await consumeRateLimit({
+    key: rateLimitDigest("ip", clientIp, secret),
+    limit: RATE_LIMIT_IP_MAX,
+    nowSeconds,
+  });
+  await consumeRateLimit({
+    key: rateLimitDigest("contact", identifier.contactKey, secret),
+    limit: RATE_LIMIT_CONTACT_MAX,
+    nowSeconds,
+  });
+}
 
 async function loadUserAccessState(userId: string): Promise<UserAccessState | null> {
   const prisma = getPrismaClient();
@@ -106,8 +187,12 @@ export type AccessGateResult =
   | { state: "PROSPECT"; purchaseUrl: "https://iburo127.ru/" }
   | { state: "ACCOUNT_UNAVAILABLE" };
 
-export async function evaluateAccessIdentifier(rawIdentifier: unknown): Promise<AccessGateResult> {
+export async function evaluateAccessIdentifier(
+  request: Request,
+  rawIdentifier: unknown,
+): Promise<AccessGateResult> {
   const identifier = normalizeAccessIdentifier(rawIdentifier);
+  await enforceAccessGateRateLimit(request, identifier);
   const userIds = await findUserIds(identifier);
 
   if (userIds.length === 0) {
