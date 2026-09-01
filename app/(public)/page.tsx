@@ -1,21 +1,5 @@
-import Hero from "@/components/sections/Hero";
-import AboutCompany from "@/components/sections/AboutCompany";
-import WhyChooseUs from "@/components/sections/WhyChooseUs";
-import PracticeHighlight from "@/components/sections/PracticeHighlight";
-import ReviewsPreview from "@/components/sections/ReviewsPreview";
-import FAQPreview from "@/components/sections/FAQPreview";
-import ContactCTA from "@/components/sections/ContactCTA";
+import { redirect } from "next/navigation";
 
 export default function HomePage() {
-  return (
-    <main>
-      <Hero />
-      <AboutCompany />
-      <WhyChooseUs />
-      <PracticeHighlight />
-      <ReviewsPreview />
-      <FAQPreview />
-      <ContactCTA />
-    </main>
-  );
+  redirect("/auth/sign-in");
 }
