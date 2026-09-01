@@ -7,8 +7,12 @@ export type PrivateObjectStorageProvider =
   | typeof YANDEX_OBJECT_STORAGE_PROVIDER
   | typeof VERCEL_BLOB_STORAGE_PROVIDER;
 
+type ObjectStorageProviderEnvironment = {
+  IB_OBJECT_STORAGE_PROVIDER?: string;
+};
+
 export function readPrivateObjectStorageProvider(
-  env: NodeJS.ProcessEnv = process.env,
+  env: ObjectStorageProviderEnvironment = process.env,
 ): PrivateObjectStorageProvider {
   const configured = env.IB_OBJECT_STORAGE_PROVIDER?.trim();
   if (!configured) return YANDEX_OBJECT_STORAGE_PROVIDER;
