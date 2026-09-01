@@ -83,7 +83,6 @@ if (process.env[ENABLE_ENV]?.trim() === "1") {
         : new Request(requestUrl, init);
     const headers = new Headers(request.headers);
     headers.set("x-vercel-protection-bypass", secret);
-    headers.set("x-vercel-set-bypass-cookie", "true");
 
     return nativeFetch(new Request(request, { headers }));
   };

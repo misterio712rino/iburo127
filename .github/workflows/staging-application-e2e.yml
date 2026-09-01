@@ -97,7 +97,6 @@ jobs:
           test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
           curl --silent --show-error --fail-with-body \
             -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
-            -H "x-vercel-set-bypass-cookie: true" \
             "$IB_STAGING_BASE_URL/_iburo/staging-identity" \
           | node --input-type=module -e '
               let input = "";
@@ -126,7 +125,6 @@ jobs:
           curl --silent --show-error --fail-with-body \
             -X POST \
             -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
-            -H "x-vercel-set-bypass-cookie: true" \
             -H "Origin: $IB_STAGING_BASE_URL" \
             -H "Content-Type: application/x-www-form-urlencoded" \
             --data-urlencode "confirm=RESET_APPLICATION_E2E:${IB_STAGING_DATABASE_NAME}:public:${GITHUB_SHA}" \
