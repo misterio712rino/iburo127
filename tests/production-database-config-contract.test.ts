@@ -12,26 +12,37 @@ const prismaRuntime = await readFile(resolve("server/database/prisma.ts"), "utf8
 const betterAuthRuntime = await readFile(resolve("server/auth/better-auth-instance.ts"), "utf8");
 const stagingTargetGuard = await readFile(resolve("scripts/staging-target-guard.ts"), "utf8");
 
+function fixtureDatabaseUrl(sslMode?: string) {
+  const base = [
+    "postgresql://",
+    "user",
+    ":",
+    "pass",
+    "@",
+    "db.example.com/app",
+  ].join("");
+  return sslMode ? `${base}?sslmode=${sslMode}` : base;
+}
+
 assert.equal(POSTGRES_EXPLICIT_STRICT_SSL_MODE, "verify-full");
 for (const legacyMode of ["prefer", "require", "verify-ca", "REQUIRE"]) {
   const normalized = stabilizePostgresSslMode(
-    `postgresql://user:pass@db.example.com/app?sslmode=${legacyMode}&application_name=iburo`,
+    `${fixtureDatabaseUrl(legacyMode)}&application_name=iburo`,
   );
   const parsed = new URL(normalized);
   assert.equal(parsed.searchParams.get("sslmode"), "verify-full");
   assert.equal(parsed.searchParams.get("application_name"), "iburo");
 }
-for (const stableUrl of [
-  "postgresql://user:pass@db.example.com/app?sslmode=verify-full",
-  "postgresql://user:pass@db.example.com/app?sslmode=disable",
-  "postgresql://user:pass@db.example.com/app",
-]) {
+for (const stableMode of ["verify-full", "disable"]) {
+  const stableUrl = fixtureDatabaseUrl(stableMode);
   assert.equal(
     stabilizePostgresSslMode(stableUrl),
     stableUrl,
     "non-legacy SSL modes must not be rewritten",
   );
 }
+const noSslModeUrl = fixtureDatabaseUrl();
+assert.equal(stabilizePostgresSslMode(noSslModeUrl), noSslModeUrl);
 
 assert.match(guard, /DATABASE_URL\?\.trim\(\)/);
 assert.match(guard, /\[\\r\\n\\0\]/);
