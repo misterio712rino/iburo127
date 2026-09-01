@@ -39,7 +39,7 @@ export function assertSafeSignedUrlTtl(expiresInSeconds: number) {
 }
 
 export function toSafeUploadSizeNumber(sizeBytes: bigint) {
-  if (sizeBytes <= 0n || sizeBytes > BigInt(Number.MAX_SAFE_INTEGER)) {
+  if (sizeBytes <= BigInt(0) || sizeBytes > BigInt(Number.MAX_SAFE_INTEGER)) {
     throw new Error("OBJECT_STORAGE_INVALID_UPLOAD_SIZE");
   }
   return Number(sizeBytes);
