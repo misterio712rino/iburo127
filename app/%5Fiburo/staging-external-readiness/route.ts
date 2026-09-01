@@ -59,6 +59,7 @@ export async function GET() {
       phases: {
         storage: providerAwareStorage.storage,
         scanner: providerAwareStorage.scanner,
+        openai: inventory.phases.openai,
       },
     },
     { headers: NO_STORE_HEADERS },
