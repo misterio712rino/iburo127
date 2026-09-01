@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   repair-lock:
-    if: github.event.head_commit.message == 'ci: stage one-shot dependency lock repair'
     runs-on: ubuntu-24.04
     timeout-minutes: 11
 
@@ -33,6 +32,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$GITHUB_REF_NAME" = "audit/production-readiness"
+          test "$(git log -1 --format=%s)" = "ci: stage one-shot dependency lock repair"
           actual_sha="$(git rev-parse HEAD)"
           test "$actual_sha" = "$GITHUB_SHA"
           remote_sha="$(git ls-remote origin refs/heads/audit/production-readiness | cut -f1)"
@@ -52,20 +52,25 @@ jobs:
           }
           git diff --exit-code -- package.json
           git diff -- package-lock.json
-          node --input-type=module <<'NODE'
-          import { execFileSync } from "node:child_process";
-          const raw = execFileSync("npm", ["audit", "--json"], { encoding: "utf8" });
-          const report = JSON.parse(raw);
-          const highs = Object.entries(report.vulnerabilities ?? {})
-            .filter(([, value]) => ["high", "critical"].includes(value.severity))
-            .map(([name]) => name)
-            .sort();
-          if (highs.includes("browserslist")) {
-            console.error("ONE_SHOT_LOCK_REPAIR_FAIL: browserslist remains high/critical");
-            process.exit(1);
-          }
-          console.log(`ONE_SHOT_LOCK_REPAIR_AUDIT_REMAINING: ${highs.join(",") || "none"}`);
-          NODE
+          node --input-type=module -e '
+            import { execFileSync } from "node:child_process";
+            let raw = "";
+            try {
+              raw = execFileSync("npm", ["audit", "--json"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+            } catch (error) {
+              raw = error.stdout;
+            }
+            const report = JSON.parse(raw);
+            const highs = Object.entries(report.vulnerabilities ?? {})
+              .filter(([, value]) => ["high", "critical"].includes(value.severity))
+              .map(([name]) => name)
+              .sort();
+            if (highs.includes("browserslist")) {
+              console.error("ONE_SHOT_LOCK_REPAIR_FAIL: browserslist remains high/critical");
+              process.exit(1);
+            }
+            console.log(`ONE_SHOT_LOCK_REPAIR_AUDIT_REMAINING: ${highs.join(",") || "none"}`);
+          '
 
       - name: Remove helper and commit generated lockfile
         shell: bash
