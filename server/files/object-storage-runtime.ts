@@ -8,6 +8,11 @@ import {
   readPrivateObjectStorageProvider,
   type PrivateObjectStorageProvider,
 } from "@/server/files/object-storage-provider";
+import { readVercelBlobAuthConfig } from "@/server/files/vercel-blob-config";
+import { toVercelBlobSdkCredentialOptions } from "@/server/files/vercel-blob-driver-auth";
+import { createVercelBlobNativeSignedUrlDependencies } from "@/server/files/vercel-blob-native-signed-url";
+import { VercelBlobPrivateObjectStorage } from "@/server/files/vercel-blob-object-storage";
+import { createVercelBlobSignedUrlDriver } from "@/server/files/vercel-blob-signed-url-driver";
 import { YandexPrivateObjectStorage } from "@/server/files/yandex-object-storage";
 import { AwsSdkYandexObjectStorageSigner } from "@/server/files/yandex-s3-signer";
 
@@ -25,6 +30,14 @@ export function getPrivateObjectStorage() {
   }
 
   storage = createPrivateObjectStorageForProvider(provider, {
+    createVercelBlob: () => {
+      const credentials = toVercelBlobSdkCredentialOptions(readVercelBlobAuthConfig());
+      const driver = createVercelBlobSignedUrlDriver(
+        createVercelBlobNativeSignedUrlDependencies(),
+        credentials,
+      );
+      return new VercelBlobPrivateObjectStorage(driver);
+    },
     createYandex: () => {
       const config = readYandexObjectStorageConfig();
       return new YandexPrivateObjectStorage(
