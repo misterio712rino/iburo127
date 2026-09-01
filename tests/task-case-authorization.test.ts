@@ -182,6 +182,11 @@ const service = new TaskService(
   repository,
 );
 
+await assert.rejects(
+  service.list(actors.client),
+  new RegExp(TASK_FORBIDDEN),
+  "CLIENT task list must be staff-only",
+);
 assert.equal((await service.get(actors.lawyer, "task-assigned"))?.id, "task-assigned");
 assert.equal(
   await service.get(actors.lawyer, "task-stale-assignee"),

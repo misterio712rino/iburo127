@@ -63,6 +63,10 @@ export class TaskService {
   }
 
   async list(actor: AuthenticatedActor) {
+    if (!actor.roles.includes("LAWYER") && !actor.roles.includes("MANAGER")) {
+      throw new Error(TASK_FORBIDDEN);
+    }
+
     const [tasks, cases] = await Promise.all([
       this.repository.listAccessible(actor),
       this.cases.listCases(actor),
