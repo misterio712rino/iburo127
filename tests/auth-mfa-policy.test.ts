@@ -45,15 +45,46 @@ assert.doesNotMatch(
 );
 
 const betterAuthSource = await readFile(resolve("server/auth/better-auth-instance.ts"), "utf8");
+const accessGateSource = await readFile(resolve("server/auth/access-gate.ts"), "utf8");
+const accessGateRouteSource = await readFile(resolve("app/api/public/access-gate/route.ts"), "utf8");
+const accessGateSignInSource = await readFile(resolve("app/api/public/access-gate/sign-in/route.ts"), "utf8");
 const signInFormSource = await readFile(resolve("components/platform/auth/SignInForm.tsx"), "utf8");
+const managerLeadsSource = await readFile(resolve("app/portal/leads/page.tsx"), "utf8");
 const rootPageSource = await readFile(resolve("app/(public)/page.tsx"), "utf8");
 const schemaSource = await readFile(resolve("prisma/schema.prisma"), "utf8");
+const leadMigrationSource = await readFile(
+  resolve("prisma/migrations/20260901_access_gate_leads/migration.sql"),
+  "utf8",
+);
+
 assert.match(betterAuthSource, /disableSignUp:\s*true/, "self-service registration must remain disabled");
 assert.doesNotMatch(signInFormSource, /Зарегистр/i, "sign-in UI must not expose a registration action");
+assert.doesNotMatch(accessGateRouteSource, /signUp|sign-up/i, "access gate must never create an auth account");
+assert.doesNotMatch(accessGateSignInSource, /signUp|sign-up/i, "access-gate sign-in must never expose signup");
 assert.match(signInFormSource, /Телефон или электронная почта/);
 assert.match(signInFormSource, /https:\/\/iburo127\.ru\//);
+assert.match(signInFormSource, /href="\/privacy"/);
 assert.match(rootPageSource, /redirect\("\/auth\/sign-in"\)/);
 assert.match(schemaSource, /model PotentialClientLead/);
+assert.match(leadMigrationSource, /CREATE TABLE "PotentialClientLead"/);
+
+assert.match(accessGateSource, /createHmac\("sha256", secret\)/, "rate-limit keys must be HMAC protected");
+assert.match(accessGateSource, /request\.headers\.get\("x-forwarded-for"\)/, "Vercel-overwritten client IP header must drive IP throttling");
+assert.match(accessGateSource, /RATE_LIMIT_IP_MAX = 30/);
+assert.match(accessGateSource, /RATE_LIMIT_CONTACT_MAX = 6/);
+assert.match(accessGateSource, /insert into "rateLimit"/, "access gate must use shared database-backed rate-limit storage");
+assert.match(accessGateSource, /on conflict \("key"\) do update/);
+assert.match(accessGateSource, /rateLimitDigest\("ip"/);
+assert.match(accessGateSource, /rateLimitDigest\("contact"/);
+assert.doesNotMatch(schemaSource, /PotentialClientLead[\s\S]*?(?:ipAddress|ipHash|clientIp)/, "potential-lead records must not store raw or derived client IP data");
+assert.match(accessGateRouteSource, /AccessGateRateLimitError/);
+assert.match(accessGateRouteSource, /"RATE_LIMITED"/);
+assert.match(accessGateRouteSource, /Retry-After/);
+assert.match(accessGateSignInSource, /resolveAccessChallengeToEmail/);
+assert.match(accessGateSignInSource, /\/api\/auth\/sign-in\/email/);
+assert.doesNotMatch(accessGateSignInSource, /email\s*:\s*\(body/, "browser payload must not choose the resolved account email");
+assert.match(managerLeadsSource, /actor\.roles\.includes\("MANAGER"\)/);
+assert.match(managerLeadsSource, /potentialClientLead\.findMany/);
 
 const emailIdentifier = normalizeAccessIdentifier("  Client@Example.Test ");
 assert.deepEqual(emailIdentifier, {
