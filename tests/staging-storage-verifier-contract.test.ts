@@ -11,6 +11,7 @@ import {
   readVercelBlobAuthConfig,
   VERCEL_BLOB_CONFIG_ERROR,
 } from "../server/files/vercel-blob-config";
+import { toVercelBlobSdkCredentialOptions } from "../server/files/vercel-blob-driver-auth";
 
 const verifierSource = await readFile(resolve("scripts/verify-staging-object-storage.ts"), "utf8");
 const guardSource = await readFile(resolve("scripts/staging-storage-target-guard.ts"), "utf8");
@@ -46,21 +47,26 @@ assert.ok(
   "unsupported Blob activation must fail closed before any Yandex credential read",
 );
 
-assert.deepEqual(
-  readVercelBlobAuthConfig({
-    IB_VERCEL_BLOB_AUTH_MODE: "read-write-token",
-    BLOB_READ_WRITE_TOKEN: "private-blob-token",
-  }),
-  { mode: "read-write-token", token: "private-blob-token" },
-);
-assert.deepEqual(
-  readVercelBlobAuthConfig({
-    IB_VERCEL_BLOB_AUTH_MODE: "oidc",
-    VERCEL_OIDC_TOKEN: "oidc-token",
-    IB_VERCEL_BLOB_STORE_ID: "store-id",
-  }),
-  { mode: "oidc", oidcToken: "oidc-token", storeId: "store-id" },
-);
+const staticAuthConfig = readVercelBlobAuthConfig({
+  IB_VERCEL_BLOB_AUTH_MODE: "read-write-token",
+  BLOB_READ_WRITE_TOKEN: "private-blob-token",
+});
+assert.deepEqual(staticAuthConfig, { mode: "read-write-token", token: "private-blob-token" });
+assert.deepEqual(toVercelBlobSdkCredentialOptions(staticAuthConfig), {
+  token: "private-blob-token",
+});
+
+const oidcAuthConfig = readVercelBlobAuthConfig({
+  IB_VERCEL_BLOB_AUTH_MODE: "oidc",
+  VERCEL_OIDC_TOKEN: "oidc-token",
+  IB_VERCEL_BLOB_STORE_ID: "store-id",
+});
+assert.deepEqual(oidcAuthConfig, { mode: "oidc", oidcToken: "oidc-token", storeId: "store-id" });
+assert.deepEqual(toVercelBlobSdkCredentialOptions(oidcAuthConfig), {
+  oidcToken: "oidc-token",
+  storeId: "store-id",
+});
+
 assert.deepEqual(
   readVercelBlobAuthConfig({
     IB_VERCEL_BLOB_AUTH_MODE: "read-write-token",
@@ -70,6 +76,16 @@ assert.deepEqual(
   }),
   { mode: "read-write-token", token: "private-blob-token" },
   "ambient OIDC credentials must not change an explicitly selected auth mode",
+);
+assert.deepEqual(
+  Object.keys(toVercelBlobSdkCredentialOptions(staticAuthConfig)).sort(),
+  ["token"],
+  "static-token SDK options must not contain OIDC credentials",
+);
+assert.deepEqual(
+  Object.keys(toVercelBlobSdkCredentialOptions(oidcAuthConfig)).sort(),
+  ["oidcToken", "storeId"],
+  "OIDC SDK options must not contain a static token",
 );
 assert.throws(
   () => readVercelBlobAuthConfig({ BLOB_READ_WRITE_TOKEN: "private-blob-token" }),
