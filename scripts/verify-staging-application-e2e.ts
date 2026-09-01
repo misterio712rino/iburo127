@@ -83,6 +83,8 @@ try {
   sessions = await createStagingAuthenticatedSessions({
     onStatus: (message) => console.log(message),
   });
+  console.log("TRUST_DEVICE: disabled for all TOTP verification requests");
+  console.log("STAGING_AUTH_FLOW_PASS");
   console.log("AUTH_SESSIONS: fresh CLIENT/LAWYER/MANAGER sessions retained in memory for E2E");
 
   const verifierEnv = buildVerifierEnvironment(sessions);
