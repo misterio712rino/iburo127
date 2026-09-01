@@ -1,4 +1,7 @@
-import { evaluateAccessIdentifier } from "@/server/auth/access-gate";
+import {
+  AccessGateRateLimitError,
+  evaluateAccessIdentifier,
+} from "@/server/auth/access-gate";
 import { AccessGateInputError } from "@/server/auth/access-gate-core";
 import { readBoundedJsonBody } from "@/server/http/bounded-json-body";
 import { privateJsonResponse } from "@/server/http/private-json";
@@ -29,11 +32,22 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await evaluateAccessIdentifier((body as { identifier?: unknown }).identifier);
+    const result = await evaluateAccessIdentifier(
+      request,
+      (body as { identifier?: unknown }).identifier,
+    );
     return privateJsonResponse({ ok: true, data: result });
   } catch (error) {
     if (error instanceof AccessGateInputError) {
       return privateJsonResponse({ ok: false, error: { code: "INVALID_IDENTIFIER" } }, 400);
+    }
+    if (error instanceof AccessGateRateLimitError) {
+      const response = privateJsonResponse(
+        { ok: false, error: { code: "RATE_LIMITED" } },
+        429,
+      );
+      response.headers.set("Retry-After", String(error.retryAfterSeconds));
+      return response;
     }
     return privateJsonResponse({ ok: false, error: { code: "ACCESS_GATE_UNAVAILABLE" } }, 503);
   }
