@@ -12,6 +12,7 @@ const FAIL = "STAGING_APPLICATION_E2E_FAIL";
 
 const VERIFIERS = [
   ["HTTP authorization", "scripts/verify-staging-http-authz.ts"],
+  ["access gate", "scripts/verify-staging-access-gate.ts"],
   ["AI authorization", "scripts/verify-staging-ai-http-authz.ts"],
   ["mutation and audit", "scripts/verify-staging-http-mutation-audit.ts"],
 ] as const;
