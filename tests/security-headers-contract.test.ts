@@ -15,7 +15,7 @@ for (const directive of [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data:",
   "font-src 'self' data:",
-  "connect-src 'self' https://storage.yandexcloud.net",
+  "connect-src 'self' https://storage.yandexcloud.net https://vercel.com",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -29,10 +29,17 @@ for (const directive of [
 assert.match(source, /process\.env\.NODE_ENV === "development"/);
 assert.match(source, /\? " 'unsafe-eval'" : ""/);
 assert.match(source, /\? " ws: http:" : ""/);
+const connectSrcMatch = source.match(/connect-src 'self' ([^`\n]+)/);
+assert.ok(connectSrcMatch, "CSP connect-src must remain explicit");
+assert.equal(
+  connectSrcMatch[1],
+  "https://storage.yandexcloud.net https://vercel.com${isDevelopment ? \" ws: http:\" : \"\"}",
+  "CSP must allow only the audited storage/upload origins plus development transports",
+);
 assert.doesNotMatch(
   source,
-  /connect-src 'self' https:\/\/storage\.yandexcloud\.net https:\/\//,
-  "CSP must not add an unrestricted extra HTTPS source",
+  /connect-src[^\n`]*(?:\shttps:\s|https:\/\/\*|\*\.vercel\.com)/,
+  "CSP must not add an unrestricted HTTPS or wildcard upload source",
 );
 
 for (const protectedPageSource of ["/auth/:path*", "/portal/:path*"]) {
@@ -42,6 +49,7 @@ assert.match(source, /source: "\/auth\/:path\*",[\s\S]*?headers: \[\.\.\.private
 assert.match(source, /source: "\/portal\/:path\*",[\s\S]*?headers: \[\.\.\.privatePageHeaders\]/);
 assert.match(source, /source: "\/app\/:path\*",[\s\S]*?headers: \[\.\.\.platformPageSecurityHeaders\]/);
 
+assert.match(source, /Strict-Transport-Security", value: "max-age=31536000"/);
 assert.match(source, /X-Content-Type-Options", value: "nosniff"/);
 assert.match(source, /X-Frame-Options", value: "DENY"/);
 assert.match(source, /Referrer-Policy", value: "strict-origin-when-cross-origin"/);
