@@ -149,9 +149,10 @@ export default async function PortalCasePage({ params }: { params: Promise<{ cas
   if (!clientCase) notFound();
 
   const audience = resolveCasePortalAudience(actor, clientCase);
+  const isClient = audience === "CLIENT";
   const summary = await getCaseProgressSummaryForActor(actor, clientCase, audience);
 
-  if (audience === "CLIENT") {
+  if (isClient) {
     return renderClientDashboard(sessionProvider, actor, clientCase, summary);
   }
 
