@@ -3,6 +3,10 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const hubSource = await readFile(resolve("app/portal/cases/[caseId]/page.tsx"), "utf8");
+const demoAdapterSource = await readFile(
+  resolve("components/portal/ProductionDemoClientDashboard.tsx"),
+  "utf8",
+);
 const clientFrameSource = await readFile(resolve("components/portal/ClientCaseFrame.tsx"), "utf8");
 const clientNavigationSource = await readFile(resolve("components/portal/ClientCaseNavigation.tsx"), "utf8");
 const progressSource = await readFile(resolve("app/portal/cases/[caseId]/progress/page.tsx"), "utf8");
@@ -16,18 +20,32 @@ const tasksSource = await readFile(resolve("app/portal/cases/[caseId]/tasks/page
 assert.match(hubSource, /resolveCasePortalAudience\(actor, clientCase\)/);
 assert.match(hubSource, /getCaseProgressSummaryForActor\(actor, clientCase, audience\)/);
 assert.match(hubSource, /summary\.nextAction\.segment/);
-assert.match(hubSource, /Следующий шаг/);
-assert.match(hubSource, /Состояние дела/);
-assert.match(hubSource, /Этапы процедуры/);
-assert.match(hubSource, /Инструменты/);
-assert.match(hubSource, /Добрый день, \{firstName\}/);
 assert.match(hubSource, /if \(isClient\)[\s\S]*renderClientDashboard/);
+assert.match(hubSource, /<ProductionDemoClientDashboard/);
 assert.match(hubSource, /const STAFF_MODULES = \[/);
 assert.match(hubSource, /code: "tasks"/);
-assert.match(hubSource, /code: "ai"[\s\S]*Доступен на вашем тарифе[\s\S]*href: `\$\{base\}\/ai`/);
+
 assert.match(
-  hubSource,
-  /const mortgageAvailable = planCode === "PRO" \|\| planCode === "INDIVIDUAL"/,
+  demoAdapterSource,
+  /<NextStepCard/,
+  "the seated demo client hub must render the approved next-step presentation component",
+);
+assert.match(demoAdapterSource, /Состояние дела/);
+assert.match(
+  demoAdapterSource,
+  /<ProcedureProgress currentStageIndex=\{props\.stageIndex\}/,
+  "the seated demo client hub must render the approved procedure timeline",
+);
+assert.match(demoAdapterSource, /Инструменты/);
+assert.match(demoAdapterSource, /title=\{`Добрый день, \$\{firstName\}`\}/);
+assert.match(
+  demoAdapterSource,
+  /code: "AI_ASSISTANT"[\s\S]*title: "AI-помощник"[\s\S]*state: "active"[\s\S]*href: `\$\{base\}\/ai`/,
+  "AI must remain available for every tariff in the seated demo client hub",
+);
+assert.match(
+  demoAdapterSource,
+  /const mortgageAvailable = props\.planCode === "PRO" \|\| props\.planCode === "INDIVIDUAL"/,
   "mortgage capability must remain tariff-specific",
 );
 assert.match(
