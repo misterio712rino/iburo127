@@ -58,8 +58,14 @@ assert.match(runner, /Authorization: `Bearer \$\{secret\}`/);
 assert.match(runner, /redirect: "error"/);
 
 const auth = await readFile(resolve("server/maintenance/auth.ts"), "utf8");
-assert.match(auth, /startsWith\("Bearer "\)/, "maintenance auth must require the Bearer scheme");
+assert.match(auth, /const prefix = "Bearer ";/, "maintenance auth must define the Bearer scheme prefix");
+assert.match(auth, /authorization\.startsWith\(prefix\)/, "maintenance auth must require the Bearer scheme");
+assert.match(auth, /authorization\.slice\(prefix\.length\)/, "maintenance auth must extract only the bearer credential");
 assert.match(auth, /createHash\("sha256"\)/, "maintenance auth must normalize comparison length through hashing");
-assert.match(auth, /timingSafeEqual\(hash\(token\), hash\(expectedSecret\)\)/, "maintenance secret comparison must remain timing-safe");
+assert.match(
+  auth,
+  /timingSafeEqual\(digest\(provided\), digest\(secret\)\)/,
+  "maintenance secret comparison must remain timing-safe",
+);
 
 console.log("MAINTENANCE_ROUTE_SECURITY_CONTRACT_PASS");
