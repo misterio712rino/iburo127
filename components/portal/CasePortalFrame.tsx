@@ -1,12 +1,19 @@
 import type { ReactNode } from "react";
 import { ClientCaseFrame, type ClientCaseOption } from "@/components/portal/ClientCaseFrame";
+import { ClientPlanVisualStyles } from "@/components/portal/ClientPlanVisualStyles";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import { getPlanDisplayLabel } from "@/lib/platform/case-progress";
 import { resolveCasePortalAudience } from "@/lib/platform/case-portal-audience";
+import type { PlanCode } from "@/lib/platform/types";
 import { getCurrentAccountProfile } from "@/server/account/operations";
 import type { SessionProvider } from "@/server/auth/contracts";
 import { clientCaseService } from "@/server/client-cases/runtime";
 import type { AuthenticatedActor, ClientCaseRecord } from "@/server/domain/client-cases/contracts";
+
+function requirePlanCode(value: string): PlanCode {
+  if (value === "LITE" || value === "PRO" || value === "INDIVIDUAL") return value;
+  throw new Error("UNSUPPORTED_CLIENT_PLAN");
+}
 
 export async function CasePortalFrame({
   children,
@@ -40,17 +47,21 @@ export async function CasePortalFrame({
       caseNumber: item.caseNumber,
       planLabel: getPlanDisplayLabel(item.planCode, "CLIENT"),
     }));
+    const planCode = requirePlanCode(clientCase.planCode);
 
     return (
-      <ClientCaseFrame
-        caseId={clientCase.id}
-        caseNumber={clientCase.caseNumber}
-        displayName={profile.displayName?.trim() || "Клиент iБюро"}
-        planLabel={getPlanDisplayLabel(clientCase.planCode, "CLIENT")}
-        cases={caseOptions}
-      >
-        {children}
-      </ClientCaseFrame>
+      <>
+        <ClientPlanVisualStyles planCode={planCode} />
+        <ClientCaseFrame
+          caseId={clientCase.id}
+          caseNumber={clientCase.caseNumber}
+          displayName={profile.displayName?.trim() || "Клиент iБюро"}
+          planLabel={getPlanDisplayLabel(clientCase.planCode, "CLIENT")}
+          cases={caseOptions}
+        >
+          {children}
+        </ClientCaseFrame>
+      </>
     );
   }
 
