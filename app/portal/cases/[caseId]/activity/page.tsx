@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Activity, ArrowLeft } from "lucide-react";
-import { PortalFrame } from "@/components/portal/PortalFrame";
+import { CasePortalFrame } from "@/components/portal/CasePortalFrame";
 import { resolveCasePortalAudience } from "@/lib/platform/case-portal-audience";
 import { buildCaseActivityView } from "@/server/activity/presentation";
 import { listCaseActivity } from "@/server/activity/operations";
@@ -32,8 +32,15 @@ export default async function PortalCaseActivityPage({ params }: { params: Promi
   const events = buildCaseActivityView(records, audience);
 
   return (
-    <PortalFrame sectionLabel="История дела" accessLabel="Доступ подтверждён" showStaffTasks={isStaff}>
-      <main className="py-10">
+    <CasePortalFrame
+      sessionProvider={sessionProvider}
+      actor={actor}
+      clientCase={clientCase}
+      sectionLabel="История дела"
+      accessLabel="Доступ подтверждён"
+      showStaffTasks={isStaff}
+    >
+      <div className={isStaff ? "py-10" : "py-1 sm:py-2"}>
         <Link href={`/portal/cases/${caseId}`} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900">
           <ArrowLeft className="size-4" aria-hidden="true" />
           Назад к делу
@@ -80,7 +87,7 @@ export default async function PortalCaseActivityPage({ params }: { params: Promi
         ) : (
           <div className="mt-8 rounded-[28px] border border-dashed border-slate-300 bg-white/70 p-8 text-sm text-slate-500">История этого дела пока пуста.</div>
         )}
-      </main>
-    </PortalFrame>
+      </div>
+    </CasePortalFrame>
   );
 }

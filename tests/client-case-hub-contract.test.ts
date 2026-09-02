@@ -171,6 +171,16 @@ assert.match(
   "activity projection must follow the case-specific audience rather than any global staff role",
 );
 assert.match(
+  activitySource,
+  /<CasePortalFrame[\s\S]*sessionProvider=\{sessionProvider\}[\s\S]*actor=\{actor\}[\s\S]*clientCase=\{clientCase\}/,
+  "activity must retain the premium case shell for CLIENT while preserving the operational STAFF shell",
+);
+assert.doesNotMatch(
+  activitySource,
+  /import \{ PortalFrame \} from "@\/components\/portal\/PortalFrame"/,
+  "activity must not bypass the audience-aware case shell",
+);
+assert.match(
   documentsSource,
   /audience === "STAFF"[\s\S]*clientCase\.clientId !== actor\.userId/,
   "review controls must not appear for the client of the same case even on a multi-role account",
