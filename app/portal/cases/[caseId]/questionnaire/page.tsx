@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ListChecks } from "lucide-react";
 import { CasePortalFrame } from "@/components/portal/CasePortalFrame";
+import { ClientCaseModuleIntro } from "@/components/portal/ClientCaseModuleIntro";
 import { ProductionQuestionnaire } from "@/components/platform/questionnaire/ProductionQuestionnaire";
 import { resolveCasePortalAudience } from "@/lib/platform/case-portal-audience";
 import type { PlanCode } from "@/lib/platform/types";
@@ -37,38 +38,54 @@ export default async function PortalQuestionnairePage({ params }: { params: Prom
   const audience = resolveCasePortalAudience(actor, clientCase);
   const canEdit = audience === "CLIENT";
   const isStaff = audience === "STAFF";
+  const questionnaireView = (
+    <ProductionQuestionnaire
+      caseId={clientCase.id}
+      canEdit={canEdit}
+      planCode={requirePlanCode(clientCase.planCode)}
+      initialState={questionnaire ? {
+        status: questionnaire.status,
+        answers: questionnaire.answers,
+        completedSectionIds: [...questionnaire.completedSectionIds],
+        version: questionnaire.version,
+        completedAt: questionnaire.completedAt?.toISOString() ?? null,
+      } : null}
+    />
+  );
 
   return (
     <CasePortalFrame sessionProvider={sessionProvider} actor={actor} clientCase={clientCase} sectionLabel="Анкета дела" showStaffTasks={isStaff}>
       <div className={isStaff ? "py-10" : "py-1 sm:py-2"}>
-        <Link href={`/portal/cases/${clientCase.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-slate-500 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20">
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          К делу {clientCase.caseNumber}
-        </Link>
-
-        <section className={isStaff ? "mt-6 rounded-[32px] border border-white/80 bg-white/80 p-5 shadow-[0_18px_55px_rgba(75,57,43,0.07)] sm:p-8" : "mt-4 sm:mt-6"}>
-          <div className="flex min-w-0 items-start gap-3 sm:gap-4">
-            <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#f0eeea] text-[#b9202b] sm:size-12"><ListChecks className="size-5 sm:size-6" aria-hidden="true" /></span>
-            <div className="min-w-0">
-              <p className="font-mono text-xs font-semibold tracking-[0.08em] text-slate-400">{clientCase.caseNumber}</p>
-              <h1 className="mt-2 break-words font-[var(--font-iburo-display)] text-3xl font-semibold leading-none text-slate-900 sm:text-5xl">Анкета</h1>
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">Заполняйте сведения по разделам и сохраняйте ответы по мере готовности. Если изменить ответ, соответствующий раздел потребуется подтвердить повторно.</p>
-            </div>
-          </div>
-
-          <ProductionQuestionnaire
-            caseId={clientCase.id}
-            canEdit={canEdit}
-            planCode={requirePlanCode(clientCase.planCode)}
-            initialState={questionnaire ? {
-              status: questionnaire.status,
-              answers: questionnaire.answers,
-              completedSectionIds: [...questionnaire.completedSectionIds],
-              version: questionnaire.version,
-              completedAt: questionnaire.completedAt?.toISOString() ?? null,
-            } : null}
-          />
-        </section>
+        {isStaff ? (
+          <>
+            <Link href={`/portal/cases/${clientCase.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-slate-500 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20">
+              <ArrowLeft className="size-4" aria-hidden="true" />
+              К делу {clientCase.caseNumber}
+            </Link>
+            <section className="mt-6 rounded-[32px] border border-white/80 bg-white/80 p-5 shadow-[0_18px_55px_rgba(75,57,43,0.07)] sm:p-8">
+              <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+                <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#f0eeea] text-[#b9202b] sm:size-12"><ListChecks className="size-5 sm:size-6" aria-hidden="true" /></span>
+                <div className="min-w-0">
+                  <p className="font-mono text-xs font-semibold tracking-[0.08em] text-slate-400">{clientCase.caseNumber}</p>
+                  <h1 className="mt-2 break-words font-[var(--font-iburo-display)] text-3xl font-semibold leading-none text-slate-900 sm:text-5xl">Анкета</h1>
+                  <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">Сведения клиента, необходимые для анализа ситуации и подготовки материалов дела.</p>
+                </div>
+              </div>
+              {questionnaireView}
+            </section>
+          </>
+        ) : (
+          <>
+            <ClientCaseModuleIntro
+              caseId={clientCase.id}
+              caseNumber={clientCase.caseNumber}
+              title="Анкета"
+              description="Заполняйте сведения по разделам и сохраняйте ответы по мере готовности. Если изменить ответ, соответствующий раздел потребуется подтвердить повторно."
+              icon={ListChecks}
+            />
+            <div className="mt-6">{questionnaireView}</div>
+          </>
+        )}
       </div>
     </CasePortalFrame>
   );
