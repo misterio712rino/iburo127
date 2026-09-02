@@ -45,6 +45,7 @@ assert.doesNotMatch(
 );
 
 const betterAuthSource = await readFile(resolve("server/auth/better-auth-instance.ts"), "utf8");
+const betterAuthRouteSource = await readFile(resolve("app/api/auth/[...all]/route.ts"), "utf8");
 const accessGateSource = await readFile(resolve("server/auth/access-gate.ts"), "utf8");
 const accessGateRouteSource = await readFile(resolve("app/api/public/access-gate/route.ts"), "utf8");
 const accessGateSignInSource = await readFile(resolve("app/api/public/access-gate/sign-in/route.ts"), "utf8");
@@ -61,6 +62,17 @@ assert.match(betterAuthSource, /disableSignUp:\s*true/, "self-service registrati
 assert.doesNotMatch(signInFormSource, /Зарегистр/i, "sign-in UI must not expose a registration action");
 assert.doesNotMatch(accessGateRouteSource, /signUp|sign-up/i, "access gate must never create an auth account");
 assert.doesNotMatch(accessGateSignInSource, /signUp|sign-up/i, "access-gate sign-in must never expose signup");
+assert.match(
+  betterAuthRouteSource,
+  /ACCESS_GATE_ONLY_PATHS[\s\S]*?\/api\/auth\/sign-in\/email/,
+  "direct Better Auth email sign-in must be reserved for the server-side access-gate flow",
+);
+assert.match(
+  betterAuthRouteSource,
+  /isAccessGateOnlyPath\(request\)[\s\S]*?ACCESS_GATE_REQUIRED/,
+  "public Better Auth catch-all must fail closed for direct email/password sign-in",
+);
+assert.match(signInFormSource, /\/api\/public\/access-gate\/sign-in/);
 assert.match(signInFormSource, /Телефон или электронная почта/);
 assert.match(signInFormSource, /https:\/\/iburo127\.ru\//);
 assert.match(signInFormSource, /href="\/privacy"/);
