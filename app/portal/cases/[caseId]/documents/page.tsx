@@ -6,6 +6,7 @@ import { ProductionDocuments } from "@/components/platform/documents/ProductionD
 import { resolveCasePortalAudience } from "@/lib/platform/case-portal-audience";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
+import { getCaseProgressSummaryForActor } from "@/server/case-progress/operations";
 import { getCurrentPlatformActor } from "@/server/client-cases/operations";
 import { clientCaseService } from "@/server/client-cases/runtime";
 import { listCaseDocuments } from "@/server/documents/operations";
@@ -27,8 +28,11 @@ export default async function PortalDocumentsPage({ params }: { params: Promise<
   const clientCase = await clientCaseService.getCase(actor, { caseId });
   if (!clientCase) notFound();
 
-  const documents = await listCaseDocuments(sessionProvider, caseId);
   const audience = resolveCasePortalAudience(actor, clientCase);
+  const [documents, summary] = await Promise.all([
+    listCaseDocuments(sessionProvider, caseId),
+    getCaseProgressSummaryForActor(actor, clientCase, audience),
+  ]);
   const canClientEdit = audience === "CLIENT";
   const canReview =
     audience === "STAFF" &&
@@ -40,12 +44,12 @@ export default async function PortalDocumentsPage({ params }: { params: Promise<
   return (
     <CasePortalFrame sessionProvider={sessionProvider} actor={actor} clientCase={clientCase} sectionLabel="Документы" showStaffTasks={isStaff}>
       <div className={isStaff ? "py-10 sm:py-14" : "py-1 sm:py-2"}>
-        <Link href={`/portal/cases/${caseId}`} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900">
+        <Link href={`/portal/cases/${caseId}`} className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-slate-500 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20">
           <ArrowLeft className="size-4" aria-hidden="true" />
           Назад к делу
         </Link>
 
-        <section className="mt-6 rounded-[32px] border border-white/80 bg-white/80 p-5 shadow-[0_18px_55px_rgba(75,57,43,0.07)] sm:p-8">
+        <section className={isStaff ? "mt-6 rounded-[32px] border border-white/80 bg-white/80 p-5 shadow-[0_18px_55px_rgba(75,57,43,0.07)] sm:p-8" : "mt-4 sm:mt-6"}>
           <div className="flex min-w-0 items-start gap-3 sm:gap-4">
             <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#f0eeea] text-[#b9202b] sm:size-12"><FileText className="size-5 sm:size-6" aria-hidden="true" /></span>
             <div className="min-w-0">
@@ -54,7 +58,7 @@ export default async function PortalDocumentsPage({ params }: { params: Promise<
               <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">
                 {isStaff
                   ? "Документы, которые клиент передал на проверку, показаны первыми. Подтверждение доступно только сотруднику с текущим доступом к этому делу."
-                  : "Документы формируются по актуальным данным анкеты. Создавайте черновики, обновляйте их после изменения анкеты и передавайте готовые материалы на проверку специалисту."}
+                  : "Платформа готовит документы на основе актуальных данных вашей анкеты. Проверяйте черновики и передавайте готовые материалы специалисту."}
               </p>
             </div>
           </div>
@@ -64,6 +68,11 @@ export default async function PortalDocumentsPage({ params }: { params: Promise<
           caseId={clientCase.id}
           canClientEdit={canClientEdit}
           canReview={canReview}
+          questionnaire={{
+            completed: summary.questionnaire.completed,
+            total: summary.questionnaire.total,
+            percent: summary.questionnaire.percent,
+          }}
           initialDocuments={documents.map((document) => ({
             id: document.id,
             documentCode: document.documentCode,
