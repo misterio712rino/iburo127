@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import type {
   AuthenticatedActor,
   ClientCaseAccessScope,
@@ -147,6 +149,37 @@ assert.equal(requireCaseActivityType("file.upload.completed"), "file.upload.comp
 assert.equal(requireCaseActivityType("file.scan.clean"), "file.scan.clean");
 assert.equal(requireCaseActivityType("file.scan.quarantined"), "file.scan.quarantined");
 assert.equal(requireCaseActivityType("file.scan.failed"), "file.scan.failed");
+
+const [nextConfigSource, productionFilesSource, vercelBlobSignerSource] = await Promise.all([
+  readFile(resolve("next.config.ts"), "utf8"),
+  readFile(resolve("components/platform/files/ProductionFiles.tsx"), "utf8"),
+  readFile(resolve("server/files/vercel-blob-native-signed-url.ts"), "utf8"),
+]);
+assert.match(
+  productionFilesSource,
+  /fetch\(prepared\.data\.uploadUrl/,
+  "CLIENT file upload must remain a direct browser request to the prepared signed URL",
+);
+assert.match(
+  vercelBlobSignerSource,
+  /const BLOB_API_URL = "https:\/\/vercel\.com\/api\/blob"/,
+  "native private Blob PUT signing must remain pinned to the Vercel Blob API origin",
+);
+assert.match(
+  nextConfigSource,
+  /connect-src 'self' https:\/\/storage\.yandexcloud\.net https:\/\/vercel\.com/,
+  "portal CSP must allow the exact Vercel Blob browser upload origin",
+);
+assert.match(
+  nextConfigSource,
+  /Strict-Transport-Security", value: "max-age=31536000"/,
+  "protected application surfaces must retain HSTS",
+);
+assert.doesNotMatch(
+  nextConfigSource,
+  /connect-src[^\n]*\shttps:\s/,
+  "CSP must not broaden browser connections to arbitrary HTTPS origins",
+);
 
 const repository = new FileRepository();
 const service = new StoredFileService(new ClientCaseService(new CaseRepository()), repository);
