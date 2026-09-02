@@ -190,6 +190,13 @@ jobs:
           IB_STAGING_CLIENT_PASSWORD: ${{ secrets.IB_STAGING_CLIENT_PASSWORD }}
         run: node --import tsx scripts/verify-staging-client-plan-logins.ts
 
+      # Better Auth 1.7.2 protects /sign-in/email with a 3-request / 10-second
+      # per-IP endpoint rule. The plan-login matrix and full role matrix are
+      # independent assertions, so keep them in separate limiter windows.
+      - name: Respect Better Auth sign-in rate-limit window
+        shell: bash
+        run: sleep 11
+
       - name: Fresh-session authentication and application E2E
         env:
           IB_STAGING_VERCEL_AUTOMATION_BYPASS: "1"
