@@ -8,7 +8,7 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data:",
   "font-src 'self' data:",
-  `connect-src 'self' https://storage.yandexcloud.net${isDevelopment ? " ws: http:" : ""}`,
+  `connect-src 'self' https://storage.yandexcloud.net https://vercel.com${isDevelopment ? " ws: http:" : ""}`,
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -19,6 +19,7 @@ const contentSecurityPolicy = [
 ].join("; ");
 
 const platformSecurityHeaders = [
+  { key: "Strict-Transport-Security", value: "max-age=31536000" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
