@@ -231,7 +231,12 @@ export function ProductionDocuments({
                 <article key={definition.id} className="flex min-w-0 flex-col rounded-[1.4rem] border border-border bg-card p-5 text-card-foreground shadow-[0_14px_40px_rgba(0,0,0,.045)] sm:p-6">
                   <div className="flex items-start justify-between gap-3">
                     <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-muted text-primary"><FileText className="size-5" aria-hidden="true" /></span>
-                    <span className={`rounded-full px-3 py-1.5 text-xs font-semibold ${clientStatusClass(document?.status)}`}>{document ? STATUS_LABELS[document.status] : "Не создан"}</span>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <span className={`rounded-full px-3 py-1.5 text-xs font-semibold ${clientStatusClass(document?.status)}`}>{document ? STATUS_LABELS[document.status] : "Не создан"}</span>
+                      {document && canClientEdit ? (
+                        <span className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground">v{document.version}</span>
+                      ) : null}
+                    </div>
                   </div>
                   <h3 className="mt-6 break-words text-lg font-semibold tracking-[-.025em]">{definition.title}</h3>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">{definition.description}</p>
