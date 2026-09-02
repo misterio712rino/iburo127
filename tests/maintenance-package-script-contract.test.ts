@@ -1,4 +1,5 @@
 import "./vercel-staging-identity-route-contract.test";
+import "./staging-internal-route-boundary-contract.test";
 import "./maintenance-route-security-contract.test";
 
 import assert from "node:assert/strict";
