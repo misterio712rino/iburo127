@@ -12,6 +12,7 @@ import {
   ListChecks,
 } from "lucide-react";
 
+import { IndividualClientVisualStyles } from "@/components/portal/IndividualClientVisualStyles";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import { ProductionDemoClientDashboard } from "@/components/portal/ProductionDemoClientDashboard";
 import {
@@ -104,13 +105,14 @@ async function renderClientDashboard(
   const specialistName = caseMetadata?.assignedLawyer?.displayName?.trim() || "Специалист назначается";
   const openedAt = caseMetadata?.openedAt ?? caseMetadata?.createdAt ?? new Date();
   const mortgageAvailable = (caseMetadata?.plan.features.length ?? 0) > 0;
+  const planCode = requirePlanCode(clientCase.planCode);
 
-  return (
+  const dashboard = (
     <ProductionDemoClientDashboard
       caseId={clientCase.id}
       caseNumber={clientCase.caseNumber}
       displayName={displayName}
-      planCode={requirePlanCode(clientCase.planCode)}
+      planCode={planCode}
       planLabel={getPlanDisplayLabel(clientCase.planCode, "CLIENT")}
       cases={caseOptions}
       statusLabel={getCaseStatusLabel(clientCase.status)}
@@ -141,6 +143,15 @@ async function renderClientDashboard(
         segment: summary.nextAction.segment,
       }}
     />
+  );
+
+  if (planCode !== "INDIVIDUAL") return dashboard;
+
+  return (
+    <>
+      <IndividualClientVisualStyles />
+      {dashboard}
+    </>
   );
 }
 
