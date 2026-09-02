@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, FileLock2 } from "lucide-react";
 import { CasePortalFrame } from "@/components/portal/CasePortalFrame";
+import { ClientCaseModuleIntro } from "@/components/portal/ClientCaseModuleIntro";
 import { ProductionFiles } from "@/components/platform/files/ProductionFiles";
 import { resolveCasePortalAudience } from "@/lib/platform/case-portal-audience";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
@@ -31,42 +32,54 @@ export default async function PortalFilesPage({ params }: { params: Promise<{ ca
   const audience = resolveCasePortalAudience(actor, clientCase);
   const isStaff = audience === "STAFF";
   const canUpload = audience === "CLIENT";
+  const filesView = (
+    <ProductionFiles
+      caseId={clientCase.id}
+      canUpload={canUpload}
+      initialFiles={files.map((file) => ({
+        id: file.id,
+        fileName: file.fileName,
+        mimeType: file.mimeType,
+        sizeBytes: file.sizeBytes.toString(),
+        readyAt: file.readyAt?.toISOString() ?? null,
+        createdAt: file.createdAt.toISOString(),
+      }))}
+    />
+  );
 
   return (
     <CasePortalFrame sessionProvider={sessionProvider} actor={actor} clientCase={clientCase} sectionLabel="Файлы дела" showStaffTasks={isStaff}>
       <div className={isStaff ? "py-10 sm:py-14" : "py-1 sm:py-2"}>
-        <Link href={`/portal/cases/${caseId}`} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900">
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          Назад к делу
-        </Link>
-
-        <section className="mt-6 rounded-[32px] border border-white/80 bg-white/80 p-5 shadow-[0_18px_55px_rgba(75,57,43,0.07)] sm:p-8">
-          <div className="flex min-w-0 items-start gap-3 sm:gap-4">
-            <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#f0eeea] text-[#b9202b] sm:size-12"><FileLock2 className="size-5 sm:size-6" aria-hidden="true" /></span>
-            <div className="min-w-0">
-              <p className="font-mono text-xs font-semibold tracking-[0.08em] text-slate-400">{clientCase.caseNumber}</p>
-              <h1 className="mt-2 break-words font-[var(--font-iburo-display)] text-3xl font-semibold leading-none text-slate-900 sm:text-5xl">Файлы дела</h1>
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">
-                {isStaff
-                  ? "Сотруднику доступны только файлы, которые завершили проверку безопасности и разрешены для этого дела."
-                  : "Загружайте материалы по делу здесь. После проверки безопасности готовые файлы становятся доступны пользователям с подтверждённым доступом к делу."}
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <ProductionFiles
-          caseId={clientCase.id}
-          canUpload={canUpload}
-          initialFiles={files.map((file) => ({
-            id: file.id,
-            fileName: file.fileName,
-            mimeType: file.mimeType,
-            sizeBytes: file.sizeBytes.toString(),
-            readyAt: file.readyAt?.toISOString() ?? null,
-            createdAt: file.createdAt.toISOString(),
-          }))}
-        />
+        {isStaff ? (
+          <>
+            <Link href={`/portal/cases/${caseId}`} className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-slate-500 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20">
+              <ArrowLeft className="size-4" aria-hidden="true" />
+              Назад к делу
+            </Link>
+            <section className="mt-6 rounded-[32px] border border-white/80 bg-white/80 p-5 shadow-[0_18px_55px_rgba(75,57,43,0.07)] sm:p-8">
+              <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+                <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#f0eeea] text-[#b9202b] sm:size-12"><FileLock2 className="size-5 sm:size-6" aria-hidden="true" /></span>
+                <div className="min-w-0">
+                  <p className="font-mono text-xs font-semibold tracking-[0.08em] text-slate-400">{clientCase.caseNumber}</p>
+                  <h1 className="mt-2 break-words font-[var(--font-iburo-display)] text-3xl font-semibold leading-none text-slate-900 sm:text-5xl">Файлы дела</h1>
+                  <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">Сотруднику доступны только файлы, которые завершили проверку безопасности и разрешены для этого дела.</p>
+                </div>
+              </div>
+              {filesView}
+            </section>
+          </>
+        ) : (
+          <>
+            <ClientCaseModuleIntro
+              caseId={clientCase.id}
+              caseNumber={clientCase.caseNumber}
+              title="Файлы дела"
+              description="Загружайте материалы по делу здесь. После проверки безопасности готовые файлы становятся доступны пользователям с подтверждённым доступом к делу."
+              icon={FileLock2}
+            />
+            <div className="mt-6">{filesView}</div>
+          </>
+        )}
       </div>
     </CasePortalFrame>
   );
