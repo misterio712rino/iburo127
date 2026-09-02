@@ -49,6 +49,21 @@ assert.match(
   "mortgage capability must remain tariff-specific",
 );
 assert.match(
+  demoAdapterSource,
+  /listCaseActivity\(createProductionSessionProvider\(\), props\.caseId, 4\)/,
+  "premium client dashboard activity must come from the production case-scoped activity service",
+);
+assert.match(
+  demoAdapterSource,
+  /buildCaseActivityView\(records, "CLIENT"\)/,
+  "premium client dashboard activity must pass through the CLIENT-safe projection",
+);
+assert.doesNotMatch(
+  demoAdapterSource,
+  /Последнее подтверждённое состояние|По данным дела|По данным обучения/,
+  "premium client dashboard must not synthesize activity entries from current aggregate counters",
+);
+assert.match(
   clientFrameSource,
   /<ClientCaseNavigation caseId=\{caseId\}/,
   "production client shell must render the shared demo-style navigation",

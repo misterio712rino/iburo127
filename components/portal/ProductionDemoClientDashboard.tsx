@@ -29,6 +29,9 @@ import type {
   DashboardModuleState,
   PlanCode,
 } from "@/lib/platform/types";
+import { buildCaseActivityView } from "@/server/activity/presentation";
+import { listCaseActivity } from "@/server/activity/operations";
+import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 
 const MODULE_ICONS: Record<DashboardModuleCode, LucideIcon> = {
   PRACTICUM: BookOpen,
@@ -267,19 +270,29 @@ function ProductionLawyerCard({ caseId, specialistName }: { caseId: string; spec
   );
 }
 
-function buildActivity(props: ProductionDemoClientDashboardProps): DashboardActivity[] {
-  const activity: DashboardActivity[] = [];
-  if (props.documents.reviewed > 0) activity.push({ id: "documents-reviewed", text: `${props.documents.reviewed} документ(а) проверено специалистом`, dateLabel: "Последнее подтверждённое состояние", type: "document" });
-  if (props.questionnaire.completed > 0) activity.push({ id: "questionnaire", text: `Заполнено разделов анкеты: ${props.questionnaire.completed}`, dateLabel: "По данным дела", type: "questionnaire" });
-  if (props.practicum.completed > 0) activity.push({ id: "practicum", text: `Завершено уроков практикума: ${props.practicum.completed}`, dateLabel: "По данным обучения", type: "lesson" });
-  if (activity.length === 0) activity.push({ id: "case-open", text: "Дело доступно в личном кабинете", dateLabel: "Текущее состояние", type: "lawyer" });
-  return activity.slice(0, 4);
+function activityIconType(type: string): DashboardActivity["type"] {
+  if (type.startsWith("practicum.")) return "lesson";
+  if (type.startsWith("questionnaire.")) return "questionnaire";
+  if (type.startsWith("document.") || type.startsWith("file.")) return "document";
+  return "lawyer";
 }
 
-export function ProductionDemoClientDashboard(props: ProductionDemoClientDashboardProps) {
+async function buildActivity(props: ProductionDemoClientDashboardProps): Promise<DashboardActivity[]> {
+  const records = await listCaseActivity(createProductionSessionProvider(), props.caseId, 4);
+  const clientView = buildCaseActivityView(records, "CLIENT");
+
+  return clientView.map((event, index) => ({
+    id: event.id,
+    text: event.label,
+    dateLabel: event.createdAt.toLocaleString("ru-RU"),
+    type: activityIconType(records[index]?.type ?? ""),
+  }));
+}
+
+export async function ProductionDemoClientDashboard(props: ProductionDemoClientDashboardProps) {
   const firstName = props.displayName.split(/\s+/u)[0] || "Клиент";
   const modules = buildModules(props);
-  const activity = buildActivity(props);
+  const activity = await buildActivity(props);
   const nextStepHref = `/portal/cases/${props.caseId}/${props.nextAction.segment}`;
 
   return (
