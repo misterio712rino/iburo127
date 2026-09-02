@@ -142,4 +142,23 @@ assert.match(
   "staff queue and summary must share one server timestamp for deterministic prioritization",
 );
 
+const portalNavigationSource = await readFile(resolve("components/portal/PortalNavigation.tsx"), "utf8");
+assert.match(
+  portalNavigationSource,
+  /fetch\("\/api\/platform\/session"/,
+  "staff navigation must recover the authoritative current role when a page omits the manager navigation hint",
+);
+assert.match(
+  portalNavigationSource,
+  /roles\.includes\("MANAGER"\)/,
+  "only MANAGER may enable the recovered potential-client navigation",
+);
+assert.match(
+  portalNavigationSource,
+  /showProspectLeads \|\| managerNavigationDiscovered/,
+  "explicit server manager navigation and fail-closed role recovery must converge on one visibility decision",
+);
+assert.match(portalNavigationSource, /href:\s*"\/portal\/leads"/);
+assert.match(portalNavigationSource, /visible:\s*managerNavigation/);
+
 console.log("PLATFORM_ROLE_CONTRACT_TEST_PASS");
