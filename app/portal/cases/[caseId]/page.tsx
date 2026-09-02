@@ -81,6 +81,15 @@ async function renderClientDashboard(
         assignedLawyer: {
           select: { displayName: true },
         },
+        plan: {
+          select: {
+            features: {
+              where: { feature: { code: "MORTGAGE_ANALYSIS" } },
+              select: { featureId: true },
+              take: 1,
+            },
+          },
+        },
       },
     }),
   ]);
@@ -94,6 +103,7 @@ async function renderClientDashboard(
   const displayName = profile.displayName?.trim() || "Клиент iБюро";
   const specialistName = caseMetadata?.assignedLawyer?.displayName?.trim() || "Специалист назначается";
   const openedAt = caseMetadata?.openedAt ?? caseMetadata?.createdAt ?? new Date();
+  const mortgageAvailable = (caseMetadata?.plan.features.length ?? 0) > 0;
 
   return (
     <ProductionDemoClientDashboard
@@ -109,6 +119,7 @@ async function renderClientDashboard(
       progress={stageProgress(summary)}
       openedDate={formatCaseOpenedDate(openedAt)}
       specialistName={specialistName}
+      mortgageAvailable={mortgageAvailable}
       practicum={{
         completed: summary.practicum.completed,
         total: summary.practicum.total,

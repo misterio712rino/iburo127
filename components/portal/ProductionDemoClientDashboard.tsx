@@ -68,6 +68,7 @@ type ProductionDemoClientDashboardProps = {
   progress: number;
   openedDate: string;
   specialistName: string;
+  mortgageAvailable: boolean;
   practicum: {
     completed: number;
     total: number;
@@ -111,7 +112,7 @@ function hasAssignedSpecialist(name: string) {
 
 function buildModules(props: ProductionDemoClientDashboardProps): ModuleViewModel[] {
   const base = `/portal/cases/${props.caseId}`;
-  const mortgageAvailable = props.planCode === "PRO" || props.planCode === "INDIVIDUAL";
+  const mortgageAvailable = props.mortgageAvailable;
 
   return [
     {

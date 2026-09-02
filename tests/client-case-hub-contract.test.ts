@@ -29,6 +29,21 @@ assert.match(
   /caseMetadata\?\.assignedLawyer\?\.displayName\?\.trim\(\) \|\| "Специалист назначается"/,
   "client support presentation must derive assigned/unassigned specialist state from the selected case metadata",
 );
+assert.match(
+  hubSource,
+  /features:[\s\S]*where: \{ feature: \{ code: "MORTGAGE_ANALYSIS" \} \}[\s\S]*take: 1/,
+  "mortgage entitlement must be read from the selected case plan features",
+);
+assert.match(
+  hubSource,
+  /const mortgageAvailable = \(caseMetadata\?\.plan\.features\.length \?\? 0\) > 0/,
+  "mortgage availability must be derived from production PlanFeature state",
+);
+assert.match(
+  hubSource,
+  /mortgageAvailable=\{mortgageAvailable\}/,
+  "production mortgage entitlement must be passed into the premium client presentation",
+);
 
 assert.match(
   demoAdapterSource,
@@ -50,8 +65,23 @@ assert.match(
 );
 assert.match(
   demoAdapterSource,
-  /const mortgageAvailable = props\.planCode === "PRO" \|\| props\.planCode === "INDIVIDUAL"/,
-  "mortgage capability must remain tariff-specific",
+  /mortgageAvailable: boolean/,
+  "premium client presentation must accept mortgage entitlement from the production adapter",
+);
+assert.match(
+  demoAdapterSource,
+  /const mortgageAvailable = props\.mortgageAvailable/,
+  "mortgage card must consume the production entitlement rather than infer it from a plan label",
+);
+assert.doesNotMatch(
+  demoAdapterSource,
+  /props\.planCode === "PRO" \|\| props\.planCode === "INDIVIDUAL"/,
+  "premium client presentation must not duplicate the mortgage plan policy",
+);
+assert.match(
+  demoAdapterSource,
+  /state: mortgageAvailable \? "active" : "locked"/,
+  "mortgage card state must follow the production entitlement",
 );
 assert.match(
   demoAdapterSource,
