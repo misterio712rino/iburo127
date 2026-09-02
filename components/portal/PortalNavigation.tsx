@@ -109,7 +109,7 @@ export function PortalNavigation({
   return (
     <nav
       aria-label="Основная навигация защищённого кабинета"
-      className="flex flex-nowrap gap-2 overflow-x-auto overscroll-x-contain px-5 py-3 sm:px-8 lg:hidden"
+      className="flex flex-nowrap gap-2 overflow-x-auto overscroll-x-contain px-5 py-3 sm:flex-wrap sm:px-8 lg:hidden"
     >
       {visibleItems.map(({ href, label, icon: Icon }) => {
         const active = href === "/portal" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
