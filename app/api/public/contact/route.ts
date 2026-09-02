@@ -7,6 +7,10 @@ import {
   formatPublicContactEmail,
   parsePublicContactRequest,
 } from "@/server/public-contact/core";
+import {
+  PublicContactRateLimitError,
+  enforcePublicContactRateLimit,
+} from "@/server/public-contact/rate-limit";
 
 const PUBLIC_CONTACT_BODY_MAX_BYTES = 8 * 1024;
 const PUBLIC_CONTACT_RECIPIENT = "127pro@mail.ru";
@@ -46,6 +50,22 @@ export async function POST(request: Request): Promise<Response> {
 
   if (contactRequest.spam) {
     return privateJsonResponse({ ok: true });
+  }
+
+  try {
+    await enforcePublicContactRateLimit(request);
+  } catch (error) {
+    if (error instanceof PublicContactRateLimitError) {
+      return privateJsonResponse(
+        { ok: false, error: { code: "RATE_LIMITED" } },
+        429,
+        { "Retry-After": String(error.retryAfterSeconds) },
+      );
+    }
+    return privateJsonResponse(
+      { ok: false, error: { code: "CONTACT_REQUEST_FAILED" } },
+      503,
+    );
   }
 
   try {
