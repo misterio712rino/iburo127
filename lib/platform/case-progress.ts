@@ -29,9 +29,9 @@ const CASE_STATUS_LABELS: Record<CaseStatus, string> = {
 };
 
 const PLAN_LABELS: Readonly<Record<string, string>> = {
-  LITE: "ЛАЙТ",
-  PRO: "ПРО",
-  INDIVIDUAL: "ИНДИВИДУАЛЬНЫЙ",
+  LITE: "Лайт",
+  PRO: "Про",
+  INDIVIDUAL: "Индивидуальный",
 };
 
 export type CaseProgressAudience = "CLIENT" | "STAFF";

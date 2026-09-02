@@ -89,7 +89,8 @@ export function ClientCaseFrame({
   cases: readonly ClientCaseOption[];
 }) {
   const base = `/portal/cases/${caseId}`;
-  const theme = planLabel === "ПРО" ? "pro" : planLabel === "ИНДИВИДУАЛЬНЫЙ" ? "individual" : "lite";
+  const normalizedPlanLabel = planLabel.trim().toLocaleUpperCase("ru-RU");
+  const theme = normalizedPlanLabel === "ПРО" ? "pro" : normalizedPlanLabel === "ИНДИВИДУАЛЬНЫЙ" ? "individual" : "lite";
   const userInitials = initials(displayName);
 
   return (
