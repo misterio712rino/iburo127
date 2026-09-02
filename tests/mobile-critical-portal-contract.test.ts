@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 const portalFrameSource = await readFile(resolve("components/portal/PortalFrame.tsx"), "utf8");
 const clientCaseFrameSource = await readFile(resolve("components/portal/ClientCaseFrame.tsx"), "utf8");
 const clientCaseNavigationSource = await readFile(resolve("components/portal/ClientCaseNavigation.tsx"), "utf8");
+const clientCaseModuleIntroSource = await readFile(resolve("components/portal/ClientCaseModuleIntro.tsx"), "utf8");
 const portalNavigationSource = await readFile(resolve("components/portal/PortalNavigation.tsx"), "utf8");
 const portalMotionContentSource = await readFile(resolve("components/portal/PortalMotionContent.tsx"), "utf8");
 const portalMotionStylesSource = await readFile(resolve("components/portal/PortalMotionStyles.tsx"), "utf8");
@@ -69,18 +70,42 @@ assert.match(
   /if \(path === "\/portal\/profile"\) return pathname === path \|\| pathname === "\/portal\/security"/,
   "CLIENT account security must keep Profile active in the case navigation",
 );
-assert.match(questionnaireSource, /text-3xl[^\"]*sm:text-5xl/);
-assert.match(practicumSource, /text-3xl[^\"]*sm:text-5xl/);
-assert.match(documentsSource, /text-3xl[^\"]*sm:text-5xl/);
-assert.match(filesSource, /text-3xl[^\"]*sm:text-5xl/);
-assert.match(aiSource, /text-3xl[^\"]*sm:text-5xl/);
+
+for (const [name, source] of [
+  ["questionnaire", questionnaireSource],
+  ["practicum", practicumSource],
+  ["documents", documentsSource],
+  ["files", filesSource],
+  ["ai", aiSource],
+] as const) {
+  assert.match(
+    source,
+    /<ClientCaseModuleIntro/,
+    `${name} CLIENT module must delegate its responsive intro to the reviewed shared boundary`,
+  );
+}
+
+assert.match(
+  clientCaseModuleIntroSource,
+  /text-3xl[^\"]*sm:text-5xl/,
+  "shared CLIENT module headings must remain compact on mobile and expand on larger screens",
+);
+assert.match(
+  clientCaseModuleIntroSource,
+  /inline-flex min-h-11 items-center/,
+  "shared CLIENT module back navigation must keep a 44px minimum touch target",
+);
+assert.match(
+  clientCaseModuleIntroSource,
+  /flex min-w-0 items-start/,
+  "shared CLIENT module intro must preserve shrink-safe mobile layout",
+);
+assert.match(clientCaseModuleIntroSource, /text-foreground/);
+assert.match(clientCaseModuleIntroSource, /text-muted-foreground/);
+assert.match(clientCaseModuleIntroSource, /border-border bg-muted text-primary/);
+
 assert.match(securitySource, /text-4xl[^\"]*sm:text-5xl/);
 assert.match(profileSource, /text-4xl[^\"]*sm:text-5xl/);
-assert.match(questionnaireSource, /flex min-w-0 items-start/);
-assert.match(practicumSource, /flex min-w-0 items-start/);
-assert.match(documentsSource, /flex min-w-0 items-start/);
-assert.match(filesSource, /flex min-w-0 items-start/);
-assert.match(aiSource, /flex min-w-0 items-center/);
 assert.match(securitySource, /min-w-0 max-w-3xl/);
 assert.match(profileSource, /grid min-w-0 gap-5/);
 assert.match(profileSource, /min-w-0 break-all font-mono/);
