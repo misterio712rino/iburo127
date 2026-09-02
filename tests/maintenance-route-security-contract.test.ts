@@ -38,16 +38,10 @@ for (const job of expectedJobs) {
   );
   assert.match(route, /Cache-Control": "no-store"/, `${job} responses must remain no-store`);
 
-  const configIndex = route.indexOf("readMaintenanceRuntimeConfig()");
-  const authIndex = route.indexOf("isAuthorizedMaintenanceRequest(request, config.secret)");
-  assert.ok(configIndex >= 0, `${job} must read validated maintenance runtime config`);
-  assert.ok(authIndex > configIndex, `${job} must authorize only after validated maintenance config`);
-
-  const postAuthRoute = route.slice(authIndex);
   assert.match(
-    postAuthRoute,
-    /code:\s*"UNAUTHORIZED"[\s\S]*?401/,
-    `${job} must fail closed with 401 after invalid Bearer authorization`,
+    route,
+    /=\s*readMaintenanceRuntimeConfig\(\)[\s\S]*?isAuthorizedMaintenanceRequest\(request,\s*[A-Za-z_$][\w$]*\.secret\)[\s\S]*?code:\s*"UNAUTHORIZED"[\s\S]*?401/,
+    `${job} must validate maintenance config before Bearer auth and fail closed with 401`,
   );
 }
 
