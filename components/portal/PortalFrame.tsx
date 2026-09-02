@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
+
 import { IBuroBrand } from "@/components/platform/IBuroBrand";
 import { SignOutButton } from "@/components/platform/auth/SignOutButton";
 import { PortalMotionContent } from "@/components/portal/PortalMotionContent";
@@ -21,30 +22,75 @@ export function PortalFrame({
   showProspectLeads?: boolean;
 }) {
   return (
-    <div className="portal-motion-shell platform-shell mx-auto min-h-screen w-full max-w-7xl px-5 py-6 sm:px-8 sm:py-8 [&_button]:min-h-11 [&_a]:min-h-11">
+    <div className="portal-motion-shell min-h-screen bg-[#f3f5f6] text-[#202326] [&_button]:min-h-11 [&_a]:min-h-11">
       <PortalMotionStyles />
-      <header className="flex flex-col gap-5 border-b border-slate-200 pb-5 lg:flex-row lg:items-end lg:justify-between">
-        <div className="min-w-0">
-          <Link href="/portal" className="inline-flex items-center rounded-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#7B2330]/15">
-            <IBuroBrand dot className="font-[var(--font-iburo-display)] text-4xl font-semibold tracking-tight" />
-          </Link>
-          <p className="mt-2 break-words text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-            {sectionLabel}
+
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[248px] flex-col border-r border-white/[0.04] bg-[#202b33] px-5 py-6 text-white lg:flex">
+        <Link
+          href="/portal"
+          className="inline-flex w-fit rounded-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/10"
+        >
+          <IBuroBrand dot className="font-[var(--font-iburo-display)] text-[30px] font-semibold tracking-[-0.045em]" />
+        </Link>
+        <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/32">
+          рабочее пространство
+        </p>
+
+        <div className="mt-8">
+          <PortalNavigation
+            variant="sidebar"
+            showStaffTasks={showStaffTasks}
+            showProspectLeads={showProspectLeads}
+          />
+        </div>
+
+        <div className="mt-auto rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
+          <div className="flex items-center gap-2 text-xs font-semibold text-white/78">
+            <ShieldCheck className="size-4 shrink-0 text-emerald-300" aria-hidden="true" />
+            <span>{accessLabel}</span>
+          </div>
+          <p className="mt-2 text-[11px] leading-5 text-white/38">
+            Защищённая сессия iБюро
           </p>
         </div>
+      </aside>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
-            <ShieldCheck className="size-4 shrink-0" aria-hidden="true" />
-            {accessLabel}
-          </span>
-          <SignOutButton />
+      <div className="min-h-screen lg:pl-[248px]">
+        <header className="sticky top-0 z-30 border-b border-[#dfe3e6] bg-[#f3f5f6]/95 backdrop-blur-xl">
+          <div className="mx-auto flex min-h-[74px] w-full max-w-[1220px] items-center justify-between gap-4 px-5 sm:px-8 lg:px-10">
+            <div className="min-w-0">
+              <Link
+                href="/portal"
+                className="inline-flex rounded-lg lg:hidden focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#8f1720]/10"
+              >
+                <IBuroBrand dot className="font-[var(--font-iburo-display)] text-2xl font-semibold tracking-[-0.04em]" />
+              </Link>
+              <p className="hidden truncate text-sm font-semibold text-[#3b4248] lg:block">{sectionLabel}</p>
+              <p className="mt-0.5 hidden text-[11px] text-[#899198] lg:block">iБюро · защищённый кабинет</p>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+              <span className="hidden items-center gap-2 rounded-full border border-emerald-200/80 bg-emerald-50/80 px-3 py-2 text-xs font-semibold text-emerald-800 sm:inline-flex">
+                <ShieldCheck className="size-4 shrink-0" aria-hidden="true" />
+                {accessLabel}
+              </span>
+              <SignOutButton />
+            </div>
+          </div>
+        </header>
+
+        <div className="border-b border-[#dfe3e6] bg-[#f3f5f6] lg:hidden">
+          <PortalNavigation
+            variant="mobile"
+            showStaffTasks={showStaffTasks}
+            showProspectLeads={showProspectLeads}
+          />
         </div>
-      </header>
 
-      <PortalNavigation showStaffTasks={showStaffTasks} showProspectLeads={showProspectLeads} />
-
-      <PortalMotionContent>{children}</PortalMotionContent>
+        <div className="mx-auto w-full max-w-[1220px] px-5 sm:px-8 lg:px-10">
+          <PortalMotionContent>{children}</PortalMotionContent>
+        </div>
+      </div>
     </div>
   );
 }
