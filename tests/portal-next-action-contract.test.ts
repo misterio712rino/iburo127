@@ -102,13 +102,23 @@ assert.match(
 );
 assert.match(
   demoAdapterSource,
-  /const mortgageAvailable = props\.planCode === "PRO" \|\| props\.planCode === "INDIVIDUAL"/,
-  "mortgage analysis must remain tariff-specific while AI is universal",
+  /const mortgageAvailable = props\.mortgageAvailable/,
+  "mortgage analysis must consume the production case-plan entitlement while AI remains universal",
+);
+assert.doesNotMatch(
+  demoAdapterSource,
+  /props\.planCode === "PRO" \|\| props\.planCode === "INDIVIDUAL"/,
+  "the premium dashboard must not duplicate mortgage plan policy",
 );
 assert.match(
   demoAdapterSource,
   /summary: mortgageAvailable \? "Индивидуальная оценка" : "Расширенная возможность"/,
-  "mortgage module presentation must follow the real tariff entitlement",
+  "mortgage module presentation must follow the real plan-feature entitlement",
+);
+assert.match(
+  demoAdapterSource,
+  /state: mortgageAvailable \? "active" : "locked"/,
+  "mortgage module state must follow the real plan-feature entitlement",
 );
 assert.match(
   clientFrameSource,
