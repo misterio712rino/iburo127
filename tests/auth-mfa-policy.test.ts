@@ -55,6 +55,10 @@ const accessGateRouteSource = await readFile(resolve("app/api/public/access-gate
 const accessGateSignInSource = await readFile(resolve("app/api/public/access-gate/sign-in/route.ts"), "utf8");
 const signInFormSource = await readFile(resolve("components/platform/auth/SignInForm.tsx"), "utf8");
 const managerLeadsSource = await readFile(resolve("app/portal/leads/page.tsx"), "utf8");
+const managerLeadOperationsSource = await readFile(
+  resolve("server/prospect-leads/operations.ts"),
+  "utf8",
+);
 const rootPageSource = await readFile(resolve("app/(public)/page.tsx"), "utf8");
 const schemaSource = await readFile(resolve("prisma/schema.prisma"), "utf8");
 const leadMigrationSource = await readFile(
@@ -119,7 +123,16 @@ assert.match(accessGateSignInSource, /resolveAccessChallengeToEmail/);
 assert.match(accessGateSignInSource, /\/api\/auth\/sign-in\/email/);
 assert.doesNotMatch(accessGateSignInSource, /email\s*:\s*\(body/, "browser payload must not choose the resolved account email");
 assert.match(managerLeadsSource, /actor\.roles\.includes\("MANAGER"\)/);
-assert.match(managerLeadsSource, /potentialClientLead\.findMany/);
+assert.match(managerLeadsSource, /listPotentialClientLeadsForManager\(sessionProvider\)/);
+assert.doesNotMatch(
+  managerLeadsSource,
+  /potentialClientLead\.findMany|getPrismaClient/,
+  "manager leads page must delegate database access to the reviewed server operation",
+);
+assert.match(managerLeadOperationsSource, /import "server-only"/);
+assert.match(managerLeadOperationsSource, /requireServerActor\(sessionProvider\)/);
+assert.match(managerLeadOperationsSource, /requireRole\(actor, "MANAGER"\)/);
+assert.match(managerLeadOperationsSource, /potentialClientLead\.findMany/);
 
 const emailIdentifier = normalizeAccessIdentifier("  Client@Example.Test ");
 assert.deepEqual(emailIdentifier, {
