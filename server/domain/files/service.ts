@@ -14,6 +14,12 @@ function requireText(value: string, maxLength: number) {
   return normalized;
 }
 
+function requireClientUploadActor(actor: AuthenticatedActor) {
+  const isClient = actor.roles.includes("CLIENT");
+  const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
+  if (!isClient || isStaff) throw new Error(FILE_UPLOAD_FORBIDDEN);
+}
+
 export class StoredFileService {
   constructor(
     private readonly cases: ClientCaseService,
@@ -51,6 +57,7 @@ export class StoredFileService {
       checksumSha256?: string | null;
     },
   ) {
+    requireClientUploadActor(actor);
     await this.requireAccessibleCase(actor, input.clientCaseId);
     if (input.sizeBytes <= BigInt(0)) throw new Error(FILE_INVALID_METADATA);
 

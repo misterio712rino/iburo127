@@ -16,19 +16,31 @@ import { requireCaseActivityType } from "@/server/domain/activity/taxonomy";
 
 const now = new Date("2026-08-28T00:00:00.000Z");
 const actor: AuthenticatedActor = { userId: "client-1", roles: ["CLIENT"] };
+const manager: AuthenticatedActor = { userId: "manager-1", roles: ["MANAGER"] };
+const lawyer: AuthenticatedActor = { userId: "lawyer-1", roles: ["LAWYER"] };
+const mixedRoleStaffActor: AuthenticatedActor = {
+  userId: "mixed-role-1",
+  roles: ["CLIENT", "MANAGER"],
+};
 const clientCase: ClientCaseRecord = {
   id: "case-1",
   caseNumber: "IBR-2026-000001",
   clientId: actor.userId,
   planCode: "PRO",
   stageCode: "PREPARATION",
-  assignedLawyerId: null,
+  assignedLawyerId: lawyer.userId,
   status: "ACTIVE",
 };
 
 class CaseRepository implements ClientCaseRepository {
   async findAccessibleCase(scope: ClientCaseAccessScope) {
-    return scope.actor.userId === actor.userId && scope.caseId === clientCase.id ? clientCase : null;
+    if (scope.caseId !== clientCase.id) return null;
+    if (scope.actor.userId === actor.userId) return clientCase;
+    if (scope.actor.roles.includes("MANAGER")) return clientCase;
+    if (scope.actor.roles.includes("LAWYER") && scope.actor.userId === clientCase.assignedLawyerId) {
+      return clientCase;
+    }
+    return null;
   }
 
   async listAccessibleCases() {
@@ -138,6 +150,22 @@ assert.equal(requireCaseActivityType("file.scan.failed"), "file.scan.failed");
 
 const repository = new FileRepository();
 const service = new StoredFileService(new ClientCaseService(new CaseRepository()), repository);
+
+for (const staffActor of [manager, lawyer, mixedRoleStaffActor]) {
+  await assert.rejects(
+    service.registerPendingUpload(staffActor, {
+      id: `staff-file-${staffActor.userId}`,
+      clientCaseId: clientCase.id,
+      storageProvider: "yandex-object-storage",
+      objectKey: `cases/case-1/staff-file-${staffActor.userId}/object.pdf`,
+      fileName: "staff-document.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: BigInt(1024),
+    }),
+    /FILE_UPLOAD_FORBIDDEN/,
+  );
+}
+assert.equal(repository.current, null);
 
 const pending = await service.registerPendingUpload(actor, {
   id: "file-1",
