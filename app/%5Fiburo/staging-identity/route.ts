@@ -27,16 +27,30 @@ function commitSha(env: NodeJS.ProcessEnv) {
   return value && /^[a-f0-9]{40}$/i.test(value) ? value.toLowerCase() : null;
 }
 
+function isExactStagingPreview(env: NodeJS.ProcessEnv) {
+  return (
+    env.VERCEL_ENV?.trim() === "preview" &&
+    env.VERCEL_GIT_COMMIT_REF?.trim() === VERCEL_STAGING_BRANCH &&
+    env.IB_RUNTIME_TARGET?.trim() === "staging" &&
+    commitSha(env) !== null &&
+    isVercelPreviewBackendAllowed(env)
+  );
+}
+
 export async function GET() {
   const env = process.env;
+  if (!isExactStagingPreview(env)) {
+    return new NextResponse(null, { status: 404, headers: NO_STORE_HEADERS });
+  }
+
   return NextResponse.json(
     {
       service: "iburo127",
       environment: runtimeEnvironment(env),
-      branch: env.VERCEL_GIT_COMMIT_REF?.trim() === VERCEL_STAGING_BRANCH ? VERCEL_STAGING_BRANCH : "other",
+      branch: VERCEL_STAGING_BRANCH,
       commitSha: commitSha(env),
       runtimeTarget: runtimeTarget(env),
-      backendEnabled: isVercelPreviewBackendAllowed(env),
+      backendEnabled: true,
     },
     { headers: NO_STORE_HEADERS },
   );
