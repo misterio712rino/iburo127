@@ -86,6 +86,14 @@ const nextConfig: NextConfig = {
         source: "/api/auth/:path*",
         headers: [...privateApiHeaders],
       },
+      {
+        source: "/api/public/:path*",
+        headers: [...privateApiHeaders],
+      },
+      {
+        source: "/api/internal/:path*",
+        headers: [...privateApiHeaders],
+      },
     ];
   },
 };
