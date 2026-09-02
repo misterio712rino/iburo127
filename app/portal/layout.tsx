@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
-import "./client-dashboard-demo.css";
+import "./client-dashboard.css";
 import { resolveProductionStaffMfaState } from "@/server/auth/production-session-provider";
 
 const iburoSans = Manrope({
