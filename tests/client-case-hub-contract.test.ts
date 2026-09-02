@@ -24,6 +24,11 @@ assert.match(hubSource, /if \(isClient\)[\s\S]*renderClientDashboard/);
 assert.match(hubSource, /<ProductionDemoClientDashboard/);
 assert.match(hubSource, /const STAFF_MODULES = \[/);
 assert.match(hubSource, /code: "tasks"/);
+assert.match(
+  hubSource,
+  /caseMetadata\?\.assignedLawyer\?\.displayName\?\.trim\(\) \|\| "Специалист назначается"/,
+  "client support presentation must derive assigned/unassigned specialist state from the selected case metadata",
+);
 
 assert.match(
   demoAdapterSource,
@@ -62,6 +67,31 @@ assert.doesNotMatch(
   demoAdapterSource,
   /Последнее подтверждённое состояние|По данным дела|По данным обучения/,
   "premium client dashboard must not synthesize activity entries from current aggregate counters",
+);
+assert.match(
+  demoAdapterSource,
+  /const UNASSIGNED_SPECIALIST_LABEL = "Специалист назначается"/,
+  "client support block must preserve the explicit unassigned specialist state",
+);
+assert.match(
+  demoAdapterSource,
+  /function hasAssignedSpecialist\(name: string\)[\s\S]*name !== UNASSIGNED_SPECIALIST_LABEL/,
+  "client support block must distinguish a real assigned specialist from the unassigned state",
+);
+assert.match(
+  demoAdapterSource,
+  /specialistAssigned \? "Юрист iБюро" : "Назначение ожидается"/,
+  "unassigned cases must not claim that a lawyer is already assigned",
+);
+assert.match(
+  demoAdapterSource,
+  /specialistAssigned \? "Сопровождает ваше дело" : "Специалист пока не назначен"/,
+  "unassigned cases must not claim active personal accompaniment",
+);
+assert.match(
+  demoAdapterSource,
+  /После назначения здесь появятся данные специалиста, который будет сопровождать ваше дело\./,
+  "unassigned support copy must explain the pending assignment without inventing a person",
 );
 assert.match(
   clientFrameSource,

@@ -42,6 +42,8 @@ const MODULE_ICONS: Record<DashboardModuleCode, LucideIcon> = {
   AI_ASSISTANT: Bot,
 };
 
+const UNASSIGNED_SPECIALIST_LABEL = "Специалист назначается";
+
 type ModuleViewModel = {
   code: DashboardModuleCode;
   title: string;
@@ -101,6 +103,10 @@ function documentSummary(documents: ProductionDemoClientDashboardProps["document
   if (documents.sentForReview > 0) return `${documents.sentForReview} на проверке`;
   if (documents.total > 0) return `${documents.total} документа подготовлено`;
   return "Пока не сформированы";
+}
+
+function hasAssignedSpecialist(name: string) {
+  return name.trim().length > 0 && name !== UNASSIGNED_SPECIALIST_LABEL;
 }
 
 function buildModules(props: ProductionDemoClientDashboardProps): ModuleViewModel[] {
@@ -163,6 +169,8 @@ function buildModules(props: ProductionDemoClientDashboardProps): ModuleViewMode
 }
 
 function ProductionCaseOverview(props: Pick<ProductionDemoClientDashboardProps, "statusLabel" | "stageLabel" | "progress" | "openedDate" | "specialistName">) {
+  const specialistAssigned = hasAssignedSpecialist(props.specialistName);
+
   return (
     <PlatformCard className="h-full p-6 sm:p-8">
       <div className="flex items-center justify-between gap-4">
@@ -190,7 +198,7 @@ function ProductionCaseOverview(props: Pick<ProductionDemoClientDashboardProps, 
           <dd className="mt-1 text-sm font-semibold">{props.openedDate}</dd>
         </div>
         <div>
-          <dt className="text-xs text-muted-foreground">Назначенный юрист</dt>
+          <dt className="text-xs text-muted-foreground">{specialistAssigned ? "Назначенный юрист" : "Специалист по делу"}</dt>
           <dd className="mt-1 text-sm font-semibold">{props.specialistName}</dd>
         </div>
       </dl>
@@ -248,18 +256,31 @@ function specialistInitials(name: string) {
 }
 
 function ProductionLawyerCard({ caseId, specialistName }: { caseId: string; specialistName: string }) {
+  const specialistAssigned = hasAssignedSpecialist(specialistName);
+
   return (
     <PlatformCard className="flex h-full flex-col p-6 sm:p-8">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Ваш специалист</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+        {specialistAssigned ? "Ваш специалист" : "Специалист по делу"}
+      </p>
       <div className="mt-7 flex items-center gap-4">
-        <ProfileAvatar initials={specialistInitials(specialistName)} className="size-14" />
+        <ProfileAvatar initials={specialistAssigned ? specialistInitials(specialistName) : "iБ"} className="size-14" />
         <div>
           <h2 className="text-xl font-semibold tracking-[-0.03em]">{specialistName}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Юрист iБюро</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {specialistAssigned ? "Юрист iБюро" : "Назначение ожидается"}
+          </p>
         </div>
       </div>
-      <p className="mt-6 text-sm leading-6 text-muted-foreground">Персонально сопровождает дело и проверяет подготовленные материалы.</p>
-      <div className="mt-6 flex items-center gap-2 text-xs font-medium"><span className="size-2 rounded-full bg-primary" />Сопровождает ваше дело</div>
+      <p className="mt-6 text-sm leading-6 text-muted-foreground">
+        {specialistAssigned
+          ? "Персонально сопровождает дело и проверяет подготовленные материалы."
+          : "После назначения здесь появятся данные специалиста, который будет сопровождать ваше дело."}
+      </p>
+      <div className="mt-6 flex items-center gap-2 text-xs font-medium">
+        <span className="size-2 rounded-full bg-primary" />
+        {specialistAssigned ? "Сопровождает ваше дело" : "Специалист пока не назначен"}
+      </div>
       <div className="mt-auto pt-6">
         <Link href={`/portal/cases/${caseId}/activity`} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-background px-4 text-sm font-semibold transition hover:bg-muted">
           <MessageCircle className="size-4" aria-hidden="true" />
