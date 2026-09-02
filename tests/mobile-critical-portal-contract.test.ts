@@ -14,6 +14,7 @@ const practicumSource = await readFile(resolve("app/portal/cases/[caseId]/practi
 const practicumComponentSource = await readFile(resolve("components/platform/practicum/ProductionPracticum.tsx"), "utf8");
 const documentsSource = await readFile(resolve("app/portal/cases/[caseId]/documents/page.tsx"), "utf8");
 const filesSource = await readFile(resolve("app/portal/cases/[caseId]/files/page.tsx"), "utf8");
+const productionFilesSource = await readFile(resolve("components/platform/files/ProductionFiles.tsx"), "utf8");
 const aiSource = await readFile(resolve("app/portal/cases/[caseId]/ai/page.tsx"), "utf8");
 const securitySource = await readFile(resolve("app/portal/security/page.tsx"), "utf8");
 const profileSource = await readFile(resolve("app/portal/profile/page.tsx"), "utf8");
@@ -103,6 +104,32 @@ assert.match(
 assert.match(clientCaseModuleIntroSource, /text-foreground/);
 assert.match(clientCaseModuleIntroSource, /text-muted-foreground/);
 assert.match(clientCaseModuleIntroSource, /border-border bg-muted text-primary/);
+
+assert.match(
+  productionFilesSource,
+  /rounded-\[24px\] border border-border bg-card[^\"]*text-card-foreground/,
+  "CLIENT file upload surface must inherit the active plan card palette",
+);
+assert.match(
+  productionFilesSource,
+  /inline-flex min-h-11[^\"]*bg-primary[^\"]*text-primary-foreground/,
+  "CLIENT file upload action must keep a 44px touch target and plan-aware primary treatment",
+);
+assert.match(
+  productionFilesSource,
+  /inline-flex min-h-11[^\"]*border border-border bg-background[^\"]*text-foreground/,
+  "CLIENT file download action must keep a 44px touch target and semantic surface colors",
+);
+assert.match(
+  productionFilesSource,
+  /border border-dashed border-border bg-card\/60[^\"]*text-muted-foreground/,
+  "CLIENT empty file state must inherit the plan-aware semantic surface",
+);
+assert.match(
+  productionFilesSource,
+  /Режим просмотра сотрудника/,
+  "STAFF file view must remain explicitly separate from the CLIENT upload presentation",
+);
 
 assert.match(securitySource, /text-4xl[^\"]*sm:text-5xl/);
 assert.match(profileSource, /text-4xl[^\"]*sm:text-5xl/);
