@@ -1,27 +1,46 @@
 import { redirect } from "next/navigation";
 import { KeyRound, ShieldCheck } from "lucide-react";
+import { ClientCaseFrame, type ClientCaseOption } from "@/components/portal/ClientCaseFrame";
 import { PortalFrame } from "@/components/portal/PortalFrame";
+import { getPlanDisplayLabel } from "@/lib/platform/case-progress";
+import { getCurrentAccountProfile } from "@/server/account/operations";
+import { createProductionSessionProvider, resolveProductionAccountSecurityState } from "@/server/auth/production-session-provider";
+import { UNAUTHENTICATED } from "@/server/auth/runtime";
+import { listAccessibleClientCases } from "@/server/client-cases/operations";
 import { BackupCodesRegenerator } from "@/components/platform/auth/BackupCodesRegenerator";
 import { MfaEnrollmentForm } from "@/components/platform/auth/MfaEnrollmentForm";
-import { resolveProductionAccountSecurityState } from "@/server/auth/production-session-provider";
 
 export const dynamic = "force-dynamic";
 
-export default async function AccountSecurityPage() {
+export default async function AccountSecurityPage({ searchParams }: { searchParams: Promise<{ caseId?: string }> }) {
   const state = await resolveProductionAccountSecurityState();
   if (state.status === "UNAUTHENTICATED") redirect("/auth/sign-in");
 
-  const accessLabel = state.twoFactorEnabled
-    ? "2FA включена"
-    : "Сессия подтверждена";
+  const sessionProvider = createProductionSessionProvider();
+  const requestedCaseId = (await searchParams).caseId?.trim();
+  let profile;
+  let cases;
+  try {
+    [profile, cases] = await Promise.all([
+      getCurrentAccountProfile(sessionProvider),
+      listAccessibleClientCases(sessionProvider),
+    ]);
+  } catch (error) {
+    if (error instanceof Error && error.message === UNAUTHENTICATED) redirect("/auth/sign-in");
+    throw error;
+  }
 
-  return (
-    <PortalFrame
-      sectionLabel="Безопасность аккаунта"
-      accessLabel={accessLabel}
-      showStaffTasks={state.staff}
-    >
-      <section className="py-10 sm:py-14">
+  const isStaff = profile.roles.includes("LAWYER") || profile.roles.includes("MANAGER");
+  const isClientOnly = profile.roles.includes("CLIENT") && !isStaff;
+  const selectedClientCase = isClientOnly
+    ? cases.find((item) => item.id === requestedCaseId) ?? cases.find((item) => item.status === "ACTIVE") ?? cases[0]
+    : undefined;
+  const accessLabel = state.twoFactorEnabled ? "2FA включена" : "Сессия подтверждена";
+  const completionHref = selectedClientCase ? `/portal/security?caseId=${selectedClientCase.id}` : "/portal/security";
+
+  const content = (
+    <>
+      <section className={selectedClientCase ? "py-1 sm:py-2" : "py-10 sm:py-14"}>
         <div className="min-w-0 max-w-3xl">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#7B2330]">Безопасность</p>
           <h1 className="mt-4 break-words font-[var(--font-iburo-display)] text-4xl font-semibold leading-none text-slate-900 sm:text-5xl lg:text-6xl">
@@ -67,10 +86,35 @@ export default async function AccountSecurityPage() {
           {state.twoFactorEnabled ? (
             <BackupCodesRegenerator />
           ) : (
-            <MfaEnrollmentForm completionHref="/portal/security" />
+            <MfaEnrollmentForm completionHref={completionHref} />
           )}
         </article>
       </section>
+    </>
+  );
+
+  if (selectedClientCase) {
+    const caseOptions: ClientCaseOption[] = cases.map((item) => ({
+      id: item.id,
+      caseNumber: item.caseNumber,
+      planLabel: getPlanDisplayLabel(item.planCode, "CLIENT"),
+    }));
+    return (
+      <ClientCaseFrame
+        caseId={selectedClientCase.id}
+        caseNumber={selectedClientCase.caseNumber}
+        displayName={profile.displayName?.trim() || "Клиент iБюро"}
+        planLabel={getPlanDisplayLabel(selectedClientCase.planCode, "CLIENT")}
+        cases={caseOptions}
+      >
+        {content}
+      </ClientCaseFrame>
+    );
+  }
+
+  return (
+    <PortalFrame sectionLabel="Безопасность аккаунта" accessLabel={accessLabel} showStaffTasks={state.staff}>
+      {content}
     </PortalFrame>
   );
 }

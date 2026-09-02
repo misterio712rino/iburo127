@@ -3,12 +3,11 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const hubSource = await readFile(resolve("app/portal/cases/[caseId]/page.tsx"), "utf8");
-const demoAdapterSource = await readFile(
-  resolve("components/portal/ProductionDemoClientDashboard.tsx"),
-  "utf8",
-);
+const demoAdapterSource = await readFile(resolve("components/portal/ProductionDemoClientDashboard.tsx"), "utf8");
 const clientFrameSource = await readFile(resolve("components/portal/ClientCaseFrame.tsx"), "utf8");
 const clientNavigationSource = await readFile(resolve("components/portal/ClientCaseNavigation.tsx"), "utf8");
+const profileSource = await readFile(resolve("app/portal/profile/page.tsx"), "utf8");
+const securitySource = await readFile(resolve("app/portal/security/page.tsx"), "utf8");
 const progressSource = await readFile(resolve("app/portal/cases/[caseId]/progress/page.tsx"), "utf8");
 const activitySource = await readFile(resolve("app/portal/cases/[caseId]/activity/page.tsx"), "utf8");
 const questionnaireSource = await readFile(resolve("app/portal/cases/[caseId]/questionnaire/page.tsx"), "utf8");
@@ -24,129 +23,65 @@ assert.match(hubSource, /if \(isClient\)[\s\S]*renderClientDashboard/);
 assert.match(hubSource, /<ProductionDemoClientDashboard/);
 assert.match(hubSource, /const STAFF_MODULES = \[/);
 assert.match(hubSource, /code: "tasks"/);
-assert.match(
-  hubSource,
-  /caseMetadata\?\.assignedLawyer\?\.displayName\?\.trim\(\) \|\| "Специалист назначается"/,
-  "client support presentation must derive assigned/unassigned specialist state from the selected case metadata",
-);
-assert.match(
-  hubSource,
-  /features:[\s\S]*where: \{ feature: \{ code: "MORTGAGE_ANALYSIS" \} \}[\s\S]*take: 1/,
-  "mortgage entitlement must be read from the selected case plan features",
-);
-assert.match(
-  hubSource,
-  /const mortgageAvailable = \(caseMetadata\?\.plan\.features\.length \?\? 0\) > 0/,
-  "mortgage availability must be derived from production PlanFeature state",
-);
-assert.match(
-  hubSource,
-  /mortgageAvailable=\{mortgageAvailable\}/,
-  "production mortgage entitlement must be passed into the premium client presentation",
-);
+assert.match(hubSource, /caseMetadata\?\.assignedLawyer\?\.displayName\?\.trim\(\) \|\| "Специалист назначается"/);
+assert.match(hubSource, /features:[\s\S]*where: \{ feature: \{ code: "MORTGAGE_ANALYSIS" \} \}[\s\S]*take: 1/);
+assert.match(hubSource, /const mortgageAvailable = \(caseMetadata\?\.plan\.features\.length \?\? 0\) > 0/);
+assert.match(hubSource, /mortgageAvailable=\{mortgageAvailable\}/);
 
-assert.match(
-  demoAdapterSource,
-  /<NextStepCard/,
-  "the seated demo client hub must render the approved next-step presentation component",
-);
+assert.match(demoAdapterSource, /<NextStepCard/);
 assert.match(demoAdapterSource, /Состояние дела/);
-assert.match(
-  demoAdapterSource,
-  /<ProcedureProgress currentStageIndex=\{props\.stageIndex\}/,
-  "the seated demo client hub must render the approved procedure timeline",
-);
+assert.match(demoAdapterSource, /<ProcedureProgress currentStageIndex=\{props\.stageIndex\}/);
 assert.match(demoAdapterSource, /Инструменты/);
 assert.match(demoAdapterSource, /title=\{`Добрый день, \$\{firstName\}`\}/);
+assert.match(demoAdapterSource, /code: "AI_ASSISTANT"[\s\S]*title: "AI-помощник"[\s\S]*state: "active"[\s\S]*href: `\$\{base\}\/ai`/);
+assert.match(demoAdapterSource, /mortgageAvailable: boolean/);
+assert.match(demoAdapterSource, /const mortgageAvailable = props\.mortgageAvailable/);
+assert.doesNotMatch(demoAdapterSource, /props\.planCode === "PRO" \|\| props\.planCode === "INDIVIDUAL"/);
+assert.match(demoAdapterSource, /state: mortgageAvailable \? "active" : "locked"/);
+assert.match(demoAdapterSource, /listCaseActivity\(createProductionSessionProvider\(\), props\.caseId, 4\)/);
+assert.match(demoAdapterSource, /buildCaseActivityView\(records, "CLIENT"\)/);
+assert.doesNotMatch(demoAdapterSource, /Последнее подтверждённое состояние|По данным дела|По данным обучения/);
+assert.match(demoAdapterSource, /const UNASSIGNED_SPECIALIST_LABEL = "Специалист назначается"/);
+assert.match(demoAdapterSource, /function hasAssignedSpecialist\(name: string\)[\s\S]*name !== UNASSIGNED_SPECIALIST_LABEL/);
+assert.match(demoAdapterSource, /specialistAssigned \? "Юрист iБюро" : "Назначение ожидается"/);
+assert.match(demoAdapterSource, /specialistAssigned \? "Сопровождает ваше дело" : "Специалист пока не назначен"/);
+assert.match(demoAdapterSource, /После назначения здесь появятся данные специалиста, который будет сопровождать ваше дело\./);
+
+assert.match(clientFrameSource, /<ClientCaseNavigation caseId=\{caseId\}/);
+assert.match(clientNavigationSource, /Главная[\s\S]*Практикум[\s\S]*Анкета[\s\S]*Документы[\s\S]*Мой прогресс[\s\S]*AI-помощник[\s\S]*Профиль/);
+assert.match(clientFrameSource, /function CaseSwitcher\(/);
+assert.match(clientFrameSource, /Сменить дело/);
+assert.match(clientFrameSource, /cases\.length > 1 \? \([\s\S]*<CaseSwitcher/);
+
 assert.match(
-  demoAdapterSource,
-  /code: "AI_ASSISTANT"[\s\S]*title: "AI-помощник"[\s\S]*state: "active"[\s\S]*href: `\$\{base\}\/ai`/,
-  "AI must remain available for every tariff in the seated demo client hub",
-);
-assert.match(
-  demoAdapterSource,
-  /mortgageAvailable: boolean/,
-  "premium client presentation must accept mortgage entitlement from the production adapter",
-);
-assert.match(
-  demoAdapterSource,
-  /const mortgageAvailable = props\.mortgageAvailable/,
-  "mortgage card must consume the production entitlement rather than infer it from a plan label",
-);
-assert.doesNotMatch(
-  demoAdapterSource,
-  /props\.planCode === "PRO" \|\| props\.planCode === "INDIVIDUAL"/,
-  "premium client presentation must not duplicate the mortgage plan policy",
-);
-assert.match(
-  demoAdapterSource,
-  /state: mortgageAvailable \? "active" : "locked"/,
-  "mortgage card state must follow the production entitlement",
-);
-assert.match(
-  demoAdapterSource,
-  /listCaseActivity\(createProductionSessionProvider\(\), props\.caseId, 4\)/,
-  "premium client dashboard activity must come from the production case-scoped activity service",
+  profileSource,
+  /const securityHref = selectedClientCase \? `\/portal\/security\?caseId=\$\{selectedClientCase\.id\}` : "\/portal\/security"/,
+  "client profile must preserve the selected case when opening account security",
 );
 assert.match(
-  demoAdapterSource,
-  /buildCaseActivityView\(records, "CLIENT"\)/,
-  "premium client dashboard activity must pass through the CLIENT-safe projection",
-);
-assert.doesNotMatch(
-  demoAdapterSource,
-  /Последнее подтверждённое состояние|По данным дела|По данным обучения/,
-  "premium client dashboard must not synthesize activity entries from current aggregate counters",
+  securitySource,
+  /searchParams: Promise<\{ caseId\?: string \}>/,
+  "account security must accept client case context without changing the account-wide security model",
 );
 assert.match(
-  demoAdapterSource,
-  /const UNASSIGNED_SPECIALIST_LABEL = "Специалист назначается"/,
-  "client support block must preserve the explicit unassigned specialist state",
+  securitySource,
+  /const selectedClientCase = isClientOnly[\s\S]*cases\.find\(\(item\) => item\.id === requestedCaseId\)/,
+  "account security must only seat CLIENT in a case shell for an accessible case",
 );
 assert.match(
-  demoAdapterSource,
-  /function hasAssignedSpecialist\(name: string\)[\s\S]*name !== UNASSIGNED_SPECIALIST_LABEL/,
-  "client support block must distinguish a real assigned specialist from the unassigned state",
+  securitySource,
+  /<ClientCaseFrame[\s\S]*caseId=\{selectedClientCase\.id\}/,
+  "CLIENT account security must retain the premium case shell",
 );
 assert.match(
-  demoAdapterSource,
-  /specialistAssigned \? "Юрист iБюро" : "Назначение ожидается"/,
-  "unassigned cases must not claim that a lawyer is already assigned",
+  securitySource,
+  /<PortalFrame sectionLabel="Безопасность аккаунта" accessLabel=\{accessLabel\} showStaffTasks=\{state\.staff\}>/,
+  "STAFF account security must remain in the operational portal shell",
 );
 assert.match(
-  demoAdapterSource,
-  /specialistAssigned \? "Сопровождает ваше дело" : "Специалист пока не назначен"/,
-  "unassigned cases must not claim active personal accompaniment",
-);
-assert.match(
-  demoAdapterSource,
-  /После назначения здесь появятся данные специалиста, который будет сопровождать ваше дело\./,
-  "unassigned support copy must explain the pending assignment without inventing a person",
-);
-assert.match(
-  clientFrameSource,
-  /<ClientCaseNavigation caseId=\{caseId\}/,
-  "production client shell must render the shared demo-style navigation",
-);
-assert.match(
-  clientNavigationSource,
-  /Главная[\s\S]*Практикум[\s\S]*Анкета[\s\S]*Документы[\s\S]*Мой прогресс[\s\S]*AI-помощник[\s\S]*Профиль/,
-  "production client navigation must retain the approved demo-style hierarchy",
-);
-assert.match(
-  clientFrameSource,
-  /function CaseSwitcher\(/,
-  "client shell must define a dedicated case switcher",
-);
-assert.match(
-  clientFrameSource,
-  /Сменить дело/,
-  "case switcher must expose an explicit change-case action",
-);
-assert.match(
-  clientFrameSource,
-  /cases\.length > 1 \? \([\s\S]*<CaseSwitcher/,
-  "multiple real ClientCase records must render the case switcher rather than mixed tariff cards",
+  securitySource,
+  /<MfaEnrollmentForm completionHref=\{completionHref\} \/>/,
+  "2FA enrollment completion must preserve client case context",
 );
 
 for (const [path, source] of [
@@ -158,47 +93,15 @@ for (const [path, source] of [
   ["files", filesSource],
   ["tasks", tasksSource],
 ] as const) {
-  assert.match(
-    source,
-    /resolveCasePortalAudience\(actor, clientCase\)/,
-    `${path} must derive its CLIENT/STAFF presentation from the case relationship`,
-  );
+  assert.match(source, /resolveCasePortalAudience\(actor, clientCase\)/, `${path} must derive its CLIENT/STAFF presentation from the case relationship`);
 }
 
-assert.match(
-  activitySource,
-  /buildCaseActivityView\(records, audience\)/,
-  "activity projection must follow the case-specific audience rather than any global staff role",
-);
-assert.match(
-  activitySource,
-  /<CasePortalFrame[\s\S]*sessionProvider=\{sessionProvider\}[\s\S]*actor=\{actor\}[\s\S]*clientCase=\{clientCase\}/,
-  "activity must retain the premium case shell for CLIENT while preserving the operational STAFF shell",
-);
-assert.doesNotMatch(
-  activitySource,
-  /import \{ PortalFrame \} from "@\/components\/portal\/PortalFrame"/,
-  "activity must not bypass the audience-aware case shell",
-);
-assert.match(
-  documentsSource,
-  /audience === "STAFF"[\s\S]*clientCase\.clientId !== actor\.userId/,
-  "review controls must not appear for the client of the same case even on a multi-role account",
-);
-assert.match(
-  tasksSource,
-  /if \(audience !== "STAFF"\) redirect/,
-  "case-specific staff tasks must fail back to the case hub in CLIENT context",
-);
-assert.doesNotMatch(
-  hubSource,
-  /const isClient = actor\.roles\.includes\("CLIENT"\)/,
-  "case hub must not derive presentation from a global CLIENT role alone",
-);
-assert.doesNotMatch(
-  progressSource,
-  /const isStaff = actor\.roles\.includes\("LAWYER"\) \|\| actor\.roles\.includes\("MANAGER"\)/,
-  "progress audience must not be selected by global staff role alone",
-);
+assert.match(activitySource, /buildCaseActivityView\(records, audience\)/);
+assert.match(activitySource, /<CasePortalFrame[\s\S]*sessionProvider=\{sessionProvider\}[\s\S]*actor=\{actor\}[\s\S]*clientCase=\{clientCase\}/);
+assert.doesNotMatch(activitySource, /import \{ PortalFrame \} from "@\/components\/portal\/PortalFrame"/);
+assert.match(documentsSource, /audience === "STAFF"[\s\S]*clientCase\.clientId !== actor\.userId/);
+assert.match(tasksSource, /if \(audience !== "STAFF"\) redirect/);
+assert.doesNotMatch(hubSource, /const isClient = actor\.roles\.includes\("CLIENT"\)/);
+assert.doesNotMatch(progressSource, /const isStaff = actor\.roles\.includes\("LAWYER"\) \|\| actor\.roles\.includes\("MANAGER"\)/);
 
 console.log("CLIENT_CASE_HUB_CONTRACT_PASS");

@@ -41,6 +41,7 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
   const activeCases = cases.filter((item) => item.status === "ACTIVE").length;
   const completedCases = cases.filter((item) => item.status === "COMPLETED").length;
   const backHref = selectedClientCase ? `/portal/cases/${selectedClientCase.id}` : "/portal";
+  const securityHref = selectedClientCase ? `/portal/security?caseId=${selectedClientCase.id}` : "/portal/security";
 
   const content = (
     <div className={selectedClientCase ? "py-1 sm:py-2" : "py-10 sm:py-14"}>
@@ -116,7 +117,7 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
                 <p className="break-words text-sm text-slate-500">Пароль, двухфакторная защита и резервные коды.</p>
               </div>
             </div>
-            <Link href="/portal/security" className="mt-5 inline-flex max-w-full items-center break-words rounded-xl bg-[#17202a] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#263342]">
+            <Link href={securityHref} className="mt-5 inline-flex max-w-full items-center break-words rounded-xl bg-[#17202a] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#263342]">
               Открыть настройки безопасности
             </Link>
           </article>
