@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   ArrowRight,
@@ -14,8 +15,9 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { PlatformCard, ProgressBar } from "@/components/platform/PlatformPrimitives";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { DOCUMENT_DEFINITIONS } from "@/lib/platform/document-definitions";
+import { cn } from "@/lib/utils";
 
 type DocumentStatus =
   | "WAITING_DATA"
@@ -269,7 +271,7 @@ export function ProductionDocuments({
           <PlatformCard className="min-w-0 p-5 sm:p-6">
             <div className="flex gap-4"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-primary"><ClipboardCheck className="size-5" aria-hidden="true" /></span><div className="min-w-0"><h2 className="font-semibold">Данные анкеты</h2><p className="mt-2 text-sm text-muted-foreground">Заполнено {questionnaire.completed} из {questionnaire.total} разделов</p></div></div>
             <div className="mt-5"><ProgressBar value={questionnaire.percent} /></div>
-            <Button asChild variant="outline" className="mt-5 h-11 w-full rounded-full sm:w-auto"><a href={`/portal/cases/${caseId}/questionnaire`}>Открыть анкету<ArrowRight data-icon="inline-end" /></a></Button>
+            <Link href={`/portal/cases/${caseId}/questionnaire`} className={cn(buttonVariants({ variant: "outline" }), "mt-5 min-h-11 w-full rounded-full px-4 py-3 sm:w-auto")}>Открыть анкету<ArrowRight data-icon="inline-end" /></Link>
           </PlatformCard>
           <PlatformCard className="min-w-0 p-5 sm:p-6">
             <div className="flex gap-4"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-primary"><ShieldCheck className="size-5" aria-hidden="true" /></span><div className="min-w-0"><h2 className="font-semibold">Проверка специалистом</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">Специалист iБюро проверит содержание перед использованием документов. Автоматически подготовленный черновик не является готовым судебным документом.</p></div></div>
