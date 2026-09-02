@@ -1,8 +1,14 @@
+import {
+  VERCEL_STAGING_BRANCH,
+  VERCEL_STAGING_CONFIRMATION,
+} from "@/server/config/vercel-preview-boundary";
+
 export const PLATFORM_MUTATION_ORIGIN_REJECTED = "PLATFORM_MUTATION_ORIGIN_REJECTED";
 export const PLATFORM_MUTATION_ORIGIN_NOT_CONFIGURED = "PLATFORM_MUTATION_ORIGIN_NOT_CONFIGURED";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const STAGING_NODE_USER_AGENT = "node";
+const EXACT_GIT_SHA_PATTERN = /^[a-f0-9]{40}$/;
 
 export type PlatformMutationOriginDecision =
   | { allowed: true }
@@ -65,11 +71,31 @@ function parseRequestOrigin(value: string | null): string | null {
   return parsed.origin;
 }
 
-function isRepositoryNodeVerifier(request: Pick<Request, "headers">): boolean {
+function isConfirmedStagingPreview(env: Record<string, string | undefined>): boolean {
+  const commitSha = env.VERCEL_GIT_COMMIT_SHA?.trim().toLowerCase() ?? "";
+  return (
+    env.VERCEL_ENV?.trim() === "preview" &&
+    env.VERCEL_GIT_COMMIT_REF?.trim() === VERCEL_STAGING_BRANCH &&
+    EXACT_GIT_SHA_PATTERN.test(commitSha) &&
+    env.IB_RUNTIME_TARGET?.trim() === "staging" &&
+    env.IB_VERCEL_PREVIEW_BACKEND_CONFIRM?.trim().toLowerCase() ===
+      VERCEL_STAGING_CONFIRMATION.toLowerCase()
+  );
+}
+
+function isRepositoryNodeVerifier(
+  request: Pick<Request, "headers">,
+  env: Record<string, string | undefined>,
+): boolean {
   const origin = request.headers.get("origin")?.trim();
   const fetchSite = request.headers.get("sec-fetch-site")?.trim();
   const userAgent = request.headers.get("user-agent")?.trim().toLowerCase();
-  return !origin && !fetchSite && userAgent === STAGING_NODE_USER_AGENT;
+  return (
+    !origin &&
+    !fetchSite &&
+    userAgent === STAGING_NODE_USER_AGENT &&
+    isConfirmedStagingPreview(env)
+  );
 }
 
 /**
@@ -77,11 +103,9 @@ function isRepositoryNodeVerifier(request: Pick<Request, "headers">): boolean {
  * application origin. This is an additional CSRF boundary on top of cookie
  * SameSite policy and application authorization.
  *
- * The repository's Node 24 staging verifiers are the only origin-less client
- * class accepted: built-in Node fetch identifies itself with the exact
- * User-Agent "node" and sends no Fetch Metadata. Browser JavaScript cannot set
- * User-Agent, so browser mutations still require exact Origin and, when
- * present, Sec-Fetch-Site= same-origin.
+ * Origin-less Node requests are accepted only for the repository's staging
+ * verifiers running against the explicitly confirmed Vercel staging Preview.
+ * A spoofed User-Agent alone is never sufficient outside that environment.
  */
 export function evaluatePlatformMutationOrigin(
   request: Pick<Request, "method" | "headers">,
@@ -98,7 +122,7 @@ export function evaluatePlatformMutationOrigin(
     };
   }
 
-  if (isRepositoryNodeVerifier(request)) return { allowed: true };
+  if (isRepositoryNodeVerifier(request, env)) return { allowed: true };
 
   const requestOrigin = parseRequestOrigin(request.headers.get("origin"));
   if (requestOrigin !== expectedOrigin) {
