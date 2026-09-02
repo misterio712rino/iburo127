@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -15,7 +16,7 @@ export function ClientCaseModuleIntro({
   title: string;
   description: string;
   icon: LucideIcon;
-  action?: React.ReactNode;
+  action?: ReactNode;
 }) {
   return (
     <div className="client-module-intro">
