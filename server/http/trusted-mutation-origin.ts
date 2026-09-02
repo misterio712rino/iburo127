@@ -7,7 +7,6 @@ export const PLATFORM_MUTATION_ORIGIN_REJECTED = "PLATFORM_MUTATION_ORIGIN_REJEC
 export const PLATFORM_MUTATION_ORIGIN_NOT_CONFIGURED = "PLATFORM_MUTATION_ORIGIN_NOT_CONFIGURED";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
-const STAGING_NODE_USER_AGENT = "node";
 const EXACT_GIT_SHA_PATTERN = /^[a-f0-9]{40}$/;
 
 export type PlatformMutationOriginDecision =
@@ -83,19 +82,13 @@ function isConfirmedStagingPreview(env: Record<string, string | undefined>): boo
   );
 }
 
-function isRepositoryNodeVerifier(
+function isConfirmedStagingMachineRequest(
   request: Pick<Request, "headers">,
   env: Record<string, string | undefined>,
 ): boolean {
   const origin = request.headers.get("origin")?.trim();
   const fetchSite = request.headers.get("sec-fetch-site")?.trim();
-  const userAgent = request.headers.get("user-agent")?.trim().toLowerCase();
-  return (
-    !origin &&
-    !fetchSite &&
-    userAgent === STAGING_NODE_USER_AGENT &&
-    isConfirmedStagingPreview(env)
-  );
+  return !origin && !fetchSite && isConfirmedStagingPreview(env);
 }
 
 /**
@@ -103,9 +96,10 @@ function isRepositoryNodeVerifier(
  * application origin. This is an additional CSRF boundary on top of cookie
  * SameSite policy and application authorization.
  *
- * Origin-less Node requests are accepted only for the repository's staging
- * verifiers running against the explicitly confirmed Vercel staging Preview.
- * A spoofed User-Agent alone is never sufficient outside that environment.
+ * Origin-less machine requests are accepted only when the deployed runtime is
+ * the explicitly confirmed Vercel staging Preview. Caller-controlled headers
+ * such as User-Agent are never used as a trust signal. Production therefore
+ * remains fail-closed for every origin-less mutation.
  */
 export function evaluatePlatformMutationOrigin(
   request: Pick<Request, "method" | "headers">,
@@ -122,7 +116,7 @@ export function evaluatePlatformMutationOrigin(
     };
   }
 
-  if (isRepositoryNodeVerifier(request, env)) return { allowed: true };
+  if (isConfirmedStagingMachineRequest(request, env)) return { allowed: true };
 
   const requestOrigin = parseRequestOrigin(request.headers.get("origin"));
   if (requestOrigin !== expectedOrigin) {
