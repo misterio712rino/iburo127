@@ -15,6 +15,15 @@ import {
 } from "@/server/http/trusted-mutation-origin";
 
 const productionEnv = { BETTER_AUTH_URL: "https://app.example.com" };
+const confirmedCommitSha = "12a4155acd473838b3e4f48bc318016187854a68";
+const confirmedPreviewEnv = {
+  BETTER_AUTH_URL: "https://app.example.com",
+  VERCEL_ENV: "preview",
+  VERCEL_GIT_COMMIT_REF: VERCEL_STAGING_BRANCH,
+  VERCEL_GIT_COMMIT_SHA: confirmedCommitSha,
+  IB_RUNTIME_TARGET: "staging",
+  IB_VERCEL_PREVIEW_BACKEND_CONFIRM: VERCEL_STAGING_CONFIRMATION,
+};
 
 function request(
   method: string,
@@ -51,12 +60,22 @@ assert.deepEqual(
 );
 
 assert.deepEqual(
+  evaluatePlatformMutationOrigin(request("POST", { userAgent: "node" }), productionEnv),
+  {
+    allowed: false,
+    status: 403,
+    code: PLATFORM_MUTATION_ORIGIN_REJECTED,
+  },
+  "spoofed Node user agent must not bypass production origin enforcement",
+);
+
+assert.deepEqual(
   evaluatePlatformMutationOrigin(
     request("POST", { userAgent: "node" }),
-    productionEnv,
+    confirmedPreviewEnv,
   ),
   { allowed: true },
-  "repository Node staging verifier remains compatible without browser Origin headers",
+  "repository Node verifier remains compatible on the confirmed staging Preview",
 );
 
 for (const invalidRequest of [
@@ -141,14 +160,14 @@ for (const previewEnv of [
   {
     VERCEL_ENV: "preview",
     VERCEL_GIT_COMMIT_REF: "main",
-    VERCEL_GIT_COMMIT_SHA: "12a4155acd473838b3e4f48bc318016187854a68",
+    VERCEL_GIT_COMMIT_SHA: confirmedCommitSha,
     IB_RUNTIME_TARGET: "staging",
     IB_VERCEL_PREVIEW_BACKEND_CONFIRM: VERCEL_STAGING_CONFIRMATION,
   },
   {
     VERCEL_ENV: "preview",
     VERCEL_GIT_COMMIT_REF: VERCEL_STAGING_BRANCH,
-    VERCEL_GIT_COMMIT_SHA: "12a4155acd473838b3e4f48bc318016187854a68",
+    VERCEL_GIT_COMMIT_SHA: confirmedCommitSha,
     IB_RUNTIME_TARGET: "production",
     IB_VERCEL_PREVIEW_BACKEND_CONFIRM: VERCEL_STAGING_CONFIRMATION,
   },
@@ -167,14 +186,6 @@ for (const previewEnv of [
   );
 }
 
-const confirmedCommitSha = "12a4155acd473838b3e4f48bc318016187854a68";
-const confirmedPreviewEnv = {
-  VERCEL_ENV: "preview",
-  VERCEL_GIT_COMMIT_REF: VERCEL_STAGING_BRANCH,
-  VERCEL_GIT_COMMIT_SHA: confirmedCommitSha,
-  IB_RUNTIME_TARGET: "staging",
-  IB_VERCEL_PREVIEW_BACKEND_CONFIRM: VERCEL_STAGING_CONFIRMATION,
-};
 assert.equal(isVercelPreviewBackendAllowed(confirmedPreviewEnv), true);
 assert.doesNotThrow(() => assertVercelPreviewBackendAllowed(confirmedPreviewEnv));
 
