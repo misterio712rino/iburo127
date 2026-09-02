@@ -9,6 +9,7 @@ const expectedRoutes = [
   "staging-auth-fixtures",
   "staging-better-auth-migrate",
   "staging-better-auth-verify",
+  "staging-client-plan-auth-fixtures",
   "staging-db-baseline",
   "staging-domain-fixtures",
   "staging-external-readiness",

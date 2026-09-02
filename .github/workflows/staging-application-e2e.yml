@@ -116,6 +116,38 @@ jobs:
               console.log("STAGING_APPLICATION_E2E_IDENTITY_PASS");
             '
 
+      - name: Ensure LITE and PRO client auth fixtures
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          curl --silent --show-error --fail-with-body \
+            -X POST \
+            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+            -H "Origin: $IB_STAGING_BASE_URL" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            --data-urlencode "confirm=BOOTSTRAP_CLIENT_PLAN_AUTH:${IB_STAGING_DATABASE_NAME}:public:${GITHUB_SHA}" \
+            "$IB_STAGING_BASE_URL/_iburo/staging-client-plan-auth-fixtures" \
+          | node --input-type=module -e '
+              let input = "";
+              for await (const chunk of process.stdin) input += chunk;
+              const body = JSON.parse(input);
+              const labels = Array.isArray(body.fixtures) ? body.fixtures.map((fixture) => fixture.label).sort() : [];
+              if (
+                body.pass !== true ||
+                body.commitSha !== process.env.GITHUB_SHA ||
+                body.runtimeTarget !== "staging" ||
+                body.database !== process.env.IB_STAGING_DATABASE_NAME ||
+                body.schema !== "public" ||
+                JSON.stringify(labels) !== JSON.stringify(["CLIENT_LITE", "CLIENT_PRO"])
+              ) {
+                console.error("STAGING_CLIENT_PLAN_AUTH_FIXTURE_FAIL");
+                process.exit(1);
+              }
+              console.log("STAGING_CLIENT_PLAN_AUTH_FIXTURE_PASS");
+            '
+
       - name: Reset dedicated application E2E fixtures
         shell: bash
         env:
@@ -149,6 +181,14 @@ jobs:
               }
               console.log("STAGING_APPLICATION_E2E_FIXTURE_RESET_PASS");
             '
+
+      - name: Verify LITE and PRO client sign-in matrix
+        env:
+          IB_STAGING_VERCEL_AUTOMATION_BYPASS: "1"
+          NODE_OPTIONS: --import=./scripts/staging-vercel-protection-bypass.mjs
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          IB_STAGING_CLIENT_PASSWORD: ${{ secrets.IB_STAGING_CLIENT_PASSWORD }}
+        run: node --import tsx scripts/verify-staging-client-plan-logins.ts
 
       - name: Fresh-session authentication and application E2E
         env:
