@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight, ArrowUpRight, BriefcaseBusiness } from "lucide-react";
+import { LawyerProductionDashboard } from "@/components/portal/LawyerProductionDashboard";
 import { ManagerProductionDashboard } from "@/components/portal/ManagerProductionDashboard";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import {
@@ -15,6 +16,7 @@ import { getCaseProgressSummaryForActor } from "@/server/case-progress/operation
 import { getCurrentPlatformActor } from "@/server/client-cases/operations";
 import { clientCaseService } from "@/server/client-cases/runtime";
 import type { ClientCaseRecord } from "@/server/domain/client-cases/contracts";
+import { listTasks } from "@/server/tasks/operations";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +70,30 @@ export default async function PortalPage() {
   }
 
   const isStaff = actor.roles.includes("LAWYER");
+
+  if (isStaff) {
+    const staffCases = cases.filter(
+      (clientCase) => resolveCasePortalAudience(actor, clientCase) === "STAFF",
+    );
+    const [tasks, staffProgressEntries] = await Promise.all([
+      listTasks(sessionProvider),
+      Promise.all(
+        staffCases.map(async (clientCase) => ({
+          caseId: clientCase.id,
+          summary: await getCaseProgressSummaryForActor(actor, clientCase, "STAFF"),
+        })),
+      ),
+    ]);
+
+    return (
+      <LawyerProductionDashboard
+        cases={staffCases}
+        tasks={tasks}
+        progressEntries={staffProgressEntries}
+      />
+    );
+  }
+
   const clientOwnedCases = cases.filter(
     (clientCase) => resolveCasePortalAudience(actor, clientCase) === "CLIENT",
   );
@@ -93,17 +119,15 @@ export default async function PortalPage() {
     : undefined;
 
   return (
-    <PortalFrame sectionLabel="Личный кабинет" showStaffTasks={isStaff} showProspectLeads={false}>
+    <PortalFrame sectionLabel="Личный кабинет" showStaffTasks={false} showProspectLeads={false}>
       <section className="py-10 sm:py-14">
         <div className="max-w-3xl">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#7B2330]">iБюро · рабочий кабинет</p>
           <h1 className="mt-4 font-[var(--font-iburo-display)] text-5xl font-semibold leading-none text-slate-900 sm:text-6xl">
-            {isStaff ? "Рабочее пространство" : "Ваш личный кабинет"}
+            Ваш личный кабинет
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-slate-500">
-            {isStaff
-              ? "Здесь собраны доступные вам дела. Клиентские тарифы отображаются сотрудникам только как атрибут конкретного дела."
-              : "Когда активное дело будет создано, личный кабинет откроет его автоматически."}
+            Когда активное дело будет создано, личный кабинет откроет его автоматически.
           </p>
         </div>
 
@@ -139,7 +163,7 @@ export default async function PortalPage() {
       <section aria-labelledby="cases-heading" className="pb-12">
         <div className="mb-5 flex items-center gap-3">
           <BriefcaseBusiness className="size-5 text-slate-500" aria-hidden="true" />
-          <h2 id="cases-heading" className="text-lg font-bold text-slate-900">{isStaff ? "Доступные дела" : "Ваши дела"}</h2>
+          <h2 id="cases-heading" className="text-lg font-bold text-slate-900">Ваши дела</h2>
         </div>
 
         {cases.length ? (
