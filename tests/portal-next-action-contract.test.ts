@@ -4,6 +4,10 @@ import { resolve } from "node:path";
 
 const portalSource = await readFile(resolve("app/portal/page.tsx"), "utf8");
 const casePageSource = await readFile(resolve("app/portal/cases/[caseId]/page.tsx"), "utf8");
+const demoAdapterSource = await readFile(
+  resolve("components/portal/ProductionDemoClientDashboard.tsx"),
+  "utf8",
+);
 const clientFrameSource = await readFile(resolve("components/portal/ClientCaseFrame.tsx"), "utf8");
 const clientNavigationSource = await readFile(
   resolve("components/portal/ClientCaseNavigation.tsx"),
@@ -66,16 +70,45 @@ assert.match(
 
 assert.match(
   casePageSource,
+  /import \{ ProductionDemoClientDashboard \}/,
+  "the production case route must consume the shared demo presentation adapter",
+);
+assert.match(
+  casePageSource,
   /if \(isClient\)[\s\S]*renderClientDashboard/,
   "client-owned cases must use the dedicated production client dashboard",
 );
-assert.match(casePageSource, /<ClientCaseFrame/);
-assert.match(casePageSource, /AI-помощник/);
-assert.match(casePageSource, /Доступен на вашем тарифе/);
 assert.match(
   casePageSource,
-  /planCode === "PRO" \|\| planCode === "INDIVIDUAL"/,
+  /<ProductionDemoClientDashboard/,
+  "the CLIENT branch must render the seated demo dashboard with production data",
+);
+assert.match(
+  casePageSource,
+  /<PortalFrame[\s\S]*showStaffTasks/,
+  "staff audiences must retain the separate operational workspace",
+);
+
+assert.match(
+  demoAdapterSource,
+  /<ClientCaseFrame/,
+  "the seated demo dashboard must retain the production client shell and case boundary",
+);
+assert.match(demoAdapterSource, /title: "AI-помощник"/);
+assert.match(
+  demoAdapterSource,
+  /code: "AI_ASSISTANT"[\s\S]*state: "active"[\s\S]*href: `\$\{base\}\/ai`/,
+  "AI must remain available for every client tariff in the seated demo dashboard",
+);
+assert.match(
+  demoAdapterSource,
+  /const mortgageAvailable = props\.planCode === "PRO" \|\| props\.planCode === "INDIVIDUAL"/,
   "mortgage analysis must remain tariff-specific while AI is universal",
+);
+assert.match(
+  demoAdapterSource,
+  /summary: mortgageAvailable \? "Индивидуальная оценка" : "Расширенная возможность"/,
+  "mortgage module presentation must follow the real tariff entitlement",
 );
 assert.match(
   clientFrameSource,
