@@ -1,3 +1,4 @@
+import "./ai-plan-entitlement-contract.test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import {
