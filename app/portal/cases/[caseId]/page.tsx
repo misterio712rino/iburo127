@@ -12,7 +12,7 @@ import {
   ListChecks,
 } from "lucide-react";
 
-import { IndividualClientVisualStyles } from "@/components/portal/IndividualClientVisualStyles";
+import { ClientPlanVisualStyles } from "@/components/portal/ClientPlanVisualStyles";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import { ProductionDemoClientDashboard } from "@/components/portal/ProductionDemoClientDashboard";
 import {
@@ -145,11 +145,9 @@ async function renderClientDashboard(
     />
   );
 
-  if (planCode !== "INDIVIDUAL") return dashboard;
-
   return (
     <>
-      <IndividualClientVisualStyles />
+      <ClientPlanVisualStyles planCode={planCode} />
       {dashboard}
     </>
   );
