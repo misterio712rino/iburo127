@@ -302,7 +302,7 @@ export function ProductionPracticum({
                             {!completed ? (
                               <Button type="button" variant="outline" size="sm" className="mt-4 rounded-full" onClick={() => completeLesson(lesson.id)} disabled={Boolean(pendingLessonId)} aria-busy={pending}>
                                 {pending ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : null}
-                                {pending ? "Сохраняем…" : "Отметить урок пройденным"}
+                                {pending ? <span role="status">Сохраняем…</span> : "Отметить урок пройденным"}
                               </Button>
                             ) : null}
                           </div>
