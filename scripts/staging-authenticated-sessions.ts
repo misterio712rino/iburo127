@@ -27,6 +27,14 @@ type AccountFixture = {
 };
 
 type JsonRecord = Record<string, unknown>;
+type AccessGateEnvelope = {
+  ok?: boolean;
+  data?: {
+    state?: unknown;
+    challenge?: unknown;
+  };
+  error?: { code?: unknown };
+};
 type PlatformEnvelope = {
   ok?: boolean;
   data?: { roles?: unknown };
@@ -230,10 +238,35 @@ async function authenticateFixture(
 ): Promise<StagingCookieJar> {
   const jar = new StagingCookieJar();
   try {
-    const signInResponse = await request(context, jar, "POST", "/api/auth/sign-in/email", {
-      email: fixture.email,
-      password: fixture.password,
+    const gateResponse = await request(context, jar, "POST", "/api/public/access-gate", {
+      identifier: fixture.email,
     });
+    requirePrivateNoStore(gateResponse, `${fixture.label} access gate`);
+    if (gateResponse.status !== 200) {
+      fail(`${fixture.label} access gate expected 200, got ${gateResponse.status}`);
+    }
+    const gate = await readJson<AccessGateEnvelope>(gateResponse);
+    const challenge = gate.data?.challenge;
+    if (
+      gate.ok !== true ||
+      gate.data?.state !== "LOGIN" ||
+      typeof challenge !== "string" ||
+      challenge.length === 0
+    ) {
+      fail(`${fixture.label} access gate did not issue an opaque login challenge`);
+    }
+
+    const signInResponse = await request(
+      context,
+      jar,
+      "POST",
+      "/api/public/access-gate/sign-in",
+      {
+        challenge,
+        password: fixture.password,
+      },
+    );
+    requirePrivateNoStore(signInResponse, `${fixture.label} first factor`);
     if (signInResponse.status !== 200) {
       fail(`${fixture.label} first factor expected 200, got ${signInResponse.status}`);
     }
@@ -348,8 +381,8 @@ export async function createStagingAuthenticatedSessions(options: {
       jars.set(fixture.label, jar);
       onStatus(
         fixture.totpSecret
-          ? `${fixture.label}: password -> mandatory TOTP -> server role verified`
-          : "CLIENT: password sign-in and server role verified",
+          ? `${fixture.label}: access gate -> password -> mandatory TOTP -> server role verified`
+          : "CLIENT: access gate -> password sign-in and server role verified",
       );
     }
   } catch (error) {
