@@ -3,6 +3,12 @@ import { Pool, type PoolClient } from "pg";
 
 import { PrismaClient } from "@/generated/prisma/client";
 import { requireStagingDatabaseTarget } from "@/scripts/staging-target-guard";
+import { normalizeAccessIdentifier } from "@/server/auth/access-gate-core";
+import {
+  accessGateRateLimitDigest,
+  readTrustedAccessGateClientIp,
+} from "@/server/auth/access-gate-rate-limit";
+import { readBetterAuthRuntimeConfig } from "@/server/config/production";
 import {
   VERCEL_STAGING_BRANCH,
   isVercelPreviewBackendAllowed,
@@ -18,6 +24,7 @@ const MUTATION_CASE_NUMBER = "IBR-2026-009901";
 const MUTATION_TASK_ID = "12700000-9901-4000-8000-000000000001";
 const CLIENT_EMAIL = "client.individual@example.test";
 const LAWYER_EMAIL = "lawyer.demo@example.test";
+const MANAGER_EMAIL = "manager.demo@example.test";
 const PLAN_CODE = "INDIVIDUAL";
 const STAGE_CODE = "DOCUMENT_PREPARATION";
 const DOCUMENT_CODE = "property-inventory";
@@ -94,6 +101,23 @@ function newPrisma(databaseUrl: string) {
 
 function isDemoSeedConfigured(env: NodeJS.ProcessEnv, databaseName: string): boolean {
   return env.IB_STAGING_DEMO_SEED_CONFIRM?.trim() === `DEMO-SEED:${databaseName}`;
+}
+
+function buildAccessGateRateLimitKeys(
+  request: Request,
+  commitSha: string,
+  env: NodeJS.ProcessEnv,
+): string[] {
+  const { secret } = readBetterAuthRuntimeConfig(env);
+  const clientIp = readTrustedAccessGateClientIp(request);
+  const prospectEmail = `staging.e2e.${commitSha.slice(0, 16)}@example.test`;
+  const contacts = [CLIENT_EMAIL, LAWYER_EMAIL, MANAGER_EMAIL, prospectEmail].map(
+    (email) => normalizeAccessIdentifier(email).contactKey,
+  );
+  return [
+    accessGateRateLimitDigest("ip", clientIp, secret),
+    ...contacts.map((contactKey) => accessGateRateLimitDigest("contact", contactKey, secret)),
+  ];
 }
 
 function platformRoleCodes(
@@ -285,6 +309,13 @@ export async function POST(request: Request) {
     return fail("confirmation", 403);
   }
 
+  let accessGateRateLimitKeys: string[];
+  try {
+    accessGateRateLimitKeys = buildAccessGateRateLimitKeys(request, sha, env);
+  } catch {
+    return fail("configuration");
+  }
+
   const lockPool = new Pool({
     connectionString: target.databaseUrl,
     connectionTimeoutMillis: 10_000,
@@ -399,6 +430,13 @@ export async function POST(request: Request) {
           throw new Error("dedicated mutation task id collision");
         }
 
+        let accessGateRateLimitsDeleted = 0;
+        for (const key of accessGateRateLimitKeys) {
+          accessGateRateLimitsDeleted += await tx.$executeRaw`
+            delete from "rateLimit" where "key" = ${key}
+          `;
+        }
+
         const taskEventsDeleted = await tx.taskStatusEvent.deleteMany({
           where: { taskId: MUTATION_TASK_ID },
         });
@@ -438,6 +476,7 @@ export async function POST(request: Request) {
         });
 
         return {
+          accessGateRateLimitsDeleted,
           questionnaireDeleted: questionnaireDeleted.count,
           practicumDeleted: practicumDeleted.count,
           documentsDeleted: documentsDeleted.count,
@@ -466,6 +505,7 @@ export async function POST(request: Request) {
       taskStatus: reset.task.status,
       taskVersion: reset.task.version,
       reset: {
+        accessGateRateLimitsDeleted: reset.accessGateRateLimitsDeleted,
         questionnaireDeleted: reset.questionnaireDeleted,
         practicumDeleted: reset.practicumDeleted,
         documentsDeleted: reset.documentsDeleted,
