@@ -4,6 +4,8 @@ import {
   isVercelPreviewBackendAllowed,
 } from "@/server/config/vercel-preview-boundary";
 
+export const dynamic = "force-dynamic";
+
 const NO_STORE_HEADERS = {
   "Cache-Control": "private, no-store, max-age=0",
   Pragma: "no-cache",
