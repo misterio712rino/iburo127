@@ -43,8 +43,12 @@ for (const job of expectedJobs) {
   assert.ok(configIndex >= 0, `${job} must read validated maintenance runtime config`);
   assert.ok(authIndex > configIndex, `${job} must authorize only after validated maintenance config`);
 
-  const unauthorizedIndex = route.indexOf('error: "Unauthorized"');
-  assert.ok(unauthorizedIndex > authIndex, `${job} must fail closed on invalid Bearer authorization`);
+  const postAuthRoute = route.slice(authIndex);
+  assert.match(
+    postAuthRoute,
+    /code:\s*"UNAUTHORIZED"[\s\S]*?401/,
+    `${job} must fail closed with 401 after invalid Bearer authorization`,
+  );
 }
 
 const runner = await readFile(resolve("scripts/run-maintenance-job.mjs"), "utf8");
