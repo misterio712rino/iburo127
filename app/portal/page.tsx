@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight, ArrowUpRight, BriefcaseBusiness } from "lucide-react";
+import { ManagerProductionDashboard } from "@/components/portal/ManagerProductionDashboard";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import {
   getCaseStageDisplayLabel,
@@ -61,7 +62,12 @@ export default async function PortalPage() {
   }
 
   const cases = await clientCaseService.listCases(actor);
-  const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
+
+  if (actor.roles.includes("MANAGER")) {
+    return <ManagerProductionDashboard actor={actor} cases={cases} />;
+  }
+
+  const isStaff = actor.roles.includes("LAWYER");
   const clientOwnedCases = cases.filter(
     (clientCase) => resolveCasePortalAudience(actor, clientCase) === "CLIENT",
   );
@@ -87,7 +93,7 @@ export default async function PortalPage() {
     : undefined;
 
   return (
-    <PortalFrame sectionLabel="Личный кабинет" showStaffTasks={isStaff} showProspectLeads={actor.roles.includes("MANAGER")}>
+    <PortalFrame sectionLabel="Личный кабинет" showStaffTasks={isStaff} showProspectLeads={false}>
       <section className="py-10 sm:py-14">
         <div className="max-w-3xl">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#7B2330]">iБюро · рабочий кабинет</p>
