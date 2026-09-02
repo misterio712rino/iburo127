@@ -229,6 +229,14 @@ assert.ok(
   "auth-flow target guard must reject unsafe execution before the first anonymous network path",
 );
 
+assert.match(sessionSource, /"\/api\/public\/access-gate"/);
+assert.match(sessionSource, /"\/api\/public\/access-gate\/sign-in"/);
+assert.match(sessionSource, /access gate did not issue an opaque login challenge/);
+assert.doesNotMatch(
+  sessionSource,
+  /"\/api\/auth\/sign-in\/email"/,
+  "fresh staging sessions must not bypass the production access gate",
+);
 assert.match(sessionSource, /trustDevice:\s*false/);
 assert.match(sessionSource, /iburo127\.ru/);
 assert.match(sessionSource, /\/api\/auth\/sign-out/);
@@ -236,7 +244,7 @@ assert.match(sessionSource, /StagingCookieJar/);
 assert.doesNotMatch(sessionSource, /writeFile|appendFile|fs\/promises/);
 assert.doesNotMatch(
   sessionSource,
-  /console\.(?:log|error)\([^\n]*(?:cookie|password|totpSecret)/i,
+  /console\.(?:log|error)\([^\n]*(?:cookie|password|totpSecret|challenge)/i,
   "session bootstrap must not log authentication material",
 );
 
