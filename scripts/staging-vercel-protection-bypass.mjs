@@ -1,6 +1,7 @@
 const ENABLE_ENV = "IB_STAGING_VERCEL_AUTOMATION_BYPASS";
 const SECRET_ENV = "VERCEL_AUTOMATION_BYPASS_SECRET";
 const BASE_URL_ENV = "IB_STAGING_BASE_URL";
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 function fail(message) {
   throw new Error(`STAGING_VERCEL_AUTOMATION_BYPASS_FAIL:${message}`);
@@ -83,6 +84,11 @@ if (process.env[ENABLE_ENV]?.trim() === "1") {
         : new Request(requestUrl, init);
     const headers = new Headers(request.headers);
     headers.set("x-vercel-protection-bypass", secret);
+
+    if (!SAFE_METHODS.has(request.method.toUpperCase())) {
+      headers.set("origin", targetOrigin);
+      headers.set("sec-fetch-site", "same-origin");
+    }
 
     return nativeFetch(new Request(request, { headers }));
   };
