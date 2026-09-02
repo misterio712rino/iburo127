@@ -119,7 +119,7 @@ export function PortalNavigation({
             key={href}
             href={href}
             aria-current={active ? "page" : undefined}
-            className={`inline-flex min-h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border px-3 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#8f1720]/10 ${
+            className={`inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border px-3 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#8f1720]/10 ${
               active
                 ? "border-[#d9dde0] bg-white text-[#202326] shadow-sm"
                 : "border-transparent text-[#6f7880] hover:bg-white/75 hover:text-[#202326]"
