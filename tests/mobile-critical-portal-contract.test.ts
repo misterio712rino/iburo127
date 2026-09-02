@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 
 const portalFrameSource = await readFile(resolve("components/portal/PortalFrame.tsx"), "utf8");
 const clientCaseFrameSource = await readFile(resolve("components/portal/ClientCaseFrame.tsx"), "utf8");
+const clientCaseNavigationSource = await readFile(resolve("components/portal/ClientCaseNavigation.tsx"), "utf8");
 const portalNavigationSource = await readFile(resolve("components/portal/PortalNavigation.tsx"), "utf8");
 const portalMotionContentSource = await readFile(resolve("components/portal/PortalMotionContent.tsx"), "utf8");
 const portalMotionStylesSource = await readFile(resolve("components/portal/PortalMotionStyles.tsx"), "utf8");
@@ -57,6 +58,16 @@ assert.match(
   portalNavigationSource,
   /min-h-11 shrink-0[^\"]*whitespace-nowrap/,
   "portal navigation items must remain tappable and must not collapse or wrap their labels",
+);
+assert.match(
+  clientCaseNavigationSource,
+  /inline-flex min-h-11 shrink-0 items-center rounded-full/,
+  "mobile CLIENT navigation items must keep a 44px minimum touch target",
+);
+assert.match(
+  clientCaseNavigationSource,
+  /if \(path === "\/portal\/profile"\) return pathname === path \|\| pathname === "\/portal\/security"/,
+  "CLIENT account security must keep Profile active in the case navigation",
 );
 assert.match(questionnaireSource, /text-3xl[^\"]*sm:text-5xl/);
 assert.match(practicumSource, /text-3xl[^\"]*sm:text-5xl/);

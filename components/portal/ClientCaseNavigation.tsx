@@ -25,7 +25,7 @@ const NAV_ITEMS = [
 function isCurrent(pathname: string, href: string, base: string) {
   const path = href.split("?", 1)[0];
   if (path === base) return pathname === base;
-  if (path === "/portal/profile") return pathname === path;
+  if (path === "/portal/profile") return pathname === path || pathname === "/portal/security";
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
@@ -44,7 +44,7 @@ export function ClientCaseNavigation({ caseId, mobile = false }: { caseId: strin
               key={key}
               href={href}
               aria-current={active ? "page" : undefined}
-              className={`shrink-0 rounded-full border px-3 py-2 text-xs font-semibold transition ${
+              className={`inline-flex min-h-11 shrink-0 items-center rounded-full border px-3 py-2 text-xs font-semibold transition ${
                 active
                   ? "border-[#b9202b]/20 bg-[#b9202b]/[0.08] text-[#9f2029]"
                   : "border-white/70 bg-white text-[#55585d] shadow-sm hover:border-black/10 hover:text-[#1d222b]"
