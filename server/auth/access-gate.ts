@@ -1,7 +1,6 @@
 import "server-only";
 
-import { createHmac, randomUUID } from "node:crypto";
-import { isIP } from "node:net";
+import { randomUUID } from "node:crypto";
 import { getPrismaClient } from "@/server/database/prisma";
 import { readBetterAuthRuntimeConfig } from "@/server/config/production";
 import {
@@ -10,13 +9,16 @@ import {
   verifyAccessChallenge,
   type AccessIdentifier,
 } from "@/server/auth/access-gate-core";
+import {
+  accessGateRateLimitDigest,
+  readTrustedAccessGateClientIp,
+} from "@/server/auth/access-gate-rate-limit";
 
 const BETTER_AUTH_PROVIDER = "better-auth";
 const LEAD_SOURCE = "AUTH_GATE";
 const RATE_LIMIT_WINDOW_SECONDS = 15 * 60;
 const RATE_LIMIT_IP_MAX = 30;
 const RATE_LIMIT_CONTACT_MAX = 6;
-const RATE_LIMIT_KEY_PREFIX = "iburo:access-gate:v1";
 
 type UserAccessState = {
   id: string;
@@ -37,19 +39,6 @@ export class AccessGateRateLimitError extends Error {
     super("ACCESS_GATE_RATE_LIMITED");
     this.name = "AccessGateRateLimitError";
   }
-}
-
-function rateLimitDigest(scope: "ip" | "contact", value: string, secret: string): string {
-  return createHmac("sha256", secret)
-    .update(`${RATE_LIMIT_KEY_PREFIX}:${scope}:${value}`, "utf8")
-    .digest("hex");
-}
-
-function readTrustedClientIp(request: Request): string {
-  const raw = request.headers.get("x-forwarded-for")?.trim() ?? "";
-  const first = raw.split(",", 1)[0]?.trim() ?? "";
-  if (isIP(first) === 0) throw new Error("ACCESS_GATE_CLIENT_IP_UNAVAILABLE");
-  return first;
 }
 
 async function consumeRateLimit(input: {
@@ -86,16 +75,16 @@ async function enforceAccessGateRateLimit(
   identifier: AccessIdentifier,
 ): Promise<void> {
   const { secret } = readBetterAuthRuntimeConfig();
-  const clientIp = readTrustedClientIp(request);
+  const clientIp = readTrustedAccessGateClientIp(request);
   const nowSeconds = Math.floor(Date.now() / 1000);
 
   await consumeRateLimit({
-    key: rateLimitDigest("ip", clientIp, secret),
+    key: accessGateRateLimitDigest("ip", clientIp, secret),
     limit: RATE_LIMIT_IP_MAX,
     nowSeconds,
   });
   await consumeRateLimit({
-    key: rateLimitDigest("contact", identifier.contactKey, secret),
+    key: accessGateRateLimitDigest("contact", identifier.contactKey, secret),
     limit: RATE_LIMIT_CONTACT_MAX,
     nowSeconds,
   });
