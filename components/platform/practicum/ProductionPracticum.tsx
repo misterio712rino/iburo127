@@ -256,7 +256,8 @@ export function ProductionPracticum({
 
         <div className="flex flex-col gap-5">
           {PRACTICUM_MODULES.map((module) => {
-            const lessons = PRACTICUM_LESSONS.filter((lesson) => module.lessonIds.includes(lesson.id as never));
+            const lessonIds: readonly string[] = module.lessonIds;
+            const lessons = PRACTICUM_LESSONS.filter((lesson) => lessonIds.includes(lesson.id));
             const done = lessons.filter((lesson) => completedSet.has(lesson.id)).length;
             return (
               <section key={module.id} className="practicum-module-surface overflow-hidden rounded-[1.5rem] border border-border bg-card text-card-foreground shadow-[0_14px_40px_rgba(0,0,0,.045)]">
@@ -288,7 +289,7 @@ export function ProductionPracticum({
                               <span className={cn("text-xs font-semibold", current ? "text-primary" : "text-muted-foreground")}>{completed ? "Завершено" : current ? "Текущий урок" : "Доступно"}</span>
                             </div>
                             <details className="mt-3 group">
-                              <summary className="inline-flex min-h-10 cursor-pointer list-none items-center gap-2 text-sm font-semibold text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 rounded-lg">
+                              <summary className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg list-none text-sm font-semibold text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20">
                                 <Play className="size-4 text-primary" aria-hidden="true" />
                                 Материал урока
                               </summary>
