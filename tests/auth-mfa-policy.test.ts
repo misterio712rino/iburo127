@@ -47,6 +47,10 @@ assert.doesNotMatch(
 const betterAuthSource = await readFile(resolve("server/auth/better-auth-instance.ts"), "utf8");
 const betterAuthRouteSource = await readFile(resolve("app/api/auth/[...all]/route.ts"), "utf8");
 const accessGateSource = await readFile(resolve("server/auth/access-gate.ts"), "utf8");
+const accessGateRateLimitSource = await readFile(
+  resolve("server/auth/access-gate-rate-limit.ts"),
+  "utf8",
+);
 const accessGateRouteSource = await readFile(resolve("app/api/public/access-gate/route.ts"), "utf8");
 const accessGateSignInSource = await readFile(resolve("app/api/public/access-gate/sign-in/route.ts"), "utf8");
 const signInFormSource = await readFile(resolve("components/platform/auth/SignInForm.tsx"), "utf8");
@@ -80,14 +84,33 @@ assert.match(rootPageSource, /redirect\("\/auth\/sign-in"\)/);
 assert.match(schemaSource, /model PotentialClientLead/);
 assert.match(leadMigrationSource, /CREATE TABLE "PotentialClientLead"/);
 
-assert.match(accessGateSource, /createHmac\("sha256", secret\)/, "rate-limit keys must be HMAC protected");
-assert.match(accessGateSource, /request\.headers\.get\("x-forwarded-for"\)/, "Vercel-overwritten client IP header must drive IP throttling");
+assert.match(
+  accessGateSource,
+  /from "@\/server\/auth\/access-gate-rate-limit"/,
+  "access gate must use the reviewed shared rate-limit helper",
+);
+assert.match(
+  accessGateRateLimitSource,
+  /createHmac\("sha256", secret\)/,
+  "rate-limit keys must remain HMAC protected",
+);
+assert.match(
+  accessGateRateLimitSource,
+  /ACCESS_GATE_RATE_LIMIT_KEY_PREFIX = "iburo:access-gate:v1"/,
+  "rate-limit key namespace must remain stable",
+);
+assert.match(
+  accessGateRateLimitSource,
+  /request\.headers\.get\("x-forwarded-for"\)/,
+  "Vercel-overwritten client IP header must drive IP throttling",
+);
+assert.match(accessGateSource, /readTrustedAccessGateClientIp\(request\)/);
 assert.match(accessGateSource, /RATE_LIMIT_IP_MAX = 30/);
 assert.match(accessGateSource, /RATE_LIMIT_CONTACT_MAX = 6/);
 assert.match(accessGateSource, /insert into "rateLimit"/, "access gate must use shared database-backed rate-limit storage");
 assert.match(accessGateSource, /on conflict \("key"\) do update/);
-assert.match(accessGateSource, /rateLimitDigest\("ip"/);
-assert.match(accessGateSource, /rateLimitDigest\("contact"/);
+assert.match(accessGateSource, /accessGateRateLimitDigest\("ip"/);
+assert.match(accessGateSource, /accessGateRateLimitDigest\("contact"/);
 assert.doesNotMatch(schemaSource, /PotentialClientLead[\s\S]*?(?:ipAddress|ipHash|clientIp)/, "potential-lead records must not store raw or derived client IP data");
 assert.match(accessGateRouteSource, /AccessGateRateLimitError/);
 assert.match(accessGateRouteSource, /"RATE_LIMITED"/);
