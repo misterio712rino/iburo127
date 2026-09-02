@@ -147,18 +147,22 @@ export function ProductionFiles({
     }
   }
 
+  const headingClass = canUpload ? "text-foreground" : "text-slate-900";
+  const mutedClass = canUpload ? "text-muted-foreground" : "text-slate-400";
+  const valueClass = canUpload ? "text-foreground" : "text-slate-700";
+
   return (
     <div className="mt-8 space-y-6">
       {canUpload ? (
-        <div className="rounded-[24px] border border-slate-200 bg-white/80 p-5">
+        <div className="rounded-[24px] border border-border bg-card p-5 text-card-foreground shadow-[0_10px_30px_rgba(0,0,0,.04)]">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="font-bold text-slate-900">Добавить файл в дело</p>
-              <p className="mt-1 text-sm leading-6 text-slate-500">
+            <div className="min-w-0">
+              <p className="font-bold text-foreground">Добавить файл в дело</p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
                 PDF, JPG, PNG, WEBP, DOC или DOCX до 50 МБ. После загрузки файл проходит проверку безопасности и затем появляется в списке.
               </p>
             </div>
-            <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-[#17202a] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#263342] has-[input:disabled]:cursor-not-allowed has-[input:disabled]:opacity-50">
+            <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground transition hover:bg-primary/90 focus-within:ring-4 focus-within:ring-primary/20 has-[input:disabled]:cursor-not-allowed has-[input:disabled]:opacity-50">
               {uploading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <UploadCloud className="size-4" aria-hidden="true" />}
               {uploading ? "Загрузка…" : "Выбрать файл"}
               <input
@@ -187,34 +191,41 @@ export function ProductionFiles({
         </div>
       )}
 
-      {error ? <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
+      {error ? <p role="alert" className="rounded-2xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</p> : null}
 
       <section aria-labelledby="ready-files-heading">
         <div className="flex items-center justify-between gap-3">
-          <h2 id="ready-files-heading" className="text-lg font-bold text-slate-900">Доступные файлы</h2>
-          <span className="text-xs font-semibold text-slate-400">{files.length} шт.</span>
+          <h2 id="ready-files-heading" className={`text-lg font-bold ${headingClass}`}>Доступные файлы</h2>
+          <span className={`text-xs font-semibold ${mutedClass}`}>{files.length} шт.</span>
         </div>
 
         {files.length ? (
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             {files.map((file) => (
-              <article key={file.id} className="rounded-[28px] border border-slate-200 bg-white/80 p-6">
-                <p className="truncate text-lg font-bold text-slate-900">{file.fileName}</p>
+              <article
+                key={file.id}
+                className={canUpload
+                  ? "rounded-[28px] border border-border bg-card p-6 text-card-foreground shadow-[0_10px_30px_rgba(0,0,0,.04)]"
+                  : "rounded-[28px] border border-slate-200 bg-white/80 p-6"}
+              >
+                <p className={`truncate text-lg font-bold ${headingClass}`}>{file.fileName}</p>
                 <dl className="mt-5 grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <dt className="text-slate-400">Тип</dt>
-                    <dd className="mt-1 break-all font-semibold text-slate-700">{file.mimeType}</dd>
+                  <div className="min-w-0">
+                    <dt className={mutedClass}>Тип</dt>
+                    <dd className={`mt-1 break-all font-semibold ${valueClass}`}>{file.mimeType}</dd>
                   </div>
                   <div>
-                    <dt className="text-slate-400">Размер</dt>
-                    <dd className="mt-1 font-semibold text-slate-700">{formatSize(file.sizeBytes)}</dd>
+                    <dt className={mutedClass}>Размер</dt>
+                    <dd className={`mt-1 font-semibold ${valueClass}`}>{formatSize(file.sizeBytes)}</dd>
                   </div>
                 </dl>
                 <button
                   type="button"
                   onClick={() => download(file.id)}
                   disabled={Boolean(downloadingId)}
-                  className="mt-5 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className={canUpload
+                    ? "mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs font-bold text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    : "mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"}
                 >
                   {downloadingId === file.id ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Download className="size-3.5" aria-hidden="true" />}
                   {downloadingId === file.id ? "Готовим ссылку…" : "Скачать"}
@@ -223,7 +234,10 @@ export function ProductionFiles({
             ))}
           </div>
         ) : (
-          <div className="mt-4 rounded-[28px] border border-dashed border-slate-300 bg-white/70 p-8 text-sm leading-6 text-slate-500">
+          <div className={canUpload
+            ? "mt-4 rounded-[28px] border border-dashed border-border bg-card/60 p-8 text-sm leading-6 text-muted-foreground"
+            : "mt-4 rounded-[28px] border border-dashed border-slate-300 bg-white/70 p-8 text-sm leading-6 text-slate-500"}
+          >
             Готовых файлов по этому делу пока нет.
           </div>
         )}
