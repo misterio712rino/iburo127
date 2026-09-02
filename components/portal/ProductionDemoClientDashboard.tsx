@@ -135,7 +135,7 @@ function buildModules(props: ProductionDemoClientDashboardProps): ModuleViewMode
       code: "CASE_PROGRESS",
       title: "Прогресс дела",
       summary: `Текущий этап: ${props.stageLabel}`,
-      detail: `Общий прогресс — ${props.progress}%`,
+      detail: `Положение этапа в маршруте — ${props.progress}%`,
       progress: props.progress,
       state: "active",
       href: `${base}/progress`,
@@ -172,11 +172,14 @@ function ProductionCaseOverview(props: Pick<ProductionDemoClientDashboardProps, 
       <p className="mt-8 text-sm text-muted-foreground">Текущий этап</p>
       <h2 className="mt-2 text-2xl font-semibold leading-tight tracking-[-0.04em] sm:text-3xl">{props.stageLabel}</h2>
       <div className="mt-8">
-        <div className="mb-3 flex items-end justify-between">
-          <span className="text-sm text-muted-foreground">Общий прогресс</span>
-          <strong className="text-3xl tracking-[-0.05em]">{props.progress}%</strong>
+        <div className="mb-3 flex items-end justify-between gap-4">
+          <span className="text-sm text-muted-foreground">Положение этапа в маршруте</span>
+          <strong className="shrink-0 text-3xl tracking-[-0.05em]">{props.progress}%</strong>
         </div>
         <ProgressBar value={props.progress} />
+        <p className="mt-3 text-xs leading-5 text-muted-foreground">
+          Показывает только место текущего этапа в настроенном маршруте сопровождения. Это не прогноз срока или результата процедуры.
+        </p>
       </div>
       <dl className="mt-8 grid gap-4 border-t border-border pt-6 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
         <div>

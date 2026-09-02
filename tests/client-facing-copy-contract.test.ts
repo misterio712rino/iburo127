@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 
 const CLIENT_FACING_SOURCES = [
   "app/portal/cases/[caseId]/page.tsx",
+  "components/portal/ProductionDemoClientDashboard.tsx",
   "app/portal/cases/[caseId]/questionnaire/page.tsx",
   "components/platform/questionnaire/ProductionQuestionnaire.tsx",
   "app/portal/cases/[caseId]/practicum/page.tsx",
@@ -31,6 +32,7 @@ const BANNED_CLIENT_COPY = [
   /Серверное состояние/i,
   /внутреннего пользователя/i,
   /внутренней учётной записи/i,
+  /Общий прогресс/i,
 ] as const;
 
 for (const path of CLIENT_FACING_SOURCES) {
@@ -39,9 +41,16 @@ for (const path of CLIENT_FACING_SOURCES) {
     assert.doesNotMatch(
       source,
       banned,
-      `${path} must not expose implementation jargon matching ${banned}`,
+      `${path} must not expose implementation or misleading client copy matching ${banned}`,
     );
   }
 }
+
+const clientDashboardSource = await readFile(
+  resolve("components/portal/ProductionDemoClientDashboard.tsx"),
+  "utf8",
+);
+assert.match(clientDashboardSource, /Положение этапа в маршруте/u);
+assert.match(clientDashboardSource, /Это не прогноз срока или результата процедуры\./u);
 
 console.log("CLIENT_FACING_COPY_CONTRACT_TEST_PASS");
