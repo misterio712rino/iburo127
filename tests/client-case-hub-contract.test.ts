@@ -59,6 +59,21 @@ assert.match(
   "client profile must preserve the selected case when opening account security",
 );
 assert.match(
+  profileSource,
+  /const planCode = requirePlanCode\(selectedClientCase\.planCode\)/,
+  "CLIENT profile must derive plan visuals from the accessible selected case rather than a display label",
+);
+assert.match(
+  profileSource,
+  /<ClientPlanVisualStyles planCode=\{planCode\} \/>[\s\S]*<ClientCaseFrame[\s\S]*caseId=\{selectedClientCase\.id\}/,
+  "CLIENT profile must retain the selected case shell and matching plan visual layer",
+);
+assert.match(
+  profileSource,
+  /<PortalFrame sectionLabel="Профиль" showStaffTasks=\{isStaff\}>/,
+  "STAFF profile must remain in the operational portal shell",
+);
+assert.match(
   securitySource,
   /searchParams: Promise<\{ caseId\?: string \}>/,
   "account security must accept client case context without changing the account-wide security model",
@@ -70,8 +85,13 @@ assert.match(
 );
 assert.match(
   securitySource,
-  /<ClientCaseFrame[\s\S]*caseId=\{selectedClientCase\.id\}/,
-  "CLIENT account security must retain the premium case shell",
+  /const planCode = requirePlanCode\(selectedClientCase\.planCode\)/,
+  "CLIENT account security must derive plan visuals from the accessible selected case",
+);
+assert.match(
+  securitySource,
+  /<ClientPlanVisualStyles planCode=\{planCode\} \/>[\s\S]*<ClientCaseFrame[\s\S]*caseId=\{selectedClientCase\.id\}/,
+  "CLIENT account security must retain the premium case shell and matching plan visual layer",
 );
 assert.match(
   securitySource,
