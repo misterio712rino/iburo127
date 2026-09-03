@@ -2,8 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft, BriefcaseBusiness, KeyRound, Mail, Phone, UserRound } from "lucide-react";
 import { ClientCaseFrame, type ClientCaseOption } from "@/components/portal/ClientCaseFrame";
+import { ClientPlanVisualStyles } from "@/components/portal/ClientPlanVisualStyles";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import { getCaseStatusLabel, getPlanDisplayLabel } from "@/lib/platform/case-progress";
+import type { PlanCode } from "@/lib/platform/types";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { getCurrentAccountProfile } from "@/server/account/operations";
@@ -16,6 +18,11 @@ const ROLE_LABELS = {
   LAWYER: "Юрист",
   MANAGER: "Руководитель",
 } as const;
+
+function requirePlanCode(value: string): PlanCode {
+  if (value === "LITE" || value === "PRO" || value === "INDIVIDUAL") return value;
+  throw new Error("UNSUPPORTED_CLIENT_PLAN");
+}
 
 export default async function PortalProfilePage({ searchParams }: { searchParams: Promise<{ caseId?: string }> }) {
   const sessionProvider = createProductionSessionProvider();
@@ -44,8 +51,8 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
   const securityHref = selectedClientCase ? `/portal/security?caseId=${selectedClientCase.id}` : "/portal/security";
 
   const content = (
-    <div className={selectedClientCase ? "py-1 sm:py-2" : "py-10 sm:py-14"}>
-      <Link href={backHref} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900">
+    <div className={`client-account-surface ${selectedClientCase ? "py-1 sm:py-2" : "py-10 sm:py-14"}`}>
+      <Link href={backHref} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900">
         <ArrowLeft className="size-4" aria-hidden="true" />
         В личный кабинет
       </Link>
@@ -100,7 +107,7 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
             {cases.length ? (
               <div className="mt-5 space-y-2 border-t border-slate-100 pt-5">
                 {cases.slice(0, 3).map((item) => (
-                  <Link key={item.id} href={`/portal/cases/${item.id}`} className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-slate-100 px-4 py-3 text-sm transition hover:border-slate-200 hover:bg-slate-50">
+                  <Link key={item.id} href={`/portal/cases/${item.id}`} className="flex min-h-11 min-w-0 items-center justify-between gap-3 rounded-2xl border border-slate-100 px-4 py-3 text-sm transition hover:border-slate-200 hover:bg-slate-50">
                     <span className="min-w-0 break-all font-mono text-xs font-semibold text-slate-600">{item.caseNumber}</span>
                     <span className="shrink-0 text-xs font-semibold text-slate-400">{getCaseStatusLabel(item.status)}</span>
                   </Link>
@@ -117,7 +124,7 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
                 <p className="break-words text-sm text-slate-500">Пароль, двухфакторная защита и резервные коды.</p>
               </div>
             </div>
-            <Link href={securityHref} className="mt-5 inline-flex max-w-full items-center break-words rounded-xl bg-[#17202a] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#263342]">
+            <Link href={securityHref} className="mt-5 inline-flex min-h-11 max-w-full items-center break-words rounded-xl bg-[#17202a] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#263342]">
               Открыть настройки безопасности
             </Link>
           </article>
@@ -132,16 +139,20 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
       caseNumber: item.caseNumber,
       planLabel: getPlanDisplayLabel(item.planCode, "CLIENT"),
     }));
+    const planCode = requirePlanCode(selectedClientCase.planCode);
     return (
-      <ClientCaseFrame
-        caseId={selectedClientCase.id}
-        caseNumber={selectedClientCase.caseNumber}
-        displayName={profile.displayName?.trim() || "Клиент iБюро"}
-        planLabel={getPlanDisplayLabel(selectedClientCase.planCode, "CLIENT")}
-        cases={caseOptions}
-      >
-        {content}
-      </ClientCaseFrame>
+      <>
+        <ClientPlanVisualStyles planCode={planCode} />
+        <ClientCaseFrame
+          caseId={selectedClientCase.id}
+          caseNumber={selectedClientCase.caseNumber}
+          displayName={profile.displayName?.trim() || "Клиент iБюро"}
+          planLabel={getPlanDisplayLabel(selectedClientCase.planCode, "CLIENT")}
+          cases={caseOptions}
+        >
+          {content}
+        </ClientCaseFrame>
+      </>
     );
   }
 
