@@ -9,7 +9,7 @@ const source = await readFile(
 
 assert.match(
   source,
-  /href="\/portal\/tasks"[\s\S]*className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-bold text\[#7b2330\][\s\S]*focus-visible:ring-4 focus-visible:ring-\[#8f1720\]\/10"[\s\S]*>\s*Все задачи/,
+  /href="\/portal\/tasks"[\s\S]*className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-bold text-\[#7b2330\][\s\S]*focus-visible:ring-4 focus-visible:ring-\[#8f1720\]\/10"[\s\S]*>\s*Все задачи/,
   "LAWYER secondary tasks action must be a real 44px inline-flex target with visible keyboard focus",
 );
 assert.doesNotMatch(
