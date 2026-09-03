@@ -5,7 +5,7 @@ import { LawyerProductionDashboard } from "@/components/portal/LawyerProductionD
 import { ManagerInteractionStyles } from "@/components/portal/ManagerInteractionStyles";
 import { ManagerProductionDashboard } from "@/components/portal/ManagerProductionDashboard";
 import { PortalFrame } from "@/components/portal/PortalFrame";
-import { PortalNavigation } from "@/components/portal/PortalNavigation";
+import { PortalMobileDrawer } from "@/components/portal/PortalMobileDrawer";
 import {
   getCaseStageDisplayLabel,
   getCaseStatusLabel,
@@ -69,11 +69,14 @@ export default async function PortalPage() {
 
   if (actor.roles.includes("MANAGER")) {
     return (
-      <div className="manager-interaction-shell pb-20 lg:pb-0">
+      <div className="manager-interaction-shell">
         <ManagerInteractionStyles />
-        <ManagerProductionDashboard actor={actor} cases={cases} />
-        <div className="fixed inset-x-0 bottom-0 z-[80] border-t border-slate-200 bg-[#f7f8fa]/95 shadow-[0_-10px_35px_rgba(15,23,42,0.08)] backdrop-blur-xl lg:hidden">
-          <PortalNavigation showStaffTasks showProspectLeads />
+        <style>{`@media (max-width: 1023px) { .manager-dashboard-host > div > div > header { display: none; } .manager-dashboard-host > div > div > main { padding-top: 1.5rem; } }`}</style>
+        <div className="sticky top-0 z-[70] border-b border-[#dfe3e6] bg-[#f3f5f6]/95 px-4 backdrop-blur-xl sm:px-8 lg:hidden">
+          <PortalMobileDrawer showStaffTasks showProspectLeads />
+        </div>
+        <div className="manager-dashboard-host">
+          <ManagerProductionDashboard actor={actor} cases={cases} />
         </div>
       </div>
     );

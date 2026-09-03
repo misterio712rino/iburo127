@@ -4,6 +4,7 @@ import { ShieldCheck } from "lucide-react";
 
 import { IBuroBrand } from "@/components/platform/IBuroBrand";
 import { SignOutButton } from "@/components/platform/auth/SignOutButton";
+import { PortalMobileDrawer } from "@/components/portal/PortalMobileDrawer";
 import { PortalMotionContent } from "@/components/portal/PortalMotionContent";
 import { PortalMotionStyles } from "@/components/portal/PortalMotionStyles";
 import { PortalNavigation } from "@/components/portal/PortalNavigation";
@@ -57,20 +58,21 @@ export function PortalFrame({
 
       <div className="min-h-screen lg:pl-[280px]">
         <header className="sticky top-0 z-30 border-b border-[#dfe3e6] bg-[#f3f5f6]/95 backdrop-blur-xl">
-          <div className="mx-auto flex min-h-[84px] w-full max-w-[1380px] items-center justify-between gap-4 px-5 sm:px-8 lg:px-12">
-            <div className="min-w-0">
-              <Link
-                href="/portal"
-                className="inline-flex rounded-lg lg:hidden focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#8f1720]/10"
-              >
-                <IBuroBrand dot className="font-[var(--font-iburo-display)] text-2xl font-semibold tracking-[-0.04em]" />
-              </Link>
-              <p className="hidden truncate text-base font-semibold text-[#3b4248] lg:block">{sectionLabel}</p>
-              <p className="mt-1 hidden text-xs text-[#899198] lg:block">iБюро · защищённый кабинет</p>
+          <div className="mx-auto flex min-h-[68px] w-full max-w-[1380px] items-center justify-between gap-4 px-4 sm:min-h-[76px] sm:px-8 lg:min-h-[84px] lg:px-12">
+            <PortalMobileDrawer
+              displayName="Профиль"
+              accessLabel={accessLabel}
+              showStaffTasks={showStaffTasks}
+              showProspectLeads={showProspectLeads}
+            />
+
+            <div className="hidden min-w-0 lg:block">
+              <p className="truncate text-base font-semibold text-[#3b4248]">{sectionLabel}</p>
+              <p className="mt-1 text-xs text-[#899198]">iБюро · защищённый кабинет</p>
             </div>
 
-            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-              <span className="hidden items-center gap-2 rounded-full border border-emerald-200/80 bg-emerald-50/80 px-4 py-2.5 text-sm font-semibold text-emerald-800 sm:inline-flex">
+            <div className="hidden shrink-0 items-center gap-3 lg:flex">
+              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200/80 bg-emerald-50/80 px-4 py-2.5 text-sm font-semibold text-emerald-800">
                 <ShieldCheck className="size-[18px] shrink-0" aria-hidden="true" />
                 {accessLabel}
               </span>
@@ -78,14 +80,6 @@ export function PortalFrame({
             </div>
           </div>
         </header>
-
-        <div className="border-b border-[#dfe3e6] bg-[#f3f5f6] lg:hidden">
-          <PortalNavigation
-            variant="mobile"
-            showStaffTasks={showStaffTasks}
-            showProspectLeads={showProspectLeads}
-          />
-        </div>
 
         <div className="mx-auto w-full max-w-[1380px] px-5 sm:px-8 lg:px-12">
           <PortalMotionContent>{children}</PortalMotionContent>
