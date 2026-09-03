@@ -352,30 +352,57 @@ function FieldEditor({ field, value, disabled, pending, onChange, onSave }: {
   onChange: (value: DraftValue) => void;
   onSave: () => void;
 }) {
+  const controlId = `questionnaire-field-${field.id}`;
+  const hintId = field.hint ? `${controlId}-hint` : undefined;
   const inputClass = "mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:bg-muted disabled:text-muted-foreground";
+  const fieldLabel = <>{field.label}{field.required ? <span className="ml-1 text-primary" aria-hidden="true">*</span> : null}</>;
+
+  if (field.type === "yes-no") {
+    return (
+      <fieldset className="min-w-0" aria-describedby={hintId}>
+        <legend className="text-sm font-semibold text-foreground">{fieldLabel}</legend>
+        <div className="mt-2 flex gap-2">
+          {[true, false].map((option) => (
+            <button
+              key={String(option)}
+              type="button"
+              disabled={disabled}
+              aria-pressed={value === option}
+              onClick={() => onChange(option)}
+              className={`min-h-11 rounded-xl border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${value === option ? "border-primary bg-primary text-primary-foreground" : "border-input bg-background text-foreground"}`}
+            >
+              {option ? "Да" : "Нет"}
+            </button>
+          ))}
+        </div>
+        {field.hint ? <p id={hintId} className="mt-1.5 text-xs text-muted-foreground">{field.hint}</p> : null}
+        {!disabled ? <FieldSaveButton pending={pending} onSave={onSave} /> : null}
+      </fieldset>
+    );
+  }
 
   return (
     <div className="min-w-0">
-      <label className="text-sm font-semibold text-foreground">{field.label}{field.required ? <span className="ml-1 text-primary">*</span> : null}</label>
-      {field.type === "yes-no" ? (
-        <div className="mt-2 flex gap-2">
-          {[true, false].map((option) => <button key={String(option)} type="button" disabled={disabled} onClick={() => onChange(option)} className={`min-h-11 rounded-xl border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${value === option ? "border-primary bg-primary text-primary-foreground" : "border-input bg-background text-foreground"}`}>{option ? "Да" : "Нет"}</button>)}
-        </div>
-      ) : field.type === "select" || field.type === "radio" ? (
-        <select value={typeof value === "string" ? value : ""} disabled={disabled} onChange={(event) => onChange(event.target.value)} className={inputClass}><option value="">Выберите вариант</option>{field.options?.map((option) => <option key={option} value={option}>{option}</option>)}</select>
+      <label htmlFor={controlId} className="text-sm font-semibold text-foreground">{fieldLabel}</label>
+      {field.type === "select" || field.type === "radio" ? (
+        <select id={controlId} aria-describedby={hintId} value={typeof value === "string" ? value : ""} disabled={disabled} onChange={(event) => onChange(event.target.value)} className={inputClass}><option value="">Выберите вариант</option>{field.options?.map((option) => <option key={option} value={option}>{option}</option>)}</select>
       ) : field.type === "textarea" ? (
-        <textarea value={typeof value === "string" ? value : ""} disabled={disabled} placeholder={field.placeholder} onChange={(event) => onChange(event.target.value)} className={`${inputClass} min-h-28 py-3`} />
+        <textarea id={controlId} aria-describedby={hintId} value={typeof value === "string" ? value : ""} disabled={disabled} placeholder={field.placeholder} onChange={(event) => onChange(event.target.value)} className={`${inputClass} min-h-28 py-3`} />
       ) : (
-        <input type={field.type === "date" ? "date" : field.type === "number" || field.type === "currency" ? "number" : "text"} min={field.type === "number" || field.type === "currency" ? 0 : undefined} value={typeof value === "boolean" ? "" : value ?? ""} disabled={disabled} placeholder={field.placeholder} onChange={(event) => onChange(event.target.value)} className={inputClass} />
+        <input id={controlId} aria-describedby={hintId} type={field.type === "date" ? "date" : field.type === "number" || field.type === "currency" ? "number" : "text"} min={field.type === "number" || field.type === "currency" ? 0 : undefined} value={typeof value === "boolean" ? "" : value ?? ""} disabled={disabled} placeholder={field.placeholder} onChange={(event) => onChange(event.target.value)} className={inputClass} />
       )}
-      {field.hint ? <p className="mt-1.5 text-xs text-muted-foreground">{field.hint}</p> : null}
-      {!disabled ? (
-        <button type="button" onClick={onSave} className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-muted-foreground transition hover:bg-muted hover:text-foreground" aria-busy={pending}>
-          {pending ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Save className="size-3.5" aria-hidden="true" />}
-          {pending ? <span role="status">Сохраняем…</span> : "Сохранить поле"}
-        </button>
-      ) : null}
+      {field.hint ? <p id={hintId} className="mt-1.5 text-xs text-muted-foreground">{field.hint}</p> : null}
+      {!disabled ? <FieldSaveButton pending={pending} onSave={onSave} /> : null}
     </div>
+  );
+}
+
+function FieldSaveButton({ pending, onSave }: { pending: boolean; onSave: () => void }) {
+  return (
+    <button type="button" onClick={onSave} className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-muted-foreground transition hover:bg-muted hover:text-foreground" aria-busy={pending}>
+      {pending ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Save className="size-3.5" aria-hidden="true" />}
+      {pending ? <span role="status">Сохраняем…</span> : "Сохранить поле"}
+    </button>
   );
 }
 
