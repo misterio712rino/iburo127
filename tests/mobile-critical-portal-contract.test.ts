@@ -6,6 +6,8 @@ const portalFrameSource = await readFile(resolve("components/portal/PortalFrame.
 const clientCaseFrameSource = await readFile(resolve("components/portal/ClientCaseFrame.tsx"), "utf8");
 const clientCaseNavigationSource = await readFile(resolve("components/portal/ClientCaseNavigation.tsx"), "utf8");
 const clientCaseModuleIntroSource = await readFile(resolve("components/portal/ClientCaseModuleIntro.tsx"), "utf8");
+const clientPlanVisualStylesSource = await readFile(resolve("components/portal/ClientPlanVisualStyles.tsx"), "utf8");
+const darkClientStatusStylesSource = await readFile(resolve("components/portal/DarkClientStatusStyles.tsx"), "utf8");
 const portalNavigationSource = await readFile(resolve("components/portal/PortalNavigation.tsx"), "utf8");
 const portalMotionContentSource = await readFile(resolve("components/portal/PortalMotionContent.tsx"), "utf8");
 const portalMotionStylesSource = await readFile(resolve("components/portal/PortalMotionStyles.tsx"), "utf8");
@@ -16,6 +18,7 @@ const documentsSource = await readFile(resolve("app/portal/cases/[caseId]/docume
 const filesSource = await readFile(resolve("app/portal/cases/[caseId]/files/page.tsx"), "utf8");
 const productionFilesSource = await readFile(resolve("components/platform/files/ProductionFiles.tsx"), "utf8");
 const aiSource = await readFile(resolve("app/portal/cases/[caseId]/ai/page.tsx"), "utf8");
+const aiMessageSource = await readFile(resolve("components/platform/ai/AiMessage.tsx"), "utf8");
 const securitySource = await readFile(resolve("app/portal/security/page.tsx"), "utf8");
 const profileSource = await readFile(resolve("app/portal/profile/page.tsx"), "utf8");
 const mfaEnrollmentSource = await readFile(resolve("components/platform/auth/MfaEnrollmentForm.tsx"), "utf8");
@@ -106,6 +109,34 @@ assert.match(clientCaseModuleIntroSource, /text-muted-foreground/);
 assert.match(clientCaseModuleIntroSource, /border-border bg-muted text-primary/);
 
 assert.match(
+  clientPlanVisualStylesSource,
+  /planCode === "INDIVIDUAL"[\s\S]*<DarkClientStatusStyles \/>/,
+  "INDIVIDUAL must load the reviewed dark status compatibility layer",
+);
+assert.match(
+  clientPlanVisualStylesSource,
+  /planCode === "PRO"[\s\S]*<DarkClientStatusStyles \/>/,
+  "PRO must load the reviewed dark status compatibility layer",
+);
+assert.doesNotMatch(
+  darkClientStatusStylesSource,
+  /data-client-plan="lite"/,
+  "LITE must keep its native light status palette",
+);
+for (const token of ["bg-emerald-50", "bg-sky-50", "bg-amber-50"] as const) {
+  assert.match(
+    darkClientStatusStylesSource,
+    new RegExp(`\\[class~="${token.replace("/", "\\/")}"\\]`),
+    `${token} must have a dark-plan compatibility surface`,
+  );
+}
+assert.match(
+  darkClientStatusStylesSource,
+  /color-mix\(in srgb,[^\n]+var\(--ib-card\)\)/,
+  "dark status surfaces must blend into the active plan card rather than forcing a light card",
+);
+
+assert.match(
   productionFilesSource,
   /rounded-\[24px\] border border-border bg-card[^\"]*text-card-foreground/,
   "CLIENT file upload surface must inherit the active plan card palette",
@@ -129,6 +160,12 @@ assert.match(
   productionFilesSource,
   /Режим просмотра сотрудника/,
   "STAFF file view must remain explicitly separate from the CLIENT upload presentation",
+);
+
+assert.match(
+  aiMessageSource,
+  /mt-4 min-h-11 max-w-full rounded-full bg-background/,
+  "AI message actions must keep a 44px touch target while inheriting the active client surface",
 );
 
 assert.match(securitySource, /text-4xl[^\"]*sm:text-5xl/);
