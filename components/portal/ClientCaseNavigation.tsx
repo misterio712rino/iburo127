@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Bell,
   BookOpen,
   ChartNoAxesColumnIncreasing,
   ClipboardCheck,
@@ -19,6 +20,7 @@ const NAV_ITEMS = [
   { key: "documents", label: "Документы", segment: "/documents", icon: FileText },
   { key: "progress", label: "Мой прогресс", segment: "/progress", icon: ChartNoAxesColumnIncreasing },
   { key: "ai", label: "AI-помощник", segment: "/ai", icon: Sparkles },
+  { key: "notifications", label: "Уведомления", segment: null, icon: Bell },
   { key: "profile", label: "Профиль", segment: null, icon: UserRound },
 ] as const;
 
@@ -26,7 +28,14 @@ function isCurrent(pathname: string, href: string, base: string) {
   const path = href.split("?", 1)[0];
   if (path === base) return pathname === base;
   if (path === "/portal/profile") return pathname === path || pathname === "/portal/security";
+  if (path === "/portal/notifications") return pathname === path;
   return pathname === path || pathname.startsWith(`${path}/`);
+}
+
+function resolveHref(key: (typeof NAV_ITEMS)[number]["key"], segment: (typeof NAV_ITEMS)[number]["segment"], caseId: string, base: string) {
+  if (key === "profile") return `/portal/profile?caseId=${caseId}`;
+  if (key === "notifications") return `/portal/notifications?caseId=${caseId}`;
+  return `${base}${segment ?? ""}`;
 }
 
 export function ClientCaseNavigation({ caseId, mobile = false }: { caseId: string; mobile?: boolean }) {
@@ -37,7 +46,7 @@ export function ClientCaseNavigation({ caseId, mobile = false }: { caseId: strin
     return (
       <nav className="flex gap-2 overflow-x-auto px-4 py-2" aria-label="Мобильная навигация клиентского кабинета">
         {NAV_ITEMS.map(({ key, label, segment }) => {
-          const href = segment === null ? `/portal/profile?caseId=${caseId}` : `${base}${segment}`;
+          const href = resolveHref(key, segment, caseId, base);
           const active = isCurrent(pathname, href, base);
           return (
             <Link
@@ -61,7 +70,7 @@ export function ClientCaseNavigation({ caseId, mobile = false }: { caseId: strin
   return (
     <nav className="mt-10 flex flex-col gap-1" aria-label="Навигация клиентского кабинета">
       {NAV_ITEMS.map(({ key, label, segment, icon: Icon }) => {
-        const href = segment === null ? `/portal/profile?caseId=${caseId}` : `${base}${segment}`;
+        const href = resolveHref(key, segment, caseId, base);
         const active = isCurrent(pathname, href, base);
         return (
           <Link

@@ -22,6 +22,7 @@ const aiSource = await readFile(resolve("app/portal/cases/[caseId]/ai/page.tsx")
 const aiMessageSource = await readFile(resolve("components/platform/ai/AiMessage.tsx"), "utf8");
 const securitySource = await readFile(resolve("app/portal/security/page.tsx"), "utf8");
 const profileSource = await readFile(resolve("app/portal/profile/page.tsx"), "utf8");
+const notificationsSource = await readFile(resolve("app/portal/notifications/page.tsx"), "utf8");
 const mfaEnrollmentSource = await readFile(resolve("components/platform/auth/MfaEnrollmentForm.tsx"), "utf8");
 const backupCodesSource = await readFile(resolve("components/platform/auth/BackupCodesRegenerator.tsx"), "utf8");
 const notificationReadSource = await readFile(resolve("components/platform/notifications/MarkNotificationReadButton.tsx"), "utf8");
@@ -74,6 +75,19 @@ assert.match(
   clientCaseNavigationSource,
   /if \(path === "\/portal\/profile"\) return pathname === path \|\| pathname === "\/portal\/security"/,
   "CLIENT account security must keep Profile active in the case navigation",
+);
+assert.ok(
+  clientCaseNavigationSource.includes('label: "Уведомления"'),
+  "CLIENT case navigation must expose account-wide Notifications",
+);
+assert.ok(
+  clientCaseNavigationSource.includes('return `/portal/notifications?caseId=${caseId}`;'),
+  "CLIENT Notifications navigation must preserve selected case visual context",
+);
+assert.match(
+  clientCaseNavigationSource,
+  /if \(path === "\/portal\/notifications"\) return pathname === path/,
+  "CLIENT Notifications navigation must expose an exact active state",
 );
 
 for (const [name, source] of [
@@ -171,6 +185,11 @@ assert.match(
   "CLIENT Security must expose the reviewed account continuity scope",
 );
 assert.match(
+  notificationsSource,
+  /client-account-surface/,
+  "CLIENT Notifications must expose the reviewed account continuity scope",
+);
+assert.match(
   profileSource,
   /<ClientPlanVisualStyles planCode=\{planCode\} \/>/,
   "CLIENT Profile must load the selected case plan visual layer",
@@ -181,6 +200,21 @@ assert.match(
   "CLIENT Security must load the selected case plan visual layer",
 );
 assert.match(
+  notificationsSource,
+  /<ClientPlanVisualStyles planCode=\{planCode\} \/>/,
+  "CLIENT Notifications must load the selected case plan visual layer",
+);
+assert.match(
+  notificationsSource,
+  /<ClientCaseFrame/,
+  "CLIENT Notifications must remain inside the selected case shell",
+);
+assert.match(
+  notificationsSource,
+  /listNotifications\(sessionProvider, 100\)/,
+  "Notifications inbox must remain account-wide and must not be filtered by selected case context",
+);
+assert.match(
   profileSource,
   /inline-flex min-h-11 items-center gap-2/,
   "CLIENT Profile back navigation must keep a 44px touch target",
@@ -189,6 +223,16 @@ assert.match(
   profileSource,
   /mt-5 inline-flex min-h-11 max-w-full items-center/,
   "CLIENT Profile security action must keep a 44px touch target",
+);
+assert.match(
+  notificationsSource,
+  /inline-flex min-h-11 items-center gap-2/,
+  "CLIENT Notifications back navigation must keep a 44px touch target",
+);
+assert.match(
+  notificationsSource,
+  /flex min-w-0 flex-col items-start gap-3 sm:flex-row/,
+  "notification cards must stack status below content on narrow screens",
 );
 
 assert.match(
@@ -225,6 +269,7 @@ assert.match(
 
 assert.match(securitySource, /text-4xl[^\"]*sm:text-5xl/);
 assert.match(profileSource, /text-4xl[^\"]*sm:text-5xl/);
+assert.match(notificationsSource, /text-4xl[^\"]*sm:text-5xl/);
 assert.match(securitySource, /min-w-0 max-w-3xl/);
 assert.match(profileSource, /grid min-w-0 gap-5/);
 assert.match(profileSource, /min-w-0 break-all font-mono/);
@@ -247,6 +292,7 @@ assert.match(backupCodesSource, /role="status"/);
 assert.match(backupCodesSource, /w-full[^\"]*sm:w-auto/);
 assert.match(notificationReadSource, /aria-busy=\{pending\}/);
 assert.match(notificationReadSource, /flex min-w-0 flex-wrap/);
+assert.match(notificationReadSource, /inline-flex min-h-11 max-w-full items-center justify-center/);
 assert.match(notificationReadSource, /role="alert"/);
 assert.match(notificationReadSource, /min-w-0 break-words text-xs/);
 assert.doesNotMatch(securitySource, /Account security|определяются только сервером|TOTP/);
