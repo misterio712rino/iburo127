@@ -6,6 +6,10 @@ const questionnaireSource = await readFile(
   resolve("components/platform/questionnaire/ProductionQuestionnaire.tsx"),
   "utf8",
 );
+const sectionNavSource = await readFile(
+  resolve("components/platform/questionnaire/QuestionnaireSectionNav.tsx"),
+  "utf8",
+);
 
 assert.match(
   questionnaireSource,
@@ -51,6 +55,27 @@ assert.doesNotMatch(
   questionnaireSource,
   /<label className="text-sm font-semibold text-foreground">/,
   "questionnaire must not regress to a visually labelled but programmatically unbound editable field",
+);
+
+assert.match(
+  sectionNavSource,
+  /import \{ QUESTIONNAIRE_SECTIONS \} from "@\/lib\/platform\/questionnaire-content";/,
+  "production questionnaire navigation must use the authoritative questionnaire content source",
+);
+assert.doesNotMatch(
+  sectionNavSource,
+  /@\/lib\/platform\/demo/,
+  "production questionnaire navigation must not depend on demo questionnaire data",
+);
+assert.match(
+  sectionNavSource,
+  /const sectionCount=QUESTIONNAIRE_SECTIONS\.length;/,
+  "questionnaire navigation totals must derive from the authoritative section collection",
+);
+assert.doesNotMatch(
+  sectionNavSource,
+  /из 10|из \{10\}/,
+  "questionnaire navigation must not hardcode the section count",
 );
 
 console.log("QUESTIONNAIRE_ACCESSIBILITY_CONTRACT_PASS");
