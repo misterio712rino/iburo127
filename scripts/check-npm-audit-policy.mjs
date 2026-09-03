@@ -48,6 +48,10 @@ if (root?.devDependencies?.["prisma-cli"] !== "npm:prisma@7.9.1") {
   console.error("DEPENDENCY_AUDIT_POLICY_FAIL: Prisma CLI alias changed");
   process.exit(1);
 }
+if (root?.overrides?.mysql2 !== "3.24.3") {
+  console.error("DEPENDENCY_AUDIT_POLICY_FAIL: patched mysql2 root override changed or is missing");
+  process.exit(1);
+}
 for (const runtimeGroup of ["dependencies", "optionalDependencies"]) {
   if (root?.[runtimeGroup]?.["prisma-cli"] || root?.[runtimeGroup]?.mysql2) {
     console.error("DEPENDENCY_AUDIT_POLICY_FAIL: Prisma CLI/mysql2 entered a root runtime dependency group");
