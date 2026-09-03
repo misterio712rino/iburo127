@@ -19,7 +19,11 @@ import {
   type ClientCaseRecord,
 } from "@/server/domain/client-cases/contracts";
 import type { TaskRecord } from "@/server/domain/tasks/contracts";
-import { buildStaffTaskQueue, summarizeStaffTaskQueue } from "@/server/tasks/staff-task-view";
+import {
+  buildStaffTaskPresentationItems,
+  buildStaffTaskQueue,
+  summarizeStaffTaskQueue,
+} from "@/server/tasks/staff-task-view";
 
 assert.deepEqual(PLATFORM_ROLE_CODES, ["CLIENT", "LAWYER", "MANAGER"]);
 
@@ -113,6 +117,48 @@ assert.deepEqual(
 );
 assert.equal(queue[0]?.clientCase.caseNumber, accessibleCase.caseNumber);
 assert.equal(queue[0]?.clientCase.planCode, accessibleCase.planCode);
+assert.equal(queue[0]?.clientCase.clientId, accessibleCase.clientId);
+
+const presentationItems = buildStaffTaskPresentationItems(
+  queue,
+  [
+    { id: accessibleCase.clientId, displayName: "Мария Соколова" },
+    { id: visibleNewTask.assigneeId, displayName: "Анна Орлова" },
+  ],
+  queueNow,
+);
+assert.equal(presentationItems[0]?.clientDisplayName, "Мария Соколова");
+assert.equal(presentationItems[0]?.assigneeDisplayName, "Анна Орлова");
+assert.equal(presentationItems[0]?.caseHref, "/portal/cases/case-accessible");
+assert.equal(presentationItems[0]?.isOverdue, true);
+assert.equal(presentationItems[0]?.dueState, "OVERDUE");
+assert.match(presentationItems[0]?.normalizedSearchText ?? "", /мария соколова/);
+assert.match(presentationItems[0]?.normalizedSearchText ?? "", /анна орлова/);
+assert.match(presentationItems[0]?.normalizedSearchText ?? "", /stage-001/);
+
+const completedPresentation = buildStaffTaskPresentationItems(
+  buildStaffTaskQueue(
+    [
+      {
+        ...visibleOverdueWorkingTask,
+        id: "task-completed",
+        status: "DONE",
+        completedAt: queueNow,
+      },
+    ],
+    [accessibleCase],
+    queueNow,
+  ),
+  [],
+  queueNow,
+);
+assert.equal(
+  completedPresentation[0]?.isOverdue,
+  false,
+  "completed tasks must never be presented as overdue",
+);
+assert.equal(completedPresentation[0]?.dueState, "DUE");
+assert.ok(completedPresentation[0]?.completedLabel);
 
 const summary = summarizeStaffTaskQueue(queue, queueNow);
 assert.deepEqual(summary, {
@@ -133,6 +179,42 @@ assert.doesNotMatch(
   "staff task cards must not foreground optimistic-lock version numbers in normal workflow UI",
 );
 
+const staffTaskWorkspaceSource = await readFile(
+  resolve("components/portal/StaffTaskWorkspace.tsx"),
+  "utf8",
+);
+const staffTaskCardsSource = await readFile(
+  resolve("components/portal/StaffTaskCards.tsx"),
+  "utf8",
+);
+const taskStatusControlSource = await readFile(
+  resolve("components/platform/tasks/TaskStatusControl.tsx"),
+  "utf8",
+);
+assert.match(staffTaskWorkspaceSource, /^"use client";/);
+assert.match(staffTaskWorkspaceSource, /aria-label="Поиск по клиенту, задаче или номеру дела"/);
+assert.match(staffTaskWorkspaceSource, /aria-pressed=\{active\}/);
+assert.match(staffTaskWorkspaceSource, /item\.normalizedSearchText\.includes\(normalizedQuery\)/);
+assert.match(staffTaskWorkspaceSource, /if \(filter === "OVERDUE"\) return item\.isOverdue/);
+assert.doesNotMatch(staffTaskWorkspaceSource, /lib\/platform\/demo|localStorage|roles\.includes/);
+assert.doesNotMatch(staffTaskWorkspaceSource, /overflow-x-auto/);
+assert.match(
+  staffTaskCardsSource,
+  /<TaskStatusControl[\s\S]*taskId=\{item\.taskId\}[\s\S]*status=\{item\.status\}[\s\S]*version=\{item\.version\}/,
+  "production task controls must preserve the authoritative task id, status and version",
+);
+assert.match(staffTaskCardsSource, /href=\{item\.caseHref\}/);
+assert.match(staffTaskCardsSource, /min-h-11/);
+assert.doesNotMatch(staffTaskCardsSource, /<table|min-w-\[/);
+assert.doesNotMatch(staffTaskCardsSource, /lib\/platform\/demo|localStorage|\/app\/manager/);
+assert.match(
+  taskStatusControlSource,
+  /body: JSON\.stringify\(\{ status: nextStatus, expectedVersion: version \}\)/,
+  "task status UI must keep optimistic version conflict protection",
+);
+assert.match(taskStatusControlSource, /aria-busy=\{pending\}/);
+assert.match(taskStatusControlSource, /min-h-11/);
+
 const staffTasksPageSource = await readFile(resolve("app/portal/tasks/page.tsx"), "utf8");
 assert.match(staffTasksPageSource, /Сейчас в приоритете/);
 assert.match(staffTasksPageSource, /Открыть задачи по делу/);
@@ -141,6 +223,13 @@ assert.match(
   /buildStaffTaskQueue\(tasks, cases, now\)/,
   "staff queue and summary must share one server timestamp for deterministic prioritization",
 );
+assert.match(staffTasksPageSource, /buildStaffTaskPresentationItems\(queue, people, now\)/);
+assert.match(
+  staffTasksPageSource,
+  /queue\.flatMap\(\(\{ task, clientCase \}\) => \[task\.assigneeId, clientCase\.clientId\]\)/,
+  "task people enrichment must be limited to identities referenced by the authorized queue",
+);
+assert.match(staffTasksPageSource, /<StaffTaskWorkspace items=\{presentationItems\} \/>/);
 
 const portalNavigationSource = await readFile(resolve("components/portal/PortalNavigation.tsx"), "utf8");
 assert.match(

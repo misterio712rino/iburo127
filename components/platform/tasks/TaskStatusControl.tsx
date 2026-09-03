@@ -69,7 +69,8 @@ export function TaskStatusControl({
         type="button"
         onClick={updateStatus}
         disabled={pending}
-        className="rounded-xl bg-[#17202a] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#263342] disabled:cursor-not-allowed disabled:opacity-50"
+        aria-busy={pending}
+        className="min-h-11 rounded-xl bg-[#17202a] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#263342] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#8f1720]/15 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {pending ? "Сохраняем…" : ACTION_LABEL[status]}
       </button>
