@@ -3,20 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  Bell,
-  ClipboardList,
-  House,
-  KeyRound,
-  UserRound,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
+import { Bell, ClipboardList, House, KeyRound, UserRound, Users, type LucideIcon } from "lucide-react";
 
-type SessionResponse = {
-  ok?: boolean;
-  data?: { roles?: unknown };
-};
+type SessionResponse = { ok?: boolean; data?: { roles?: unknown } };
 
 type NavigationItem = {
   href: string;
@@ -28,11 +17,9 @@ type NavigationItem = {
 export function PortalNavigation({
   showStaffTasks = false,
   showProspectLeads = false,
-  variant = "mobile",
 }: {
   showStaffTasks?: boolean;
   showProspectLeads?: boolean;
-  variant?: "sidebar" | "mobile";
 }) {
   const pathname = usePathname();
   const [managerNavigationDiscovered, setManagerNavigationDiscovered] = useState(false);
@@ -71,62 +58,26 @@ export function PortalNavigation({
     { href: "/portal/security", label: "Безопасность", icon: KeyRound, visible: true },
   ];
 
-  const visibleItems = items.filter((item) => item.visible);
-
-  if (variant === "sidebar") {
-    return (
-      <nav aria-label="Основная навигация защищённого кабинета" className="grid gap-2">
-        {visibleItems.map(({ href, label, icon: Icon }) => {
-          const active = href === "/portal" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
-
-          return (
-            <Link
-              key={href}
-              href={href}
-              aria-current={active ? "page" : undefined}
-              className={`group flex min-h-[52px] items-center gap-3.5 rounded-[14px] px-4 py-3 text-[15px] font-semibold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/10 ${
-                active
-                  ? "bg-white/[0.11] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,.05)]"
-                  : "text-white/62 hover:bg-white/[0.06] hover:text-white"
-              }`}
-            >
-              <span
-                className={`grid size-9 shrink-0 place-items-center rounded-[10px] transition ${
-                  active ? "bg-white/[0.08] text-white" : "text-white/52 group-hover:text-white/80"
-                }`}
-              >
-                <Icon className="size-[19px]" aria-hidden="true" />
-              </span>
-              <span className="min-w-0 truncate">{label}</span>
-              {active ? <span className="ml-auto size-2 shrink-0 rounded-full bg-[#c43a42]" aria-hidden="true" /> : null}
-            </Link>
-          );
-        })}
-      </nav>
-    );
-  }
-
   return (
-    <nav
-      aria-label="Основная навигация защищённого кабинета"
-      className="flex flex-nowrap gap-2 overflow-x-auto overscroll-x-contain px-5 py-3 sm:flex-wrap sm:px-8 lg:hidden"
-    >
-      {visibleItems.map(({ href, label, icon: Icon }) => {
+    <nav aria-label="Основная навигация защищённого кабинета" className="grid gap-2">
+      {items.filter((item) => item.visible).map(({ href, label, icon: Icon }) => {
         const active = href === "/portal" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
-
         return (
           <Link
             key={href}
             href={href}
             aria-current={active ? "page" : undefined}
-            className={`inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border px-3 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#8f1720]/10 ${
+            className={`group flex min-h-[52px] items-center gap-3.5 rounded-[14px] px-4 py-3 text-[15px] font-semibold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/10 ${
               active
-                ? "border-[#d9dde0] bg-white text-[#202326] shadow-sm"
-                : "border-transparent text-[#6f7880] hover:bg-white/75 hover:text-[#202326]"
+                ? "bg-white/[0.11] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,.05)]"
+                : "text-white/62 hover:bg-white/[0.06] hover:text-white"
             }`}
           >
-            <Icon className="size-4" aria-hidden="true" />
-            {label}
+            <span className={`grid size-9 shrink-0 place-items-center rounded-[10px] transition ${active ? "bg-white/[0.08] text-white" : "text-white/52 group-hover:text-white/80"}`}>
+              <Icon className="size-[19px]" aria-hidden="true" />
+            </span>
+            <span className="min-w-0 truncate">{label}</span>
+            {active ? <span className="ml-auto size-2 shrink-0 rounded-full bg-[#c43a42]" aria-hidden="true" /> : null}
           </Link>
         );
       })}

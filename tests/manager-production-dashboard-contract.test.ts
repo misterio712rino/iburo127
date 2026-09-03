@@ -15,18 +15,18 @@ assert.match(
 );
 assert.match(
   portalSource,
-  /<PortalNavigation showStaffTasks showProspectLeads \/>/,
-  "MANAGER route must expose the shared staff/lead navigation on mobile",
+  /<PortalMobileDrawer showStaffTasks showProspectLeads \/>/,
+  "MANAGER route must expose the shared permission-aware drawer on mobile",
 );
-assert.match(
+assert.doesNotMatch(
   portalSource,
   /fixed inset-x-0 bottom-0[\s\S]*lg:hidden/,
-  "MANAGER shared navigation must stay available as a mobile-only route control",
+  "MANAGER route must not render a fixed bottom navigation",
 );
-assert.match(
+assert.doesNotMatch(
   portalSource,
   /pb-20 lg:pb-0/,
-  "MANAGER route must reserve mobile space for the fixed navigation",
+  "MANAGER route must not reserve space for removed bottom navigation",
 );
 assert.match(
   dashboardSource,

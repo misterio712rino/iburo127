@@ -39,7 +39,6 @@ export function PortalFrame({
 
         <div className="mt-10">
           <PortalNavigation
-            variant="sidebar"
             showStaffTasks={showStaffTasks}
             showProspectLeads={showProspectLeads}
           />

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useId, useRef, useState } from "react";
 import { Menu, ShieldCheck, UserRound, X } from "lucide-react";
 
 import { IBuroBrand } from "@/components/platform/IBuroBrand";
@@ -30,16 +31,73 @@ export function PortalMobileDrawer({
   showStaffTasks?: boolean;
   showProspectLeads?: boolean;
 }) {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const drawerId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
+  const previousPathnameRef = useRef(pathname);
+
+  useEffect(() => {
+    if (previousPathnameRef.current === pathname) return;
+    previousPathnameRef.current = pathname;
+    if (open) window.requestAnimationFrame(() => setOpen(false));
+  }, [open, pathname]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousRootOverflow = document.documentElement.style.overflow;
+    const trigger = triggerRef.current;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const focusable = drawerRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousRootOverflow;
+      trigger?.focus();
+    };
+  }, [open]);
 
   return (
     <>
       <div className="flex min-h-[68px] w-full items-center justify-between gap-3 lg:hidden">
         <button
+          ref={triggerRef}
           type="button"
           onClick={() => setOpen(true)}
           aria-label="Открыть меню"
           aria-expanded={open}
+          aria-controls={drawerId}
           className="grid size-11 shrink-0 place-items-center rounded-xl text-[#3b4248] transition hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#8f1720]/10"
         >
           <Menu className="size-5" aria-hidden="true" />
@@ -60,16 +118,18 @@ export function PortalMobileDrawer({
         <div className="fixed inset-0 z-[120] lg:hidden" role="dialog" aria-modal="true" aria-label="Меню кабинета">
           <button
             type="button"
-            aria-label="Закрыть меню"
+            aria-hidden="true"
+            tabIndex={-1}
             className="absolute inset-0 h-full w-full bg-slate-950/45 backdrop-blur-[2px]"
             onClick={() => setOpen(false)}
           />
-          <aside className="relative flex h-full w-[min(86vw,330px)] flex-col bg-[#202b33] px-5 py-5 text-white shadow-2xl">
+          <aside ref={drawerRef} id={drawerId} className="relative flex h-full w-[min(86vw,330px)] flex-col bg-[#202b33] px-5 py-5 text-white shadow-2xl">
             <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-5">
               <Link href="/portal" onClick={() => setOpen(false)} className="inline-flex rounded-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/10">
                 <IBuroBrand dot className="font-[var(--font-iburo-display)] text-[30px] font-semibold tracking-[-0.045em]" />
               </Link>
               <button
+                ref={closeButtonRef}
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Закрыть меню"
@@ -81,7 +141,6 @@ export function PortalMobileDrawer({
 
             <div className="mt-5 overflow-y-auto pb-4" onClick={() => setOpen(false)}>
               <PortalNavigation
-                variant="sidebar"
                 showStaffTasks={showStaffTasks}
                 showProspectLeads={showProspectLeads}
               />

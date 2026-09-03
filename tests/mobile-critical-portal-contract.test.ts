@@ -10,6 +10,7 @@ const clientPlanVisualStylesSource = await readFile(resolve("components/portal/C
 const clientAccountVisualStylesSource = await readFile(resolve("components/portal/ClientAccountVisualStyles.tsx"), "utf8");
 const darkClientStatusStylesSource = await readFile(resolve("components/portal/DarkClientStatusStyles.tsx"), "utf8");
 const portalNavigationSource = await readFile(resolve("components/portal/PortalNavigation.tsx"), "utf8");
+const portalMobileDrawerSource = await readFile(resolve("components/portal/PortalMobileDrawer.tsx"), "utf8");
 const portalMotionContentSource = await readFile(resolve("components/portal/PortalMotionContent.tsx"), "utf8");
 const portalMotionStylesSource = await readFile(resolve("components/portal/PortalMotionStyles.tsx"), "utf8");
 const questionnaireSource = await readFile(resolve("app/portal/cases/[caseId]/questionnaire/page.tsx"), "utf8");
@@ -58,14 +59,21 @@ assert.match(portalMotionStylesSource, /iburo-portal-progress-breathe/);
 assert.match(portalMotionStylesSource, /prefers-reduced-motion: reduce/);
 assert.match(
   portalNavigationSource,
-  /flex flex-nowrap[^\"]*overflow-x-auto[^\"]*sm:flex-wrap/,
-  "mobile portal navigation must stay on one horizontally scrollable row and may wrap again on larger screens",
+  /showProspectLeads \|\| managerNavigationDiscovered/,
+  "mobile drawer navigation must preserve authoritative manager discovery",
 );
 assert.match(
   portalNavigationSource,
-  /min-h-11 shrink-0[^\"]*whitespace-nowrap/,
-  "portal navigation items must remain tappable and must not collapse or wrap their labels",
+  /min-h-\[52px\]/,
+  "portal navigation items must remain at least 44px tall",
 );
+assert.doesNotMatch(portalNavigationSource, /overflow-x-auto/);
+assert.match(portalMobileDrawerSource, /aria-expanded=\{open\}/);
+assert.match(portalMobileDrawerSource, /aria-controls=\{drawerId\}/);
+assert.match(portalMobileDrawerSource, /event\.key === "Escape"/);
+assert.match(portalMobileDrawerSource, /document\.body\.style\.overflow = "hidden"/);
+assert.match(portalMobileDrawerSource, /previousPathnameRef\.current === pathname/);
+assert.match(portalMobileDrawerSource, /closeButtonRef\.current\?\.focus\(\)/);
 assert.match(
   clientCaseNavigationSource,
   /inline-flex min-h-11 shrink-0 items-center rounded-full/,
