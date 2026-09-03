@@ -277,7 +277,7 @@ export function ProductionQuestionnaire({
           onSelect={goTo}
         />
 
-        <main className="min-w-0">
+        <div className="min-w-0">
           <PlatformCard className="min-w-0 overflow-hidden p-5 sm:p-8">
             <p className="text-xs font-bold uppercase tracking-[.16em] text-primary">Раздел {section.number} из {QUESTIONNAIRE_SECTIONS.length}</p>
             <h2 className="mt-3 break-words text-2xl font-semibold tracking-[-.04em] sm:mt-4 sm:text-4xl">{section.title}</h2>
@@ -338,7 +338,7 @@ export function ProductionQuestionnaire({
               </div>
             )}
           </PlatformCard>
-        </main>
+        </div>
       </div>
     </div>
   );

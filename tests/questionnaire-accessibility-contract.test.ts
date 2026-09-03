@@ -56,6 +56,16 @@ assert.doesNotMatch(
   /<label className="text-sm font-semibold text-foreground">/,
   "questionnaire must not regress to a visually labelled but programmatically unbound editable field",
 );
+assert.doesNotMatch(
+  questionnaireSource,
+  /<main(?:\s|>)/,
+  "questionnaire module must not create a nested main landmark inside the client portal main",
+);
+assert.match(
+  questionnaireSource,
+  /<div className="min-w-0">\s*<PlatformCard/,
+  "questionnaire content column must remain a neutral layout container",
+);
 
 assert.match(
   sectionNavSource,
