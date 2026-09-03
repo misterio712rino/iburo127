@@ -62,12 +62,12 @@ export function BackupCodesRegenerator() {
   if (backupCodes) {
     return (
       <div className="min-w-0 space-y-5">
-        <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+        <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-[15px] leading-7 text-amber-950">
           Предыдущие резервные коды заменены. Сохраните новый набор сейчас: после ухода со страницы он здесь больше не показывается.
         </div>
-        <div className="grid min-w-0 gap-2 sm:grid-cols-2">
+        <div className="grid min-w-0 gap-2.5 sm:grid-cols-2">
           {backupCodes.map((code) => (
-            <code key={code} className="min-w-0 break-all rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900">
+            <code key={code} className="min-w-0 break-all rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] font-semibold text-slate-900">
               {code}
             </code>
           ))}
@@ -75,7 +75,7 @@ export function BackupCodesRegenerator() {
         <button
           type="button"
           onClick={copyCodes}
-          className="inline-flex max-w-full items-center break-words rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-800 transition hover:border-slate-400"
+          className="inline-flex min-h-[48px] max-w-full items-center break-words rounded-2xl border border-slate-300 bg-white px-5 py-3 text-[15px] font-bold text-slate-800 transition hover:border-slate-400"
         >
           {copied ? "Коды скопированы" : "Скопировать все коды"}
         </button>
@@ -84,12 +84,12 @@ export function BackupCodesRegenerator() {
   }
 
   return (
-    <form onSubmit={regenerate} className="min-w-0 space-y-5" noValidate aria-busy={pending}>
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+    <form onSubmit={regenerate} className="min-w-0 space-y-6" noValidate aria-busy={pending}>
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-[15px] leading-7 text-amber-950">
         Выпуск нового набора немедленно делает предыдущие резервные коды недействительными.
       </div>
-      <div className="space-y-2">
-        <label htmlFor="backup-codes-password" className="block text-sm font-semibold text-slate-700">
+      <div className="space-y-2.5">
+        <label htmlFor="backup-codes-password" className="block text-[15px] font-semibold text-slate-700">
           Подтвердите текущий пароль
         </label>
         <input
@@ -102,18 +102,18 @@ export function BackupCodesRegenerator() {
           required
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-base outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+          className="h-14 w-full rounded-2xl border border-slate-200 bg-white px-5 text-[17px] outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
         />
       </div>
 
       {error ? (
-        <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+        <p role="alert" className="rounded-2xl bg-red-50 px-5 py-4 text-[15px] leading-6 text-red-700">{error}</p>
       ) : null}
 
       <button
         type="submit"
         disabled={pending || password.length < 12 || password.length > 128}
-        className="h-12 w-full rounded-2xl bg-[#17202a] px-5 text-sm font-bold text-white transition hover:bg-[#263342] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+        className="h-14 w-full rounded-2xl bg-[#17202a] px-6 text-[15px] font-bold text-white transition hover:bg-[#263342] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
       >
         {pending ? "Выпускаем…" : "Выпустить новые резервные коды"}
       </button>
