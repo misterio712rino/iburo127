@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-await import("./mobile-critical-portal-contract.test.ts");
+await import("./mobile-critical-portal-contract.test");
 
 const portalSystemStateSource = await readFile(resolve("components/portal/PortalSystemState.tsx"), "utf8");
 const portalLoadingSource = await readFile(resolve("app/portal/loading.tsx"), "utf8");
