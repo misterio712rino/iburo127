@@ -216,4 +216,6 @@ const unknownProvider = new StaffMfaEnforcingSessionProvider(
 );
 assert.equal(await unknownProvider.getSession(), null);
 
+await import("./manager-leads-workspace-contract.test");
+
 console.log("auth MFA and access-gate policy tests: PASS");
