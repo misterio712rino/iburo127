@@ -1,0 +1,69 @@
+name: Lock Refresh Helper
+
+on:
+  push:
+    branches:
+      - audit/production-readiness
+    paths:
+      - .github/workflows/lock-refresh-helper.yml
+
+permissions:
+  contents: read
+
+jobs:
+  generate-lock:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout exact helper commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Pin patched mysql2 override
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from "node:fs";
+          const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
+          packageJson.overrides = {
+            ...(packageJson.overrides ?? {}),
+            mysql2: "3.24.3",
+          };
+          writeFileSync("package.json", `${JSON.stringify(packageJson, null, 2)}\n`);
+          NODE
+
+      - name: Regenerate npm lockfile
+        run: npm install --package-lock-only --ignore-scripts --audit=false --fund=false
+
+      - name: Verify generated lock
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const lock = JSON.parse(readFileSync("package-lock.json", "utf8"));
+          const mysql = lock.packages?.["node_modules/mysql2"];
+          if (mysql?.version !== "3.24.3") {
+            console.error(`LOCK_REFRESH_FAIL: expected mysql2@3.24.3, got ${mysql?.version ?? "missing"}`);
+            process.exit(1);
+          }
+          console.log(`LOCK_REFRESH_PASS: mysql2@${mysql.version}`);
+          NODE
+
+      - name: Upload generated manifest and lock
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: patched-npm-lock
+          path: |
+            package.json
+            package-lock.json
+          if-no-files-found: error
+          retention-days: 1
