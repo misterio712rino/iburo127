@@ -125,5 +125,6 @@ assert.doesNotMatch(hubSource, /const isClient = actor\.roles\.includes\("CLIENT
 assert.doesNotMatch(progressSource, /const isStaff = actor\.roles\.includes\("LAWYER"\) \|\| actor\.roles\.includes\("MANAGER"\)/);
 
 await import("./profile-presentation-contract.test");
+await import("./security-presentation-contract.test");
 
 console.log("CLIENT_CASE_HUB_CONTRACT_PASS");
