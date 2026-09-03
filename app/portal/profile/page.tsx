@@ -1,14 +1,19 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, BriefcaseBusiness, KeyRound, Mail, Phone, UserRound } from "lucide-react";
+import { ArrowLeft, BriefcaseBusiness, KeyRound, Mail, Phone } from "lucide-react";
+import {
+  ProfileAvatarEditor,
+  ProfileDisplayNameEditor,
+} from "@/components/platform/account/ProfileAccountEditor";
 import { ClientCaseFrame, type ClientCaseOption } from "@/components/portal/ClientCaseFrame";
 import { ClientPlanVisualStyles } from "@/components/portal/ClientPlanVisualStyles";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import { getCaseStatusLabel, getPlanDisplayLabel } from "@/lib/platform/case-progress";
 import type { PlanCode } from "@/lib/platform/types";
+import { getCurrentAccountAvatarUrl } from "@/server/account/avatar";
+import { getCurrentAccountProfile } from "@/server/account/operations";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
-import { getCurrentAccountProfile } from "@/server/account/operations";
 import { listAccessibleClientCases } from "@/server/client-cases/operations";
 
 export const dynamic = "force-dynamic";
@@ -30,10 +35,12 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
 
   let profile;
   let cases;
+  let avatarUrl: string | null;
   try {
-    [profile, cases] = await Promise.all([
+    [profile, cases, avatarUrl] = await Promise.all([
       getCurrentAccountProfile(sessionProvider),
       listAccessibleClientCases(sessionProvider),
+      getCurrentAccountAvatarUrl(),
     ]);
   } catch (error) {
     if (error instanceof Error && error.message === UNAUTHENTICATED) redirect("/auth/sign-in");
@@ -49,6 +56,7 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
   const completedCases = cases.filter((item) => item.status === "COMPLETED").length;
   const backHref = selectedClientCase ? `/portal/cases/${selectedClientCase.id}` : "/portal";
   const securityHref = selectedClientCase ? `/portal/security?caseId=${selectedClientCase.id}` : "/portal/security";
+  const displayName = profile.displayName?.trim() || "Пользователь iБюро";
 
   const content = (
     <div className={`client-account-surface ${selectedClientCase ? "py-1 sm:py-2" : "py-12 sm:py-16"}`}>
@@ -59,23 +67,20 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
 
       <section className="mt-7 grid gap-6 lg:grid-cols-[1.2fr_.8fr]">
         <article className="min-w-0 rounded-[32px] border border-white/80 bg-white/85 p-6 shadow-[0_18px_55px_rgba(75,57,43,0.07)] sm:p-7 lg:p-9">
-          <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex min-w-0 items-start gap-4 lg:gap-5">
-              <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-[#f0eeea] text-[#b9202b] lg:size-16">
-                <UserRound className="size-7 lg:size-8" aria-hidden="true" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 lg:text-[13px]">Учётная запись</p>
-                <h1 className="mt-2 break-words font-[var(--font-iburo-display)] text-4xl font-semibold text-slate-900 sm:text-5xl lg:text-6xl">
-                  {profile.displayName?.trim() || "Пользователь iБюро"}
-                </h1>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {profile.roles.map((role) => (
-                    <span key={role} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600 lg:px-3.5 lg:py-2 lg:text-[13px]">
-                      {ROLE_LABELS[role]}
-                    </span>
-                  ))}
-                </div>
+          <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-start">
+            <ProfileAvatarEditor avatarUrl={avatarUrl} />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 lg:text-[13px]">Учётная запись</p>
+              <h1 className="mt-2 break-words font-[var(--font-iburo-display)] text-4xl font-semibold text-slate-900 sm:text-5xl lg:text-6xl">
+                {displayName}
+              </h1>
+              <ProfileDisplayNameEditor displayName={displayName} />
+              <div className="mt-4 flex flex-wrap gap-2">
+                {profile.roles.map((role) => (
+                  <span key={role} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600 lg:px-3.5 lg:py-2 lg:text-[13px]">
+                    {ROLE_LABELS[role]}
+                  </span>
+                ))}
               </div>
             </div>
           </div>
@@ -86,7 +91,7 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
           </dl>
 
           <p className="mt-7 text-xs leading-5 text-slate-400 lg:text-sm lg:leading-6">
-            Учётная запись создана {profile.createdAt.toLocaleDateString("ru-RU")}. Контактные данные отображаются из вашей учётной записи iБюро.
+            Учётная запись создана {profile.createdAt.toLocaleDateString("ru-RU")}. Имя и фотографию можно менять прямо в профиле; контактные данные отображаются из учётной записи iБюро.
           </p>
         </article>
 

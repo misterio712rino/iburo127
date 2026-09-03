@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { Download } from "lucide-react";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
@@ -48,14 +49,24 @@ export default async function ProspectLeadsPage() {
   return (
     <PortalFrame sectionLabel="Потенциальные клиенты" showStaffTasks showProspectLeads>
       <section className="py-12 sm:py-16">
-        <div className="max-w-4xl">
-          <p className="text-[15px] font-semibold uppercase tracking-[0.18em] text-[#7B2330]">Вход без активного доступа</p>
-          <h1 className="mt-4 font-[var(--font-iburo-display)] text-5xl font-semibold leading-none text-slate-900 sm:text-6xl">
-            Потенциальные клиенты
-          </h1>
-          <p className="mt-6 text-[17px] leading-8 text-slate-500">
-            Здесь сохраняются телефоны и email людей, которые попытались войти в приложение, но не были найдены среди активных пользователей iБюро. Повторные обращения объединяются в одну запись.
-          </p>
+        <div className="flex flex-col gap-7 xl:flex-row xl:items-end xl:justify-between">
+          <div className="max-w-4xl">
+            <p className="text-[15px] font-semibold uppercase tracking-[0.18em] text-[#7B2330]">Вход без активного доступа</p>
+            <h1 className="mt-4 font-[var(--font-iburo-display)] text-5xl font-semibold leading-none text-slate-900 sm:text-6xl">
+              Потенциальные клиенты
+            </h1>
+            <p className="mt-6 text-[17px] leading-8 text-slate-500">
+              Здесь сохраняются телефоны и email людей, которые попытались войти в приложение, но не были найдены среди активных пользователей iБюро. Повторные обращения объединяются в одну запись.
+            </p>
+          </div>
+
+          <a
+            href="/api/platform/leads/export"
+            className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2.5 self-start rounded-xl bg-[#17202a] px-5 py-3 text-base font-bold text-white shadow-sm transition hover:bg-[#263342] xl:self-auto"
+          >
+            <Download className="size-5" aria-hidden="true" />
+            Выгрузить CSV
+          </a>
         </div>
 
         <dl className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-4" aria-label="Сводка потенциальных клиентов">

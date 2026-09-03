@@ -5,6 +5,7 @@ import { requireServerActor } from "@/server/auth/runtime";
 import { getPrismaClient } from "@/server/database/prisma";
 
 export const ACCOUNT_PROFILE_NOT_FOUND = "ACCOUNT_PROFILE_NOT_FOUND";
+export const ACCOUNT_PROFILE_INVALID_DISPLAY_NAME = "ACCOUNT_PROFILE_INVALID_DISPLAY_NAME";
 
 export type CurrentAccountProfile = {
   displayName: string | null;
@@ -36,4 +37,25 @@ export async function getCurrentAccountProfile(
     ...user,
     roles: actor.roles,
   };
+}
+
+export async function updateCurrentAccountDisplayName(
+  sessionProvider: SessionProvider,
+  value: unknown,
+): Promise<{ displayName: string }> {
+  const actor = await requireServerActor(sessionProvider);
+  if (typeof value !== "string") throw new Error(ACCOUNT_PROFILE_INVALID_DISPLAY_NAME);
+  const displayName = value.trim().replace(/\s+/g, " ");
+  if (displayName.length < 2 || displayName.length > 80) {
+    throw new Error(ACCOUNT_PROFILE_INVALID_DISPLAY_NAME);
+  }
+
+  const user = await getPrismaClient().user.update({
+    where: { id: actor.userId },
+    data: { displayName },
+    select: { displayName: true },
+  });
+
+  if (!user.displayName) throw new Error(ACCOUNT_PROFILE_NOT_FOUND);
+  return { displayName: user.displayName };
 }
