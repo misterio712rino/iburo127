@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 
 await import("./mobile-critical-portal-contract.test");
 await import("./auth-touch-target-contract.test");
+await import("./client-case-switcher-contract.test");
 
 const portalSystemStateSource = await readFile(resolve("components/portal/PortalSystemState.tsx"), "utf8");
 const portalLoadingSource = await readFile(resolve("app/portal/loading.tsx"), "utf8");
