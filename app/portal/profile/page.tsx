@@ -124,7 +124,7 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
                 <p className="mt-0.5 break-words text-base text-slate-500">Пароль, двухфакторная защита и резервные коды.</p>
               </div>
             </div>
-            <Link href={securityHref} className="mt-6 inline-flex min-h-[48px] max-w-full items-center break-words rounded-xl bg-[#17202a] px-5 py-3 text-base font-bold text-white transition hover:bg-[#263342]">
+            <Link href={securityHref} className="mt-5 inline-flex min-h-11 max-w-full items-center break-words rounded-xl bg-[#17202a] px-5 py-3 text-base font-bold text-white transition hover:bg-[#263342]">
               Открыть настройки безопасности
             </Link>
           </article>
