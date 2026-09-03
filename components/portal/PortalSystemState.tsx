@@ -7,14 +7,29 @@ export function PortalSystemState({
   title,
   description,
   action,
+  compact = false,
 }: {
   variant: "loading" | "error";
   title: string;
   description: string;
   action?: ReactNode;
+  compact?: boolean;
 }) {
   const loading = variant === "loading";
   const Icon = loading ? LoaderCircle : CircleAlert;
+
+  if (compact) {
+    return (
+      <div
+        role={loading ? "status" : "alert"}
+        aria-live={loading ? "polite" : "assertive"}
+        aria-busy={loading ? true : undefined}
+        className="sr-only"
+      >
+        {title}. {description}
+      </div>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#f5f6f7] px-5 py-8 text-[#202326] sm:px-8 sm:py-12">
