@@ -8,38 +8,15 @@ import {
 } from "@/server/account/avatar";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
+import {
+  BINARY_BODY_TOO_LARGE,
+  EMPTY_BINARY_BODY,
+  readBinaryBodyWithByteLimit,
+} from "@/server/http/bounded-binary-body";
 
 const AVATAR_FETCH_TIMEOUT_MS = 15_000;
 const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-
-async function readBoundedBinaryBody(request: Request) {
-  if (!request.body) throw new Error(ACCOUNT_AVATAR_INVALID_INPUT);
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (!value?.byteLength) continue;
-    total += value.byteLength;
-    if (total > MAX_AVATAR_SIZE_BYTES) {
-      await reader.cancel();
-      throw new Error(ACCOUNT_AVATAR_INVALID_INPUT);
-    }
-    chunks.push(value);
-  }
-
-  if (total <= 0) throw new Error(ACCOUNT_AVATAR_INVALID_INPUT);
-  const body = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    body.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return body;
-}
 
 export async function GET() {
   try {
@@ -82,7 +59,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await readBoundedBinaryBody(request);
+    const body = await readBinaryBodyWithByteLimit(request, MAX_AVATAR_SIZE_BYTES);
     const sessionProvider = createProductionSessionProvider();
     const ticket = await createCurrentAccountAvatarUpload(sessionProvider, {
       mimeType,
@@ -106,11 +83,16 @@ export async function POST(request: Request) {
     if (error instanceof Error && error.message === UNAUTHENTICATED) {
       return privateJsonResponse({ code: UNAUTHENTICATED }, 401);
     }
+    if (
+      error instanceof Error &&
+      (error.message === ACCOUNT_AVATAR_INVALID_INPUT ||
+        error.message === EMPTY_BINARY_BODY ||
+        error.message === BINARY_BODY_TOO_LARGE)
+    ) {
+      return privateJsonResponse({ code: ACCOUNT_AVATAR_INVALID_INPUT }, 400);
+    }
     if (error instanceof Error && error.message === ACCOUNT_AVATAR_NOT_FOUND) {
       return privateJsonResponse({ code: ACCOUNT_AVATAR_NOT_FOUND }, 409);
-    }
-    if (error instanceof Error && error.message === ACCOUNT_AVATAR_INVALID_INPUT) {
-      return privateJsonResponse({ code: ACCOUNT_AVATAR_INVALID_INPUT }, 400);
     }
     throw error;
   }
