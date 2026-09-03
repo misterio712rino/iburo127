@@ -4,6 +4,7 @@ import { ArrowRight, ArrowUpRight, BriefcaseBusiness } from "lucide-react";
 import { LawyerProductionDashboard } from "@/components/portal/LawyerProductionDashboard";
 import { ManagerProductionDashboard } from "@/components/portal/ManagerProductionDashboard";
 import { PortalFrame } from "@/components/portal/PortalFrame";
+import { PortalNavigation } from "@/components/portal/PortalNavigation";
 import {
   getCaseStageDisplayLabel,
   getCaseStatusLabel,
@@ -66,7 +67,14 @@ export default async function PortalPage() {
   const cases = await clientCaseService.listCases(actor);
 
   if (actor.roles.includes("MANAGER")) {
-    return <ManagerProductionDashboard actor={actor} cases={cases} />;
+    return (
+      <div className="pb-20 lg:pb-0">
+        <ManagerProductionDashboard actor={actor} cases={cases} />
+        <div className="fixed inset-x-0 bottom-0 z-[80] border-t border-slate-200 bg-[#f7f8fa]/95 shadow-[0_-10px_35px_rgba(15,23,42,0.08)] backdrop-blur-xl lg:hidden">
+          <PortalNavigation showStaffTasks showProspectLeads />
+        </div>
+      </div>
+    );
   }
 
   const isStaff = actor.roles.includes("LAWYER");

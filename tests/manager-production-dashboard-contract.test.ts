@@ -14,6 +14,21 @@ assert.match(
   "MANAGER dashboard must receive the actor-authorized production case list",
 );
 assert.match(
+  portalSource,
+  /<PortalNavigation showStaffTasks showProspectLeads \/>/,
+  "MANAGER route must expose the shared staff/lead navigation on mobile",
+);
+assert.match(
+  portalSource,
+  /fixed inset-x-0 bottom-0[\s\S]*lg:hidden/,
+  "MANAGER shared navigation must stay available as a mobile-only route control",
+);
+assert.match(
+  portalSource,
+  /pb-20 lg:pb-0/,
+  "MANAGER route must reserve mobile space for the fixed navigation",
+);
+assert.match(
   dashboardSource,
   /^import "server-only";/m,
   "MANAGER dashboard must stay server-only",
