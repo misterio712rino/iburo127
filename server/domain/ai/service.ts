@@ -99,7 +99,6 @@ export class AiAssistantService {
       practicumStatus: context.practicumStatus,
       practicumCompletedLessons: context.practicumCompletedLessons,
       documents: context.documents,
-      taskSummary: context.taskSummary,
       readyFileCount: context.readyFileCount,
     };
   }

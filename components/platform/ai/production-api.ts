@@ -20,12 +20,6 @@ export type AiCaseState = {
   practicumStatus: string | null;
   practicumCompletedLessons: number;
   documents: readonly { code: string; status: string }[];
-  taskSummary: {
-    newCount: number;
-    workingCount: number;
-    doneCount: number;
-    overdueCount: number;
-  };
   readyFileCount: number;
 };
 

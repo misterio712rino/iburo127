@@ -7,7 +7,7 @@ function planLabel(planCode: string) {
   if (planCode === "LITE") return "ЛАЙТ";
   if (planCode === "PRO") return "ПРО";
   if (planCode === "INDIVIDUAL") return "ИНДИВИДУАЛЬНЫЙ";
-  return planCode;
+  return "не определён";
 }
 
 export function AiLockedState({ planCode }: { planCode: string }) {

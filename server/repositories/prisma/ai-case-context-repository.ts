@@ -6,27 +6,6 @@ import type {
   AiCaseContextRepository,
 } from "@/server/domain/ai/contracts";
 
-function countTaskStatuses(
-  tasks: readonly { status: "NEW" | "WORKING" | "DONE"; dueAt: Date | null }[],
-  now: Date,
-) {
-  let newCount = 0;
-  let workingCount = 0;
-  let doneCount = 0;
-  let overdueCount = 0;
-
-  for (const task of tasks) {
-    if (task.status === "NEW") newCount += 1;
-    if (task.status === "WORKING") workingCount += 1;
-    if (task.status === "DONE") doneCount += 1;
-    if (task.status !== "DONE" && task.dueAt && task.dueAt.getTime() < now.getTime()) {
-      overdueCount += 1;
-    }
-  }
-
-  return { newCount, workingCount, doneCount, overdueCount };
-}
-
 export class PrismaAiCaseContextRepository implements AiCaseContextRepository {
   async loadCaseContext(clientCaseId: string): Promise<AiCaseContext | null> {
     const prisma = getPrismaClient();
@@ -53,9 +32,6 @@ export class PrismaAiCaseContextRepository implements AiCaseContextRepository {
           select: { documentCode: true, status: true },
           orderBy: { documentCode: "asc" },
         },
-        tasks: {
-          select: { status: true, dueAt: true },
-        },
         storedFiles: {
           where: { status: "READY" },
           select: { id: true },
@@ -79,7 +55,6 @@ export class PrismaAiCaseContextRepository implements AiCaseContextRepository {
         code: document.documentCode,
         status: document.status,
       })),
-      taskSummary: countTaskStatuses(clientCase.tasks, new Date()),
       readyFileCount: clientCase.storedFiles.length,
       featureCodes: clientCase.plan.features.map(({ feature }) => feature.code),
     };

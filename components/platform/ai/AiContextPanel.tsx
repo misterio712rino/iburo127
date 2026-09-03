@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, ClipboardCheck, FileText, ListChecks, Paperclip, Scale } from "lucide-react";
+import { BriefcaseBusiness, ClipboardCheck, FileText, Paperclip, Scale } from "lucide-react";
 import { PlatformCard } from "@/components/platform/PlatformPrimitives";
 import type { AiCaseState } from "./production-api";
 
@@ -16,15 +16,13 @@ const STAGE_LABELS: Record<string, string> = {
 
 export function AiContextPanel({ context }: { context: AiCaseState }) {
   const readyDocuments = context.documents.filter(
-    (document) => document.status === "READY_FOR_REVIEW" || document.status === "REVIEWED",
+    (document) => document.status === "READY_FOR_REVIEW",
   ).length;
-  const openTasks = context.taskSummary.newCount + context.taskSummary.workingCount;
   const rows = [
     [BriefcaseBusiness, "Дело", context.caseNumber],
-    [Scale, "Этап", STAGE_LABELS[context.stageCode] ?? context.stageCode],
+    [Scale, "Этап", STAGE_LABELS[context.stageCode] ?? "Этап уточняется"],
     [ClipboardCheck, "Анкета", `${context.questionnaireCompletedSections} разделов завершено`],
     [FileText, "Документы", `${readyDocuments} готовы к проверке`],
-    [ListChecks, "Открытые задачи", String(openTasks)],
     [Paperclip, "Загруженные файлы", String(context.readyFileCount)],
   ] as const;
 

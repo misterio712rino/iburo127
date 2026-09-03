@@ -28,7 +28,11 @@ export type AiCaseContext = {
   practicumStatus: string | null;
   practicumCompletedLessons: number;
   documents: readonly { code: string; status: string }[];
-  taskSummary: {
+  /**
+   * Legacy internal fixture compatibility only. Production CLIENT AI context
+   * repositories must not populate STAFF task information.
+   */
+  taskSummary?: {
     newCount: number;
     workingCount: number;
     doneCount: number;
@@ -50,7 +54,6 @@ export type AiAssistantCaseState = {
   practicumStatus: string | null;
   practicumCompletedLessons: number;
   documents: readonly { code: string; status: string }[];
-  taskSummary: AiCaseContext["taskSummary"];
   readyFileCount: number;
 };
 
