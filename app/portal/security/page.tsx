@@ -48,32 +48,32 @@ export default async function AccountSecurityPage({ searchParams }: { searchPara
   const content = (
     <div className="client-account-surface">
       <section className={selectedClientCase ? "py-1 sm:py-2" : "py-12 sm:py-16"}>
-        <div className="min-w-0 max-w-4xl">
-          <p className="text-[15px] font-semibold uppercase tracking-[0.18em] text-[#7B2330]">Безопасность</p>
-          <h1 className="mt-4 break-words font-[var(--font-iburo-display)] text-5xl font-semibold leading-none text-slate-900 sm:text-6xl lg:text-[64px]">
+        <div className="min-w-0 max-w-3xl lg:max-w-4xl">
+          <p className="text-[13px] font-semibold uppercase tracking-[0.18em] text-[#7B2330] lg:text-[15px]">Безопасность</p>
+          <h1 className="mt-4 break-words font-[var(--font-iburo-display)] text-4xl font-semibold leading-none text-slate-900 sm:text-5xl lg:text-[64px]">
             Защита учётной записи
           </h1>
-          <p className="mt-6 max-w-3xl text-[17px] leading-8 text-slate-500">
+          <p className="mt-6 max-w-3xl text-base leading-7 text-slate-500 lg:text-[17px] lg:leading-8">
             Управляйте вторым фактором и резервными кодами. Доступ к делам и функциям кабинета определяется вашей учётной записью и назначенными ролями.
           </p>
         </div>
       </section>
 
       <section className="grid gap-6 pb-16 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]">
-        <article className="min-w-0 rounded-[30px] border border-white/80 bg-white/90 p-7 shadow-[0_18px_60px_rgba(15,23,42,0.08)] sm:p-9">
+        <article className="min-w-0 rounded-[30px] border border-white/80 bg-white/90 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)] sm:p-7 lg:p-9">
           <div className="flex min-w-0 items-center gap-4">
-            <span className={`grid size-12 shrink-0 place-items-center rounded-2xl ${state.twoFactorEnabled ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-              <ShieldCheck className="size-[22px]" aria-hidden="true" />
+            <span className={`grid size-11 shrink-0 place-items-center rounded-2xl lg:size-12 ${state.twoFactorEnabled ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+              <ShieldCheck className="size-5 lg:size-[22px]" aria-hidden="true" />
             </span>
             <div className="min-w-0">
-              <p className="break-words text-[13px] font-bold uppercase tracking-[0.12em] text-slate-400">Двухфакторная защита</p>
-              <h2 className="mt-1 break-words text-2xl font-bold text-slate-900">
+              <p className="break-words text-xs font-bold uppercase tracking-[0.12em] text-slate-400 lg:text-[13px]">Двухфакторная защита</p>
+              <h2 className="mt-1 break-words text-xl font-bold text-slate-900 lg:text-2xl">
                 {state.twoFactorEnabled ? "Подключена" : "Не подключена"}
               </h2>
             </div>
           </div>
 
-          <p className="mt-6 text-base leading-7 text-slate-500">
+          <p className="mt-6 text-[15px] leading-7 text-slate-500 lg:text-base">
             {state.staff
               ? "Для юристов и руководителей второй фактор обязателен. Отключение второго фактора через кабинет не предоставляется."
               : state.twoFactorEnabled
@@ -82,10 +82,10 @@ export default async function AccountSecurityPage({ searchParams }: { searchPara
           </p>
         </article>
 
-        <article className="min-w-0 rounded-[30px] border border-white/80 bg-white/90 p-7 shadow-[0_18px_60px_rgba(15,23,42,0.08)] sm:p-9">
+        <article className="min-w-0 rounded-[30px] border border-white/80 bg-white/90 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)] sm:p-7 lg:p-9">
           <div className="mb-7 flex min-w-0 items-center gap-3.5">
-            <KeyRound className="size-[22px] shrink-0 text-slate-500" aria-hidden="true" />
-            <h2 className="break-words text-2xl font-bold text-slate-900">
+            <KeyRound className="size-5 shrink-0 text-slate-500 lg:size-[22px]" aria-hidden="true" />
+            <h2 className="break-words text-xl font-bold text-slate-900 lg:text-2xl">
               {state.twoFactorEnabled ? "Резервные коды" : "Подключить 2FA"}
             </h2>
           </div>
