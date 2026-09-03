@@ -161,7 +161,7 @@ export function MfaEnrollmentForm({ completionHref = "/portal" }: Props) {
           <div className="mt-4 min-w-0 rounded-2xl border border-slate-200 bg-white p-4">
             <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Секрет для ручного ввода</p>
             <code className="mt-2 block break-all text-sm font-semibold text-slate-800">{secret}</code>
-            <button type="button" onClick={copySecret} className="mt-3 text-xs font-bold text-[#7B2330]">
+            <button type="button" onClick={copySecret} className="mt-3 inline-flex min-h-11 items-center text-xs font-bold text-[#7B2330]">
               {copied ? "Скопировано" : "Скопировать секрет"}
             </button>
           </div>
