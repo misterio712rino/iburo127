@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Camera, Check, Pencil, UserRound, X } from "lucide-react";
+import { Camera, Check, ImagePlus, Pencil, UserRound, X } from "lucide-react";
 
 type AvatarProps = {
   avatarUrl: string | null;
@@ -19,7 +19,9 @@ type UploadTicket = {
 export function ProfileAvatarEditor({ avatarUrl }: AvatarProps) {
   const [pending, setPending] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [imageFailed, setImageFailed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const showAvatar = Boolean(avatarUrl) && !imageFailed;
 
   async function uploadAvatar(file: File) {
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size <= 0 || file.size > 5 * 1024 * 1024) {
@@ -62,17 +64,25 @@ export function ProfileAvatarEditor({ avatarUrl }: AvatarProps) {
   }
 
   return (
-    <div className="shrink-0">
-      <div className="relative">
-        <div className="grid size-20 overflow-hidden rounded-[24px] bg-[#f0eeea] text-[#b9202b] shadow-sm lg:size-24">
-          {avatarUrl ? (
+    <div className="w-full shrink-0 sm:w-auto">
+      <div className="flex flex-col items-start gap-4 sm:items-center">
+        <div className="relative grid size-28 overflow-hidden rounded-full border-[5px] border-white bg-[linear-gradient(145deg,#f4f1ed,#ebe5df)] text-[#b9202b] shadow-[0_14px_32px_rgba(23,32,42,0.14)] lg:size-32">
+          {showAvatar ? (
             // The avatar URL is a short-lived, server-issued private object-storage URL.
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarUrl} alt="Фотография профиля" className="h-full w-full object-cover" />
+            <img
+              src={avatarUrl ?? undefined}
+              alt="Фотография профиля"
+              className="h-full w-full object-cover"
+              onError={() => setImageFailed(true)}
+            />
           ) : (
-            <span className="grid h-full w-full place-items-center"><UserRound className="size-9 lg:size-11" aria-hidden="true" /></span>
+            <span className="grid h-full w-full place-items-center" aria-label="Фотография профиля не установлена">
+              <UserRound className="size-12 lg:size-14" aria-hidden="true" />
+            </span>
           )}
         </div>
+
         <input
           ref={inputRef}
           id="profile-avatar-input"
@@ -85,25 +95,19 @@ export function ProfileAvatarEditor({ avatarUrl }: AvatarProps) {
             if (file) void uploadAvatar(file);
           }}
         />
-        <label
-          htmlFor="profile-avatar-input"
-          className="absolute -bottom-2 -right-2 grid min-h-11 min-w-11 cursor-pointer place-items-center rounded-full border-4 border-white bg-[#17202a] text-white shadow-md transition hover:bg-[#263342]"
-          aria-label="Загрузить фотографию профиля"
+
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={pending}
+          aria-busy={pending}
+          className="inline-flex min-h-12 min-w-[188px] items-center justify-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 lg:text-[15px]"
         >
-          <Camera className="size-5" aria-hidden="true" />
-        </label>
+          {avatarUrl ? <Camera className="size-[18px]" aria-hidden="true" /> : <ImagePlus className="size-[18px]" aria-hidden="true" />}
+          {pending ? "Загрузка…" : avatarUrl ? "Заменить фотографию" : "Загрузить фотографию"}
+        </button>
       </div>
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        disabled={pending}
-        aria-busy={pending}
-        className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        <Camera className="size-4" aria-hidden="true" />
-        {pending ? "Загрузка…" : avatarUrl ? "Заменить фото" : "Загрузить фото"}
-      </button>
-      {status ? <p className="mt-2 max-w-48 text-xs font-medium leading-5 text-[#7B2330]" role="alert">{status}</p> : null}
+      {status ? <p className="mt-3 max-w-64 text-sm font-medium leading-5 text-[#7B2330]" role="alert">{status}</p> : null}
     </div>
   );
 }
@@ -146,35 +150,35 @@ export function ProfileDisplayNameEditor({ displayName }: NameProps) {
           setEditing(true);
           setStatus(null);
         }}
-        className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-bold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+        className="mt-5 inline-flex min-h-12 items-center justify-center gap-2.5 rounded-2xl bg-[#17202a] px-5 py-3 text-sm font-bold text-white shadow-[0_10px_24px_rgba(23,32,42,0.16)] transition hover:bg-[#263342] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330] focus-visible:ring-offset-2 lg:text-[15px]"
       >
-        <Pencil className="size-4" aria-hidden="true" />
-        Изменить имя
+        <Pencil className="size-[18px]" aria-hidden="true" />
+        Редактировать имя
       </button>
     );
   }
 
   return (
-    <div className="mt-3 min-w-0">
-      <label htmlFor="profile-display-name" className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Новое имя</label>
-      <div className="mt-2 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-        <input
-          id="profile-display-name"
-          value={value}
-          maxLength={80}
-          autoFocus
-          onChange={(event) => setValue(event.target.value)}
-          className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-base font-semibold text-slate-900 outline-none transition focus:border-[#7B2330] focus:ring-2 focus:ring-[#7B2330]/15"
-        />
+    <div className="mt-5 min-w-0 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
+      <label htmlFor="profile-display-name" className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Имя в профиле</label>
+      <input
+        id="profile-display-name"
+        value={value}
+        maxLength={80}
+        autoFocus
+        onChange={(event) => setValue(event.target.value)}
+        className="mt-2.5 min-h-12 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-4 py-3 text-base font-semibold text-slate-900 outline-none transition focus:border-[#7B2330] focus:ring-2 focus:ring-[#7B2330]/15"
+      />
+      <div className="mt-3 flex flex-col gap-2.5 sm:flex-row sm:items-center">
         <button
           type="button"
           onClick={() => void saveName()}
           disabled={pending}
           aria-busy={pending}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#17202a] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#263342] disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#17202a] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#263342] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <Check className="size-4" aria-hidden="true" />
-          Сохранить
+          <Check className="size-[18px]" aria-hidden="true" />
+          {pending ? "Сохраняем…" : "Сохранить имя"}
         </button>
         <button
           type="button"
@@ -183,13 +187,13 @@ export function ProfileDisplayNameEditor({ displayName }: NameProps) {
             setValue(displayName);
             setStatus(null);
           }}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330] focus-visible:ring-offset-2"
         >
-          <X className="size-4" aria-hidden="true" />
+          <X className="size-[18px]" aria-hidden="true" />
           Отмена
         </button>
       </div>
-      {status ? <p className="mt-2 text-sm font-medium text-[#7B2330]" role="alert">{status}</p> : null}
+      {status ? <p className="mt-3 text-sm font-medium text-[#7B2330]" role="alert">{status}</p> : null}
     </div>
   );
 }

@@ -4,11 +4,12 @@ import { randomUUID } from "node:crypto";
 import { headers } from "next/headers";
 import type { SessionProvider } from "@/server/auth/contracts";
 import { getBetterAuthInstance } from "@/server/auth/better-auth-instance";
-import { requireServerActor } from "@/server/auth/runtime";
+import { requireServerActor, UNAUTHENTICATED } from "@/server/auth/runtime";
 import { getPrivateObjectStorage } from "@/server/files/object-storage-runtime";
 
 const AVATAR_POINTER_PREFIX = "iburo-avatar:";
 const AVATAR_ROOT = "profile-avatars";
+const AVATAR_ROUTE = "/api/platform/account/avatar";
 const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024;
 const MIME_EXTENSIONS = {
   "image/jpeg": "jpg",
@@ -29,24 +30,50 @@ function avatarPrefixForUser(userId: string) {
   return `${AVATAR_ROOT}/${userId}/`;
 }
 
-export async function getCurrentAccountAvatarUrl(): Promise<string | null> {
+async function getCurrentAvatarObjectKey() {
   const auth = getBetterAuthInstance();
   const session = await auth.api.getSession({ headers: await headers() });
-  const image = session?.user.image?.trim();
+  if (!session?.user?.id) throw new Error(UNAUTHENTICATED);
+
+  const image = session.user.image?.trim();
   if (!image?.startsWith(AVATAR_POINTER_PREFIX)) return null;
 
   const objectKey = image.slice(AVATAR_POINTER_PREFIX.length);
-  if (!objectKey.startsWith(`${AVATAR_ROOT}/`)) return null;
+  if (!objectKey.startsWith(avatarPrefixForUser(session.user.id))) return null;
+  return objectKey;
+}
+
+export async function getCurrentAccountAvatarUrl(): Promise<string | null> {
+  const objectKey = await getCurrentAvatarObjectKey();
+  if (!objectKey) return null;
 
   try {
-    const signed = await getPrivateObjectStorage().createDownloadUrl({
-      objectKey,
-      expiresInSeconds: 300,
-    });
-    return signed.url;
+    const metadata = await getPrivateObjectStorage().statObject(objectKey);
+    if (!metadata?.mimeType || !isAllowedMimeType(metadata.mimeType)) return null;
+    return AVATAR_ROUTE;
   } catch {
     return null;
   }
+}
+
+export async function createCurrentAccountAvatarDownload() {
+  const objectKey = await getCurrentAvatarObjectKey();
+  if (!objectKey) throw new Error(ACCOUNT_AVATAR_NOT_FOUND);
+
+  const storage = getPrivateObjectStorage();
+  const metadata = await storage.statObject(objectKey);
+  if (!metadata?.mimeType || !isAllowedMimeType(metadata.mimeType)) {
+    throw new Error(ACCOUNT_AVATAR_NOT_FOUND);
+  }
+
+  const signed = await storage.createDownloadUrl({
+    objectKey,
+    expiresInSeconds: 60,
+  });
+  return {
+    url: signed.url,
+    mimeType: metadata.mimeType,
+  } as const;
 }
 
 export async function createCurrentAccountAvatarUpload(
