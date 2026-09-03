@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight, ArrowUpRight, BriefcaseBusiness } from "lucide-react";
 import { LawyerProductionDashboard } from "@/components/portal/LawyerProductionDashboard";
+import { ManagerInteractionStyles } from "@/components/portal/ManagerInteractionStyles";
 import { ManagerProductionDashboard } from "@/components/portal/ManagerProductionDashboard";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import { PortalNavigation } from "@/components/portal/PortalNavigation";
@@ -68,7 +69,8 @@ export default async function PortalPage() {
 
   if (actor.roles.includes("MANAGER")) {
     return (
-      <div className="pb-20 lg:pb-0">
+      <div className="manager-interaction-shell pb-20 lg:pb-0">
+        <ManagerInteractionStyles />
         <ManagerProductionDashboard actor={actor} cases={cases} />
         <div className="fixed inset-x-0 bottom-0 z-[80] border-t border-slate-200 bg-[#f7f8fa]/95 shadow-[0_-10px_35px_rgba(15,23,42,0.08)] backdrop-blur-xl lg:hidden">
           <PortalNavigation showStaffTasks showProspectLeads />

@@ -120,4 +120,6 @@ assert.doesNotMatch(
   "production dashboard must not link back to demo application routes",
 );
 
+await import("./manager-interaction-accessibility-contract");
+
 console.log("MANAGER_PRODUCTION_DASHBOARD_CONTRACT_PASS");
