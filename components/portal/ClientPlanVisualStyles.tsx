@@ -1,4 +1,5 @@
 import type { PlanCode } from "@/lib/platform/types";
+import { ClientAccountVisualStyles } from "@/components/portal/ClientAccountVisualStyles";
 import { DarkClientStatusStyles } from "@/components/portal/DarkClientStatusStyles";
 import { IndividualClientVisualStyles } from "@/components/portal/IndividualClientVisualStyles";
 import { LiteClientVisualStyles } from "@/components/portal/LiteClientVisualStyles";
@@ -10,6 +11,7 @@ export function ClientPlanVisualStyles({ planCode }: { planCode: PlanCode }) {
       <>
         <IndividualClientVisualStyles />
         <DarkClientStatusStyles />
+        <ClientAccountVisualStyles />
       </>
     );
   }
@@ -19,9 +21,15 @@ export function ClientPlanVisualStyles({ planCode }: { planCode: PlanCode }) {
       <>
         <ProClientVisualStyles />
         <DarkClientStatusStyles />
+        <ClientAccountVisualStyles />
       </>
     );
   }
 
-  return <LiteClientVisualStyles />;
+  return (
+    <>
+      <LiteClientVisualStyles />
+      <ClientAccountVisualStyles />
+    </>
+  );
 }
