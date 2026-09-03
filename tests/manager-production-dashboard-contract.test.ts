@@ -83,6 +83,22 @@ assert.doesNotMatch(
   /<ManagerNavLink href="#clients" label="Клиенты"[\s\S]*<ManagerNavLink href="#clients" label="Дела"/,
   "desktop MANAGER navigation must not duplicate the same clients anchor",
 );
+for (const [href, label] of [
+  ["/portal/profile", "Профиль"],
+  ["/portal/notifications", "Уведомления"],
+  ["/portal/security", "Безопасность"],
+] as const) {
+  assert.match(
+    dashboardSource,
+    new RegExp(`<ManagerNavLink href="${href.replaceAll("/", "\\/")}" label="${label}"`),
+    `desktop MANAGER navigation must expose ${label}`,
+  );
+}
+assert.match(
+  dashboardSource,
+  /function ManagerNavLink[\s\S]*className=\{`flex h-11 items-center/,
+  "desktop MANAGER navigation links must keep 44px minimum touch targets",
+);
 assert.match(
   dashboardSource,
   /clientCaseId: \{ in: caseIds \}/,

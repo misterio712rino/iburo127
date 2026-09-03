@@ -5,11 +5,14 @@ import {
   Activity,
   AlertTriangle,
   ArrowRight,
+  Bell,
   BriefcaseBusiness,
   CheckCircle2,
   ClipboardCheck,
   House,
+  KeyRound,
   ListTodo,
+  UserRound,
   UsersRound,
 } from "lucide-react";
 
@@ -175,6 +178,10 @@ export async function ManagerProductionDashboard({
             label="Потенциальные клиенты"
             icon={Activity}
           />
+          <div className="my-2 border-t border-white/10" aria-hidden="true" />
+          <ManagerNavLink href="/portal/profile" label="Профиль" icon={UserRound} />
+          <ManagerNavLink href="/portal/notifications" label="Уведомления" icon={Bell} />
+          <ManagerNavLink href="/portal/security" label="Безопасность" icon={KeyRound} />
         </nav>
         <div className="mt-auto rounded-2xl border border-white/10 p-4">
           <p className="text-xs font-semibold">{managerName}</p>
