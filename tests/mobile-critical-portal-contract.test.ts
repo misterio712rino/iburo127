@@ -7,6 +7,7 @@ const clientCaseFrameSource = await readFile(resolve("components/portal/ClientCa
 const clientCaseNavigationSource = await readFile(resolve("components/portal/ClientCaseNavigation.tsx"), "utf8");
 const clientCaseModuleIntroSource = await readFile(resolve("components/portal/ClientCaseModuleIntro.tsx"), "utf8");
 const clientPlanVisualStylesSource = await readFile(resolve("components/portal/ClientPlanVisualStyles.tsx"), "utf8");
+const clientAccountVisualStylesSource = await readFile(resolve("components/portal/ClientAccountVisualStyles.tsx"), "utf8");
 const darkClientStatusStylesSource = await readFile(resolve("components/portal/DarkClientStatusStyles.tsx"), "utf8");
 const portalNavigationSource = await readFile(resolve("components/portal/PortalNavigation.tsx"), "utf8");
 const portalMotionContentSource = await readFile(resolve("components/portal/PortalMotionContent.tsx"), "utf8");
@@ -118,6 +119,11 @@ assert.match(
   /planCode === "PRO"[\s\S]*<DarkClientStatusStyles \/>/,
   "PRO must load the reviewed dark status compatibility layer",
 );
+assert.equal(
+  (clientPlanVisualStylesSource.match(/<ClientAccountVisualStyles \/>/g) ?? []).length,
+  3,
+  "every CLIENT plan branch must load the scoped account continuity layer",
+);
 assert.doesNotMatch(
   darkClientStatusStylesSource,
   /data-client-plan="lite"/,
@@ -134,6 +140,55 @@ assert.match(
   darkClientStatusStylesSource,
   /color-mix\(in srgb,[^\n]+var\(--ib-card\)\)/,
   "dark status surfaces must blend into the active plan card rather than forcing a light card",
+);
+
+assert.match(
+  clientAccountVisualStylesSource,
+  /\.client-case-shell \.client-account-surface/,
+  "account visual compatibility must remain scoped to the CLIENT case shell",
+);
+for (const token of ["var(--ib-card)", "var(--ib-text)", "var(--ib-muted)", "var(--ib-accent)"] as const) {
+  assert.ok(clientAccountVisualStylesSource.includes(token), `CLIENT account continuity must use ${token}`);
+}
+assert.match(
+  clientAccountVisualStylesSource,
+  /input\[class\*="border-slate"\]/,
+  "nested CLIENT account auth inputs must inherit the active plan surface",
+);
+assert.match(
+  clientAccountVisualStylesSource,
+  /input\[class\*="border-slate"\]:focus[\s\S]*var\(--ib-accent\)/,
+  "nested CLIENT account auth input focus must inherit the active plan accent",
+);
+assert.match(
+  profileSource,
+  /client-account-surface/,
+  "CLIENT Profile must expose the reviewed account continuity scope",
+);
+assert.match(
+  securitySource,
+  /client-account-surface/,
+  "CLIENT Security must expose the reviewed account continuity scope",
+);
+assert.match(
+  profileSource,
+  /<ClientPlanVisualStyles planCode=\{planCode\} \/>/,
+  "CLIENT Profile must load the selected case plan visual layer",
+);
+assert.match(
+  securitySource,
+  /<ClientPlanVisualStyles planCode=\{planCode\} \/>/,
+  "CLIENT Security must load the selected case plan visual layer",
+);
+assert.match(
+  profileSource,
+  /inline-flex min-h-11 items-center gap-2/,
+  "CLIENT Profile back navigation must keep a 44px touch target",
+);
+assert.match(
+  profileSource,
+  /mt-5 inline-flex min-h-11 max-w-full items-center/,
+  "CLIENT Profile security action must keep a 44px touch target",
 );
 
 assert.match(
@@ -182,6 +237,10 @@ assert.match(
 assert.match(practicumComponentSource, /role="progressbar"/);
 assert.match(practicumComponentSource, /aria-valuenow=\{progressPercent\}/);
 assert.match(practicumComponentSource, /role="status"/);
+assert.match(mfaEnrollmentSource, /authClient\.twoFactor\.enable/);
+assert.match(mfaEnrollmentSource, /authClient\.twoFactor\.verifyTotp/);
+assert.match(mfaEnrollmentSource, /trustDevice: false/);
+assert.match(backupCodesSource, /authClient\.twoFactor\.generateBackupCodes/);
 assert.match(backupCodesSource, /aria-busy=\{pending\}/);
 assert.match(backupCodesSource, /min-w-0 break-all rounded-xl/);
 assert.match(backupCodesSource, /role="status"/);
