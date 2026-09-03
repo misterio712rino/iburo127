@@ -7,6 +7,7 @@ await import("./mobile-critical-portal-contract.test");
 const portalSystemStateSource = await readFile(resolve("components/portal/PortalSystemState.tsx"), "utf8");
 const portalLoadingSource = await readFile(resolve("app/portal/loading.tsx"), "utf8");
 const portalErrorSource = await readFile(resolve("app/portal/error.tsx"), "utf8");
+const portalNotFoundSource = await readFile(resolve("app/portal/not-found.tsx"), "utf8");
 
 assert.match(
   portalSystemStateSource,
@@ -47,5 +48,22 @@ assert.doesNotMatch(
   "portal error boundary must not expose or log raw runtime error details",
 );
 assert.match(portalErrorSource, /href="\/portal"/);
+
+assert.match(
+  portalNotFoundSource,
+  /Раздел не найден или недоступен/,
+  "portal not-found copy must deliberately avoid distinguishing missing and unauthorized resources",
+);
+assert.match(portalNotFoundSource, /href="\/portal"/);
+assert.match(
+  portalNotFoundSource,
+  /inline-flex min-h-11 max-w-full items-center justify-center/,
+  "portal not-found recovery action must keep a 44px minimum touch target",
+);
+assert.doesNotMatch(
+  portalNotFoundSource,
+  /caseId|clientCase|createProductionSessionProvider|getCurrentPlatformActor|error\.message|digest/,
+  "portal not-found boundary must not expose resource identifiers, actor resolution or raw error details",
+);
 
 console.log("PORTAL_UI_FOUNDATION_TEST_PASS");
