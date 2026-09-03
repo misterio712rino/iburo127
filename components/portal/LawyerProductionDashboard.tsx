@@ -203,7 +203,10 @@ export function LawyerProductionDashboard({
                 Приоритет сейчас
               </h2>
             </div>
-            <Link href="/portal/tasks" className="text-sm font-bold text-[#7b2330] hover:text-[#991f2b]">
+            <Link
+              href="/portal/tasks"
+              className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-bold text-[#7b2330] transition hover:text-[#991f2b] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#8f1720]/10"
+            >
               Все задачи
             </Link>
           </div>
