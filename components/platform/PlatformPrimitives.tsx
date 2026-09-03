@@ -11,8 +11,8 @@ export function PlanBadge({ plan }: { plan: PlanCode }) {
   return <span className="plan-badge inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-bold tracking-[.12em]">{PLAN_LABEL[plan]}</span>;
 }
 
-export function ProgressBar({ value }: { value: number }) {
-  return <div className="h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={value}><div className="h-full rounded-full bg-primary transition-[width] duration-500" style={{ width: `${value}%` }} /></div>;
+export function ProgressBar({ value, label = "Прогресс" }: { value: number; label?: string }) {
+  return <div className="h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value}><div className="h-full rounded-full bg-primary transition-[width] duration-500" style={{ width: `${value}%` }} /></div>;
 }
 
 export function ProfileAvatar({ initials, className }: { initials: string; className?: string }) {
