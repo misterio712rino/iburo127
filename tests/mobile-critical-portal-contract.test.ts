@@ -223,6 +223,21 @@ assert.match(
   "Notifications inbox must remain account-wide and must not be filtered by selected case context",
 );
 assert.match(
+  notificationsSource,
+  /const unreadCount = notifications\.filter\(\(notification\) => !notification\.readAt\)\.length;/,
+  "notification summary must derive unread state only from the server-authorized inbox",
+);
+assert.match(
+  notificationsSource,
+  /<time dateTime=\{notification\.createdAt\.toISOString\(\)\}>/,
+  "notification rows must expose a semantic timestamp in the compact inbox",
+);
+assert.match(
+  notificationsSource,
+  /sm:flex-row sm:justify-between sm:gap-4/,
+  "notification rows must retain a compact desktop hierarchy while stacking on mobile",
+);
+assert.match(
   profileSource,
   /inline-flex min-h-11 items-center gap-2/,
   "CLIENT Profile back navigation must keep a 44px touch target",
@@ -300,7 +315,8 @@ assert.match(backupCodesSource, /role="status"/);
 assert.match(backupCodesSource, /w-full[^\"]*sm:w-auto/);
 assert.match(notificationReadSource, /aria-busy=\{pending\}/);
 assert.match(notificationReadSource, /flex min-w-0 flex-wrap/);
-assert.match(notificationReadSource, /inline-flex min-h-11 max-w-full items-center justify-center/);
+assert.match(notificationReadSource, /inline-flex min-h-11 w-full max-w-full items-center justify-center/);
+assert.match(notificationReadSource, /sm:w-auto/);
 assert.match(notificationReadSource, /role="alert"/);
 assert.match(notificationReadSource, /min-w-0 break-words text-xs/);
 assert.doesNotMatch(securitySource, /Account security|определяются только сервером|TOTP/);
