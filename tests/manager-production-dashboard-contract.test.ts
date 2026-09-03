@@ -50,6 +50,41 @@ assert.match(
 );
 assert.match(
   dashboardSource,
+  /const clientIds = \[\.\.\.new Set\(operationalCases\.map\(\(clientCase\) => clientCase\.clientId\)\)\]/,
+  "active-client KPI must have a unique-client source derived from authorized operational cases",
+);
+assert.match(
+  dashboardSource,
+  /<Metric label="Активные клиенты" value=\{clientIds\.length\} \/>/,
+  "active-client KPI must count unique clients rather than cases",
+);
+assert.match(
+  dashboardSource,
+  /label=\{`Дела · \$\{planPill\(plan\)\}`\}/,
+  "plan KPI labels must state that their values count cases",
+);
+assert.match(
+  dashboardSource,
+  /<Metric label="Юристы" value=\{staff\.length\} \/>/,
+  "LAWYER-only staff query must be labeled as lawyers",
+);
+assert.match(
+  dashboardSource,
+  /<Metric label="Дела с открытыми задачами" value=\{attentionCases\.length\} \/>/,
+  "attention-case KPI must describe its actual open-task condition",
+);
+assert.match(
+  dashboardSource,
+  /<ManagerNavLink href="#clients" label="Клиенты и дела" icon=\{BriefcaseBusiness\} \/>/,
+  "desktop MANAGER navigation must expose a single combined clients/cases anchor",
+);
+assert.doesNotMatch(
+  dashboardSource,
+  /<ManagerNavLink href="#clients" label="Клиенты"[\s\S]*<ManagerNavLink href="#clients" label="Дела"/,
+  "desktop MANAGER navigation must not duplicate the same clients anchor",
+);
+assert.match(
+  dashboardSource,
   /clientCaseId: \{ in: caseIds \}/,
   "task enrichment must stay scoped to authorized case ids",
 );

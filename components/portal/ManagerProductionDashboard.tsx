@@ -167,9 +167,8 @@ export async function ManagerProductionDashboard({
         </Link>
         <nav className="grid gap-1 text-sm" aria-label="Навигация руководителя">
           <ManagerNavLink href="/portal" label="Рабочий стол" icon={House} active />
-          <ManagerNavLink href="#clients" label="Клиенты" icon={UsersRound} />
+          <ManagerNavLink href="#clients" label="Клиенты и дела" icon={BriefcaseBusiness} />
           <ManagerNavLink href="#team" label="Команда" icon={UsersRound} />
-          <ManagerNavLink href="#clients" label="Дела" icon={BriefcaseBusiness} />
           <ManagerNavLink href="/portal/tasks" label="Задачи" icon={ListTodo} />
           <ManagerNavLink
             href="/portal/leads"
@@ -212,16 +211,16 @@ export async function ManagerProductionDashboard({
             className="mt-8 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7"
             aria-label="Ключевые показатели"
           >
-            <Metric label="Активные клиенты" value={operationalCases.length} />
+            <Metric label="Активные клиенты" value={clientIds.length} />
             {PLAN_CODES.map((plan) => (
               <Metric
                 key={plan}
-                label={plan}
+                label={`Дела · ${planPill(plan)}`}
                 value={operationalCases.filter((item) => item.planCode === plan).length}
               />
             ))}
-            <Metric label="Сотрудники" value={staff.length} />
-            <Metric label="Требуют внимания" value={attentionCases.length} />
+            <Metric label="Юристы" value={staff.length} />
+            <Metric label="Дела с открытыми задачами" value={attentionCases.length} />
             <Metric label="Просроченные задачи" value={overdueTasks.length} />
           </section>
 
