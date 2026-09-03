@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
+import { AuthInteractionStyles } from "@/components/platform/auth/AuthInteractionStyles";
 
 const iburoSans = Manrope({
   variable: "--font-iburo-sans",
@@ -23,8 +24,9 @@ export const metadata: Metadata = {
 export default function AuthLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <main
-      className={`${iburoSans.variable} ${iburoDisplay.variable} min-h-screen bg-[#f5f3ef] font-[var(--font-iburo-sans)] text-[#17202a]`}
+      className={`${iburoSans.variable} ${iburoDisplay.variable} auth-interaction-shell min-h-screen bg-[#f5f3ef] font-[var(--font-iburo-sans)] text-[#17202a]`}
     >
+      <AuthInteractionStyles />
       {children}
     </main>
   );
