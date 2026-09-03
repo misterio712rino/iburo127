@@ -1,6 +1,7 @@
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { readBoundedJsonBody } from "@/server/http/bounded-json-body";
+import { privateJsonResponse } from "@/server/http/private-json";
 import {
   ACCOUNT_AVATAR_INVALID_INPUT,
   createCurrentAccountAvatarUpload,
@@ -14,17 +15,18 @@ export async function POST(request: Request) {
     : {};
 
   try {
-    const result = await createCurrentAccountAvatarUpload(createProductionSessionProvider(), {
-      mimeType: body.mimeType,
-      sizeBytes: body.sizeBytes,
-    });
-    return Response.json(result, { headers: { "Cache-Control": "private, no-store" } });
+    return privateJsonResponse(
+      await createCurrentAccountAvatarUpload(createProductionSessionProvider(), {
+        mimeType: body.mimeType,
+        sizeBytes: body.sizeBytes,
+      }),
+    );
   } catch (error) {
     if (error instanceof Error && error.message === UNAUTHENTICATED) {
-      return Response.json({ code: UNAUTHENTICATED }, { status: 401 });
+      return privateJsonResponse({ code: UNAUTHENTICATED }, 401);
     }
     if (error instanceof Error && error.message === ACCOUNT_AVATAR_INVALID_INPUT) {
-      return Response.json({ code: ACCOUNT_AVATAR_INVALID_INPUT }, { status: 400 });
+      return privateJsonResponse({ code: ACCOUNT_AVATAR_INVALID_INPUT }, 400);
     }
     throw error;
   }

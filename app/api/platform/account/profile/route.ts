@@ -1,6 +1,7 @@
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { readBoundedJsonBody } from "@/server/http/bounded-json-body";
+import { privateJsonResponse } from "@/server/http/private-json";
 import {
   ACCOUNT_PROFILE_INVALID_DISPLAY_NAME,
   updateCurrentAccountDisplayName,
@@ -14,14 +15,15 @@ export async function PATCH(request: Request) {
     : undefined;
 
   try {
-    const result = await updateCurrentAccountDisplayName(createProductionSessionProvider(), displayName);
-    return Response.json(result, { headers: { "Cache-Control": "private, no-store" } });
+    return privateJsonResponse(
+      await updateCurrentAccountDisplayName(createProductionSessionProvider(), displayName),
+    );
   } catch (error) {
     if (error instanceof Error && error.message === UNAUTHENTICATED) {
-      return Response.json({ code: UNAUTHENTICATED }, { status: 401 });
+      return privateJsonResponse({ code: UNAUTHENTICATED }, 401);
     }
     if (error instanceof Error && error.message === ACCOUNT_PROFILE_INVALID_DISPLAY_NAME) {
-      return Response.json({ code: ACCOUNT_PROFILE_INVALID_DISPLAY_NAME }, { status: 400 });
+      return privateJsonResponse({ code: ACCOUNT_PROFILE_INVALID_DISPLAY_NAME }, 400);
     }
     throw error;
   }

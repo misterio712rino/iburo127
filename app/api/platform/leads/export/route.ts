@@ -1,6 +1,7 @@
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { getCurrentPlatformActor } from "@/server/client-cases/operations";
+import { privateJsonResponse, privateResponse } from "@/server/http/private-json";
 import { listPotentialClientLeadsForManager } from "@/server/prospect-leads/operations";
 
 const STATUS_LABELS = {
@@ -19,7 +20,7 @@ export async function GET() {
   try {
     const actor = await getCurrentPlatformActor(sessionProvider);
     if (!actor.roles.includes("MANAGER")) {
-      return Response.json({ code: "FORBIDDEN" }, { status: 403 });
+      return privateJsonResponse({ code: "FORBIDDEN" }, 403);
     }
 
     const leads = await listPotentialClientLeadsForManager(sessionProvider);
@@ -37,17 +38,15 @@ export async function GET() {
     const csv = `\uFEFF${rows.map((row) => row.map(csvCell).join(";")).join("\r\n")}`;
     const date = new Date().toISOString().slice(0, 10);
 
-    return new Response(csv, {
+    return privateResponse(csv, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
         "Content-Disposition": `attachment; filename="iburo-potential-clients-${date}.csv"`,
-        "Cache-Control": "private, no-store",
-        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch (error) {
     if (error instanceof Error && error.message === UNAUTHENTICATED) {
-      return Response.json({ code: UNAUTHENTICATED }, { status: 401 });
+      return privateJsonResponse({ code: UNAUTHENTICATED }, 401);
     }
     throw error;
   }
