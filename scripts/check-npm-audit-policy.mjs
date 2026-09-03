@@ -8,11 +8,13 @@ if (!auditPath || !lockPath) {
 
 let report;
 let lockfile;
+let manifest;
 try {
   report = JSON.parse(await readFile(auditPath, "utf8"));
   lockfile = JSON.parse(await readFile(lockPath, "utf8"));
+  manifest = JSON.parse(await readFile("package.json", "utf8"));
 } catch {
-  console.error("DEPENDENCY_AUDIT_POLICY_FAIL: unreadable audit report or lockfile");
+  console.error("DEPENDENCY_AUDIT_POLICY_FAIL: unreadable audit report, lockfile, or package manifest");
   process.exit(1);
 }
 
@@ -48,8 +50,8 @@ if (root?.devDependencies?.["prisma-cli"] !== "npm:prisma@7.9.1") {
   console.error("DEPENDENCY_AUDIT_POLICY_FAIL: Prisma CLI alias changed");
   process.exit(1);
 }
-if (root?.overrides?.mysql2 !== "3.24.3") {
-  console.error("DEPENDENCY_AUDIT_POLICY_FAIL: patched mysql2 root override changed or is missing");
+if (manifest?.overrides?.mysql2 !== "3.24.3") {
+  console.error("DEPENDENCY_AUDIT_POLICY_FAIL: patched mysql2 package override changed or is missing");
   process.exit(1);
 }
 for (const runtimeGroup of ["dependencies", "optionalDependencies"]) {
