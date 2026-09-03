@@ -27,16 +27,14 @@ if (!vulnerabilities || typeof vulnerabilities !== "object" || Array.isArray(vul
   process.exit(1);
 }
 
-// Reviewed upstream residuals are accepted only at this exact Prisma CLI layout.
-// mysql2 GHSA-3f6p-5ww8-9rcr is not a runtime dependency of this PostgreSQL app:
-// Prisma CLI 7.9.1 pins mysql2 3.15.3 for development tooling. npm currently offers
-// only a forced breaking Prisma downgrade as an audit fix, so the policy fails closed
-// if the alias, versions, dev-only placement, or vulnerable-package set changes.
+// Prisma CLI 7.9.1 still carries reviewed upstream HIGH findings through
+// @prisma/config/deepmerge-ts. Its historical mysql2 3.15.3 pin is overridden
+// to the reviewed patched mysql2 3.24.3 release, so mysql2 must not appear in
+// the vulnerability set. Any package, version, severity or layout drift fails closed.
 const allowedResidual = new Map([
   ["prisma", { version: "7.9.1", severity: "high" }],
   ["@prisma/config", { version: "7.9.1", severity: "high" }],
   ["deepmerge-ts", { version: "7.1.5", severity: "high" }],
-  ["mysql2", { version: "3.15.3", severity: "high" }],
 ]);
 
 const root = lockfile?.packages?.[""];
@@ -61,11 +59,11 @@ if (prismaCli.name !== "prisma" || prismaCli.version !== "7.9.1" || prismaCli.de
   process.exit(1);
 }
 if (prismaCli.dependencies?.mysql2 !== "3.15.3") {
-  console.error("DEPENDENCY_AUDIT_POLICY_FAIL: Prisma CLI mysql2 pin changed");
+  console.error("DEPENDENCY_AUDIT_POLICY_FAIL: upstream Prisma CLI mysql2 pin changed; review override assumptions");
   process.exit(1);
 }
-if (mysql2.version !== "3.15.3" || (mysql2.dev !== true && mysql2.devOptional !== true)) {
-  console.error("DEPENDENCY_AUDIT_POLICY_FAIL: mysql2 is no longer the reviewed dev-only 3.15.3 package");
+if (mysql2.version !== "3.24.3" || (mysql2.dev !== true && mysql2.devOptional !== true)) {
+  console.error("DEPENDENCY_AUDIT_POLICY_FAIL: mysql2 is not the reviewed patched 3.24.3 package");
   process.exit(1);
 }
 
@@ -123,5 +121,5 @@ if (
 }
 
 console.log(
-  "DEPENDENCY_AUDIT_POLICY_PASS: 4 reviewed Prisma CLI upstream residual findings; mysql2 remains dev-only and production isolation is required; no unreviewed findings",
+  "DEPENDENCY_AUDIT_POLICY_PASS: 3 reviewed Prisma CLI upstream residual findings; mysql2 is pinned to patched 3.24.3; no unreviewed findings",
 );

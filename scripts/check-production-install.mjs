@@ -19,7 +19,10 @@ const forbiddenReviewedResidualPackages = new Set([
   "prisma",
   "@prisma/config",
   "deepmerge-ts",
-  "mysql2",
+]);
+
+const approvedPatchedResidualPackages = new Map([
+  ["mysql2", "3.24.3"],
 ]);
 
 const installed = new Map();
@@ -91,6 +94,17 @@ for (const name of forbiddenReviewedResidualPackages) {
   }
 }
 
+for (const [name, approvedVersion] of approvedPatchedResidualPackages) {
+  const versions = installed.get(name);
+  if (!versions) continue;
+  if (versions.size !== 1 || !versions.has(approvedVersion)) {
+    console.error(
+      `PRODUCTION_DEPENDENCY_GRAPH_FAIL: unapproved ${name} version in production install: ${[...versions].sort().join(",")}`,
+    );
+    process.exit(1);
+  }
+}
+
 console.log(
-  `PRODUCTION_DEPENDENCY_GRAPH_PASS: ${installed.size} package name(s) inspected; reviewed Prisma CLI residual absent from isolated production install`,
+  `PRODUCTION_DEPENDENCY_GRAPH_PASS: ${installed.size} package name(s) inspected; Prisma CLI/config residual absent and mysql2 is absent or pinned to approved patched version`,
 );

@@ -91,6 +91,7 @@
     "prisma-cli": "npm:prisma@7.9.1"
   },
   "overrides": {
-    "qs": "6.16.0"
+    "qs": "6.16.0",
+    "mysql2": "3.24.3"
   }
 }
