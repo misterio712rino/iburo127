@@ -43,9 +43,9 @@ export function ProfileAvatarEditor({ avatarUrl }: AvatarProps) {
   }
 
   return (
-    <div className="shrink-0">
+    <div className="w-fit shrink-0 rounded-[26px] border border-slate-100 bg-slate-50/65 p-3 sm:p-4">
       <div className="flex flex-col items-start gap-3 sm:items-center">
-        <div className="relative grid size-24 overflow-hidden rounded-full border-4 border-white bg-[#f0eeea] text-[#b9202b] shadow-[0_8px_20px_rgba(23,32,42,0.12)] lg:size-28">
+        <div className="relative grid size-24 overflow-hidden rounded-full border-4 border-white bg-[#f0eeea] text-[#b9202b] shadow-[0_8px_20px_rgba(23,32,42,0.12)] sm:size-28 lg:size-32">
           {showAvatar ? (
             // The browser reads the avatar only from the authenticated same-origin proxy.
             // eslint-disable-next-line @next/next/no-img-element
@@ -80,7 +80,7 @@ export function ProfileAvatarEditor({ avatarUrl }: AvatarProps) {
           onClick={() => inputRef.current?.click()}
           disabled={pending}
           aria-busy={pending}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           <Camera className="size-4" aria-hidden="true" />
           {pending ? "Загрузка…" : avatarUrl ? "Изменить фото" : "Добавить фото"}
@@ -129,7 +129,7 @@ export function ProfileDisplayNameEditor({ displayName }: NameProps) {
           setEditing(true);
           setStatus(null);
         }}
-        className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330] focus-visible:ring-offset-2"
+        className="mt-3 inline-flex min-h-11 max-w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330] focus-visible:ring-offset-2"
       >
         <Pencil className="size-4" aria-hidden="true" />
         Изменить имя
@@ -138,7 +138,7 @@ export function ProfileDisplayNameEditor({ displayName }: NameProps) {
   }
 
   return (
-    <div className="mt-3 min-w-0 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+    <div className="mt-3 min-w-0 max-w-xl rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
       <label htmlFor="profile-display-name" className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Имя в профиле</label>
       <input
         id="profile-display-name"

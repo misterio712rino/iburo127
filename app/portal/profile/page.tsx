@@ -57,27 +57,34 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
   const backHref = selectedClientCase ? `/portal/cases/${selectedClientCase.id}` : "/portal";
   const securityHref = selectedClientCase ? `/portal/security?caseId=${selectedClientCase.id}` : "/portal/security";
   const displayName = profile.displayName?.trim() || "Пользователь iБюро";
+  const profileLabel = isStaff ? "Профиль сотрудника" : "Личный кабинет";
+  const profileDescription = isStaff
+    ? "Рабочие данные и настройки доступа к защищённому кабинету."
+    : "Данные учётной записи и настройки защищённого кабинета.";
 
   const content = (
-    <div className={`client-account-surface ${selectedClientCase ? "py-1 sm:py-2" : "py-12 sm:py-16"}`}>
+    <div className={`client-account-surface ${selectedClientCase ? "py-1 sm:py-2" : "py-8 sm:py-10 lg:py-12"}`}>
       <Link href={backHref} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900 lg:gap-2.5 lg:text-base">
         <ArrowLeft className="size-4 lg:size-[18px]" aria-hidden="true" />
         В личный кабинет
       </Link>
 
-      <section className="mt-7 grid gap-6 lg:grid-cols-[1.2fr_.8fr]">
-        <article className="min-w-0 rounded-[32px] border border-white/80 bg-white/85 p-6 shadow-[0_18px_55px_rgba(75,57,43,0.07)] sm:p-7 lg:p-9">
-          <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-start">
+      <section className="mt-6 grid min-w-0 gap-5 lg:mt-7 lg:grid-cols-[minmax(0,1.18fr)_minmax(20rem,.82fr)] lg:gap-6">
+        <article className="min-w-0 rounded-[30px] border border-white/80 bg-white/85 p-5 shadow-[0_18px_55px_rgba(75,57,43,0.07)] sm:p-7 lg:p-8">
+          <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-start sm:gap-6">
             <ProfileAvatarEditor avatarUrl={avatarUrl} />
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 lg:text-[13px]">Учётная запись</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 lg:text-[13px]">{profileLabel}</p>
               <h1 className="mt-2 break-words font-[var(--font-iburo-display)] text-4xl font-semibold text-slate-900 sm:text-5xl lg:text-6xl">
                 {displayName}
               </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500 lg:text-base lg:leading-7">
+                {profileDescription}
+              </p>
               <ProfileDisplayNameEditor displayName={displayName} />
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap gap-2" aria-label="Роли учётной записи">
                 {profile.roles.map((role) => (
-                  <span key={role} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600 lg:px-3.5 lg:py-2 lg:text-[13px]">
+                  <span key={role} className="inline-flex min-h-7 items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600 lg:px-3.5 lg:py-1.5 lg:text-[13px]">
                     {ROLE_LABELS[role]}
                   </span>
                 ))}
@@ -85,18 +92,24 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
             </div>
           </div>
 
-          <dl className="mt-8 grid gap-4 border-t border-slate-100 pt-6 lg:mt-9 lg:pt-7 sm:grid-cols-2">
+          <section className="mt-7 border-t border-slate-100 pt-6 lg:mt-8 lg:pt-7" aria-labelledby="profile-contact-heading">
+            <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+              <h2 id="profile-contact-heading" className="text-lg font-bold text-slate-900">Контактные данные</h2>
+              <p className="text-sm text-slate-400">Данные из учётной записи</p>
+            </div>
+            <dl className="mt-4 grid gap-3 sm:grid-cols-2">
             <ProfileField icon={Mail} label="Email" value={profile.email || "Не указан"} />
             <ProfileField icon={Phone} label="Телефон" value={profile.phone || "Не указан"} />
-          </dl>
+            </dl>
+          </section>
 
-          <p className="mt-7 text-xs leading-5 text-slate-400 lg:text-sm lg:leading-6">
+          <p className="mt-6 text-xs leading-5 text-slate-400 lg:text-sm lg:leading-6">
             Учётная запись создана {profile.createdAt.toLocaleDateString("ru-RU")}. Имя и фотографию можно менять прямо в профиле; контактные данные отображаются из учётной записи iБюро.
           </p>
         </article>
 
-        <div className="grid min-w-0 gap-5 lg:gap-6">
-          <article className="min-w-0 rounded-[28px] border border-white/80 bg-white/85 p-6 shadow-[0_14px_45px_rgba(75,57,43,0.06)] lg:p-7">
+        <aside className="grid min-w-0 content-start gap-5 lg:gap-6" aria-label="Сводка учётной записи">
+          <article className="min-w-0 rounded-[28px] border border-white/80 bg-white/85 p-5 shadow-[0_14px_45px_rgba(75,57,43,0.06)] sm:p-6 lg:p-7">
             <div className="flex min-w-0 items-center gap-3 lg:gap-3.5">
               <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#f0eeea] text-[#b9202b] lg:size-12"><BriefcaseBusiness className="size-5 lg:size-[22px]" aria-hidden="true" /></span>
               <div className="min-w-0">
@@ -104,13 +117,13 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
                 <p className="mt-0.5 break-words text-sm text-slate-500 lg:text-base">Только дела, доступные вашей учётной записи.</p>
               </div>
             </div>
-            <dl className="mt-6 grid grid-cols-3 gap-3 lg:mt-7 lg:gap-3.5">
+            <dl className="mt-5 grid grid-cols-3 gap-2.5 lg:mt-6 lg:gap-3">
               <Metric label="Всего" value={cases.length} />
               <Metric label="Активных" value={activeCases} />
               <Metric label="Завершено" value={completedCases} />
             </dl>
             {cases.length ? (
-              <div className="mt-6 space-y-2.5 border-t border-slate-100 pt-6">
+              <div className="mt-5 space-y-2 border-t border-slate-100 pt-5">
                 {cases.slice(0, 3).map((item) => (
                   <Link key={item.id} href={`/portal/cases/${item.id}`} className="flex min-h-[52px] min-w-0 items-center justify-between gap-3 rounded-2xl border border-slate-100 px-4 py-3 text-sm transition hover:border-slate-200 hover:bg-slate-50 lg:text-base">
                     <span className="min-w-0 break-all font-mono text-xs font-semibold text-slate-600 lg:text-[13px]">{item.caseNumber}</span>
@@ -121,7 +134,7 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
             ) : null}
           </article>
 
-          <article className="min-w-0 rounded-[28px] border border-white/80 bg-white/85 p-6 shadow-[0_14px_45px_rgba(75,57,43,0.06)] lg:p-7">
+          <article className="min-w-0 rounded-[28px] border border-white/80 bg-white/85 p-5 shadow-[0_14px_45px_rgba(75,57,43,0.06)] sm:p-6 lg:p-7">
             <div className="flex min-w-0 items-center gap-3 lg:gap-3.5">
               <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#f0eeea] text-[#b9202b] lg:size-12"><KeyRound className="size-5 lg:size-[22px]" aria-hidden="true" /></span>
               <div className="min-w-0">
@@ -129,11 +142,11 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
                 <p className="mt-0.5 break-words text-sm text-slate-500 lg:text-base">Пароль, двухфакторная защита и резервные коды.</p>
               </div>
             </div>
-            <Link href={securityHref} className="mt-5 inline-flex min-h-11 max-w-full items-center break-words rounded-xl bg-[#17202a] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#263342] lg:px-5 lg:py-3 lg:text-base">
+            <Link href={securityHref} className="mt-5 inline-flex min-h-11 max-w-full items-center break-words rounded-xl bg-[#17202a] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#263342] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#8f1720]/15 lg:px-5 lg:py-3 lg:text-base">
               Открыть настройки безопасности
             </Link>
           </article>
-        </div>
+        </aside>
       </section>
     </div>
   );
