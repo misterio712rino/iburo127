@@ -1,6 +1,11 @@
 export function ClientAccountVisualStyles() {
   return (
     <style>{`
+      .client-case-shell .client-user-chip:focus-visible {
+        outline:2px solid var(--ib-accent);
+        outline-offset:3px;
+      }
+
       .client-case-shell .client-account-surface [class~="bg-white"],
       .client-case-shell .client-account-surface [class~="bg-white/85"],
       .client-case-shell .client-account-surface [class~="bg-white/90"] {

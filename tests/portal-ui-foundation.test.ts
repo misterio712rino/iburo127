@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 await import("./mobile-critical-portal-contract.test");
 await import("./auth-touch-target-contract.test");
 await import("./client-case-switcher-contract.test");
+await import("./client-interaction-accessibility-contract.test");
 await import("./lawyer-interaction-accessibility-contract.test");
 await import("./questionnaire-accessibility-contract.test");
 
