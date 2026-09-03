@@ -1,16 +1,23 @@
 import { redirect } from "next/navigation";
 import { KeyRound, ShieldCheck } from "lucide-react";
+import { BackupCodesRegenerator } from "@/components/platform/auth/BackupCodesRegenerator";
+import { MfaEnrollmentForm } from "@/components/platform/auth/MfaEnrollmentForm";
 import { ClientCaseFrame, type ClientCaseOption } from "@/components/portal/ClientCaseFrame";
+import { ClientPlanVisualStyles } from "@/components/portal/ClientPlanVisualStyles";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import { getPlanDisplayLabel } from "@/lib/platform/case-progress";
+import type { PlanCode } from "@/lib/platform/types";
 import { getCurrentAccountProfile } from "@/server/account/operations";
 import { createProductionSessionProvider, resolveProductionAccountSecurityState } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { listAccessibleClientCases } from "@/server/client-cases/operations";
-import { BackupCodesRegenerator } from "@/components/platform/auth/BackupCodesRegenerator";
-import { MfaEnrollmentForm } from "@/components/platform/auth/MfaEnrollmentForm";
 
 export const dynamic = "force-dynamic";
+
+function requirePlanCode(value: string): PlanCode {
+  if (value === "LITE" || value === "PRO" || value === "INDIVIDUAL") return value;
+  throw new Error("UNSUPPORTED_CLIENT_PLAN");
+}
 
 export default async function AccountSecurityPage({ searchParams }: { searchParams: Promise<{ caseId?: string }> }) {
   const state = await resolveProductionAccountSecurityState();
@@ -39,7 +46,7 @@ export default async function AccountSecurityPage({ searchParams }: { searchPara
   const completionHref = selectedClientCase ? `/portal/security?caseId=${selectedClientCase.id}` : "/portal/security";
 
   const content = (
-    <>
+    <div className="client-account-surface">
       <section className={selectedClientCase ? "py-1 sm:py-2" : "py-10 sm:py-14"}>
         <div className="min-w-0 max-w-3xl">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#7B2330]">Безопасность</p>
@@ -90,7 +97,7 @@ export default async function AccountSecurityPage({ searchParams }: { searchPara
           )}
         </article>
       </section>
-    </>
+    </div>
   );
 
   if (selectedClientCase) {
@@ -99,16 +106,20 @@ export default async function AccountSecurityPage({ searchParams }: { searchPara
       caseNumber: item.caseNumber,
       planLabel: getPlanDisplayLabel(item.planCode, "CLIENT"),
     }));
+    const planCode = requirePlanCode(selectedClientCase.planCode);
     return (
-      <ClientCaseFrame
-        caseId={selectedClientCase.id}
-        caseNumber={selectedClientCase.caseNumber}
-        displayName={profile.displayName?.trim() || "Клиент iБюро"}
-        planLabel={getPlanDisplayLabel(selectedClientCase.planCode, "CLIENT")}
-        cases={caseOptions}
-      >
-        {content}
-      </ClientCaseFrame>
+      <>
+        <ClientPlanVisualStyles planCode={planCode} />
+        <ClientCaseFrame
+          caseId={selectedClientCase.id}
+          caseNumber={selectedClientCase.caseNumber}
+          displayName={profile.displayName?.trim() || "Клиент iБюро"}
+          planLabel={getPlanDisplayLabel(selectedClientCase.planCode, "CLIENT")}
+          cases={caseOptions}
+        >
+          {content}
+        </ClientCaseFrame>
+      </>
     );
   }
 
