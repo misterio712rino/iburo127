@@ -19,6 +19,7 @@ const forbiddenReviewedResidualPackages = new Set([
   "prisma",
   "@prisma/config",
   "deepmerge-ts",
+  "mysql2",
 ]);
 
 const installed = new Map();
