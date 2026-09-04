@@ -151,7 +151,7 @@ resource "yandex_compute_instance" "scanner" {
   metadata = merge(
     {
       "serial-port-enable" = "0"
-      "user-data"          = templatefile("${path.module}/cloud-init.yaml.tftpl", {
+      "user-data" = templatefile("${path.module}/cloud-init.yaml.tftpl", {
         scanner_image        = var.scanner_image
         scanner_image_digest = var.scanner_image_digest
       })
