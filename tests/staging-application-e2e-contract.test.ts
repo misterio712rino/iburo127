@@ -256,10 +256,40 @@ assert.doesNotMatch(
 );
 
 const workflowSource = await readFile(resolve(".github/workflows/staging-application-e2e.yml"), "utf8");
-assert.match(workflowSource, /IB_STAGING_OTHER_CLIENT_EMAIL:\s*\$\{\{ secrets\.IB_STAGING_OTHER_CLIENT_EMAIL \}\}/);
-assert.match(workflowSource, /IB_STAGING_OTHER_CLIENT_PASSWORD:\s*\$\{\{ secrets\.IB_STAGING_OTHER_CLIENT_PASSWORD \}\}/);
-assert.match(workflowSource, /IB_STAGING_FILES_E2E: "0"/);
+const fixtureResetSource = await readFile(
+  resolve("app/%5Fiburo/staging-application-e2e-fixtures/route.ts"),
+  "utf8",
+);
+assert.match(workflowSource, /IB_STAGING_OTHER_CLIENT_EMAIL:\s*client\.lite@example\.test/);
+assert.match(workflowSource, /IB_STAGING_OTHER_CLIENT_PASSWORD:\s*\$\{\{ secrets\.IB_STAGING_CLIENT_PASSWORD \}\}/);
+assert.doesNotMatch(workflowSource, /secrets\.IB_STAGING_OTHER_CLIENT_(?:EMAIL|PASSWORD)/);
+assert.match(workflowSource, /IB_STAGING_FILES_E2E: "1"/);
 assert.match(workflowSource, /IB_STAGING_FILE_SCAN_E2E: "0"/);
+assert.match(
+  workflowSource,
+  /IB_STAGING_PRIVATE_BUCKET_CONFIRM:\s*PRIVATE_STAGING_BUCKET:iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects\.vercel\.app/,
+);
+
+assert.match(fixtureResetSource, /const FILES_E2E_FIXTURE_NAME = "iburo-staging-e2e\.pdf"/);
+assert.match(fixtureResetSource, /const MAX_FILES_E2E_FIXTURES = 4/);
+assert.match(fixtureResetSource, /const filesE2eEnabled = env\.IB_STAGING_FILES_E2E\?\.trim\(\) === "1"/);
+assert.match(fixtureResetSource, /isPrivateStagingBucketConfirmed\(request, env\)/);
+assert.match(fixtureResetSource, /PRIVATE_STAGING_BUCKET:\$\{new URL\(request\.url\)\.host\}/);
+assert.match(fixtureResetSource, /getPrivateObjectStorage/);
+assert.match(fixtureResetSource, /clientCaseId: input\.clientCaseId/);
+assert.match(fixtureResetSource, /uploadedById: input\.clientId/);
+assert.match(fixtureResetSource, /fileName: FILES_E2E_FIXTURE_NAME/);
+assert.match(fixtureResetSource, /mimeType: FILES_E2E_FIXTURE_MIME_TYPE/);
+assert.match(fixtureResetSource, /objectKeyPrefix = `cases\/\$\{input\.clientCaseId\}\//);
+assert.match(fixtureResetSource, /await storage\.statObject\(file\.objectKey\)/);
+assert.match(fixtureResetSource, /await storage\.deleteObject\(file\.objectKey\)/);
+assert.match(fixtureResetSource, /if \(deleted\.count !== 1\)/);
+assert.match(fixtureResetSource, /failureStage = "fixture-cleanup"/);
+assert.doesNotMatch(
+  fixtureResetSource,
+  /storedFile\.deleteMany\(\s*\{\s*\}\s*\)/,
+  "files E2E reset must never perform a broad StoredFile delete",
+);
 
 for (const forbidden of [
   "db:deploy:staging",

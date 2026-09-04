@@ -9,6 +9,7 @@ import {
   readTrustedAccessGateClientIp,
 } from "@/server/auth/access-gate-rate-limit";
 import { readBetterAuthRuntimeConfig } from "@/server/config/production";
+import { getPrivateObjectStorage } from "@/server/files/object-storage-runtime";
 import {
   VERCEL_STAGING_BRANCH,
   isVercelPreviewBackendAllowed,
@@ -28,6 +29,9 @@ const MANAGER_EMAIL = "manager.demo@example.test";
 const PLAN_CODE = "INDIVIDUAL";
 const STAGE_CODE = "DOCUMENT_PREPARATION";
 const DOCUMENT_CODE = "property-inventory";
+const FILES_E2E_FIXTURE_NAME = "iburo-staging-e2e.pdf";
+const FILES_E2E_FIXTURE_MIME_TYPE = "application/pdf";
+const MAX_FILES_E2E_FIXTURES = 4;
 const OPENED_AT = new Date("2026-09-01T00:00:00.000Z");
 
 type FailureStage =
@@ -39,6 +43,7 @@ type FailureStage =
   | "connect"
   | "lock"
   | "identity"
+  | "fixture-cleanup"
   | "fixture";
 
 const NO_STORE_HEADERS = {
@@ -101,6 +106,13 @@ function newPrisma(databaseUrl: string) {
 
 function isDemoSeedConfigured(env: NodeJS.ProcessEnv, databaseName: string): boolean {
   return env.IB_STAGING_DEMO_SEED_CONFIRM?.trim() === `DEMO-SEED:${databaseName}`;
+}
+
+function isPrivateStagingBucketConfirmed(request: Request, env: NodeJS.ProcessEnv): boolean {
+  return (
+    env.IB_STAGING_PRIVATE_BUCKET_CONFIRM?.trim() ===
+    `PRIVATE_STAGING_BUCKET:${new URL(request.url).host}`
+  );
 }
 
 function buildAccessGateRateLimitKeys(
@@ -233,6 +245,77 @@ async function inspectDependencies(prisma: PrismaClient) {
   };
 }
 
+/**
+ * Removes only uploads created by the guarded files E2E fixture. The fixture
+ * name is intentionally unique, and every candidate is additionally bound to
+ * the dedicated mutation case, its primary CLIENT owner, and that case's
+ * generated object-key namespace. Storage is removed before the row, so this
+ * route never reports a successful reset while a private object remains.
+ */
+async function cleanupFilesE2eFixtures(
+  prisma: PrismaClient,
+  input: { clientCaseId: string; clientId: string },
+): Promise<number> {
+  const files = await prisma.storedFile.findMany({
+    where: {
+      clientCaseId: input.clientCaseId,
+      uploadedById: input.clientId,
+      fileName: FILES_E2E_FIXTURE_NAME,
+      mimeType: FILES_E2E_FIXTURE_MIME_TYPE,
+    },
+    select: {
+      id: true,
+      clientCaseId: true,
+      uploadedById: true,
+      storageProvider: true,
+      objectKey: true,
+      fileName: true,
+      mimeType: true,
+    },
+    orderBy: { createdAt: "asc" },
+    take: MAX_FILES_E2E_FIXTURES + 1,
+  });
+
+  if (files.length > MAX_FILES_E2E_FIXTURES) {
+    throw new Error("too many guarded files E2E fixtures");
+  }
+  if (files.length === 0) return 0;
+
+  const storage = getPrivateObjectStorage();
+  const objectKeyPrefix = `cases/${input.clientCaseId}/`;
+
+  for (const file of files) {
+    if (
+      file.storageProvider !== storage.providerCode ||
+      !file.objectKey.startsWith(objectKeyPrefix)
+    ) {
+      throw new Error("guarded files E2E fixture storage identity mismatch");
+    }
+
+    // Check first so an earlier partial reset (object gone, row present) can
+    // be retried safely without broad storage deletion.
+    if (await storage.statObject(file.objectKey)) {
+      await storage.deleteObject(file.objectKey);
+    }
+
+    const deleted = await prisma.storedFile.deleteMany({
+      where: {
+        id: file.id,
+        clientCaseId: input.clientCaseId,
+        uploadedById: input.clientId,
+        objectKey: file.objectKey,
+        fileName: FILES_E2E_FIXTURE_NAME,
+        mimeType: FILES_E2E_FIXTURE_MIME_TYPE,
+      },
+    });
+    if (deleted.count !== 1) {
+      throw new Error("guarded files E2E fixture database cleanup failed");
+    }
+  }
+
+  return files.length;
+}
+
 export async function GET() {
   const env = process.env;
   if (!isExactStagingPreview(env)) return fail("preview-boundary", 404);
@@ -284,6 +367,11 @@ export async function POST(request: Request) {
   }
 
   if (!isDemoSeedConfigured(env, target.expectedDatabaseName)) {
+    return fail("configuration");
+  }
+
+  const filesE2eEnabled = env.IB_STAGING_FILES_E2E?.trim() === "1";
+  if (filesE2eEnabled && !isPrivateStagingBucketConfirmed(request, env)) {
     return fail("configuration");
   }
 
@@ -344,6 +432,23 @@ export async function POST(request: Request) {
     ) {
       throw new Error("staging database identity mismatch");
     }
+
+    failureStage = "fixture-cleanup";
+    const cleanupClient = await prisma.user.findUnique({
+      where: { email: CLIENT_EMAIL },
+      select: { id: true },
+    });
+    const cleanupCase = await prisma.clientCase.findUnique({
+      where: { caseNumber: MUTATION_CASE_NUMBER },
+      select: { id: true, clientId: true },
+    });
+    const filesDeleted =
+      filesE2eEnabled && cleanupClient && cleanupCase && cleanupCase.clientId === cleanupClient.id
+        ? await cleanupFilesE2eFixtures(prisma, {
+            clientCaseId: cleanupCase.id,
+            clientId: cleanupClient.id,
+          })
+        : 0;
 
     failureStage = "fixture";
     const reset = await prisma.$transaction(
@@ -510,6 +615,7 @@ export async function POST(request: Request) {
         practicumDeleted: reset.practicumDeleted,
         documentsDeleted: reset.documentsDeleted,
         taskEventsDeleted: reset.taskEventsDeleted,
+        filesDeleted,
       },
       pass: true,
     });
