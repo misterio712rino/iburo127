@@ -12,6 +12,12 @@ const checkoutSha = "3d3c42e5aac5ba805825da76410c181273ba90b1";
 const setupNodeSha = "820762786026740c76f36085b0efc47a31fe5020";
 const exactCandidateRef = "${{ github.event.pull_request.head.sha || github.sha }}";
 
+assert.match(
+  ciWorkflowSource,
+  /timeout-minutes:\s*45/,
+  "authoritative CI needs the reviewed 45-minute budget for bounded fail-closed audit retrieval",
+);
+
 function withWorkflow(source: string, run: (root: string) => void) {
   const root = mkdtempSync(join(tmpdir(), "iburo-ci-policy-"));
   try {
