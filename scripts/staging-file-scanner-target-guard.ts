@@ -1,4 +1,9 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import {
+  VERCEL_BLOB_STORAGE_PROVIDER,
+  YANDEX_OBJECT_STORAGE_PROVIDER,
+} from "@/server/files/object-storage-provider";
+import { inferStagingVercelBlobProvider } from "@/server/files/vercel-preview-storage-provider";
 
 export const STAGING_FILE_SCANNER_TARGET_GUARD = "STAGING_FILE_SCANNER_TARGET_GUARD";
 const FIXTURE_PREFIX = "security-fixtures/file-scanner/";
@@ -63,13 +68,21 @@ function requireFixtureKey(
   return value;
 }
 
-export type StagingFileScannerTarget = {
+type StagingFileScannerTargetBase = {
   scannerOrigin: string;
   scannerSecret: string;
-  storageBucket: string;
   cleanObjectKey: string;
   maliciousObjectKey: string;
 };
+
+export type StagingFileScannerTarget =
+  | (StagingFileScannerTargetBase & {
+      providerCode: typeof YANDEX_OBJECT_STORAGE_PROVIDER;
+      storageBucket: string;
+    })
+  | (StagingFileScannerTargetBase & {
+      providerCode: typeof VERCEL_BLOB_STORAGE_PROVIDER;
+    });
 
 export function assertStagingFileScannerTarget(
   env: Readonly<Record<string, string | undefined>>,
@@ -101,6 +114,46 @@ export function assertStagingFileScannerTarget(
     fail("SCANNER_SECRET_MISMATCH");
   }
 
+  const cleanObjectKey = requireFixtureKey(env, "IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY");
+  const maliciousObjectKey = requireFixtureKey(
+    env,
+    "IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY",
+  );
+  if (safeEqual(cleanObjectKey, maliciousObjectKey)) fail("FIXTURE_KEYS_MUST_DIFFER");
+
+  const providerCode = inferStagingVercelBlobProvider(env);
+  const explicitProvider = env.IB_OBJECT_STORAGE_PROVIDER?.trim();
+  const vercelEnvironment = env.VERCEL_ENV?.trim();
+  if (vercelEnvironment && vercelEnvironment !== "preview") {
+    fail("VERCEL_ENV_NOT_PREVIEW");
+  }
+  if (vercelEnvironment === "preview" && providerCode !== VERCEL_BLOB_STORAGE_PROVIDER) {
+    fail("VERCEL_PROVIDER_NOT_EXACT_STAGING_PREVIEW");
+  }
+  if (explicitProvider === VERCEL_BLOB_STORAGE_PROVIDER && providerCode !== VERCEL_BLOB_STORAGE_PROVIDER) {
+    fail("VERCEL_PROVIDER_NOT_EXACT_STAGING_PREVIEW");
+  }
+
+  if (providerCode === VERCEL_BLOB_STORAGE_PROVIDER) {
+    const expectedConfirmation = `FILE-SCANNER-SMOKE:${new URL(expectedScannerOrigin).hostname}:${VERCEL_BLOB_STORAGE_PROVIDER}:${expectedSecretFingerprint}`;
+    const confirmation = env.IB_STAGING_FILE_SCANNER_CONFIRM?.trim() ?? "";
+    if (!confirmation || !safeEqual(confirmation, expectedConfirmation)) {
+      fail("CONFIRMATION_MISMATCH");
+    }
+
+    return {
+      providerCode: VERCEL_BLOB_STORAGE_PROVIDER,
+      scannerOrigin,
+      scannerSecret,
+      cleanObjectKey,
+      maliciousObjectKey,
+    };
+  }
+
+  if (explicitProvider && explicitProvider !== YANDEX_OBJECT_STORAGE_PROVIDER) {
+    fail("UNSUPPORTED_STORAGE_PROVIDER");
+  }
+
   const storageBucket = requireValue(env, "YANDEX_STORAGE_BUCKET");
   const expectedBucket = requireValue(env, "IB_STAGING_STORAGE_BUCKET");
   if (!safeEqual(storageBucket, expectedBucket)) fail("STORAGE_BUCKET_MISMATCH");
@@ -111,13 +164,6 @@ export function assertStagingFileScannerTarget(
     fail("STORAGE_ACCESS_KEY_ID_MISMATCH");
   }
 
-  const cleanObjectKey = requireFixtureKey(env, "IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY");
-  const maliciousObjectKey = requireFixtureKey(
-    env,
-    "IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY",
-  );
-  if (safeEqual(cleanObjectKey, maliciousObjectKey)) fail("FIXTURE_KEYS_MUST_DIFFER");
-
   const expectedConfirmation = `FILE-SCANNER-SMOKE:${new URL(expectedScannerOrigin).hostname}:${expectedBucket}:${expectedSecretFingerprint}`;
   const confirmation = env.IB_STAGING_FILE_SCANNER_CONFIRM?.trim() ?? "";
   if (!confirmation || !safeEqual(confirmation, expectedConfirmation)) {
@@ -125,6 +171,7 @@ export function assertStagingFileScannerTarget(
   }
 
   return {
+    providerCode: YANDEX_OBJECT_STORAGE_PROVIDER,
     scannerOrigin,
     scannerSecret,
     storageBucket,

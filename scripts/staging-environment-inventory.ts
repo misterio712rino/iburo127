@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { isValidYandexStorageBucketName } from "@/server/files/yandex-storage-bucket-name";
 import { requireStagingAuthzFixtures } from "./staging-authz-fixture-guard";
+import { buildProviderAwareStagingStorageReadiness } from "./staging-storage-readiness";
 
 export type StagingEnvironment = Readonly<Record<string, string | undefined>>;
 
@@ -62,12 +63,6 @@ export const STAGING_ENVIRONMENT_PHASES = {
     "IB_RUNTIME_TARGET",
     "IB_STAGING_BASE_URL",
     "IB_STORAGE_TARGET",
-    "IB_STAGING_STORAGE_BUCKET",
-    "IB_STAGING_STORAGE_ALLOWED_ORIGIN",
-    "IB_STAGING_STORAGE_ACCESS_KEY_ID",
-    "YANDEX_STORAGE_BUCKET",
-    "YANDEX_STORAGE_ACCESS_KEY_ID",
-    "YANDEX_STORAGE_SECRET_ACCESS_KEY",
   ],
   scanner: [
     "IB_RUNTIME_TARGET",
@@ -80,11 +75,6 @@ export const STAGING_ENVIRONMENT_PHASES = {
     "IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY",
     "IB_STAGING_FILE_SCANNER_CONFIRM",
     "IB_STORAGE_TARGET",
-    "IB_STAGING_STORAGE_BUCKET",
-    "IB_STAGING_STORAGE_ACCESS_KEY_ID",
-    "YANDEX_STORAGE_BUCKET",
-    "YANDEX_STORAGE_ACCESS_KEY_ID",
-    "YANDEX_STORAGE_SECRET_ACCESS_KEY",
   ],
   applicationE2e: [
     ...STAGING_AUTH_FLOW_REQUIREMENTS,
@@ -785,8 +775,22 @@ export type StagingEnvironmentInventory = {
 export function buildStagingEnvironmentInventory(
   env: StagingEnvironment,
 ): StagingEnvironmentInventory {
+  const providerAwareStorage = buildProviderAwareStagingStorageReadiness(env);
   const phaseEntries = Object.entries(STAGING_ENVIRONMENT_PHASES).map(([phaseName, required]) => {
     const phase = phaseName as StagingEnvironmentPhase;
+    if (phase === "storage" || phase === "scanner") {
+      const providerPhase = providerAwareStorage[phase];
+      return [
+        phase,
+        {
+          ready: providerPhase.ready,
+          requiredCount: providerPhase.requiredCount,
+          configuredCount: providerPhase.configuredCount,
+          missingOrPlaceholder: providerPhase.missingOrPlaceholder,
+          invalidOrInconsistent: providerPhase.invalidOrInconsistent,
+        },
+      ] as const;
+    }
     const missingOrPlaceholder = required.filter((name) => !isConfigured(env[name]));
     const invalidOrInconsistent = invalidSemantics(phase, env);
     return [

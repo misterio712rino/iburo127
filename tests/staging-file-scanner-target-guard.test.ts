@@ -29,6 +29,7 @@ const base = {
 } satisfies Record<string, string>;
 
 const target = assertStagingFileScannerTarget(base);
+assert.equal(target.providerCode, "yandex-object-storage");
 assert.equal(target.scannerOrigin, "https://scanner-staging.example.com");
 assert.equal(target.storageBucket, "private-iburo-staging-files");
 assert.equal(target.cleanObjectKey, "security-fixtures/file-scanner/clean.txt");
@@ -83,5 +84,49 @@ expectGuardFailure(
   "FIXTURE_KEYS_MUST_DIFFER",
 );
 expectGuardFailure({ IB_STAGING_FILE_SCANNER_CONFIRM: "wrong" }, "CONFIRMATION_MISMATCH");
+
+const vercelBase = {
+  IB_RUNTIME_TARGET: "staging",
+  IB_FILE_SCANNER_TARGET: "staging",
+  IB_STORAGE_TARGET: "staging",
+  VERCEL_ENV: "preview",
+  VERCEL_GIT_COMMIT_REF: "audit/production-readiness",
+  BLOB_READ_WRITE_TOKEN: "vercel_blob_rw_stagingstore123_secret",
+  IB_FILE_SCANNER_ORIGIN: "https://scanner-staging.example.com",
+  IB_STAGING_FILE_SCANNER_ORIGIN: "https://scanner-staging.example.com",
+  IB_FILE_SCANNER_SECRET: scannerSecret,
+  IB_STAGING_FILE_SCANNER_SECRET_SHA256: scannerSecretFingerprint,
+  IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY:
+    "security-fixtures/file-scanner/clean.txt",
+  IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY:
+    "security-fixtures/file-scanner/eicar.txt",
+  IB_STAGING_FILE_SCANNER_CONFIRM: `FILE-SCANNER-SMOKE:scanner-staging.example.com:vercel-blob:${scannerSecretFingerprint}`,
+} satisfies Record<string, string>;
+
+const vercelTarget = assertStagingFileScannerTarget(vercelBase);
+assert.equal(vercelTarget.providerCode, "vercel-blob");
+assert.equal("storageBucket" in vercelTarget, false);
+
+function expectVercelGuardFailure(
+  overrides: Partial<Record<string, string | undefined>>,
+  expectedCode: string,
+) {
+  const env = { ...vercelBase, ...overrides } as Record<string, string | undefined>;
+  assert.throws(
+    () => assertStagingFileScannerTarget(env),
+    new RegExp(`${STAGING_FILE_SCANNER_TARGET_GUARD}:${expectedCode}`),
+  );
+}
+
+expectVercelGuardFailure({ VERCEL_ENV: "production" }, "VERCEL_ENV_NOT_PREVIEW");
+expectVercelGuardFailure({ IB_STAGING_FILE_SCANNER_CONFIRM: "wrong" }, "CONFIRMATION_MISMATCH");
+expectVercelGuardFailure(
+  { IB_OBJECT_STORAGE_PROVIDER: "vercel-blob" },
+  "VERCEL_PROVIDER_NOT_EXACT_STAGING_PREVIEW",
+);
+expectVercelGuardFailure(
+  { IB_OBJECT_STORAGE_PROVIDER: "yandex-object-storage" },
+  "VERCEL_PROVIDER_NOT_EXACT_STAGING_PREVIEW",
+);
 
 console.log("STAGING_FILE_SCANNER_TARGET_GUARD_TEST_PASS");

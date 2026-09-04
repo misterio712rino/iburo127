@@ -271,6 +271,13 @@ function scannerCoreInvalid(
     invalid.add("IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY");
   }
 
+  if (isConfigured(env.IB_FILE_SCANNER_REQUEST_TIMEOUT_MS)) {
+    const timeoutMs = Number(env.IB_FILE_SCANNER_REQUEST_TIMEOUT_MS!.trim());
+    if (!Number.isInteger(timeoutMs) || timeoutMs < 1_000 || timeoutMs > 120_000) {
+      invalid.add("IB_FILE_SCANNER_REQUEST_TIMEOUT_MS");
+    }
+  }
+
   if (expectedOrigin && /^[a-f0-9]{64}$/.test(fingerprint ?? "")) {
     const identity =
       provider === VERCEL_BLOB_STORAGE_PROVIDER

@@ -129,21 +129,41 @@ for (const phase of ["scanner", "postbox", "openai", "bitrix24"] as const) {
   );
 }
 
-const scannerRequirements = STAGING_ENVIRONMENT_PHASES.scanner as readonly string[];
-for (const storageRequirement of [
+for (const scannerRequirement of [
   "IB_STORAGE_TARGET",
-  "IB_STAGING_STORAGE_BUCKET",
-  "IB_STAGING_STORAGE_ACCESS_KEY_ID",
-  "YANDEX_STORAGE_BUCKET",
-  "YANDEX_STORAGE_ACCESS_KEY_ID",
-  "YANDEX_STORAGE_SECRET_ACCESS_KEY",
+  "IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY",
+  "IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY",
+  "IB_STAGING_FILE_SCANNER_CONFIRM",
 ]) {
   assert.equal(
-    scannerRequirements.includes(storageRequirement),
+    (STAGING_ENVIRONMENT_PHASES.scanner as readonly string[]).includes(scannerRequirement),
     true,
-    `scanner inventory must require ${storageRequirement}`,
+    `scanner inventory must require ${scannerRequirement}`,
   );
 }
+
+const vercelScannerInventory = buildStagingEnvironmentInventory({
+  ...secretValues,
+  IB_OBJECT_STORAGE_PROVIDER: undefined,
+  VERCEL_ENV: "preview",
+  VERCEL_GIT_COMMIT_REF: "audit/production-readiness",
+  BLOB_READ_WRITE_TOKEN: "vercel_blob_rw_stagingstore123_secret",
+  IB_STAGING_STORAGE_BUCKET: undefined,
+  IB_STAGING_STORAGE_ALLOWED_ORIGIN: undefined,
+  IB_STAGING_STORAGE_ACCESS_KEY_ID: undefined,
+  YANDEX_STORAGE_BUCKET: undefined,
+  YANDEX_STORAGE_ACCESS_KEY_ID: undefined,
+  YANDEX_STORAGE_SECRET_ACCESS_KEY: undefined,
+  IB_STAGING_FILE_SCANNER_CONFIRM: `FILE-SCANNER-SMOKE:scanner.stage.iburo.test:vercel-blob:${scannerFingerprint}`,
+});
+assert.equal(vercelScannerInventory.phases.scanner.ready, true);
+assert.equal(vercelScannerInventory.phases.storage.ready, true);
+assert.deepEqual(vercelScannerInventory.phases.scanner.missingOrPlaceholder, []);
+assert.equal(
+  (vercelScannerInventory.phases.scanner.missingOrPlaceholder as readonly string[]).includes("YANDEX_STORAGE_BUCKET"),
+  false,
+  "Vercel scanner readiness must not require Yandex fixture credentials",
+);
 
 const applicationE2eRequirements =
   STAGING_ENVIRONMENT_PHASES.applicationE2e as readonly string[];
