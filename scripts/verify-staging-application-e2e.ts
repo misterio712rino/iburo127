@@ -24,7 +24,7 @@ function fail(message: string): never {
 function assertNoPreSuppliedCoreCookies(env: NodeJS.ProcessEnv): void {
   if (STAGING_SESSION_COOKIE_ENV_NAMES.some((name) => Boolean(env[name]?.trim()))) {
     fail(
-      "active application E2E refuses pre-supplied CLIENT/LAWYER/MANAGER cookies; fresh sessions must be created from staging credentials",
+      "active application E2E refuses pre-supplied CLIENT/OTHER_CLIENT/LAWYER/MANAGER cookies; fresh sessions must be created from staging credentials",
     );
   }
 }
@@ -37,6 +37,9 @@ function buildVerifierEnvironment(
     IB_STAGING_CLIENT_COOKIE: sessions.cookies.CLIENT,
     IB_STAGING_LAWYER_COOKIE: sessions.cookies.LAWYER,
     IB_STAGING_MANAGER_COOKIE: sessions.cookies.MANAGER,
+    ...(sessions.cookies.OTHER_CLIENT
+      ? { IB_STAGING_OTHER_CLIENT_COOKIE: sessions.cookies.OTHER_CLIENT }
+      : {}),
   };
 }
 
@@ -86,7 +89,7 @@ try {
   });
   console.log("TRUST_DEVICE: disabled for all TOTP verification requests");
   console.log("STAGING_AUTH_FLOW_PASS");
-  console.log("AUTH_SESSIONS: fresh CLIENT/LAWYER/MANAGER sessions retained in memory for E2E");
+  console.log("AUTH_SESSIONS: fresh staging sessions retained in memory for E2E");
 
   const verifierEnv = buildVerifierEnvironment(sessions);
   for (const [label, scriptPath] of VERIFIERS) {

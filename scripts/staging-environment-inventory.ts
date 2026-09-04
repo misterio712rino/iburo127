@@ -33,6 +33,7 @@ const STAGING_AUTHZ_FIXTURE_REQUIREMENTS = [
 
 const STAGING_SESSION_COOKIE_ENV_NAMES = [
   "IB_STAGING_CLIENT_COOKIE",
+  "IB_STAGING_OTHER_CLIENT_COOKIE",
   "IB_STAGING_LAWYER_COOKIE",
   "IB_STAGING_MANAGER_COOKIE",
 ] as const;
@@ -492,8 +493,8 @@ function invalidSemantics(
     }
 
     if (filesE2e) {
-      if (!isConfigured(env.IB_STAGING_OTHER_CLIENT_COOKIE)) {
-        mark("IB_STAGING_OTHER_CLIENT_COOKIE");
+      for (const name of ["IB_STAGING_OTHER_CLIENT_EMAIL", "IB_STAGING_OTHER_CLIENT_PASSWORD"] as const) {
+        if (!isConfigured(env[name])) mark(name);
       }
       if (stagingBase) {
         const expected = `PRIVATE_STAGING_BUCKET:${stagingBase.host}`;

@@ -7,19 +7,21 @@ import {
 const MAX_JSON_BYTES = 64 * 1024;
 
 export type StagingPlatformRole = "CLIENT" | "LAWYER" | "MANAGER";
+type StagingSessionFixture = StagingPlatformRole | "OTHER_CLIENT";
 
 export const STAGING_SESSION_COOKIE_ENV_NAMES = [
   "IB_STAGING_CLIENT_COOKIE",
+  "IB_STAGING_OTHER_CLIENT_COOKIE",
   "IB_STAGING_LAWYER_COOKIE",
   "IB_STAGING_MANAGER_COOKIE",
 ] as const;
 
 export type StagingSessionCookies = Readonly<
-  Record<StagingPlatformRole, string>
+  Record<StagingPlatformRole, string> & Partial<Record<"OTHER_CLIENT", string>>
 >;
 
 type AccountFixture = {
-  label: StagingPlatformRole;
+  label: StagingSessionFixture;
   email: string;
   password: string;
   expectedRole: StagingPlatformRole;
@@ -100,8 +102,9 @@ function readBaseUrl(env: NodeJS.ProcessEnv): URL {
 
 function readFixture(
   env: NodeJS.ProcessEnv,
-  label: StagingPlatformRole,
-  prefix: "CLIENT" | "LAWYER" | "MANAGER",
+  label: StagingSessionFixture,
+  prefix: "CLIENT" | "OTHER_CLIENT" | "LAWYER" | "MANAGER",
+  expectedRole: StagingPlatformRole,
   requiresTotp: boolean,
 ): AccountFixture {
   const email = required(env, `IB_STAGING_${prefix}_EMAIL`);
@@ -115,7 +118,7 @@ function readFixture(
     label,
     email,
     password,
-    expectedRole: label,
+    expectedRole,
     ...(requiresTotp
       ? { totpSecret: required(env, `IB_STAGING_${prefix}_TOTP_SECRET`) }
       : {}),
@@ -276,15 +279,15 @@ async function authenticateFixture(
 
     if (!fixture.totpSecret) {
       if (challenged) {
-        fail("CLIENT staging fixture unexpectedly requires a second factor");
+        fail(`${fixture.label} staging fixture unexpectedly requires a second factor`);
       }
       await requirePlatformRole(
         context,
         jar,
-        "CLIENT authenticated session",
+        `${fixture.label} authenticated session`,
         fixture.expectedRole,
       );
-      if (!jar.hasCookies) fail("CLIENT authenticated session did not issue cookies");
+      if (!jar.hasCookies) fail(`${fixture.label} authenticated session did not issue cookies`);
       return jar;
     }
 
@@ -368,12 +371,27 @@ export async function createStagingAuthenticatedSessions(options: {
   );
   onStatus("UNAUTHENTICATED: session endpoint correctly denied");
 
+  const filesE2e = env.IB_STAGING_FILES_E2E?.trim() === "1";
   const fixtures: AccountFixture[] = [
-    readFixture(env, "CLIENT", "CLIENT", false),
-    readFixture(env, "LAWYER", "LAWYER", true),
-    readFixture(env, "MANAGER", "MANAGER", true),
+    readFixture(env, "CLIENT", "CLIENT", "CLIENT", false),
+    readFixture(env, "LAWYER", "LAWYER", "LAWYER", true),
+    readFixture(env, "MANAGER", "MANAGER", "MANAGER", true),
+    ...(filesE2e
+      ? [readFixture(env, "OTHER_CLIENT", "OTHER_CLIENT", "CLIENT", false)]
+      : []),
   ];
-  const jars = new Map<StagingPlatformRole, StagingCookieJar>();
+  const primaryClientFixture = fixtures.find((fixture) => fixture.label === "CLIENT");
+  const otherClientFixture = fixtures.find((fixture) => fixture.label === "OTHER_CLIENT");
+  if (
+    filesE2e &&
+    (!primaryClientFixture ||
+      !otherClientFixture ||
+      primaryClientFixture.email.toLocaleLowerCase("en-US") ===
+        otherClientFixture.email.toLocaleLowerCase("en-US"))
+  ) {
+    fail("OTHER_CLIENT staging fixture must be a dedicated account distinct from CLIENT");
+  }
+  const jars = new Map<StagingSessionFixture, StagingCookieJar>();
 
   try {
     for (const fixture of fixtures) {
@@ -382,7 +400,7 @@ export async function createStagingAuthenticatedSessions(options: {
       onStatus(
         fixture.totpSecret
           ? `${fixture.label}: access gate -> password -> mandatory TOTP -> server role verified`
-          : "CLIENT: access gate -> password sign-in and server role verified",
+          : `${fixture.label}: access gate -> password sign-in -> server ${fixture.expectedRole} role verified`,
       );
     }
   } catch (error) {
@@ -393,9 +411,10 @@ export async function createStagingAuthenticatedSessions(options: {
   }
 
   const clientJar = jars.get("CLIENT");
+  const otherClientJar = jars.get("OTHER_CLIENT");
   const lawyerJar = jars.get("LAWYER");
   const managerJar = jars.get("MANAGER");
-  if (!clientJar || !lawyerJar || !managerJar) {
+  if (!clientJar || !lawyerJar || !managerJar || (filesE2e && !otherClientJar)) {
     fail("authenticated staging session set is incomplete");
   }
 
@@ -403,8 +422,9 @@ export async function createStagingAuthenticatedSessions(options: {
     CLIENT: clientJar.header(),
     LAWYER: lawyerJar.header(),
     MANAGER: managerJar.header(),
+    ...(otherClientJar ? { OTHER_CLIENT: otherClientJar.header() } : {}),
   };
-  if (!cookies.CLIENT || !cookies.LAWYER || !cookies.MANAGER) {
+  if (!cookies.CLIENT || !cookies.LAWYER || !cookies.MANAGER || (filesE2e && !cookies.OTHER_CLIENT)) {
     fail("authenticated staging session cookies are incomplete");
   }
 

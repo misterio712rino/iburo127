@@ -70,15 +70,25 @@ assert.ok(
   missingFilesDependencies.invalidOrInconsistent.includes("IB_STAGING_PRIVATE_BUCKET_CONFIRM"),
 );
 assert.ok(
-  missingFilesDependencies.invalidOrInconsistent.includes("IB_STAGING_OTHER_CLIENT_COOKIE"),
+  missingFilesDependencies.invalidOrInconsistent.includes("IB_STAGING_OTHER_CLIENT_EMAIL"),
+);
+assert.ok(
+  missingFilesDependencies.invalidOrInconsistent.includes("IB_STAGING_OTHER_CLIENT_PASSWORD"),
 );
 
 const filesFixture = {
   IB_STAGING_FILES_E2E: "1",
   IB_STAGING_PRIVATE_BUCKET_CONFIRM: "PRIVATE_STAGING_BUCKET:stage.iburo.test",
-  IB_STAGING_OTHER_CLIENT_COOKIE: "other-client-cookie-secret",
+  IB_STAGING_OTHER_CLIENT_EMAIL: "other-client@stage.iburo.test",
+  IB_STAGING_OTHER_CLIENT_PASSWORD: "other-client-password-123",
 } as const;
 assert.equal(applicationE2e(filesFixture).ready, true);
+
+const preSuppliedOtherClientCookie = applicationE2e({
+  IB_STAGING_OTHER_CLIENT_COOKIE: "other-client-cookie-secret",
+});
+assert.equal(preSuppliedOtherClientCookie.ready, false);
+assert.ok(preSuppliedOtherClientCookie.invalidOrInconsistent.includes("IB_STAGING_OTHER_CLIENT_COOKIE"));
 
 const missingScanDependencies = applicationE2e({
   ...filesFixture,
@@ -127,7 +137,11 @@ assert.ok(
 );
 
 const serialized = JSON.stringify(buildStagingEnvironmentInventory(scanFixture));
-for (const secret of [scanFixture.IB_STAGING_OTHER_CLIENT_COOKIE, scanFixture.IB_MAINTENANCE_SECRET]) {
+for (const secret of [
+  scanFixture.IB_STAGING_OTHER_CLIENT_EMAIL,
+  scanFixture.IB_STAGING_OTHER_CLIENT_PASSWORD,
+  scanFixture.IB_MAINTENANCE_SECRET,
+]) {
   assert.equal(serialized.includes(secret), false, "inventory must not expose optional E2E secrets");
 }
 

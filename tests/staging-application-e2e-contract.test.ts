@@ -209,9 +209,10 @@ assert.match(orchestratorSource, /finally\s*\{/);
 assert.match(orchestratorSource, /sessions\.cleanup\(\{ strict: true \}\)/);
 assert.match(
   orchestratorSource,
-  /refuses pre-supplied CLIENT\/LAWYER\/MANAGER cookies/,
-  "active E2E must reject operator-supplied core session cookies",
+  /refuses pre-supplied CLIENT\/OTHER_CLIENT\/LAWYER\/MANAGER cookies/,
+  "active E2E must reject operator-supplied session cookies, including OTHER_CLIENT",
 );
+assert.match(orchestratorSource, /IB_STAGING_OTHER_CLIENT_COOKIE/);
 assert.doesNotMatch(orchestratorSource, /writeFile|appendFile|fs\/promises/);
 assert.doesNotMatch(
   orchestratorSource,
@@ -241,12 +242,24 @@ assert.match(sessionSource, /trustDevice:\s*false/);
 assert.match(sessionSource, /iburo127\.ru/);
 assert.match(sessionSource, /\/api\/auth\/sign-out/);
 assert.match(sessionSource, /StagingCookieJar/);
+assert.match(sessionSource, /env\.IB_STAGING_FILES_E2E\?\.trim\(\) === "1"/);
+assert.match(sessionSource, /readFixture\(env, "OTHER_CLIENT", "OTHER_CLIENT", "CLIENT", false\)/);
+assert.match(sessionSource, /OTHER_CLIENT staging fixture must be a dedicated account distinct from CLIENT/);
+assert.match(sessionSource, /OTHER_CLIENT: otherClientJar\.header\(\)/);
+assert.match(sessionSource, /const otherClientJar = jars\.get\("OTHER_CLIENT"\)/);
+assert.match(sessionSource, /for \(const jar of jars\.values\(\)\)/);
 assert.doesNotMatch(sessionSource, /writeFile|appendFile|fs\/promises/);
 assert.doesNotMatch(
   sessionSource,
   /console\.(?:log|error)\([^\n]*(?:cookie|password|totpSecret|challenge)/i,
   "session bootstrap must not log authentication material",
 );
+
+const workflowSource = await readFile(resolve(".github/workflows/staging-application-e2e.yml"), "utf8");
+assert.match(workflowSource, /IB_STAGING_OTHER_CLIENT_EMAIL:\s*\$\{\{ secrets\.IB_STAGING_OTHER_CLIENT_EMAIL \}\}/);
+assert.match(workflowSource, /IB_STAGING_OTHER_CLIENT_PASSWORD:\s*\$\{\{ secrets\.IB_STAGING_OTHER_CLIENT_PASSWORD \}\}/);
+assert.match(workflowSource, /IB_STAGING_FILES_E2E: "0"/);
+assert.match(workflowSource, /IB_STAGING_FILE_SCAN_E2E: "0"/);
 
 for (const forbidden of [
   "db:deploy:staging",
