@@ -1,0 +1,52 @@
+name: Staging File Scanner Image Preparation
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: "Exact audit/production-readiness HEAD to build"
+        required: true
+        type: string
+      confirmation:
+        description: "Must equal BUILD_STAGING_FILE_SCANNER_IMAGE_ONLY"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Enforce staging image preparation target
+        shell: bash
+        env:
+          REQUESTED_SHA: ${{ inputs.candidate_sha }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/audit/production-readiness"
+          test "$CONFIRMATION" = "BUILD_STAGING_FILE_SCANNER_IMAGE_ONLY"
+          test "$REQUESTED_SHA" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$REQUESTED_SHA"
+          echo "STAGING_FILE_SCANNER_IMAGE_TARGET_PASS: $REQUESTED_SHA"
+
+      - name: Build exact scanner candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="iburo-file-scanner-staging-candidate:${GITHUB_SHA}"
+          docker build --pull=false --tag "$image" services/file-scanner
+          test "$(docker image inspect "$image" --format '{{.Id}}')" != ""
+
+      - name: Publication boundary
+        run: echo "STAGING_FILE_SCANNER_PUBLISH_NOT_CONFIGURED"

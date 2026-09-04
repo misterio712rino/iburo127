@@ -10,6 +10,7 @@ const workflowSecurityScript = resolve(repoRoot, "scripts/check-github-workflow-
 const ciWorkflowSource = readFileSync(resolve(repoRoot, ".github/workflows/ci.yml"), "utf8");
 const checkoutSha = "3d3c42e5aac5ba805825da76410c181273ba90b1";
 const setupNodeSha = "820762786026740c76f36085b0efc47a31fe5020";
+const setupTerraformSha = "dfe3c3f87815947d99a8997f908cb6525fc44e9e";
 const exactCandidateRef = "${{ github.event.pull_request.head.sha || github.sha }}";
 
 assert.match(
@@ -17,6 +18,23 @@ assert.match(
   /timeout-minutes:\s*45/,
   "authoritative CI needs the reviewed 45-minute budget for bounded fail-closed audit retrieval",
 );
+assert.match(
+  ciWorkflowSource,
+  new RegExp(`uses: hashicorp/setup-terraform@${setupTerraformSha} # v4\\.0\\.1`),
+  "Terraform setup must remain pinned to the reviewed action commit",
+);
+assert.match(ciWorkflowSource, /terraform_version:\s*1\.16\.1/);
+assert.match(
+  ciWorkflowSource,
+  /- name: Staging scanner Terraform format\s+run: terraform -chdir=infra\/file-scanner-staging fmt -check/,
+);
+const terraformValidationStep = ciWorkflowSource.match(
+  /      - name: Staging scanner Terraform validate\n[\s\S]*?(?=\n      - name:|$)/,
+)?.[0];
+assert.ok(terraformValidationStep, "authoritative CI must validate the staging scanner Terraform module");
+assert.match(terraformValidationStep, /init -backend=false -input=false/);
+assert.match(terraformValidationStep, /terraform -chdir=infra\/file-scanner-staging validate/);
+assert.doesNotMatch(terraformValidationStep, /terraform (plan|apply)|-backend-config|TF_VAR_|secrets\./);
 assert.match(
   ciWorkflowSource,
   /- name: File scanner service tests\s+run: node --test services\/file-scanner\/tests\/\*\.test\.mjs/,
@@ -172,5 +190,6 @@ assert.match(
 );
 
 await import("./npm-audit-retrieval.test.mjs");
+await import("./file-scanner-staging-infrastructure-contract.test.mjs");
 
 console.log("GITHUB_CI_SECURITY_POLICY_TEST_PASS");
