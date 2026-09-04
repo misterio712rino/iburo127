@@ -18,6 +18,16 @@ output "security_group_id" {
   value       = yandex_vpc_security_group.scanner.id
 }
 
+output "scanner_subnet_id" {
+  description = "Dedicated staging scanner subnet ID."
+  value       = yandex_vpc_subnet.scanner.id
+}
+
+output "scanner_subnet_cidr" {
+  description = "Dedicated staging scanner subnet IPv4 CIDR."
+  value       = var.subnet_cidr
+}
+
 output "scanner_hostname" {
   description = "Non-secret staging hostname when supplied; null until separately assigned."
   value       = var.scanner_hostname == "" ? null : var.scanner_hostname

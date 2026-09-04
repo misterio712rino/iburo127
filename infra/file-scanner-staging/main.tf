@@ -15,8 +15,14 @@ data "yandex_compute_image" "ubuntu_2404" {
   folder_id = "standard-images"
 }
 
-data "yandex_vpc_subnet" "staging" {
-  subnet_id = var.subnet_id
+resource "yandex_vpc_subnet" "scanner" {
+  name           = var.subnet_name
+  description    = "Dedicated staging-only subnet for the isolated file scanner"
+  folder_id      = var.folder_id
+  network_id     = var.network_id
+  zone           = var.zone
+  v4_cidr_blocks = [var.subnet_cidr]
+  labels         = local.labels
 }
 
 resource "yandex_vpc_security_group" "scanner" {
@@ -80,16 +86,6 @@ resource "yandex_vpc_security_group" "scanner" {
 
   lifecycle {
     precondition {
-      condition     = data.yandex_vpc_subnet.staging.network_id == var.network_id
-      error_message = "subnet_id must belong to the reviewed staging network_id."
-    }
-
-    precondition {
-      condition     = data.yandex_vpc_subnet.staging.zone == var.zone
-      error_message = "subnet_id must be in the same zone as the VM and static address."
-    }
-
-    precondition {
       condition = (
         (var.allow_operator_ssh && local.ssh_enabled) ||
         (!var.allow_operator_ssh && var.operator_ssh_cidr == "")
@@ -142,7 +138,7 @@ resource "yandex_compute_instance" "scanner" {
   }
 
   network_interface {
-    subnet_id          = var.subnet_id
+    subnet_id          = yandex_vpc_subnet.scanner.id
     nat                = true
     nat_ip_address     = yandex_vpc_address.scanner.external_ipv4_address[0].address
     security_group_ids = [yandex_vpc_security_group.scanner.id]

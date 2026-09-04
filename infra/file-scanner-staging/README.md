@@ -1,19 +1,19 @@
 # Staging file-scanner infrastructure
 
-This directory describes only the future isolated **staging** malware-scanner host. It must never target production resources. Nothing here provisions DNS, IAM identities, a registry, certificates, application data, or secrets.
+This directory describes only the future isolated **staging** malware-scanner host. It must never target production resources. Nothing here provisions a VPC network, route table, gateway, DNS, IAM identities, a registry, certificates, application data, or secrets.
 
 ## Safety boundary
 
 - `environment` is fixed to `staging`.
 - Resource names must contain `staging`.
-- `network_id` and `subnet_id` are mandatory inputs for an existing, reviewed staging-only VPC. This module creates no network or subnet.
-- The selected subnet is checked against both `network_id` and `zone` before resources can be created.
+- `network_id` is the mandatory input for the existing reviewed shared VPC. This module never creates a network.
+- The module creates one dedicated staging scanner subnet in that supplied network: `iburo127-file-scanner-staging-d` in `ru-central1-d` with the inventory-derived CIDR `10.132.0.0/28`.
 - The protected production domain and every subdomain below it are rejected by the hostname validation.
 - `scanner_hostname` remains empty until a separately approved staging-only DNS record exists.
 - The module does not manage DNS, service accounts, registry repositories, Vercel settings, or application runtime.
 - `terraform plan` and `terraform apply` require an authenticated, explicitly reviewed operator context and separate approval. CI only formats and validates with `terraform init -backend=false`.
 
-Do not run Terraform until Yandex Cloud inventory has confirmed the cloud, folder, network, subnet, zone, quotas, and ownership of every supplied ID.
+Do not run Terraform until Yandex Cloud inventory has confirmed the cloud, folder, network, zone, quotas, and ownership of every supplied ID. The dedicated scanner CIDR must remain free in the supplied network.
 
 ## Reviewed toolchain
 
@@ -26,13 +26,14 @@ Do not run Terraform until Yandex Cloud inventory has confirmed the cloud, folde
 
 The module creates only:
 
-1. `iburo-file-scanner-staging-sg` (variable-controlled staging name).
-2. `iburo-file-scanner-staging-ip`, a deletion-protected static IPv4.
-3. `iburo-file-scanner-staging`, a single non-preemptible VM.
+1. `iburo127-file-scanner-staging-d`, a dedicated `/28` scanner subnet in the supplied shared VPC.
+2. `iburo-file-scanner-staging-sg` (variable-controlled staging name).
+3. `iburo-file-scanner-staging-ip`, a deletion-protected static IPv4.
+4. `iburo-file-scanner-staging`, a single non-preemptible VM.
 
 Defaults are `standard-v3`, 2 vCPU at 100%, 8 GiB RAM, and a 32 GiB replicated `network-ssd` boot disk. The VM uses the official `ubuntu-2404-lts` image family unless a reviewed immutable `image_id` is supplied.
 
-The security group exposes only Caddy on TCP 80/443. Port 8080 is never present in the SG. SSH is absent by default and can only be enabled with both a public key and an explicit non-zero IPv4 `/32`. Egress is protocol/port bounded to DNS, HTTPS, and NTP. A Yandex SG cannot enforce hostname allowlists; independent URL validation, DNS-result rejection, and connection pinning remain authoritative inside the scanner service.
+Subnet separation is not itself a security boundary. The VM explicitly attaches only the dedicated scanner custom SG; do not attach the permissive default network SG or `iburo127-postgres-sg`. The security group exposes only Caddy on TCP 80/443. Port 8080 is never present in the SG, and scanner egress never permits TCP 6432. SSH is absent by default and can only be enabled with both a public key and an explicit non-zero IPv4 `/32`. Egress is protocol/port bounded to DNS, HTTPS, and NTP. A Yandex SG cannot enforce hostname allowlists; independent URL validation, DNS-result rejection, and connection pinning remain authoritative inside the scanner service.
 
 ## Host preparation
 

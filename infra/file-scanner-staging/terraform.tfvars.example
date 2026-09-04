@@ -3,7 +3,8 @@ folder_id = "<REVIEWED_STAGING_FOLDER_ID>"
 zone      = "ru-central1-d"
 
 network_id = "<EXISTING_STAGING_NETWORK_ID>"
-subnet_id  = "<EXISTING_STAGING_SUBNET_ID>"
+subnet_name = "iburo127-file-scanner-staging-d"
+subnet_cidr = "10.132.0.0/28"
 
 vm_name            = "iburo-file-scanner-staging"
 platform_id         = "standard-v3"

@@ -19,8 +19,9 @@ variable "folder_id" {
 }
 
 variable "zone" {
-  description = "Availability zone shared by the existing subnet, static address, and VM."
+  description = "Availability zone for the managed staging scanner subnet, static address, and VM."
   type        = string
+  default     = "ru-central1-d"
 
   validation {
     condition     = contains(["ru-central1-a", "ru-central1-b", "ru-central1-d", "ru-central1-e"], var.zone)
@@ -38,13 +39,29 @@ variable "network_id" {
   }
 }
 
-variable "subnet_id" {
-  description = "Existing staging-only subnet ID in network_id and zone."
+variable "subnet_name" {
+  description = "Dedicated staging-only scanner subnet name."
   type        = string
+  default     = "iburo127-file-scanner-staging-d"
 
   validation {
-    condition     = length(trimspace(var.subnet_id)) >= 8 && !can(regex("[[:space:][:cntrl:]]", var.subnet_id))
-    error_message = "subnet_id must identify an existing reviewed staging subnet."
+    condition = (
+      can(regex("^[a-z]([-a-z0-9]{1,61}[a-z0-9])?$", var.subnet_name)) &&
+      strcontains(var.subnet_name, "staging") &&
+      !strcontains(var.subnet_name, "prod")
+    )
+    error_message = "subnet_name must be a valid staging-only Yandex resource name."
+  }
+}
+
+variable "subnet_cidr" {
+  description = "Exact reviewed IPv4 /28 reserved for the managed staging scanner subnet."
+  type        = string
+  default     = "10.132.0.0/28"
+
+  validation {
+    condition     = var.subnet_cidr == "10.132.0.0/28"
+    error_message = "subnet_cidr must remain the reviewed dedicated staging range 10.132.0.0/28."
   }
 }
 

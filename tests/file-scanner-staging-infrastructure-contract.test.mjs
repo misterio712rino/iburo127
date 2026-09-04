@@ -34,7 +34,8 @@ for (const name of [
   "folder_id",
   "zone",
   "network_id",
-  "subnet_id",
+  "subnet_name",
+  "subnet_cidr",
   "vm_name",
   "platform_id",
   "cores",
@@ -66,10 +67,19 @@ assert.match(variables, /scanner_image_digest[\s\S]*?\^sha256:\[a-f0-9\]\{64\}\$
 assert.match(variables, /var\.scanner_hostname != "iburo127\.ru"/);
 assert.match(variables, /!endswith\(var\.scanner_hostname, "\.iburo127\.ru"\)/);
 
-assert.doesNotMatch(main, /resource\s+"yandex_vpc_(network|subnet)"/);
-assert.match(main, /data "yandex_vpc_subnet" "staging"/);
-assert.match(main, /data\.yandex_vpc_subnet\.staging\.network_id == var\.network_id/);
-assert.match(main, /data\.yandex_vpc_subnet\.staging\.zone == var\.zone/);
+assert.doesNotMatch(main, /resource\s+"yandex_vpc_network"/);
+assert.doesNotMatch(main, /data\s+"yandex_vpc_subnet"/);
+assert.match(main, /resource "yandex_vpc_subnet" "scanner"/);
+assert.match(main, /network_id\s*=\s*var\.network_id/);
+assert.match(main, /zone\s*=\s*var\.zone/);
+assert.match(main, /v4_cidr_blocks\s*=\s*\[var\.subnet_cidr\]/);
+assert.match(variables, /variable "zone"[\s\S]*?default\s*=\s*"ru-central1-d"/);
+assert.match(variables, /variable "subnet_name"[\s\S]*?default\s*=\s*"iburo127-file-scanner-staging-d"/);
+assert.match(variables, /variable "subnet_cidr"[\s\S]*?default\s*=\s*"10\.132\.0\.0\/28"/);
+assert.match(variables, /var\.subnet_cidr == "10\.132\.0\.0\/28"/);
+assert.doesNotMatch(variables, /variable "subnet_id"/);
+assert.doesNotMatch(tfvarsExample, /subnet_id/);
+assert.match(tfvarsExample, /network_id\s*=\s*"<EXISTING_STAGING_NETWORK_ID>"/);
 assert.match(main, /resource "yandex_vpc_security_group" "scanner"/);
 assert.match(main, /port\s*=\s*443/);
 assert.match(main, /port\s*=\s*80/);
@@ -81,6 +91,10 @@ assert.match(main, /resource "yandex_vpc_address" "scanner"/);
 assert.match(main, /deletion_protection\s*=\s*true/);
 assert.match(main, /nat_ip_address\s*=\s*yandex_vpc_address\.scanner\.external_ipv4_address\[0\]\.address/);
 assert.match(main, /resource "yandex_compute_instance" "scanner"/);
+assert.match(main, /subnet_id\s*=\s*yandex_vpc_subnet\.scanner\.id/);
+assert.match(main, /security_group_ids\s*=\s*\[yandex_vpc_security_group\.scanner\.id\]/);
+assert.doesNotMatch(main, /default-sg|iburo127-postgres-sg|port\s*=\s*6432/i);
+assert.doesNotMatch(main, /yandex_vpc_(route_table|gateway)/);
 assert.match(main, /preemptible\s*=\s*false/);
 assert.match(main, /family\s*=\s*"ubuntu-2404-lts"/);
 assert.match(main, /environment\s*=\s*"staging"/);
@@ -91,7 +105,7 @@ for (const deploymentSource of [main, outputs, cloudInit, tfvarsExample, compose
   assert.doesNotMatch(deploymentSource, /(^|[^.a-z0-9-])(www\.|api\.)?iburo127\.ru([^a-z0-9.-]|$)/i);
 }
 
-for (const safeOutput of ["vm_id", "vm_internal_ip", "static_public_ip", "security_group_id", "scanner_hostname"]) {
+for (const safeOutput of ["vm_id", "vm_internal_ip", "static_public_ip", "security_group_id", "scanner_subnet_id", "scanner_subnet_cidr", "scanner_hostname"]) {
   assert.match(outputs, new RegExp(`output "${safeOutput}"`));
 }
 assert.doesNotMatch(outputs, /output\s+"[^"]*(secret|token|credential|environment_file)[^"]*"/i);
@@ -142,6 +156,10 @@ assert.match(readme, /IB_FILE_SCANNER_SECRET=<GENERATE_OUT_OF_BAND>/);
 assert.match(readme, /root:root 0600/);
 assert.match(readme, /source Git SHA → Docker image → full-SHA tag → registry digest → VM deployment by digest/);
 assert.match(readme, /terraform -chdir=infra\/file-scanner-staging init -backend=false/);
+assert.match(readme, /10\.132\.0\.0\/28/);
+assert.match(readme, /ru-central1-d/);
+assert.match(readme, /default network SG must NOT be assigned|default network SG or `iburo127-postgres-sg`/);
+assert.match(readme, /TCP 6432/);
 
 assert.match(applicationWorkflow, /IB_STAGING_FILES_E2E: "1"/);
 assert.match(applicationWorkflow, /IB_STAGING_FILE_SCAN_E2E: "0"/);
