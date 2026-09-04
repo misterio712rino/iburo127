@@ -159,6 +159,9 @@ jobs:
       - name: Generate Prisma client
         run: npm run db:generate
 
+      - name: File scanner service tests
+        run: node --test services/file-scanner/tests/*.test.mjs
+
       - name: Production foundation tests
         run: npm run test:foundation
 

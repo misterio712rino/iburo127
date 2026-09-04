@@ -17,6 +17,11 @@ assert.match(
   /timeout-minutes:\s*45/,
   "authoritative CI needs the reviewed 45-minute budget for bounded fail-closed audit retrieval",
 );
+assert.match(
+  ciWorkflowSource,
+  /- name: File scanner service tests\s+run: node --test services\/file-scanner\/tests\/\*\.test\.mjs/,
+  "Push and PR CI must not silently lose isolated scanner-service security tests",
+);
 
 function withWorkflow(source: string, run: (root: string) => void) {
   const root = mkdtempSync(join(tmpdir(), "iburo-ci-policy-"));
