@@ -23,6 +23,36 @@ assert.match(
   "Push and PR CI must not silently lose isolated scanner-service security tests",
 );
 
+const scannerDockerStep = ciWorkflowSource.match(
+  /      - name: File scanner Docker build\n        shell: bash\n        run: \|\n([\s\S]*?)(?=\n      - name:|$)/,
+)?.[0];
+assert.ok(scannerDockerStep, "Push and PR CI must build the isolated scanner image");
+assert.match(
+  scannerDockerStep,
+  /docker build --pull=false --tag "\$image" services\/file-scanner/,
+  "scanner image build context must be exactly services/file-scanner",
+);
+assert.match(scannerDockerStep, /docker image inspect "\$image"/, "scanner image must receive bounded static inspection");
+assert.match(
+  scannerDockerStep,
+  /docker run --rm --network none --entrypoint \/bin\/sh "\$image"/,
+  "scanner container check must be isolated and avoid its service entrypoint",
+);
+for (const forbidden of [
+  /--build-arg/,
+  /--secret/,
+  /docker login/,
+  /docker push/,
+  /--push/,
+  /--privileged/,
+  /--network host/,
+  /IB_FILE_SCANNER_SECRET/,
+  /BLOB_READ_WRITE_TOKEN/,
+  /GITHUB_TOKEN/,
+]) {
+  assert.doesNotMatch(scannerDockerStep, forbidden, "scanner Docker CI must not receive credentials or privileged deployment capabilities");
+}
+
 function withWorkflow(source: string, run: (root: string) => void) {
   const root = mkdtempSync(join(tmpdir(), "iburo-ci-policy-"));
   try {

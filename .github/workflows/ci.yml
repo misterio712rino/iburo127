@@ -162,6 +162,31 @@ jobs:
       - name: File scanner service tests
         run: node --test services/file-scanner/tests/*.test.mjs
 
+      - name: File scanner Docker build
+        shell: bash
+        run: |
+          image="iburo-file-scanner-ci:${GITHUB_SHA}"
+          docker build --pull=false --tag "$image" services/file-scanner
+
+          entrypoint="$(docker image inspect "$image" --format '{{json .Config.Entrypoint}}')"
+          exposed_ports="$(docker image inspect "$image" --format '{{json .Config.ExposedPorts}}')"
+          runtime_user="$(docker image inspect "$image" --format '{{.Config.User}}')"
+          test "$entrypoint" = '["/usr/bin/tini","--","/usr/local/bin/file-scanner-entrypoint"]'
+          test "$exposed_ports" = '{"8080/tcp":{}}'
+          # Root is limited to the entrypoint's initialization; clamd, freshclam and Node use gosu clamav.
+          test -z "$runtime_user"
+
+          docker run --rm --network none --entrypoint /bin/sh "$image" -ceu '
+            command -v node >/dev/null
+            command -v clamd >/dev/null
+            command -v freshclam >/dev/null
+            command -v tini >/dev/null
+            command -v gosu >/dev/null
+            test -f /etc/clamav/clamd.conf
+            test -f /etc/clamav/freshclam.conf
+            test -x /usr/local/bin/file-scanner-entrypoint
+          '
+
       - name: Production foundation tests
         run: npm run test:foundation
 
