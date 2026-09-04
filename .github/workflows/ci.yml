@@ -68,7 +68,7 @@ jobs:
       - name: Dependency audit policy
         shell: bash
         run: |
-          npm audit --json > "$RUNNER_TEMP/npm-audit.json" || true
+          node scripts/fetch-npm-audit.mjs "$RUNNER_TEMP/npm-audit.json"
           node scripts/report-npm-audit.mjs "$RUNNER_TEMP/npm-audit.json"
           node scripts/check-npm-audit-policy.mjs "$RUNNER_TEMP/npm-audit.json" package-lock.json
 
@@ -128,7 +128,7 @@ jobs:
           console.log("PRISMA_ISOLATION_CLI_PASS");
           NODE
 
-          npm audit --json > "$RUNNER_TEMP/npm-audit-prisma-isolation.json" || true
+          node scripts/fetch-npm-audit.mjs "$RUNNER_TEMP/npm-audit-prisma-isolation.json"
           node scripts/report-npm-audit.mjs "$RUNNER_TEMP/npm-audit-prisma-isolation.json"
           node scripts/check-npm-audit-policy.mjs "$RUNNER_TEMP/npm-audit-prisma-isolation.json" package-lock.json
 

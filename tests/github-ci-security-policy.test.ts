@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 const repoRoot = process.cwd();
 const pinPolicyScript = resolve(repoRoot, "scripts/check-github-actions-pins.mjs");
 const workflowSecurityScript = resolve(repoRoot, "scripts/check-github-workflow-security.mjs");
+const ciWorkflowSource = readFileSync(resolve(repoRoot, ".github/workflows/ci.yml"), "utf8");
 const checkoutSha = "3d3c42e5aac5ba805825da76410c181273ba90b1";
 const setupNodeSha = "820762786026740c76f36085b0efc47a31fe5020";
 const exactCandidateRef = "${{ github.event.pull_request.head.sha || github.sha }}";
@@ -111,5 +112,24 @@ withWorkflow(safeWorkflow().replace(exactCandidateRef, "${{ github.sha }}"), (ro
   assert.match(result.stderr, /GITHUB_WORKFLOW_SECURITY_POLICY_FAIL/);
   assert.match(result.stderr, /checkout ref must resolve the exact candidate SHA/);
 });
+
+assert.equal(
+  (ciWorkflowSource.match(/node scripts\/fetch-npm-audit\.mjs/g) ?? []).length,
+  2,
+  "both CI audit checks must use the bounded retry retrieval boundary",
+);
+assert.doesNotMatch(ciWorkflowSource, /npm audit --json/);
+assert.match(
+  ciWorkflowSource,
+  /fetch-npm-audit\.mjs "\$RUNNER_TEMP\/npm-audit\.json"[\s\S]*check-npm-audit-policy\.mjs/,
+  "dependency audit retrieval must still hand its report to the authoritative policy checker",
+);
+assert.match(
+  ciWorkflowSource,
+  /fetch-npm-audit\.mjs "\$RUNNER_TEMP\/npm-audit-prisma-isolation\.json"[\s\S]*check-npm-audit-policy\.mjs/,
+  "Prisma isolation audit retrieval must still hand its report to the authoritative policy checker",
+);
+
+await import("./npm-audit-retrieval.test.mjs");
 
 console.log("GITHUB_CI_SECURITY_POLICY_TEST_PASS");
