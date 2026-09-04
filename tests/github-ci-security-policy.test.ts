@@ -12,6 +12,7 @@ const checkoutSha = "3d3c42e5aac5ba805825da76410c181273ba90b1";
 const setupNodeSha = "820762786026740c76f36085b0efc47a31fe5020";
 const setupTerraformSha = "dfe3c3f87815947d99a8997f908cb6525fc44e9e";
 const exactCandidateRef = "${{ github.event.pull_request.head.sha || github.sha }}";
+const manualOidcCandidateRef = "${{ inputs.candidate_sha }}";
 
 assert.match(
   ciWorkflowSource,
@@ -113,6 +114,31 @@ jobs:
 `;
 }
 
+function safeManualOidcWorkflow() {
+  return `name: Staging publication
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@${checkoutSha} # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${manualOidcCandidateRef}
+      - name: Bind manual OIDC candidate
+        run: |
+          test "$GITHUB_REF" = "refs/heads/audit/production-readiness"
+          test "$CONFIRMATION" = "PUBLISH_STAGING_FILE_SCANNER_IMAGE_ONLY"
+          test "$REQUESTED_SHA" = "$GITHUB_SHA"
+          git rev-parse HEAD
+`;
+}
+
 withWorkflow(safeWorkflow(), (root) => {
   const pins = runPolicy(pinPolicyScript, root);
   assert.equal(pins.status, 0, pins.stderr || pins.stdout);
@@ -169,6 +195,30 @@ withWorkflow(safeWorkflow().replace(exactCandidateRef, "${{ github.sha }}"), (ro
   const result = runPolicy(workflowSecurityScript, root);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /GITHUB_WORKFLOW_SECURITY_POLICY_FAIL/);
+  assert.match(result.stderr, /checkout ref must resolve the exact candidate SHA/);
+});
+
+withWorkflow(safeManualOidcWorkflow(), (root) => {
+  const workflow = runPolicy(workflowSecurityScript, root);
+  assert.equal(workflow.status, 0, workflow.stderr || workflow.stdout);
+  assert.match(workflow.stdout, /GITHUB_WORKFLOW_SECURITY_POLICY_PASS/);
+});
+
+withWorkflow(safeManualOidcWorkflow().replace('id-token: write', 'packages: write'), (root) => {
+  const result = runPolicy(workflowSecurityScript, root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /write permission scopes are forbidden/);
+});
+
+withWorkflow(safeWorkflow().replace('contents: read', 'contents: read\n  id-token: write'), (root) => {
+  const result = runPolicy(workflowSecurityScript, root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /write permission scopes are forbidden/);
+});
+
+withWorkflow(safeManualOidcWorkflow().replace('test "$REQUESTED_SHA" = "$GITHUB_SHA"', 'test "$REQUESTED_SHA" = "unbound"'), (root) => {
+  const result = runPolicy(workflowSecurityScript, root);
+  assert.notEqual(result.status, 0);
   assert.match(result.stderr, /checkout ref must resolve the exact candidate SHA/);
 });
 

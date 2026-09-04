@@ -6,6 +6,8 @@ network_id = "<EXISTING_STAGING_NETWORK_ID>"
 subnet_name = "iburo127-file-scanner-staging-d"
 subnet_cidr = "10.132.0.0/28"
 
+runtime_service_account_id = "<STAGING_SCANNER_RUNTIME_SERVICE_ACCOUNT_ID>"
+
 vm_name            = "iburo-file-scanner-staging"
 platform_id         = "standard-v3"
 cores               = 2

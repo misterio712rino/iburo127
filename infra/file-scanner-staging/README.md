@@ -11,6 +11,7 @@ This directory describes only the future isolated **staging** malware-scanner ho
 - The protected production domain and every subdomain below it are rejected by the hostname validation.
 - `scanner_hostname` remains empty until a separately approved staging-only DNS record exists.
 - The module does not manage DNS, service accounts, registry repositories, Vercel settings, or application runtime.
+- `runtime_service_account_id` is a required externally provisioned staging prerequisite. Its service account must have only `container-registry.images.puller` access scoped as narrowly as the approved scanner repository permits.
 - `terraform plan` and `terraform apply` require an authenticated, explicitly reviewed operator context and separate approval. CI only formats and validates with `terraform init -backend=false`.
 
 Do not run Terraform until Yandex Cloud inventory has confirmed the cloud, folder, network, zone, quotas, and ownership of every supplied ID. The dedicated scanner CIDR must remain free in the supplied network.
@@ -71,7 +72,7 @@ The compose definition:
 
 ## Secret bootstrap
 
-No scanner secret belongs in Terraform input, state, cloud-init, an image, Git, a Dockerfile, a command argument, or workflow logs.
+No scanner secret or registry credential belongs in Terraform input, state, tfvars, cloud-init, an image, Git, a Dockerfile, a command argument, or workflow logs. The runtime service-account ID is non-secret identity metadata; credentials and authorized keys remain forbidden.
 
 After provisioning and only through an approved out-of-band channel, create:
 
@@ -125,9 +126,11 @@ These commands download the pinned provider but do not contact Yandex Cloud reso
 
 ## Controlled image workflow
 
-`.github/workflows/staging-file-scanner-image.yml` is manual-only and restricted to `audit/production-readiness`. In this initial slice it builds and inspects the exact requested branch HEAD, then emits `STAGING_FILE_SCANNER_PUBLISH_NOT_CONFIGURED`. It has no registry credentials, write permission, login, push, or deployment step. Missing publication infrastructure therefore cannot masquerade as a successful publish.
+`.github/workflows/staging-file-scanner-image.yml` is `workflow_dispatch`-only and restricted to `audit/production-readiness`. It may publish only the exact checked-out candidate SHA to `cr.yandex/<registry-id>/iburo-file-scanner:<full-sha>`, then reports the registry-derived immutable digest. It never deploys the VM, runs Terraform, changes DNS, changes Vercel, or enables scanner E2E.
 
-Later publication requires a separate reviewed change adding staging-only identity federation and a private registry destination. The workflow must retain exact-SHA checkout, least privilege, immutable digest capture, and no production access.
+Publication requires separately provisioned staging prerequisites: a scanner registry; the runtime puller service account `iburo-file-scanner-staging-runtime`; the publisher service account `iburo-file-scanner-staging-publisher` with only `container-registry.images.pusher` access scoped as narrowly as practical; and Yandex Workload Identity Federation. The federation must accept only GitHub Actions issuer `https://token.actions.githubusercontent.com`, audience `https://github.com/misterio712rino`, and subject `repo:misterio712rino/iburo127:ref:refs/heads/audit/production-readiness`. No authorized key, JSON key, static credential, or GitHub secret may replace this OIDC exchange.
+
+The scanner image is deployed only by immutable repository digest; never use `latest` or another mutable tag. A successful publication ends at `STAGING_FILE_SCANNER_IMAGE_PUBLISHED_NOT_DEPLOYED`.
 
 ## Activation boundary
 
@@ -139,4 +142,4 @@ Infrastructure readiness does not prove scanner readiness. Keep application scan
 4. Branch-scoped Preview origin, secret, fingerprint, and confirmation review.
 5. Explicit approval to enable the scanner E2E flag.
 
-Phase 2 private-file E2E remains enabled; scanner E2E remains disabled in this slice.
+Phase 2 private-file E2E remains enabled; `IB_STAGING_FILE_SCAN_E2E=0` remains unchanged until the live scanner smoke passes.

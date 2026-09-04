@@ -39,6 +39,16 @@ variable "network_id" {
   }
 }
 
+variable "runtime_service_account_id" {
+  description = "Externally provisioned staging runtime service-account ID with pull-only scanner registry access."
+  type        = string
+
+  validation {
+    condition     = length(trimspace(var.runtime_service_account_id)) >= 8 && !can(regex("[[:space:][:cntrl:]]", var.runtime_service_account_id))
+    error_message = "runtime_service_account_id must be a non-empty reviewed Yandex service-account ID."
+  }
+}
+
 variable "subnet_name" {
   description = "Dedicated staging-only scanner subnet name."
   type        = string

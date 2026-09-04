@@ -1,52 +1,98 @@
-name: Staging File Scanner Image Preparation
+name: Staging File Scanner Image Publication
 
 on:
   workflow_dispatch:
     inputs:
       candidate_sha:
-        description: "Exact audit/production-readiness HEAD to build"
+        description: "Exact audit/production-readiness HEAD to publish"
+        required: true
+        type: string
+      registry_id:
+        description: "Externally provisioned staging Yandex Container Registry ID"
+        required: true
+        type: string
+      publisher_service_account_id:
+        description: "Externally provisioned staging publisher service-account ID"
         required: true
         type: string
       confirmation:
-        description: "Must equal BUILD_STAGING_FILE_SCANNER_IMAGE_ONLY"
+        description: "Must equal PUBLISH_STAGING_FILE_SCANNER_IMAGE_ONLY"
         required: true
         type: string
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
-  build-only:
+  publish-staging-image:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
 
     steps:
-      - name: Checkout
+      - name: Checkout exact candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ inputs.candidate_sha }}
 
-      - name: Enforce staging image preparation target
+      - name: Enforce staging publication target
         shell: bash
         env:
           REQUESTED_SHA: ${{ inputs.candidate_sha }}
+          REGISTRY_ID: ${{ inputs.registry_id }}
+          PUBLISHER_SERVICE_ACCOUNT_ID: ${{ inputs.publisher_service_account_id }}
           CONFIRMATION: ${{ inputs.confirmation }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = "refs/heads/audit/production-readiness"
-          test "$CONFIRMATION" = "BUILD_STAGING_FILE_SCANNER_IMAGE_ONLY"
+          test "$CONFIRMATION" = "PUBLISH_STAGING_FILE_SCANNER_IMAGE_ONLY"
+          [[ "$REQUESTED_SHA" =~ ^[0-9a-f]{40}$ ]]
           test "$REQUESTED_SHA" = "$GITHUB_SHA"
           test "$(git rev-parse HEAD)" = "$REQUESTED_SHA"
-          echo "STAGING_FILE_SCANNER_IMAGE_TARGET_PASS: $REQUESTED_SHA"
+          [[ "$REGISTRY_ID" =~ ^[a-z0-9]+$ ]]
+          [[ "$PUBLISHER_SERVICE_ACCOUNT_ID" =~ ^[a-z0-9]+$ ]]
+          echo "STAGING_FILE_SCANNER_IMAGE_PUBLICATION_TARGET_PASS: $REQUESTED_SHA"
 
-      - name: Build exact scanner candidate
+      - name: Request GitHub OIDC token and exchange for Yandex IAM token
         shell: bash
+        env:
+          PUBLISHER_SERVICE_ACCOUNT_ID: ${{ inputs.publisher_service_account_id }}
+          REGISTRY_ID: ${{ inputs.registry_id }}
         run: |
           set -euo pipefail
-          image="iburo-file-scanner-staging-candidate:${GITHUB_SHA}"
-          docker build --pull=false --tag "$image" services/file-scanner
-          test "$(docker image inspect "$image" --format '{{.Id}}')" != ""
+          trap 'docker logout cr.yandex >/dev/null 2>&1 || true; unset oidc_jwt iam_token oidc_response exchange_response image_repository image_tag image_digest immutable_image' EXIT
 
-      - name: Publication boundary
-        run: echo "STAGING_FILE_SCANNER_PUBLISH_NOT_CONFIGURED"
+          oidc_response="$(curl --fail --silent --show-error \
+            --header "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https%3A%2F%2Fgithub.com%2Fmisterio712rino")"
+          oidc_jwt="$(printf '%s' "$oidc_response" | jq -er '.value | strings | select(length > 0)')"
+          test -n "$oidc_jwt"
+          echo "::add-mask::$oidc_jwt"
+
+          exchange_response="$(printf '%s' "$oidc_jwt" | curl --fail --silent --show-error --request POST \
+            --header 'Content-Type: application/x-www-form-urlencoded' \
+            --data-urlencode 'grant_type=urn:ietf:params:oauth:grant-type:token-exchange' \
+            --data-urlencode 'requested_token_type=urn:ietf:params:oauth:token-type:access_token' \
+            --data-urlencode 'subject_token_type=urn:ietf:params:oauth:token-type:id_token' \
+            --data-urlencode "audience=${PUBLISHER_SERVICE_ACCOUNT_ID}" \
+            --data-urlencode 'subject_token@-' \
+            https://auth.yandex.cloud/oauth/token)"
+          iam_token="$(printf '%s' "$exchange_response" | jq -er '.access_token | strings | select(length > 0)')"
+          test -n "$iam_token"
+          echo "::add-mask::$iam_token"
+          image_repository="cr.yandex/${REGISTRY_ID}/iburo-file-scanner"
+          image_tag="${image_repository}:${GITHUB_SHA}"
+          docker build --pull=false --tag "$image_tag" services/file-scanner
+          printf '%s' "$iam_token" | docker login cr.yandex --username iam --password-stdin
+          docker push "$image_tag"
+          image_digest="$(docker buildx imagetools inspect "$image_tag" --format '{{.Digest}}')"
+          [[ "$image_digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          immutable_image="${image_repository}@${image_digest}"
+          echo "STAGING_FILE_SCANNER_IMAGE_CANDIDATE_SHA=$GITHUB_SHA"
+          echo "STAGING_FILE_SCANNER_REGISTRY_ID=$REGISTRY_ID"
+          echo "STAGING_FILE_SCANNER_IMAGE_REPOSITORY=$image_repository"
+          echo "STAGING_FILE_SCANNER_IMAGE_TAG=$image_tag"
+          echo "STAGING_FILE_SCANNER_IMAGE_DIGEST=$image_digest"
+          echo "STAGING_FILE_SCANNER_IMMUTABLE_IMAGE=$immutable_image"
+          echo "STAGING_FILE_SCANNER_IMAGE_PUBLISHED_NOT_DEPLOYED"

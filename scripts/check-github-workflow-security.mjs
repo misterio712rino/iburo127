@@ -4,6 +4,20 @@ import { join, relative } from "node:path";
 const WORKFLOWS_ROOT = ".github/workflows";
 const REQUIRED_RUNNER = "ubuntu-24.04";
 const REQUIRED_CHECKOUT_REF = "${{ github.event.pull_request.head.sha || github.sha }}";
+const MANUAL_OIDC_CHECKOUT_REF = "${{ inputs.candidate_sha }}";
+
+function isBoundedManualOidcWorkflow(source) {
+  return (
+    /^on:\s*\n\s{2}workflow_dispatch:/m.test(source) &&
+    !/^\s{2}(push|pull_request|schedule|workflow_run):/m.test(source) &&
+    /id-token:\s*write\s*(?:#.*)?$/m.test(source) &&
+    /ref:\s*\$\{\{ inputs\.candidate_sha \}\}/.test(source) &&
+    /test "\$GITHUB_REF" = "refs\/heads\/audit\/production-readiness"/.test(source) &&
+    /test "\$REQUESTED_SHA" = "\$GITHUB_SHA"/.test(source) &&
+    /PUBLISH_STAGING_FILE_SCANNER_IMAGE_ONLY/.test(source) &&
+    /git rev-parse HEAD/.test(source)
+  );
+}
 
 function collectWorkflowFiles(directory) {
   const files = [];
@@ -29,6 +43,7 @@ for (const file of collectWorkflowFiles(WORKFLOWS_ROOT)) {
   const displayPath = relative(".", file);
   const source = readFileSync(file, "utf8");
   const lines = source.split(/\r?\n/);
+  const manualOidcWorkflow = isBoundedManualOidcWorkflow(source);
 
   if (/^\s*pull_request_target\s*:/m.test(source)) {
     violations.push(`${displayPath}: pull_request_target is forbidden by CI security policy`);
@@ -39,8 +54,10 @@ for (const file of collectWorkflowFiles(WORKFLOWS_ROOT)) {
   if (/^\s*permissions\s*:\s*(write-all|read-all)\s*$/m.test(source)) {
     violations.push(`${displayPath}: permissions must be explicit and least-privilege`);
   }
-  if (/^\s*[A-Za-z0-9_-]+\s*:\s*write\s*(?:#.*)?$/m.test(source)) {
-    violations.push(`${displayPath}: write permission scopes are forbidden by the current CI policy`);
+  for (const writeScope of source.matchAll(/^\s*([A-Za-z0-9_-]+)\s*:\s*write\s*(?:#.*)?$/gm)) {
+    if (writeScope[1] !== "id-token" || !manualOidcWorkflow) {
+      violations.push(`${displayPath}: write permission scopes are forbidden by the current CI policy`);
+    }
   }
   if (/^\s*secrets\s*:\s*inherit\s*(?:#.*)?$/m.test(source)) {
     violations.push(`${displayPath}: secrets: inherit is forbidden by CI security policy`);
@@ -86,7 +103,8 @@ for (const file of collectWorkflowFiles(WORKFLOWS_ROOT)) {
       const refMatch = candidate.match(/^\s*ref\s*:\s*(.+?)\s*(?:#.*)?$/);
       if (refMatch) {
         checkoutRefFound = true;
-        if (refMatch[1] !== REQUIRED_CHECKOUT_REF) {
+        const boundedManualRef = manualOidcWorkflow && refMatch[1] === MANUAL_OIDC_CHECKOUT_REF;
+        if (refMatch[1] !== REQUIRED_CHECKOUT_REF && !boundedManualRef) {
           violations.push(
             `${displayPath}:${index + 1}: checkout ref must resolve the exact candidate SHA; expected ${REQUIRED_CHECKOUT_REF}`,
           );

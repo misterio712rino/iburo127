@@ -34,6 +34,7 @@ for (const name of [
   "folder_id",
   "zone",
   "network_id",
+  "runtime_service_account_id",
   "subnet_name",
   "subnet_cidr",
   "vm_name",
@@ -56,6 +57,12 @@ for (const name of [
   assert.match(variables, new RegExp(`variable "${name}"`), `missing reviewed variable ${name}`);
 }
 assert.doesNotMatch(variables, /variable\s+"[^"]*(secret|token|credential|password|service_account_key)[^"]*"/i);
+const runtimeServiceAccountVariable = variables.match(/variable "runtime_service_account_id"[\s\S]*?(?=\nvariable |$)/)?.[0];
+assert.ok(runtimeServiceAccountVariable, "runtime service-account identity must remain an explicit Terraform input");
+assert.match(runtimeServiceAccountVariable, /type\s*=\s*string/);
+assert.doesNotMatch(runtimeServiceAccountVariable, /default\s*=/);
+assert.match(runtimeServiceAccountVariable, /length\(trimspace\(var\.runtime_service_account_id\)\) >= 8/);
+assert.match(runtimeServiceAccountVariable, /\[\[:space:\]\[:cntrl:\]\]/);
 assert.match(variables, /condition\s*=\s*var\.environment == "staging"/);
 assert.match(variables, /!strcontains\(var\.vm_name, "prod"\)/);
 assert.match(variables, /strcontains\(var\.scanner_hostname, "staging"\)/);
@@ -91,6 +98,7 @@ assert.match(main, /resource "yandex_vpc_address" "scanner"/);
 assert.match(main, /deletion_protection\s*=\s*true/);
 assert.match(main, /nat_ip_address\s*=\s*yandex_vpc_address\.scanner\.external_ipv4_address\[0\]\.address/);
 assert.match(main, /resource "yandex_compute_instance" "scanner"/);
+assert.match(main, /service_account_id\s*=\s*var\.runtime_service_account_id/);
 assert.match(main, /subnet_id\s*=\s*yandex_vpc_subnet\.scanner\.id/);
 assert.match(main, /security_group_ids\s*=\s*\[yandex_vpc_security_group\.scanner\.id\]/);
 assert.doesNotMatch(main, /default-sg|iburo127-postgres-sg|port\s*=\s*6432/i);
@@ -100,7 +108,7 @@ assert.match(main, /family\s*=\s*"ubuntu-2404-lts"/);
 assert.match(main, /environment\s*=\s*"staging"/);
 assert.match(main, /service\s*=\s*"file-scanner"/);
 assert.match(main, /repository\s*=\s*"iburo127"/);
-assert.doesNotMatch(main, /yandex_dns_|container_registry|iam_|service_account/);
+assert.doesNotMatch(main, /resource\s+"yandex_(dns_|container_registry|iam_|service_account)/);
 for (const deploymentSource of [main, outputs, cloudInit, tfvarsExample, compose, caddy]) {
   assert.doesNotMatch(deploymentSource, /(^|[^.a-z0-9-])(www\.|api\.)?iburo127\.ru([^a-z0-9.-]|$)/i);
 }
@@ -135,11 +143,36 @@ assert.doesNotMatch(caddy, /iburo127\.ru|www\.iburo127\.ru|api\.iburo127\.ru|Aut
 assert.match(imageWorkflow, /^on:\s*\n\s{2}workflow_dispatch:/m);
 assert.doesNotMatch(imageWorkflow, /^\s{2}(push|pull_request|schedule):/m);
 assert.match(imageWorkflow, /refs\/heads\/audit\/production-readiness/);
-assert.match(imageWorkflow, /BUILD_STAGING_FILE_SCANNER_IMAGE_ONLY/);
-assert.match(imageWorkflow, /STAGING_FILE_SCANNER_PUBLISH_NOT_CONFIGURED/);
-assert.match(imageWorkflow, /docker build --pull=false --tag "\$image" services\/file-scanner/);
-assert.doesNotMatch(imageWorkflow, /docker (login|push)|--push|terraform (plan|apply)|kubectl|yc\s/i);
-assert.doesNotMatch(imageWorkflow, /secrets\.|contents:\s*write|packages:\s*write/);
+for (const input of ["candidate_sha", "registry_id", "publisher_service_account_id", "confirmation"]) {
+  assert.match(imageWorkflow, new RegExp(`^\\s{6}${input}:`, "m"));
+}
+assert.match(imageWorkflow, /PUBLISH_STAGING_FILE_SCANNER_IMAGE_ONLY/);
+assert.match(imageWorkflow, /permissions:\s*\n\s+contents: read\s*\n\s+id-token: write/);
+assert.match(imageWorkflow, /persist-credentials: false/);
+assert.match(imageWorkflow, /ref: \$\{\{ inputs\.candidate_sha \}\}/);
+assert.match(imageWorkflow, /test "\$REQUESTED_SHA" = "\$GITHUB_SHA"/);
+assert.match(imageWorkflow, /git rev-parse HEAD/);
+assert.match(imageWorkflow, /ACTIONS_ID_TOKEN_REQUEST_URL/);
+assert.match(imageWorkflow, /ACTIONS_ID_TOKEN_REQUEST_TOKEN/);
+assert.match(imageWorkflow, /audience=https%3A%2F%2Fgithub\.com%2Fmisterio712rino/);
+assert.match(imageWorkflow, /https:\/\/auth\.yandex\.cloud\/oauth\/token/);
+assert.match(imageWorkflow, /grant_type=urn:ietf:params:oauth:grant-type:token-exchange/);
+assert.match(imageWorkflow, /requested_token_type=urn:ietf:params:oauth:token-type:access_token/);
+assert.match(imageWorkflow, /subject_token_type=urn:ietf:params:oauth:token-type:id_token/);
+assert.match(imageWorkflow, /--data-urlencode "audience=\$\{PUBLISHER_SERVICE_ACCOUNT_ID\}"/);
+assert.match(imageWorkflow, /--data-urlencode 'subject_token@-'/);
+assert.match(imageWorkflow, /jq -er '\.access_token \| strings \| select\(length > 0\)'/);
+assert.match(imageWorkflow, /::add-mask::\$iam_token/);
+assert.match(imageWorkflow, /cr\.yandex\/\$\{REGISTRY_ID\}\/iburo-file-scanner/);
+assert.match(imageWorkflow, /docker build --pull=false --tag "\$image_tag" services\/file-scanner/);
+assert.match(imageWorkflow, /docker login cr\.yandex --username iam --password-stdin/);
+assert.match(imageWorkflow, /docker push "\$image_tag"/);
+assert.match(imageWorkflow, /docker buildx imagetools inspect "\$image_tag" --format '\{\{\.Digest\}\}'/);
+assert.match(imageWorkflow, /\^sha256:\[a-f0-9\]\{64\}\$/);
+assert.match(imageWorkflow, /STAGING_FILE_SCANNER_IMMUTABLE_IMAGE/);
+assert.match(imageWorkflow, /STAGING_FILE_SCANNER_IMAGE_PUBLISHED_NOT_DEPLOYED/);
+assert.doesNotMatch(imageWorkflow, /:latest|\b(staging|stable)\b.*tag|docker (login|push).*latest/i);
+assert.doesNotMatch(imageWorkflow, /secrets\.|YC_TOKEN|YC_OAUTH_TOKEN|service[_-]?account.*key|authorized[_ -]?key|terraform|kubectl|\byc\s|deployments:\s*write|packages:\s*write|actions:\s*write|contents:\s*write|pull-requests:\s*write|issues:\s*write/i);
 
 assert.match(ignore, /^\.terraform\/$/m);
 assert.match(ignore, /^\*\.tfstate$/m);
@@ -150,6 +183,7 @@ assert.doesNotMatch(ignore, /^\.terraform\.lock\.hcl$/m);
 
 assert.match(tfvarsExample, /environment\s*=\s*"staging"/);
 assert.match(tfvarsExample, /allow_operator_ssh\s*=\s*false/);
+assert.match(tfvarsExample, /runtime_service_account_id\s*=\s*"<STAGING_SCANNER_RUNTIME_SERVICE_ACCOUNT_ID>"/);
 assert.doesNotMatch(tfvarsExample, /IB_FILE_SCANNER_SECRET|GENERATE_OUT_OF_BAND/);
 assert.match(readme, /HOSTNAME REQUIRED — NOT YET ASSIGNED/);
 assert.match(readme, /IB_FILE_SCANNER_SECRET=<GENERATE_OUT_OF_BAND>/);
@@ -160,6 +194,13 @@ assert.match(readme, /10\.132\.0\.0\/28/);
 assert.match(readme, /ru-central1-d/);
 assert.match(readme, /default network SG must NOT be assigned|default network SG or `iburo127-postgres-sg`/);
 assert.match(readme, /TCP 6432/);
+assert.match(readme, /runtime_service_account_id/);
+assert.match(readme, /container-registry\.images\.puller/);
+assert.match(readme, /container-registry\.images\.pusher/);
+assert.match(readme, /https:\/\/token\.actions\.githubusercontent\.com/);
+assert.match(readme, /https:\/\/github\.com\/misterio712rino/);
+assert.match(readme, /repo:misterio712rino\/iburo127:ref:refs\/heads\/audit\/production-readiness/);
+assert.match(readme, /IB_STAGING_FILE_SCAN_E2E=0/);
 
 assert.match(applicationWorkflow, /IB_STAGING_FILES_E2E: "1"/);
 assert.match(applicationWorkflow, /IB_STAGING_FILE_SCAN_E2E: "0"/);

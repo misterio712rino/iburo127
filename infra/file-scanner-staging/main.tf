@@ -114,6 +114,7 @@ resource "yandex_compute_instance" "scanner" {
   folder_id                 = var.folder_id
   zone                      = var.zone
   platform_id               = var.platform_id
+  service_account_id        = var.runtime_service_account_id
   allow_stopping_for_update = false
   labels                    = local.labels
 
