@@ -7,6 +7,10 @@ import {
   StagingCookieJar,
 } from "../scripts/staging-auth-flow-core";
 import {
+  requiresStagingSignInLimiterWait,
+  STAGING_SIGN_IN_LIMITER_WINDOW_WAIT_MS,
+} from "../scripts/staging-authenticated-sessions";
+import {
   requireStagingHttpTarget,
   STAGING_HTTP_TARGET_GUARD,
 } from "../scripts/staging-http-target-guard";
@@ -16,6 +20,19 @@ import {
 } from "../server/config/vercel-preview-boundary";
 
 const previewCommitSha = "a".repeat(40);
+assert.equal(STAGING_SIGN_IN_LIMITER_WINDOW_WAIT_MS, 11_000);
+assert.equal(
+  requiresStagingSignInLimiterWait(false, 3),
+  false,
+  "the ordinary three-fixture flow must not add a limiter wait",
+);
+assert.equal(requiresStagingSignInLimiterWait(true, 2), false);
+assert.equal(
+  requiresStagingSignInLimiterWait(true, 3),
+  true,
+  "files E2E must wait after its first three fixture authentications",
+);
+assert.equal(requiresStagingSignInLimiterWait(true, 4), false);
 const previewBoundaryEnv = {
   VERCEL_ENV: "preview",
   VERCEL_GIT_COMMIT_REF: "audit/production-readiness",
@@ -247,6 +264,18 @@ assert.match(sessionSource, /readFixture\(env, "OTHER_CLIENT", "OTHER_CLIENT", "
 assert.match(sessionSource, /OTHER_CLIENT staging fixture must be a dedicated account distinct from CLIENT/);
 assert.match(sessionSource, /OTHER_CLIENT: otherClientJar\.header\(\)/);
 assert.match(sessionSource, /const otherClientJar = jars\.get\("OTHER_CLIENT"\)/);
+assert.match(sessionSource, /STAGING_SIGN_IN_LIMITER_WINDOW_WAIT_MS = 11_000/);
+assert.match(sessionSource, /requiresStagingSignInLimiterWait\(filesE2e, jars\.size\)/);
+assert.match(sessionSource, /await waitForStagingSignInLimiterWindow\(\)/);
+assert.match(
+  sessionSource,
+  /OTHER_CLIENT: waiting for the documented Better Auth sign-in rate-limit window/,
+);
+assert.doesNotMatch(
+  sessionSource,
+  /rateLimit\.(?:delete|reset)|accessGateRateLimitDigest|staging-application-e2e-fixtures/,
+  "fresh-session orchestration must wait for, not mutate or bypass, Better Auth rate limits",
+);
 assert.match(sessionSource, /for \(const jar of jars\.values\(\)\)/);
 assert.doesNotMatch(sessionSource, /writeFile|appendFile|fs\/promises/);
 assert.doesNotMatch(

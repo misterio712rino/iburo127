@@ -5,6 +5,7 @@ import {
 } from "./staging-auth-flow-core";
 
 const MAX_JSON_BYTES = 64 * 1024;
+export const STAGING_SIGN_IN_LIMITER_WINDOW_WAIT_MS = 11_000;
 
 export type StagingPlatformRole = "CLIENT" | "LAWYER" | "MANAGER";
 type StagingSessionFixture = StagingPlatformRole | "OTHER_CLIENT";
@@ -52,6 +53,19 @@ export class StagingAuthSessionFailure extends Error {}
 
 function fail(message: string): never {
   throw new StagingAuthSessionFailure(message);
+}
+
+export function requiresStagingSignInLimiterWait(
+  filesE2e: boolean,
+  authenticatedFixtureCount: number,
+): boolean {
+  return filesE2e && authenticatedFixtureCount === 3;
+}
+
+function waitForStagingSignInLimiterWindow(): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, STAGING_SIGN_IN_LIMITER_WINDOW_WAIT_MS);
+  });
 }
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
@@ -395,6 +409,10 @@ export async function createStagingAuthenticatedSessions(options: {
 
   try {
     for (const fixture of fixtures) {
+      if (requiresStagingSignInLimiterWait(filesE2e, jars.size)) {
+        onStatus("OTHER_CLIENT: waiting for the documented Better Auth sign-in rate-limit window");
+        await waitForStagingSignInLimiterWindow();
+      }
       const jar = await authenticateFixture(context, fixture);
       jars.set(fixture.label, jar);
       onStatus(
