@@ -43,13 +43,16 @@ assert.match(clientDashboardV2Source, /mortgageAvailable/);
 assert.doesNotMatch(clientDashboardV2Source, /DemoIdentityProvider|useDemoIdentity|localStorage|\/app\/client/);
 assert.doesNotMatch(clientDashboardV2Source, /Дмитрий Волков|Анна Орлова|IBR-2026/);
 
-assert.match(clientShellV2Source, /Главная[\s\S]*Практикум[\s\S]*Анкета[\s\S]*Документы[\s\S]*Прогресс[\s\S]*AI-помощник[\s\S]*Профиль/);
+assert.match(clientShellV2Source, /Главная[\s\S]*Практикум[\s\S]*Анкета[\s\S]*Документы[\s\S]*AI-помощник[\s\S]*Прогресс[\s\S]*Профиль/);
 assert.match(clientShellV2Source, /\/portal\/notifications\?caseId=\$\{caseId\}/);
 assert.match(clientShellV2Source, /\/portal\/profile\?caseId=\$\{caseId\}/);
+assert.match(clientShellV2Source, /route === "\/portal\/profile"[\s\S]*pathname === "\/portal\/security"/);
+assert.match(clientShellV2Source, /event\.key === "Escape"/);
+assert.match(clientShellV2Source, /document\.body\.style\.overflow = "hidden"/);
 assert.doesNotMatch(clientShellV2Source, /\/app\/client/);
 assert.match(clientShellV2Source, /cases\.length > 1/);
 
-// Legacy case shell remains in use while the remaining CLIENT modules migrate screen-by-screen.
+// Legacy case shell remains available for STAFF and any not-yet-migrated operational presentation.
 assert.match(clientFrameSource, /<ClientCaseNavigation caseId=\{caseId\}/);
 assert.match(clientNavigationSource, /Главная[\s\S]*Практикум[\s\S]*Анкета[\s\S]*Документы/);
 
@@ -61,18 +64,20 @@ assert.match(
 assert.match(
   profileSource,
   /const planCode = requirePlanCode\(selectedClientCase\.planCode\)/,
-  "CLIENT profile must derive plan visuals from the accessible selected case rather than a display label",
+  "CLIENT profile must derive plan presentation from the accessible selected case",
 );
 assert.match(
   profileSource,
-  /<ClientPlanVisualStyles planCode=\{planCode\} \/>[\s\S]*<ClientCaseFrame[\s\S]*caseId=\{selectedClientCase\.id\}/,
-  "CLIENT profile must retain the selected case shell and matching plan visual layer until its UI v2 migration",
+  /<IBuroClientShellV2[\s\S]*caseId=\{selectedClientCase\.id\}[\s\S]*cases=\{caseOptions\}/,
+  "CLIENT profile must render inside UI v2 using only accessible case context",
 );
 assert.match(
   profileSource,
   /<PortalFrame sectionLabel="Профиль" showStaffTasks=\{isStaff\}>/,
   "STAFF profile must remain in the operational portal shell",
 );
+assert.doesNotMatch(profileSource, /ClientPlanVisualStyles|<ClientCaseFrame/);
+
 assert.match(
   securitySource,
   /searchParams: Promise<\{ caseId\?: string \}>/,
@@ -81,17 +86,17 @@ assert.match(
 assert.match(
   securitySource,
   /const selectedClientCase = isClientOnly[\s\S]*cases\.find\(\(item\) => item\.id === requestedCaseId\)/,
-  "account security must only seat CLIENT in a case shell for an accessible case",
+  "account security must only seat CLIENT in a shell for an accessible case",
 );
 assert.match(
   securitySource,
   /const planCode = requirePlanCode\(selectedClientCase\.planCode\)/,
-  "CLIENT account security must derive plan visuals from the accessible selected case",
+  "CLIENT account security must derive plan presentation from the accessible selected case",
 );
 assert.match(
   securitySource,
-  /<ClientPlanVisualStyles planCode=\{planCode\} \/>[\s\S]*<ClientCaseFrame[\s\S]*caseId=\{selectedClientCase\.id\}/,
-  "CLIENT account security must retain the existing case shell during staged UI migration",
+  /<IBuroClientShellV2[\s\S]*caseId=\{selectedClientCase\.id\}[\s\S]*cases=\{caseOptions\}/,
+  "CLIENT account security must render inside UI v2 using only accessible case context",
 );
 assert.match(
   securitySource,
@@ -103,6 +108,7 @@ assert.match(
   /<MfaEnrollmentForm completionHref=\{completionHref\} \/>/,
   "2FA enrollment completion must preserve client case context",
 );
+assert.doesNotMatch(securitySource, /ClientPlanVisualStyles|<ClientCaseFrame/);
 
 for (const [path, source] of [
   ["progress", progressSource],
