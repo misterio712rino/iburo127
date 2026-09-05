@@ -10,13 +10,24 @@ import {
 
 const FAIL = "STAGING_APPLICATION_E2E_FAIL";
 
-const VERIFIERS = [
+type VerifierSpec = readonly [
+  label: string,
+  scriptPath: string,
+  envOverrides?: Readonly<Record<string, string>>,
+];
+
+const VERIFIERS: readonly VerifierSpec[] = [
   ["HTTP authorization", "scripts/verify-staging-http-authz.ts"],
   ["portal navigation", "scripts/verify-staging-portal-navigation.ts"],
   ["access gate", "scripts/verify-staging-access-gate.ts"],
   ["AI authorization", "scripts/verify-staging-ai-http-authz.ts"],
-  ["mutation and audit", "scripts/verify-staging-http-mutation-audit.ts"],
-] as const;
+  ["files lifecycle", "scripts/verify-staging-file-lifecycle.ts"],
+  [
+    "mutation and audit",
+    "scripts/verify-staging-http-mutation-audit.ts",
+    { IB_STAGING_FILES_E2E: "0", IB_STAGING_FILE_SCAN_E2E: "0" },
+  ],
+];
 
 function fail(message: string): never {
   throw new Error(message);
@@ -48,6 +59,7 @@ async function runVerifier(
   label: string,
   scriptPath: string,
   env: NodeJS.ProcessEnv,
+  envOverrides?: Readonly<Record<string, string>>,
 ): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const child = spawn(
@@ -55,7 +67,7 @@ async function runVerifier(
       ["--import", "tsx", scriptPath],
       {
         cwd: process.cwd(),
-        env,
+        env: { ...env, ...envOverrides },
         stdio: "inherit",
         shell: false,
       },
@@ -93,8 +105,8 @@ try {
   console.log("AUTH_SESSIONS: fresh staging sessions retained in memory for E2E");
 
   const verifierEnv = buildVerifierEnvironment(sessions);
-  for (const [label, scriptPath] of VERIFIERS) {
-    await runVerifier(label, scriptPath, verifierEnv);
+  for (const [label, scriptPath, envOverrides] of VERIFIERS) {
+    await runVerifier(label, scriptPath, verifierEnv, envOverrides);
     console.log(`E2E_PHASE: ${label} verified`);
   }
 } catch (error) {
