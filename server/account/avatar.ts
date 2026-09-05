@@ -1,6 +1,5 @@
 import "server-only";
 
-import { randomUUID } from "node:crypto";
 import { headers } from "next/headers";
 import type { SessionProvider } from "@/server/auth/contracts";
 import { getBetterAuthInstance } from "@/server/auth/better-auth-instance";
@@ -9,6 +8,7 @@ import { getPrivateObjectStorage } from "@/server/files/object-storage-runtime";
 
 const AVATAR_POINTER_PREFIX = "iburo-avatar:";
 const AVATAR_ROOT = "profile-avatars";
+const AVATAR_OBJECT_NAME = "avatar";
 const AVATAR_ROUTE = "/api/platform/account/avatar";
 const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024;
 const MIME_EXTENSIONS = {
@@ -30,17 +30,33 @@ function avatarPrefixForUser(userId: string) {
   return `${AVATAR_ROOT}/${userId}/`;
 }
 
+function avatarObjectKeyForUser(userId: string) {
+  return `${avatarPrefixForUser(userId)}${AVATAR_OBJECT_NAME}`;
+}
+
 async function getCurrentAvatarObjectKey() {
   const auth = getBetterAuthInstance();
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) throw new Error(UNAUTHENTICATED);
 
+  const storage = getPrivateObjectStorage();
+  const canonicalObjectKey = avatarObjectKeyForUser(session.user.id);
+
+  try {
+    const metadata = await storage.statObject(canonicalObjectKey);
+    if (metadata?.mimeType && isAllowedMimeType(metadata.mimeType)) {
+      return canonicalObjectKey;
+    }
+  } catch {
+    // Fall through to the legacy Better Auth image pointer for existing avatars.
+  }
+
   const image = session.user.image?.trim();
   if (!image?.startsWith(AVATAR_POINTER_PREFIX)) return null;
 
-  const objectKey = image.slice(AVATAR_POINTER_PREFIX.length);
-  if (!objectKey.startsWith(avatarPrefixForUser(session.user.id))) return null;
-  return objectKey;
+  const legacyObjectKey = image.slice(AVATAR_POINTER_PREFIX.length);
+  if (!legacyObjectKey.startsWith(avatarPrefixForUser(session.user.id))) return null;
+  return legacyObjectKey;
 }
 
 export async function getCurrentAccountAvatarUrl(): Promise<string | null> {
@@ -88,8 +104,7 @@ export async function createCurrentAccountAvatarUpload(
     throw new Error(ACCOUNT_AVATAR_INVALID_INPUT);
   }
 
-  const extension = MIME_EXTENSIONS[mimeType];
-  const objectKey = `${avatarPrefixForUser(actor.userId)}${randomUUID()}.${extension}`;
+  const objectKey = avatarObjectKeyForUser(actor.userId);
   const signed = await getPrivateObjectStorage().createUploadUrl({
     objectKey,
     mimeType,
@@ -111,22 +126,17 @@ export async function completeCurrentAccountAvatarUpload(
   const actor = await requireServerActor(sessionProvider);
   if (typeof objectKeyValue !== "string") throw new Error(ACCOUNT_AVATAR_INVALID_INPUT);
   const objectKey = objectKeyValue.trim();
-  if (!objectKey.startsWith(avatarPrefixForUser(actor.userId))) {
+  if (objectKey !== avatarObjectKeyForUser(actor.userId)) {
     throw new Error(ACCOUNT_AVATAR_INVALID_INPUT);
   }
 
-  const metadata = await getPrivateObjectStorage().statObject(objectKey);
+  const storage = getPrivateObjectStorage();
+  const metadata = await storage.statObject(objectKey);
   if (!metadata) throw new Error(ACCOUNT_AVATAR_NOT_FOUND);
   if (!metadata.mimeType || !isAllowedMimeType(metadata.mimeType) || metadata.sizeBytes > BigInt(MAX_AVATAR_SIZE_BYTES)) {
-    await getPrivateObjectStorage().deleteObject(objectKey);
+    await storage.deleteObject(objectKey);
     throw new Error(ACCOUNT_AVATAR_INVALID_INPUT);
   }
-
-  const auth = getBetterAuthInstance();
-  await auth.api.updateUser({
-    headers: await headers(),
-    body: { image: `${AVATAR_POINTER_PREFIX}${objectKey}` },
-  });
 
   return { ok: true } as const;
 }
