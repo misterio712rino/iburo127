@@ -12,23 +12,26 @@ import {
   ListChecks,
 } from "lucide-react";
 
-import { ClientPlanVisualStyles } from "@/components/portal/ClientPlanVisualStyles";
+import { IBuroClientDashboardV2 } from "@/components/portal/IBuroClientDashboardV2";
 import { PortalFrame } from "@/components/portal/PortalFrame";
-import { ProductionDemoClientDashboard } from "@/components/portal/ProductionDemoClientDashboard";
 import {
   getCaseStageDisplayLabel,
   getCaseStatusLabel,
   getPlanDisplayLabel,
 } from "@/lib/platform/case-progress";
+import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
 import { resolveCasePortalAudience } from "@/lib/platform/case-portal-audience";
 import type { PlanCode } from "@/lib/platform/types";
 import { getCurrentAccountProfile } from "@/server/account/operations";
+import { buildCaseActivityView } from "@/server/activity/presentation";
+import { listCaseActivity } from "@/server/activity/operations";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { getCaseProgressSummaryForActor } from "@/server/case-progress/operations";
 import { getCurrentPlatformActor } from "@/server/client-cases/operations";
 import { clientCaseService } from "@/server/client-cases/runtime";
 import { getPrismaClient } from "@/server/database/prisma";
+import { listNotifications } from "@/server/notifications/operations";
 
 export const dynamic = "force-dynamic";
 
@@ -46,15 +49,17 @@ type CaseProgressSummary = Awaited<ReturnType<typeof getCaseProgressSummaryForAc
 
 function stageProgress(summary: CaseProgressSummary) {
   if (!summary.stage.position || summary.stage.total <= 1) return 0;
-  return Math.max(
-    0,
-    Math.min(100, Math.round(((summary.stage.position - 1) / (summary.stage.total - 1)) * 100)),
-  );
+  return Math.max(0, Math.min(100, Math.round(((summary.stage.position - 1) / (summary.stage.total - 1)) * 100)));
 }
 
 function requirePlanCode(value: string): PlanCode {
   if (value === "LITE" || value === "PRO" || value === "INDIVIDUAL") return value;
   throw new Error("UNSUPPORTED_CLIENT_PLAN");
+}
+
+function getClientPlanLabel(planCode: PlanCode) {
+  if (planCode === "INDIVIDUAL") return "Эксклюзив";
+  return getPlanDisplayLabel(planCode, "CLIENT");
 }
 
 function formatCaseOpenedDate(date: Date) {
@@ -65,13 +70,22 @@ function formatCaseOpenedDate(date: Date) {
   }).format(date);
 }
 
+function formatActivityDate(date: Date) {
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 async function renderClientDashboard(
   sessionProvider: ReturnType<typeof createProductionSessionProvider>,
   actor: Awaited<ReturnType<typeof getCurrentPlatformActor>>,
   clientCase: NonNullable<Awaited<ReturnType<typeof clientCaseService.getCase>>>,
   summary: CaseProgressSummary,
 ) {
-  const [profile, allCases, caseMetadata] = await Promise.all([
+  const [profile, allCases, caseMetadata, notifications, activityRecords] = await Promise.all([
     getCurrentAccountProfile(sessionProvider),
     clientCaseService.listCases(actor),
     getPrismaClient().clientCase.findUnique({
@@ -79,9 +93,7 @@ async function renderClientDashboard(
       select: {
         openedAt: true,
         createdAt: true,
-        assignedLawyer: {
-          select: { displayName: true },
-        },
+        assignedLawyer: { select: { displayName: true } },
         plan: {
           select: {
             features: {
@@ -93,63 +105,51 @@ async function renderClientDashboard(
         },
       },
     }),
+    listNotifications(sessionProvider, 100),
+    listCaseActivity(sessionProvider, clientCase.id, 5),
   ]);
 
+  const planCode = requirePlanCode(clientCase.planCode);
   const ownedCases = allCases.filter((item) => item.clientId === actor.userId);
   const caseOptions = ownedCases.map((item) => ({
     id: item.id,
-    caseNumber: item.caseNumber,
-    planLabel: getPlanDisplayLabel(item.planCode, "CLIENT"),
+    displayNumber: getClientCaseDisplayNumber(item.caseNumber),
+    planLabel: getClientPlanLabel(requirePlanCode(item.planCode)),
   }));
   const displayName = profile.displayName?.trim() || "Клиент iБюро";
   const specialistName = caseMetadata?.assignedLawyer?.displayName?.trim() || "Специалист назначается";
   const openedAt = caseMetadata?.openedAt ?? caseMetadata?.createdAt ?? new Date();
   const mortgageAvailable = (caseMetadata?.plan.features.length ?? 0) > 0;
-  const planCode = requirePlanCode(clientCase.planCode);
+  const unreadCount = notifications.filter((item) => !item.readAt).length;
+  const clientActivity = buildCaseActivityView(activityRecords, "CLIENT").map((event) => ({
+    id: event.id,
+    label: event.label,
+    dateLabel: formatActivityDate(event.createdAt),
+  }));
 
-  const dashboard = (
-    <ProductionDemoClientDashboard
+  return (
+    <IBuroClientDashboardV2
       caseId={clientCase.id}
-      caseNumber={clientCase.caseNumber}
       displayName={displayName}
-      planCode={planCode}
-      planLabel={getPlanDisplayLabel(clientCase.planCode, "CLIENT")}
+      caseDisplayNumber={getClientCaseDisplayNumber(clientCase.caseNumber)}
+      planLabel={getClientPlanLabel(planCode)}
+      unreadCount={unreadCount}
       cases={caseOptions}
       statusLabel={getCaseStatusLabel(clientCase.status)}
       stageLabel={summary.stage.label}
-      stageIndex={Math.max(0, (summary.stage.position ?? 1) - 1)}
+      stagePosition={summary.stage.position}
+      stageTotal={summary.stage.total}
       progress={stageProgress(summary)}
       openedDate={formatCaseOpenedDate(openedAt)}
       specialistName={specialistName}
       mortgageAvailable={mortgageAvailable}
-      practicum={{
-        completed: summary.practicum.completed,
-        total: summary.practicum.total,
-        percent: summary.practicum.percent,
-      }}
-      questionnaire={{
-        completed: summary.questionnaire.completed,
-        total: summary.questionnaire.total,
-        percent: summary.questionnaire.percent,
-      }}
-      documents={{
-        total: summary.documents.total,
-        reviewed: summary.documents.reviewed,
-        sentForReview: summary.documents.sentForReview,
-      }}
-      nextAction={{
-        title: summary.nextAction.title,
-        description: summary.nextAction.description,
-        segment: summary.nextAction.segment,
-      }}
+      practicum={{ completed: summary.practicum.completed, total: summary.practicum.total, percent: summary.practicum.percent }}
+      questionnaire={{ completed: summary.questionnaire.completed, total: summary.questionnaire.total, percent: summary.questionnaire.percent }}
+      documents={{ total: summary.documents.total, reviewed: summary.documents.reviewed, sentForReview: summary.documents.sentForReview }}
+      readyFileCount={summary.readyFileCount}
+      nextAction={{ title: summary.nextAction.title, description: summary.nextAction.description, segment: summary.nextAction.segment }}
+      activity={clientActivity}
     />
-  );
-
-  return (
-    <>
-      <ClientPlanVisualStyles planCode={planCode} />
-      {dashboard}
-    </>
   );
 }
 
@@ -172,14 +172,13 @@ export default async function PortalCasePage({ params }: { params: Promise<{ cas
   const isClient = audience === "CLIENT";
   const summary = await getCaseProgressSummaryForActor(actor, clientCase, audience);
 
-  if (isClient) {
-    return renderClientDashboard(sessionProvider, actor, clientCase, summary);
-  }
+  if (isClient) return renderClientDashboard(sessionProvider, actor, clientCase, summary);
 
   const nextActionHref = `/portal/cases/${clientCase.id}/${summary.nextAction.segment}`;
+  const displayCaseNumber = getClientCaseDisplayNumber(clientCase.caseNumber);
 
   return (
-    <PortalFrame sectionLabel={`Дело ${clientCase.caseNumber}`} accessLabel="Доступ открыт" showStaffTasks>
+    <PortalFrame sectionLabel={displayCaseNumber} accessLabel="Доступ открыт" showStaffTasks>
       <main className="py-10 sm:py-14">
         <Link href="/portal" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900">
           ← Все дела
@@ -188,7 +187,7 @@ export default async function PortalCasePage({ params }: { params: Promise<{ cas
         <section className="mt-8 rounded-[32px] border border-white/80 bg-white/90 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] sm:p-8">
           <div className="flex min-w-0 flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
-              <p className="font-mono text-xs font-semibold tracking-[0.08em] text-slate-400">{clientCase.caseNumber}</p>
+              <p className="text-xs font-semibold tracking-[0.02em] text-slate-400">{displayCaseNumber}</p>
               <h1 className="mt-3 break-words font-[var(--font-iburo-display)] text-4xl font-semibold leading-none text-slate-900 sm:text-5xl">Дело клиента</h1>
               <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">Здесь собраны основные материалы, этапы и действия по этому делу.</p>
             </div>

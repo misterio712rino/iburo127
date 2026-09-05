@@ -1,0 +1,221 @@
+"use client";
+
+import type { ReactNode } from "react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  Bell,
+  BookOpen,
+  ChartNoAxesColumnIncreasing,
+  ChevronDown,
+  ClipboardList,
+  FileText,
+  House,
+  Menu,
+  Sparkles,
+  UserRound,
+  X,
+} from "lucide-react";
+
+import { IBuroBrand } from "@/components/platform/IBuroBrand";
+import { SignOutButton } from "@/components/platform/auth/SignOutButton";
+import styles from "./IBuroClientShellV2.module.css";
+
+export type IBuroClientCaseOptionV2 = {
+  id: string;
+  displayNumber: string;
+  planLabel: string;
+};
+
+type ShellProps = {
+  children: ReactNode;
+  caseId: string;
+  displayName: string;
+  caseDisplayNumber: string;
+  planLabel: string;
+  unreadCount: number;
+  cases: readonly IBuroClientCaseOptionV2[];
+};
+
+type NavItem = {
+  label: string;
+  href: string;
+  icon: typeof House;
+};
+
+function initials(displayName: string) {
+  return (
+    displayName
+      .trim()
+      .split(/\s+/u)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("") || "iБ"
+  );
+}
+
+function isActive(pathname: string, href: string, homeHref: string) {
+  if (href === homeHref) return pathname === homeHref;
+  const route = href.split("?", 1)[0];
+  return pathname === route || pathname.startsWith(`${route}/`);
+}
+
+export function IBuroClientShellV2({
+  children,
+  caseId,
+  displayName,
+  caseDisplayNumber,
+  planLabel,
+  unreadCount,
+  cases,
+}: ShellProps) {
+  const pathname = usePathname();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const base = `/portal/cases/${caseId}`;
+  const userInitials = initials(displayName);
+
+  const navigation = useMemo<NavItem[]>(
+    () => [
+      { label: "Главная", href: base, icon: House },
+      { label: "Практикум", href: `${base}/practicum`, icon: BookOpen },
+      { label: "Анкета", href: `${base}/questionnaire`, icon: ClipboardList },
+      { label: "Документы", href: `${base}/documents`, icon: FileText },
+      { label: "Прогресс", href: `${base}/progress`, icon: ChartNoAxesColumnIncreasing },
+      { label: "AI-помощник", href: `${base}/ai`, icon: Sparkles },
+      { label: "Профиль", href: `/portal/profile?caseId=${caseId}`, icon: UserRound },
+    ],
+    [base, caseId],
+  );
+
+  const nav = (mobile = false) => (
+    <nav className={styles.nav} aria-label={mobile ? "Мобильная навигация iБюро" : "Навигация iБюро"}>
+      {navigation.map((item) => {
+        const Icon = item.icon;
+        const active = isActive(pathname, item.href, base);
+        return (
+          <Link
+            key={item.label}
+            href={item.href}
+            aria-current={active ? "page" : undefined}
+            className={`${styles.navItem} ${active ? styles.navItemActive : ""}`}
+            onClick={() => setDrawerOpen(false)}
+          >
+            <span className={styles.navIcon}><Icon aria-hidden="true" /></span>
+            <span>{item.label}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+
+  return (
+    <div className={styles.shell}>
+      <aside className={styles.sidebar}>
+        <Link href="/portal" className={styles.brand} aria-label="iБюро — личный кабинет">
+          <IBuroBrand dot />
+        </Link>
+        {nav()}
+        <div className={styles.sidebarFooter}>
+          {cases.length > 1 ? (
+            <details className={styles.caseSwitcher}>
+              <summary>
+                <span className={styles.caseMeta}>{planLabel}</span>
+                <strong>{caseDisplayNumber}</strong>
+                <span className={styles.caseSwitchLabel}>Сменить дело</span>
+              </summary>
+              <div className={styles.caseSwitchList}>
+                {cases.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={`/portal/cases/${item.id}`}
+                    aria-current={item.id === caseId ? "page" : undefined}
+                  >
+                    <span>{item.planLabel}</span>
+                    <strong>{item.displayNumber}</strong>
+                  </Link>
+                ))}
+              </div>
+            </details>
+          ) : (
+            <div className={styles.singleCaseCard}>
+              <div className={styles.singleCaseAvatar}>{userInitials}</div>
+              <div>
+                <strong>{displayName}</strong>
+                <span>{caseDisplayNumber}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </aside>
+
+      <div className={styles.workspace}>
+        <header className={styles.topbar}>
+          <div className={styles.topbarLeft}>
+            <button
+              type="button"
+              className={styles.menuButton}
+              aria-label="Открыть меню"
+              aria-expanded={drawerOpen}
+              onClick={() => setDrawerOpen(true)}
+            >
+              <Menu aria-hidden="true" />
+            </button>
+            <span className={styles.desktopProductLabel}>Цифровое сопровождение дела</span>
+          </div>
+
+          <div className={styles.topbarActions}>
+            <Link
+              href={`/portal/notifications?caseId=${caseId}`}
+              className={styles.notificationButton}
+              aria-label={unreadCount ? `Уведомления: ${unreadCount} новых` : "Уведомления"}
+            >
+              <Bell aria-hidden="true" />
+              {unreadCount > 0 ? <span className={styles.notificationBadge}>{Math.min(unreadCount, 99)}</span> : null}
+            </Link>
+
+            <details className={styles.userMenu}>
+              <summary className={styles.userChip}>
+                <span className={styles.userAvatar}>{userInitials}</span>
+                <span className={styles.userCopy}>
+                  <strong>{displayName}</strong>
+                  <span>{planLabel}</span>
+                </span>
+                <ChevronDown aria-hidden="true" />
+              </summary>
+              <div className={styles.userPopover}>
+                <Link href={`/portal/profile?caseId=${caseId}`}>Профиль</Link>
+                <Link href={`/portal/notifications?caseId=${caseId}`}>Уведомления</Link>
+                <Link href={`/portal/security?caseId=${caseId}`}>Безопасность</Link>
+                <div className={styles.signOutWrap}><SignOutButton /></div>
+              </div>
+            </details>
+          </div>
+        </header>
+
+        <main className={styles.main}>{children}</main>
+      </div>
+
+      {drawerOpen ? (
+        <div className={styles.drawerOverlay} onMouseDown={() => setDrawerOpen(false)}>
+          <aside className={styles.drawer} onMouseDown={(event) => event.stopPropagation()}>
+            <div className={styles.drawerHeader}>
+              <IBuroBrand dot />
+              <button type="button" aria-label="Закрыть меню" onClick={() => setDrawerOpen(false)}>
+                <X aria-hidden="true" />
+              </button>
+            </div>
+            {nav(true)}
+            <div className={styles.drawerAccount}>
+              <strong>{displayName}</strong>
+              <span>{caseDisplayNumber}</span>
+              <Link href={`/portal/notifications?caseId=${caseId}`} onClick={() => setDrawerOpen(false)}>
+                Уведомления{unreadCount ? ` · ${unreadCount}` : ""}
+              </Link>
+            </div>
+          </aside>
+        </div>
+      ) : null}
+    </div>
+  );
+}

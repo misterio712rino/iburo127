@@ -3,7 +3,8 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const hubSource = await readFile(resolve("app/portal/cases/[caseId]/page.tsx"), "utf8");
-const demoAdapterSource = await readFile(resolve("components/portal/ProductionDemoClientDashboard.tsx"), "utf8");
+const clientDashboardV2Source = await readFile(resolve("components/portal/IBuroClientDashboardV2.tsx"), "utf8");
+const clientShellV2Source = await readFile(resolve("components/portal/IBuroClientShellV2.tsx"), "utf8");
 const clientFrameSource = await readFile(resolve("components/portal/ClientCaseFrame.tsx"), "utf8");
 const clientNavigationSource = await readFile(resolve("components/portal/ClientCaseNavigation.tsx"), "utf8");
 const profileSource = await readFile(resolve("app/portal/profile/page.tsx"), "utf8");
@@ -19,39 +20,38 @@ const tasksSource = await readFile(resolve("app/portal/cases/[caseId]/tasks/page
 assert.match(hubSource, /resolveCasePortalAudience\(actor, clientCase\)/);
 assert.match(hubSource, /getCaseProgressSummaryForActor\(actor, clientCase, audience\)/);
 assert.match(hubSource, /summary\.nextAction\.segment/);
-assert.match(hubSource, /if \(isClient\)[\s\S]*renderClientDashboard/);
-assert.match(hubSource, /<ProductionDemoClientDashboard/);
+assert.match(hubSource, /if \(isClient\) return renderClientDashboard/);
+assert.match(hubSource, /<IBuroClientDashboardV2/);
+assert.doesNotMatch(hubSource, /<ProductionDemoClientDashboard/);
 assert.match(hubSource, /const STAFF_MODULES = \[/);
 assert.match(hubSource, /code: "tasks"/);
 assert.match(hubSource, /caseMetadata\?\.assignedLawyer\?\.displayName\?\.trim\(\) \|\| "Специалист назначается"/);
 assert.match(hubSource, /features:[\s\S]*where: \{ feature: \{ code: "MORTGAGE_ANALYSIS" \} \}[\s\S]*take: 1/);
 assert.match(hubSource, /const mortgageAvailable = \(caseMetadata\?\.plan\.features\.length \?\? 0\) > 0/);
 assert.match(hubSource, /mortgageAvailable=\{mortgageAvailable\}/);
+assert.match(hubSource, /listCaseActivity\(sessionProvider, clientCase\.id, 5\)/);
+assert.match(hubSource, /buildCaseActivityView\(activityRecords, "CLIENT"\)/);
+assert.match(hubSource, /listNotifications\(sessionProvider, 100\)/);
+assert.match(hubSource, /getClientCaseDisplayNumber\(clientCase\.caseNumber\)/);
 
-assert.match(demoAdapterSource, /<NextStepCard/);
-assert.match(demoAdapterSource, /Состояние дела/);
-assert.match(demoAdapterSource, /<ProcedureProgress currentStageIndex=\{props\.stageIndex\}/);
-assert.match(demoAdapterSource, /Инструменты/);
-assert.match(demoAdapterSource, /title=\{`Добрый день, \$\{firstName\}`\}/);
-assert.match(demoAdapterSource, /code: "AI_ASSISTANT"[\s\S]*title: "AI-помощник"[\s\S]*state: "active"[\s\S]*href: `\$\{base\}\/ai`/);
-assert.match(demoAdapterSource, /mortgageAvailable: boolean/);
-assert.match(demoAdapterSource, /const mortgageAvailable = props\.mortgageAvailable/);
-assert.doesNotMatch(demoAdapterSource, /props\.planCode === "PRO" \|\| props\.planCode === "INDIVIDUAL"/);
-assert.match(demoAdapterSource, /state: mortgageAvailable \? "active" : "locked"/);
-assert.match(demoAdapterSource, /listCaseActivity\(createProductionSessionProvider\(\), props\.caseId, 4\)/);
-assert.match(demoAdapterSource, /buildCaseActivityView\(records, "CLIENT"\)/);
-assert.doesNotMatch(demoAdapterSource, /Последнее подтверждённое состояние|По данным дела|По данным обучения/);
-assert.match(demoAdapterSource, /const UNASSIGNED_SPECIALIST_LABEL = "Специалист назначается"/);
-assert.match(demoAdapterSource, /function hasAssignedSpecialist\(name: string\)[\s\S]*name !== UNASSIGNED_SPECIALIST_LABEL/);
-assert.match(demoAdapterSource, /specialistAssigned \? "Юрист iБюро" : "Назначение ожидается"/);
-assert.match(demoAdapterSource, /specialistAssigned \? "Сопровождает ваше дело" : "Специалист пока не назначен"/);
-assert.match(demoAdapterSource, /После назначения здесь появятся данные специалиста, который будет сопровождать ваше дело\./);
+assert.match(clientDashboardV2Source, /Следующий шаг/);
+assert.match(clientDashboardV2Source, /Моё дело/);
+assert.match(clientDashboardV2Source, /Последние события/);
+assert.match(clientDashboardV2Source, /История сопровождения/);
+assert.match(clientDashboardV2Source, /href=\{`\$\{base\}\/ai`\}/);
+assert.match(clientDashboardV2Source, /mortgageAvailable/);
+assert.doesNotMatch(clientDashboardV2Source, /DemoIdentityProvider|useDemoIdentity|localStorage|\/app\/client/);
+assert.doesNotMatch(clientDashboardV2Source, /Дмитрий Волков|Анна Орлова|IBR-2026/);
 
+assert.match(clientShellV2Source, /Главная[\s\S]*Практикум[\s\S]*Анкета[\s\S]*Документы[\s\S]*Прогресс[\s\S]*AI-помощник[\s\S]*Профиль/);
+assert.match(clientShellV2Source, /\/portal\/notifications\?caseId=\$\{caseId\}/);
+assert.match(clientShellV2Source, /\/portal\/profile\?caseId=\$\{caseId\}/);
+assert.doesNotMatch(clientShellV2Source, /\/app\/client/);
+assert.match(clientShellV2Source, /cases\.length > 1/);
+
+// Legacy case shell remains in use while the remaining CLIENT modules migrate screen-by-screen.
 assert.match(clientFrameSource, /<ClientCaseNavigation caseId=\{caseId\}/);
-assert.match(clientNavigationSource, /Главная[\s\S]*Практикум[\s\S]*Анкета[\s\S]*Документы[\s\S]*Мой прогресс[\s\S]*AI-помощник[\s\S]*Профиль/);
-assert.match(clientFrameSource, /function CaseSwitcher\(/);
-assert.match(clientFrameSource, /Сменить дело/);
-assert.match(clientFrameSource, /cases\.length > 1 \? \([\s\S]*<CaseSwitcher/);
+assert.match(clientNavigationSource, /Главная[\s\S]*Практикум[\s\S]*Анкета[\s\S]*Документы/);
 
 assert.match(
   profileSource,
@@ -66,7 +66,7 @@ assert.match(
 assert.match(
   profileSource,
   /<ClientPlanVisualStyles planCode=\{planCode\} \/>[\s\S]*<ClientCaseFrame[\s\S]*caseId=\{selectedClientCase\.id\}/,
-  "CLIENT profile must retain the selected case shell and matching plan visual layer",
+  "CLIENT profile must retain the selected case shell and matching plan visual layer until its UI v2 migration",
 );
 assert.match(
   profileSource,
@@ -91,7 +91,7 @@ assert.match(
 assert.match(
   securitySource,
   /<ClientPlanVisualStyles planCode=\{planCode\} \/>[\s\S]*<ClientCaseFrame[\s\S]*caseId=\{selectedClientCase\.id\}/,
-  "CLIENT account security must retain the premium case shell and matching plan visual layer",
+  "CLIENT account security must retain the existing case shell during staged UI migration",
 );
 assert.match(
   securitySource,
@@ -124,6 +124,7 @@ assert.match(tasksSource, /if \(audience !== "STAFF"\) redirect/);
 assert.doesNotMatch(hubSource, /const isClient = actor\.roles\.includes\("CLIENT"\)/);
 assert.doesNotMatch(progressSource, /const isStaff = actor\.roles\.includes\("LAWYER"\) \|\| actor\.roles\.includes\("MANAGER"\)/);
 
+await import("./client-ui-v2-contract.test");
 await import("./profile-presentation-contract.test");
 await import("./security-presentation-contract.test");
 
