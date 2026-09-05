@@ -7,6 +7,8 @@ export const FILE_NOT_FOUND = "FILE_NOT_FOUND";
 export const FILE_INVALID_METADATA = "FILE_INVALID_METADATA";
 export const FILE_UPLOAD_NOT_PENDING = "FILE_UPLOAD_NOT_PENDING";
 export const FILE_UPLOAD_FORBIDDEN = "FILE_UPLOAD_FORBIDDEN";
+export const FILE_DELETE_FORBIDDEN = "FILE_DELETE_FORBIDDEN";
+export const FILE_DELETE_CONFLICT = "FILE_DELETE_CONFLICT";
 
 function requireText(value: string, maxLength: number) {
   const normalized = value.trim();
@@ -18,6 +20,12 @@ function requireClientUploadActor(actor: AuthenticatedActor) {
   const isClient = actor.roles.includes("CLIENT");
   const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
   if (!isClient || isStaff) throw new Error(FILE_UPLOAD_FORBIDDEN);
+}
+
+function requireClientDeleteActor(actor: AuthenticatedActor) {
+  const isClient = actor.roles.includes("CLIENT");
+  const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
+  if (!isClient || isStaff) throw new Error(FILE_DELETE_FORBIDDEN);
 }
 
 function isClientVisibleFile(file: StoredFileRecord, actorUserId: string) {
@@ -54,6 +62,31 @@ export class StoredFileService {
     if (!file || file.status !== "READY") throw new Error(FILE_NOT_FOUND);
     await this.requireAccessibleCase(actor, file.clientCaseId);
     return file;
+  }
+
+  async getOwnedForDeletion(actor: AuthenticatedActor, fileId: string) {
+    requireClientDeleteActor(actor);
+    const file = await this.repository.getById(fileId);
+    if (!file) throw new Error(FILE_NOT_FOUND);
+    const clientCase = await this.requireAccessibleCase(actor, file.clientCaseId);
+    if (clientCase.clientId !== actor.userId || file.uploadedById !== actor.userId) {
+      throw new Error(FILE_DELETE_FORBIDDEN);
+    }
+    if (file.status === "PENDING_UPLOAD" || file.status === "SCANNING") {
+      throw new Error(FILE_DELETE_CONFLICT);
+    }
+    return file;
+  }
+
+  async takeOwnedForDeletion(actor: AuthenticatedActor, fileId: string) {
+    await this.getOwnedForDeletion(actor, fileId);
+    const deleted = await this.repository.takeOwnedForDeletion(fileId, actor.userId);
+    if (!deleted) throw new Error(FILE_DELETE_CONFLICT);
+    return deleted;
+  }
+
+  async restoreDeleted(file: StoredFileRecord) {
+    return this.repository.restoreDeleted(file);
   }
 
   async registerPendingUpload(
