@@ -4,6 +4,7 @@ import { AiAssistant } from "@/components/platform/ai/AiAssistant";
 import { IBuroClientShellV2 } from "@/components/portal/IBuroClientShellV2";
 import { getPlanDisplayLabel } from "@/lib/platform/case-progress";
 import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
+import { formatProfileDisplayName } from "@/lib/platform/profile-display-name";
 import type { PlanCode } from "@/lib/platform/types";
 import { getCurrentAccountProfile } from "@/server/account/operations";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
@@ -46,7 +47,9 @@ export default async function PortalCaseAiPage({ params }: { params: Promise<{ c
     clientCaseService.listCases(actor),
     listNotifications(sessionProvider, 100),
   ]);
-  const displayName = profile.displayName?.trim() || "Клиент iБюро";
+  const displayName = profile.displayName?.trim()
+    ? formatProfileDisplayName(profile.displayName)
+    : "Клиент iБюро";
   const planCode = requirePlanCode(clientCase.planCode);
   const cases = allCases
     .filter((item) => item.clientId === actor.userId)
@@ -72,7 +75,7 @@ export default async function PortalCaseAiPage({ params }: { params: Promise<{ c
           <h1 className="mt-2 font-[var(--font-iburo-display)] text-3xl font-semibold tracking-[-.04em] text-slate-950 sm:text-5xl">AI-помощник</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">Задавайте вопросы по материалам своего дела. Помощник учитывает доступный контекст, но не заменяет финальное юридическое заключение специалиста.</p>
         </header>
-        <div className="rounded-[32px] border border-white/80 bg-white p-4 shadow-[0_18px_55px_rgba(15,23,42,.06)] sm:p-7">
+        <div className="rounded-[28px] border border-[#e8e8e6] bg-white p-4 shadow-[0_14px_42px_rgba(15,23,42,.045)] sm:p-7">
           <AiAssistant caseId={clientCase.id} withShell={false} />
         </div>
       </section>
