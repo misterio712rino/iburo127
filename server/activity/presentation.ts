@@ -28,6 +28,7 @@ const TYPE_LABELS: Readonly<Record<string, string>> = {
   "document.reviewed": "Документ проверен",
   "file.upload.registered": "Файл добавлен в дело",
   "file.download.authorized": "Файл скачан",
+  "file.deleted": "Файл удалён из дела",
   "notification.created": "Уведомление создано",
 };
 

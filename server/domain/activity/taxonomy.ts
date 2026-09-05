@@ -23,6 +23,7 @@ export const CASE_ACTIVITY_TYPES = [
   "file.scan.quarantined",
   "file.scan.failed",
   "file.download.authorized",
+  "file.deleted",
   "notification.created",
   "ai.request.accepted",
   "ai.response.completed",
