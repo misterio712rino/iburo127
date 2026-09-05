@@ -16,6 +16,7 @@ const portalMotionStylesSource = await readFile(resolve("components/portal/Porta
 const questionnaireSource = await readFile(resolve("app/portal/cases/[caseId]/questionnaire/page.tsx"), "utf8");
 const practicumSource = await readFile(resolve("app/portal/cases/[caseId]/practicum/page.tsx"), "utf8");
 const practicumComponentSource = await readFile(resolve("components/platform/practicum/ProductionPracticum.tsx"), "utf8");
+const practicumV2Source = await readFile(resolve("components/platform/practicum/IBuroPracticumV2.tsx"), "utf8");
 const documentsSource = await readFile(resolve("app/portal/cases/[caseId]/documents/page.tsx"), "utf8");
 const filesSource = await readFile(resolve("app/portal/cases/[caseId]/files/page.tsx"), "utf8");
 const productionFilesSource = await readFile(resolve("components/platform/files/ProductionFiles.tsx"), "utf8");
@@ -100,7 +101,6 @@ assert.match(
 
 for (const [name, source] of [
   ["questionnaire", questionnaireSource],
-  ["practicum", practicumSource],
   ["documents", documentsSource],
   ["files", filesSource],
   ["ai", aiSource],
@@ -111,6 +111,37 @@ for (const [name, source] of [
     `${name} CLIENT module must delegate its responsive intro to the reviewed shared boundary`,
   );
 }
+
+assert.match(
+  practicumSource,
+  /<IBuroClientShellV2/,
+  "Practicum CLIENT module must use the unified responsive UI v2 shell",
+);
+assert.match(
+  practicumSource,
+  /<IBuroPracticumV2/,
+  "Practicum CLIENT module must render the dedicated UI v2 presentation",
+);
+assert.match(
+  practicumV2Source,
+  /role="progressbar"/,
+  "Practicum UI v2 must expose semantic progress",
+);
+assert.match(
+  practicumV2Source,
+  /aria-valuenow=\{percent\}/,
+  "Practicum UI v2 progress must expose the authoritative current percentage",
+);
+assert.match(
+  practicumV2Source,
+  /expectedVersion: state\.version/,
+  "Practicum UI v2 must preserve optimistic versioning for lesson completion",
+);
+assert.match(
+  practicumV2Source,
+  /VERSION_CONFLICT/,
+  "Practicum UI v2 must preserve cross-tab conflict recovery",
+);
 
 assert.match(
   clientCaseModuleIntroSource,
@@ -300,7 +331,7 @@ assert.match(profileSource, /mt-2 break-all text-sm font-semibold/);
 assert.match(
   practicumComponentSource,
   /summary className="inline-flex min-h-11 cursor-pointer items-center/,
-  "lesson material disclosure must keep a 44px touch target",
+  "legacy/staff lesson material disclosure must keep a 44px touch target",
 );
 assert.match(practicumComponentSource, /role="progressbar"/);
 assert.match(practicumComponentSource, /aria-valuenow=\{progressPercent\}/);
