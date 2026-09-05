@@ -1,6 +1,6 @@
 import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
 import { ClientCaseService } from "@/server/domain/client-cases/service";
-import type { StoredFileRepository } from "@/server/domain/files/contracts";
+import type { StoredFileRecord, StoredFileRepository } from "@/server/domain/files/contracts";
 
 export const FILE_CASE_NOT_FOUND = "FILE_CASE_NOT_FOUND";
 export const FILE_NOT_FOUND = "FILE_NOT_FOUND";
@@ -20,6 +20,12 @@ function requireClientUploadActor(actor: AuthenticatedActor) {
   if (!isClient || isStaff) throw new Error(FILE_UPLOAD_FORBIDDEN);
 }
 
+function isClientVisibleFile(file: StoredFileRecord, actorUserId: string) {
+  if (file.status === "READY") return true;
+  if (file.status === "PENDING_UPLOAD") return false;
+  return file.uploadedById === actorUserId;
+}
+
 export class StoredFileService {
   constructor(
     private readonly cases: ClientCaseService,
@@ -33,8 +39,14 @@ export class StoredFileService {
   }
 
   async list(actor: AuthenticatedActor, clientCaseId: string) {
-    await this.requireAccessibleCase(actor, clientCaseId);
-    return this.repository.listByCase(clientCaseId);
+    const clientCase = await this.requireAccessibleCase(actor, clientCaseId);
+    const files = await this.repository.listByCase(clientCaseId);
+
+    if (clientCase.clientId === actor.userId) {
+      return files.filter((file) => isClientVisibleFile(file, actor.userId));
+    }
+
+    return files.filter((file) => file.status === "READY");
   }
 
   async get(actor: AuthenticatedActor, fileId: string) {
