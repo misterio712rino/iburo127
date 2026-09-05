@@ -1,22 +1,29 @@
 import { redirect } from "next/navigation";
 import { CheckCircle2, KeyRound, ShieldCheck } from "lucide-react";
+
 import { BackupCodesRegenerator } from "@/components/platform/auth/BackupCodesRegenerator";
 import { MfaEnrollmentForm } from "@/components/platform/auth/MfaEnrollmentForm";
-import { ClientCaseFrame, type ClientCaseOption } from "@/components/portal/ClientCaseFrame";
-import { ClientPlanVisualStyles } from "@/components/portal/ClientPlanVisualStyles";
+import { IBuroClientShellV2 } from "@/components/portal/IBuroClientShellV2";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import { getPlanDisplayLabel } from "@/lib/platform/case-progress";
+import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
 import type { PlanCode } from "@/lib/platform/types";
 import { getCurrentAccountProfile } from "@/server/account/operations";
 import { createProductionSessionProvider, resolveProductionAccountSecurityState } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { listAccessibleClientCases } from "@/server/client-cases/operations";
+import { listNotifications } from "@/server/notifications/operations";
 
 export const dynamic = "force-dynamic";
 
 function requirePlanCode(value: string): PlanCode {
   if (value === "LITE" || value === "PRO" || value === "INDIVIDUAL") return value;
   throw new Error("UNSUPPORTED_CLIENT_PLAN");
+}
+
+function getClientPlanLabel(planCode: PlanCode) {
+  if (planCode === "INDIVIDUAL") return "Эксклюзив";
+  return getPlanDisplayLabel(planCode, "CLIENT");
 }
 
 export default async function AccountSecurityPage({ searchParams }: { searchParams: Promise<{ caseId?: string }> }) {
@@ -27,10 +34,12 @@ export default async function AccountSecurityPage({ searchParams }: { searchPara
   const requestedCaseId = (await searchParams).caseId?.trim();
   let profile;
   let cases;
+  let notifications;
   try {
-    [profile, cases] = await Promise.all([
+    [profile, cases, notifications] = await Promise.all([
       getCurrentAccountProfile(sessionProvider),
       listAccessibleClientCases(sessionProvider),
+      listNotifications(sessionProvider, 100),
     ]);
   } catch (error) {
     if (error instanceof Error && error.message === UNAUTHENTICATED) redirect("/auth/sign-in");
@@ -44,101 +53,79 @@ export default async function AccountSecurityPage({ searchParams }: { searchPara
     : undefined;
   const accessLabel = state.twoFactorEnabled ? "2FA включена" : "Сессия подтверждена";
   const completionHref = selectedClientCase ? `/portal/security?caseId=${selectedClientCase.id}` : "/portal/security";
+  const unreadCount = notifications.filter((item) => !item.readAt).length;
 
   const content = (
-    <div className="client-account-surface">
-      <section className={selectedClientCase ? "py-1 sm:py-2" : "py-8 sm:py-10 lg:py-12"}>
-        <div className="min-w-0 max-w-3xl lg:max-w-4xl">
-          <p className="text-[13px] font-semibold uppercase tracking-[0.18em] text-[#7B2330] lg:text-[15px]">Безопасность</p>
-          <h1 className="mt-3 break-words font-[var(--font-iburo-display)] text-4xl font-semibold leading-none text-slate-900 sm:text-5xl lg:text-[64px]">
-            Защита учётной записи
-          </h1>
-          <p className="mt-4 max-w-3xl text-base leading-7 text-slate-500 lg:text-[17px] lg:leading-8">
-            Управляйте вторым фактором и резервными кодами. Доступ к делам и функциям кабинета определяется вашей учётной записью и назначенными ролями.
-          </p>
-        </div>
-      </section>
+    <div className="flex min-w-0 flex-col gap-7 py-1 sm:gap-9 sm:py-2">
+      <header className="min-w-0 max-w-3xl">
+        <p className="text-sm font-semibold text-primary">Безопасность</p>
+        <h1 className="mt-2 break-words font-[var(--font-iburo-display)] text-3xl font-semibold tracking-[-.04em] text-foreground sm:text-5xl">Защита учётной записи</h1>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">Управляйте двухфакторной защитой и резервными кодами. Доступ к делам по-прежнему определяется только серверной авторизацией.</p>
+      </header>
 
-      <section className="grid gap-5 pb-12 sm:gap-6 sm:pb-16 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]" aria-label="Управление безопасностью учётной записи">
-        <article className="min-w-0 rounded-[28px] border border-white/80 bg-white/90 p-5 shadow-[0_16px_50px_rgba(15,23,42,0.07)] sm:p-6 lg:p-7">
+      <section className="grid gap-5 sm:gap-6 lg:grid-cols-[minmax(0,.82fr)_minmax(0,1.18fr)]" aria-label="Управление безопасностью учётной записи">
+        <article className="min-w-0 rounded-[28px] border border-border bg-card p-5 text-card-foreground shadow-[0_16px_50px_rgba(0,0,0,.05)] sm:p-6 lg:p-7">
           <div className="flex min-w-0 items-center gap-4">
             <span className={`grid size-11 shrink-0 place-items-center rounded-2xl ${state.twoFactorEnabled ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-              <ShieldCheck className="size-5 lg:size-[22px]" aria-hidden="true" />
+              <ShieldCheck className="size-5" aria-hidden="true" />
             </span>
             <div className="min-w-0">
-              <p className="break-words text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Двухфакторная защита</p>
-              <h2 className="mt-1 break-words text-xl font-bold text-slate-900">
-                {state.twoFactorEnabled ? "Подключена" : "Не подключена"}
-              </h2>
+              <p className="break-words text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Двухфакторная защита</p>
+              <h2 className="mt-1 break-words text-xl font-bold text-foreground">{state.twoFactorEnabled ? "Подключена" : "Не подключена"}</h2>
             </div>
           </div>
 
           <span className={`mt-5 inline-flex min-h-7 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${state.twoFactorEnabled ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
             {state.twoFactorEnabled ? <CheckCircle2 className="size-3.5" aria-hidden="true" /> : <KeyRound className="size-3.5" aria-hidden="true" />}
-            {state.twoFactorEnabled ? "Защита активна" : "Требуется настройка"}
+            {state.twoFactorEnabled ? "Защита активна" : "Рекомендуется настройка"}
           </span>
 
-          <p className="mt-4 text-sm leading-6 text-slate-500 lg:text-[15px] lg:leading-7">
+          <p className="mt-4 text-sm leading-6 text-muted-foreground">
             {state.staff
-              ? "Для юристов и руководителей второй фактор обязателен. Отключение второго фактора через кабинет не предоставляется."
+              ? "Для юристов и руководителей второй фактор обязателен. Отключение через кабинет не предоставляется."
               : state.twoFactorEnabled
-                ? "При каждом входе после пароля потребуется код из приложения-аутентификатора или одноразовый резервный код."
+                ? "При входе после пароля потребуется код из приложения-аутентификатора или одноразовый резервный код."
                 : "Для клиента второй фактор добровольный, но рекомендуется для дополнительной защиты документов и персональных данных."}
           </p>
         </article>
 
-        <article className="min-w-0 rounded-[28px] border border-white/80 bg-white/90 p-5 shadow-[0_16px_50px_rgba(15,23,42,0.07)] sm:p-6 lg:p-7">
+        <article className="min-w-0 rounded-[28px] border border-border bg-card p-5 text-card-foreground shadow-[0_16px_50px_rgba(0,0,0,.05)] sm:p-6 lg:p-7">
           <div className="mb-5 flex min-w-0 items-start gap-3.5 sm:mb-6">
-            <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-slate-50 text-slate-500"><KeyRound className="size-5" aria-hidden="true" /></span>
+            <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-muted text-primary"><KeyRound className="size-5" aria-hidden="true" /></span>
             <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Управление доступом</p>
-            <h2 className="break-words text-xl font-bold text-slate-900 lg:text-2xl">
-              {state.twoFactorEnabled ? "Резервные коды" : "Подключить 2FA"}
-            </h2>
-              <p className="mt-1 text-sm leading-6 text-slate-500">
-                {state.twoFactorEnabled
-                  ? "Создайте новый набор кодов, если прежний больше недоступен."
-                  : "Подтвердите пароль, добавьте приложение-аутентификатор и введите код."}
-              </p>
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Управление доступом</p>
+              <h2 className="break-words text-xl font-bold text-foreground lg:text-2xl">{state.twoFactorEnabled ? "Резервные коды" : "Подключить 2FA"}</h2>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">{state.twoFactorEnabled ? "Создайте новый набор кодов, если прежний больше недоступен." : "Подтвердите пароль, добавьте приложение-аутентификатор и введите код."}</p>
             </div>
           </div>
 
-          {state.twoFactorEnabled ? (
-            <BackupCodesRegenerator />
-          ) : (
-            <MfaEnrollmentForm completionHref={completionHref} />
-          )}
+          {state.twoFactorEnabled ? <BackupCodesRegenerator /> : <MfaEnrollmentForm completionHref={completionHref} />}
         </article>
       </section>
     </div>
   );
 
   if (selectedClientCase) {
-    const caseOptions: ClientCaseOption[] = cases.map((item) => ({
-      id: item.id,
-      caseNumber: item.caseNumber,
-      planLabel: getPlanDisplayLabel(item.planCode, "CLIENT"),
-    }));
     const planCode = requirePlanCode(selectedClientCase.planCode);
+    const caseOptions = cases.map((item) => ({
+      id: item.id,
+      displayNumber: getClientCaseDisplayNumber(item.caseNumber),
+      planLabel: getClientPlanLabel(requirePlanCode(item.planCode)),
+    }));
+
     return (
-      <>
-        <ClientPlanVisualStyles planCode={planCode} />
-        <ClientCaseFrame
-          caseId={selectedClientCase.id}
-          caseNumber={selectedClientCase.caseNumber}
-          displayName={profile.displayName?.trim() || "Клиент iБюро"}
-          planLabel={getPlanDisplayLabel(selectedClientCase.planCode, "CLIENT")}
-          cases={caseOptions}
-        >
-          {content}
-        </ClientCaseFrame>
-      </>
+      <IBuroClientShellV2
+        caseId={selectedClientCase.id}
+        displayName={profile.displayName?.trim() || "Клиент iБюро"}
+        caseDisplayNumber={getClientCaseDisplayNumber(selectedClientCase.caseNumber)}
+        planLabel={getClientPlanLabel(planCode)}
+        unreadCount={unreadCount}
+        cases={caseOptions}
+      >
+        {content}
+      </IBuroClientShellV2>
     );
   }
 
-  return (
-    <PortalFrame sectionLabel="Безопасность аккаунта" accessLabel={accessLabel} showStaffTasks={state.staff}>
-      {content}
-    </PortalFrame>
-  );
+  return <PortalFrame sectionLabel="Безопасность аккаунта" accessLabel={accessLabel} showStaffTasks={state.staff}>{content}</PortalFrame>;
 }
