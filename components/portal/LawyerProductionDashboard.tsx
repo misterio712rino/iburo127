@@ -157,7 +157,7 @@ export function LawyerProductionDashboard({
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#969ca1]">Задачи</p>
               <h2 id="lawyer-priority-heading" className="mt-1 text-xl font-bold tracking-[-0.025em] text-[#202326]">Приоритет сейчас</h2>
             </div>
-            <Link href="/portal/tasks" className="inline-flex min-h-11 items-center px-2 text-sm font-bold text-[#a51b25] transition-colors hover:text-[#8f1720] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#b41f2b]/10">Все задачи</Link>
+            <Link href="/portal/tasks" className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-bold text-[#7b2330] transition hover:text-[#991f2b] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#8f1720]/10">Все задачи</Link>
           </div>
 
           {openQueue.length ? (
