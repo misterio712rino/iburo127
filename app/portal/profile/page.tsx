@@ -5,7 +5,7 @@ import { ArrowRight, BriefcaseBusiness, KeyRound } from "lucide-react";
 import { ProfileAvatarEditor, ProfileContactEditor, ProfileDisplayNameEditor } from "@/components/platform/account/ProfileAccountEditor";
 import { IBuroClientShellV2 } from "@/components/portal/IBuroClientShellV2";
 import { PortalFrame } from "@/components/portal/PortalFrame";
-import { getCaseStatusLabel, getPlanDisplayLabel } from "@/lib/platform/case-progress";
+import { getCaseStageDisplayLabel, getCaseStatusLabel, getPlanDisplayLabel } from "@/lib/platform/case-progress";
 import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
 import { formatProfileDisplayName } from "@/lib/platform/profile-display-name";
 import type { PlanCode } from "@/lib/platform/types";
@@ -116,15 +116,52 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
               <Metric label="Завершено" value={completedCases} />
             </dl>
             {cases.length ? (
-              <div className="mt-5 space-y-2 border-t border-border pt-5">
-                {cases.slice(0, 3).map((item) => (
-                  <Link key={item.id} href={`/portal/cases/${item.id}`} className="flex min-h-[52px] min-w-0 items-center justify-between gap-3 rounded-2xl border border-border px-4 py-3 text-sm transition hover:bg-muted">
-                    <span className="min-w-0 break-words text-xs font-semibold text-foreground">{getClientCaseDisplayNumber(item.caseNumber)}</span>
-                    <span className="shrink-0 text-xs font-semibold text-muted-foreground">{getCaseStatusLabel(item.status)}</span>
-                  </Link>
-                ))}
+              <div className="mt-5 space-y-3 border-t border-border pt-5">
+                {cases.slice(0, 3).map((item) => {
+                  const planLabel = getClientPlanLabel(requirePlanCode(item.planCode));
+                  const stageLabel = getCaseStageDisplayLabel(item.stageCode, isClientOnly ? "CLIENT" : "STAFF");
+                  const lawyerLabel = item.assignedLawyerId ? "Юрист назначен" : "Юрист ещё не назначен";
+
+                  return (
+                    <Link
+                      key={item.id}
+                      href={`/portal/cases/${item.id}`}
+                      className="group block min-w-0 rounded-2xl border border-border bg-background/45 p-4 transition-colors hover:border-primary/20 hover:bg-muted/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2"
+                    >
+                      <div className="flex min-w-0 items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="break-words text-sm font-bold leading-5 text-foreground">{getClientCaseDisplayNumber(item.caseNumber)}</p>
+                          <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.11em] text-muted-foreground">Тариф {planLabel}</p>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">{getCaseStatusLabel(item.status)}</span>
+                      </div>
+
+                      <dl className="mt-4 grid gap-2 text-xs sm:grid-cols-2">
+                        <div className="min-w-0 rounded-xl bg-muted/55 px-3 py-2.5">
+                          <dt className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Текущий этап</dt>
+                          <dd className="mt-1 break-words font-semibold leading-4 text-foreground">{stageLabel}</dd>
+                        </div>
+                        <div className="min-w-0 rounded-xl bg-muted/55 px-3 py-2.5">
+                          <dt className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Сопровождение</dt>
+                          <dd className="mt-1 break-words font-semibold leading-4 text-foreground">{lawyerLabel}</dd>
+                        </div>
+                      </dl>
+
+                      <span className="mt-3 inline-flex min-h-8 items-center gap-1.5 text-xs font-bold text-primary">
+                        Открыть дело
+                        <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                      </span>
+                    </Link>
+                  );
+                })}
+                {cases.length > 3 ? <p className="px-1 pt-1 text-xs text-muted-foreground">Показано 3 из {cases.length} доступных дел.</p> : null}
               </div>
-            ) : null}
+            ) : (
+              <div className="mt-5 rounded-2xl border border-dashed border-border bg-muted/35 px-4 py-5 text-center">
+                <p className="text-sm font-semibold text-foreground">Доступных дел пока нет</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">Когда дело будет создано, его статус и текущий этап появятся здесь.</p>
+              </div>
+            )}
           </article>
 
           <article className="min-w-0 rounded-[28px] border border-border bg-card p-5 text-card-foreground shadow-[0_14px_45px_rgba(0,0,0,.045)] sm:p-6">
