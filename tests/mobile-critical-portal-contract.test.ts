@@ -64,8 +64,6 @@ assert.ok(clientCaseNavigationSource.includes('label: "Уведомления"')
 assert.ok(clientCaseNavigationSource.includes('return `/portal/notifications?caseId=${caseId}`;'), "CLIENT Notifications navigation must preserve selected case visual context");
 assert.match(clientCaseNavigationSource, /if \(path === "\/portal\/notifications"\) return pathname === path/, "CLIENT Notifications navigation must expose an exact active state");
 
-assert.match(aiSource, /<ClientCaseModuleIntro/, "ai legacy CLIENT module must retain its reviewed shared responsive intro until migrated to UI v2");
-
 for (const [name, routeSource, componentSource] of [
   ["practicum", practicumSource, practicumV2Source],
   ["questionnaire", questionnaireSource, questionnaireV2Source],
@@ -92,6 +90,8 @@ assert.match(filesSource, /<IBuroFilesV2/, "Files CLIENT module must render the 
 assert.match(filesV2Source, /\/api\/platform\/cases\/\$\{caseId\}\/files/, "Files UI v2 must preserve the authorized case-scoped upload/list API");
 assert.match(filesV2Source, /\/api\/platform\/files\/\$\{fileId\}\/download/, "Files UI v2 must preserve protected file download handoff");
 assert.match(filesV2Source, /MAX_UPLOAD_BYTES = 50 \* 1024 \* 1024/, "Files UI v2 must retain the 50 MB client-side boundary");
+assert.match(aiSource, /<IBuroClientShellV2/, "AI CLIENT module must use the unified responsive UI v2 shell");
+assert.match(aiSource, /<AiAssistant caseId=\{clientCase\.id\} withShell=\{false\}/, "AI CLIENT module must preserve the production assistant inside UI v2");
 
 assert.match(clientCaseModuleIntroSource, /text-3xl[^\"]*sm:text-5xl/, "shared CLIENT module headings must remain compact on mobile and expand on larger screens");
 assert.match(clientCaseModuleIntroSource, /inline-flex min-h-11 items-center/, "shared CLIENT module back navigation must keep a 44px minimum touch target");
