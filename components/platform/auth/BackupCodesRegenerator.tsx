@@ -63,13 +63,13 @@ export function BackupCodesRegenerator() {
   if (backupCodes) {
     return (
       <div className="min-w-0 space-y-4">
-        <div role="status" className="flex min-w-0 items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-[15px] leading-6 text-amber-950 sm:p-5">
+        <div role="status" className="flex min-w-0 items-start gap-3 rounded-xl border border-amber-200/80 bg-amber-50/80 p-4 text-sm leading-6 text-amber-950 sm:p-5">
           <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/70 text-amber-700"><ShieldCheck className="size-4" aria-hidden="true" /></span>
           <p className="min-w-0">Предыдущие резервные коды заменены. Сохраните новый набор сейчас: после ухода со страницы он здесь больше не показывается.</p>
         </div>
         <div className="grid min-w-0 gap-2.5 sm:grid-cols-2">
           {backupCodes.map((code) => (
-            <code key={code} className="min-w-0 break-all rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] font-semibold text-slate-900">
+            <code key={code} className="min-w-0 break-all rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900">
               {code}
             </code>
           ))}
@@ -77,7 +77,7 @@ export function BackupCodesRegenerator() {
         <button
           type="button"
           onClick={copyCodes}
-          className="inline-flex min-h-11 w-full max-w-full items-center justify-center gap-2 break-words rounded-2xl border border-slate-300 bg-white px-5 py-3 text-[15px] font-bold text-slate-800 transition hover:border-slate-400 sm:w-auto"
+          className="inline-flex min-h-11 w-full max-w-full items-center justify-center gap-2 break-words rounded-xl border border-slate-200 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10 sm:w-auto"
         >
           <Copy className="size-4 shrink-0" aria-hidden="true" />
           {copied ? "Коды скопированы" : "Скопировать все коды"}
@@ -88,13 +88,13 @@ export function BackupCodesRegenerator() {
 
   return (
     <form onSubmit={regenerate} className="min-w-0 space-y-4" noValidate aria-busy={pending}>
-      <div className="flex min-w-0 items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-[15px] leading-6 text-amber-950 sm:p-5">
+      <div className="flex min-w-0 items-start gap-3 rounded-xl border border-amber-200/80 bg-amber-50/80 p-4 text-sm leading-6 text-amber-950 sm:p-5">
         <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/70 text-amber-700"><KeyRound className="size-4" aria-hidden="true" /></span>
         <p className="min-w-0">Выпуск нового набора немедленно делает предыдущие резервные коды недействительными.</p>
       </div>
-      <div className="rounded-[22px] border border-slate-100 bg-slate-50/70 p-4 sm:p-5">
+      <div className="rounded-[20px] border border-slate-100 bg-slate-50/60 p-4 sm:p-5">
         <div className="space-y-2.5">
-        <label htmlFor="backup-codes-password" className="block text-[15px] font-semibold text-slate-700">
+        <label htmlFor="backup-codes-password" className="block text-sm font-semibold text-slate-700">
           Подтвердите текущий пароль
         </label>
         <input
@@ -107,19 +107,19 @@ export function BackupCodesRegenerator() {
           required
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          className="min-h-14 w-full rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-[17px] outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+          className="min-h-14 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-base outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
         />
         </div>
       </div>
 
       {error ? (
-        <p role="alert" className="rounded-2xl bg-red-50 px-5 py-4 text-[15px] leading-6 text-red-700">{error}</p>
+        <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm leading-6 text-red-700">{error}</p>
       ) : null}
 
       <button
         type="submit"
         disabled={pending || password.length < 12 || password.length > 128}
-        className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[#17202a] px-6 py-3 text-[15px] font-bold text-white transition hover:bg-[#263342] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+        className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
       >
         {pending ? "Выпускаем…" : "Выпустить новые резервные коды"}
       </button>
