@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
@@ -7,6 +8,10 @@ import {
   readYandexGptRuntimeConfig,
 } from "@/server/ai/provider-config-core";
 import { YandexGptGateway } from "@/server/ai/yandex-gpt-core";
+import {
+  assertStagingYandexAiTarget,
+  STAGING_YANDEX_AI_TARGET_GUARD,
+} from "@/scripts/staging-yandex-ai-target-guard";
 
 assert.equal(readAiProviderName({} as NodeJS.ProcessEnv), "openai");
 assert.equal(
@@ -19,8 +24,9 @@ assert.throws(
   new RegExp(`${AI_PROVIDER_CONFIG_ERROR}:IB_AI_PROVIDER`),
 );
 
+const apiKey = "y".repeat(40);
 const env = {
-  YANDEX_AI_API_KEY: "AQVN-test-123456789012345678901234567890",
+  YANDEX_AI_API_KEY: apiKey,
   YANDEX_AI_FOLDER_ID: "b1ggvchbjvrt2b5rju0g",
   IB_AI_YANDEX_MODEL: "yandexgpt/latest",
   IB_AI_YANDEX_REQUEST_TIMEOUT_MS: "2500",
@@ -28,7 +34,7 @@ const env = {
 } as unknown as NodeJS.ProcessEnv;
 const config = readYandexGptRuntimeConfig(env);
 assert.deepEqual(config, {
-  apiKey: env.YANDEX_AI_API_KEY,
+  apiKey,
   folderId: env.YANDEX_AI_FOLDER_ID,
   model: "yandexgpt/latest",
   endpoint: "https://ai.api.cloud.yandex.net/foundationModels/v1/completion",
@@ -87,7 +93,7 @@ assert.equal(
 );
 assert.equal(capturedInit?.method, "POST");
 const headers = new Headers(capturedInit?.headers);
-assert.equal(headers.get("authorization"), `Api-Key ${env.YANDEX_AI_API_KEY}`);
+assert.equal(headers.get("authorization"), `Api-Key ${apiKey}`);
 assert.equal(headers.get("content-type"), "application/json");
 assert.equal(
   headers.get("x-data-logging-enabled"),
@@ -200,10 +206,56 @@ assert.throws(
   /AI_PROVIDER_ERROR:INVALID_CONFIG/,
 );
 
-const runtimeSource = await readFile(resolve("server/ai/runtime.ts"), "utf8");
+const stagingFingerprint = createHash("sha256").update(apiKey, "utf8").digest("hex");
+const stagingTargetEnv = {
+  IB_RUNTIME_TARGET: "staging",
+  IB_AI_TARGET: "staging",
+  IB_AI_PROVIDER: "yandex",
+  YANDEX_AI_API_KEY: apiKey,
+  YANDEX_AI_FOLDER_ID: "b1ggvchbjvrt2b5rju0g",
+  IB_AI_YANDEX_MODEL: "yandexgpt/latest",
+  IB_STAGING_YANDEX_AI_FOLDER_ID: "b1ggvchbjvrt2b5rju0g",
+  IB_STAGING_YANDEX_AI_MODEL: "yandexgpt/latest",
+  IB_STAGING_YANDEX_AI_KEY_SHA256: stagingFingerprint,
+  IB_STAGING_YANDEX_AI_CONFIRM:
+    `YANDEX-AI-SMOKE:b1ggvchbjvrt2b5rju0g:yandexgpt/latest:${stagingFingerprint}`,
+} as const;
+assert.deepEqual(assertStagingYandexAiTarget(stagingTargetEnv), {
+  apiKey,
+  folderId: "b1ggvchbjvrt2b5rju0g",
+  model: "yandexgpt/latest",
+});
+for (const badEnv of [
+  { ...stagingTargetEnv, IB_RUNTIME_TARGET: "production" },
+  { ...stagingTargetEnv, IB_AI_TARGET: "production" },
+  { ...stagingTargetEnv, IB_AI_PROVIDER: "openai" },
+  { ...stagingTargetEnv, IB_STAGING_YANDEX_AI_FOLDER_ID: "b1gotherfolder0000000" },
+  { ...stagingTargetEnv, IB_STAGING_YANDEX_AI_MODEL: "other/latest" },
+  { ...stagingTargetEnv, IB_STAGING_YANDEX_AI_KEY_SHA256: "0".repeat(64) },
+  { ...stagingTargetEnv, IB_STAGING_YANDEX_AI_CONFIRM: "wrong" },
+]) {
+  assert.throws(
+    () => assertStagingYandexAiTarget(badEnv),
+    new RegExp(`^${STAGING_YANDEX_AI_TARGET_GUARD}:`),
+  );
+}
+
+const [runtimeSource, verifierDispatcherSource, yandexVerifierSource] = await Promise.all([
+  readFile(resolve("server/ai/runtime.ts"), "utf8"),
+  readFile(resolve("scripts/verify-staging-openai.ts"), "utf8"),
+  readFile(resolve("scripts/verify-staging-yandex-ai.ts"), "utf8"),
+]);
 assert.match(runtimeSource, /readAiProviderName/);
 assert.match(runtimeSource, /provider === "yandex"/);
 assert.match(runtimeSource, /new YandexGptGateway\(readYandexGptRuntimeConfig\(\)\)/);
 assert.match(runtimeSource, /new OpenAiResponsesGateway\(readOpenAiRuntimeConfig\(\)\)/);
+assert.match(verifierDispatcherSource, /readAiProviderName\(process\.env\)/);
+assert.match(verifierDispatcherSource, /provider === "yandex"/);
+assert.match(verifierDispatcherSource, /verify-staging-yandex-ai/);
+assert.match(verifierDispatcherSource, /verify-staging-openai-provider/);
+assert.match(yandexVerifierSource, /IB_AI_STAGING_OK/);
+assert.match(yandexVerifierSource, /temperature: 0/);
+assert.match(yandexVerifierSource, /Client\/case data included: 0/);
+assert.match(yandexVerifierSource, /Provider response content logged: 0/);
 
 console.log("YANDEX_GPT_TRANSPORT_TEST_PASS");
