@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -58,6 +58,7 @@ function initials(displayName: string) {
 function isActive(pathname: string, href: string, homeHref: string) {
   if (href === homeHref) return pathname === homeHref;
   const route = href.split("?", 1)[0];
+  if (route === "/portal/profile") return pathname === route || pathname === "/portal/security";
   return pathname === route || pathname.startsWith(`${route}/`);
 }
 
@@ -72,8 +73,39 @@ export function IBuroClientShellV2({
 }: ShellProps) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousPathnameRef = useRef(pathname);
   const base = `/portal/cases/${caseId}`;
   const userInitials = initials(displayName);
+
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeButtonRef.current?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDrawerOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [drawerOpen]);
+
+  useEffect(() => {
+    if (previousPathnameRef.current !== pathname) {
+      previousPathnameRef.current = pathname;
+      setDrawerOpen(false);
+    }
+  }, [pathname]);
+
+  const closeDrawer = (restoreFocus = false) => {
+    setDrawerOpen(false);
+    if (restoreFocus) requestAnimationFrame(() => menuButtonRef.current?.focus());
+  };
 
   const navigation = useMemo<NavItem[]>(
     () => [
@@ -81,8 +113,8 @@ export function IBuroClientShellV2({
       { label: "Практикум", href: `${base}/practicum`, icon: BookOpen },
       { label: "Анкета", href: `${base}/questionnaire`, icon: ClipboardList },
       { label: "Документы", href: `${base}/documents`, icon: FileText },
-      { label: "Прогресс", href: `${base}/progress`, icon: ChartNoAxesColumnIncreasing },
       { label: "AI-помощник", href: `${base}/ai`, icon: Sparkles },
+      { label: "Прогресс", href: `${base}/progress`, icon: ChartNoAxesColumnIncreasing },
       { label: "Профиль", href: `/portal/profile?caseId=${caseId}`, icon: UserRound },
     ],
     [base, caseId],
@@ -99,7 +131,7 @@ export function IBuroClientShellV2({
             href={item.href}
             aria-current={active ? "page" : undefined}
             className={`${styles.navItem} ${active ? styles.navItemActive : ""}`}
-            onClick={() => setDrawerOpen(false)}
+            onClick={() => closeDrawer()}
           >
             <span className={styles.navIcon}><Icon aria-hidden="true" /></span>
             <span>{item.label}</span>
@@ -126,11 +158,7 @@ export function IBuroClientShellV2({
               </summary>
               <div className={styles.caseSwitchList}>
                 {cases.map((item) => (
-                  <Link
-                    key={item.id}
-                    href={`/portal/cases/${item.id}`}
-                    aria-current={item.id === caseId ? "page" : undefined}
-                  >
+                  <Link key={item.id} href={`/portal/cases/${item.id}`} aria-current={item.id === caseId ? "page" : undefined}>
                     <span>{item.planLabel}</span>
                     <strong>{item.displayNumber}</strong>
                   </Link>
@@ -140,10 +168,7 @@ export function IBuroClientShellV2({
           ) : (
             <div className={styles.singleCaseCard}>
               <div className={styles.singleCaseAvatar}>{userInitials}</div>
-              <div>
-                <strong>{displayName}</strong>
-                <span>{caseDisplayNumber}</span>
-              </div>
+              <div><strong>{displayName}</strong><span>{caseDisplayNumber}</span></div>
             </div>
           )}
         </div>
@@ -153,10 +178,12 @@ export function IBuroClientShellV2({
         <header className={styles.topbar}>
           <div className={styles.topbarLeft}>
             <button
+              ref={menuButtonRef}
               type="button"
               className={styles.menuButton}
               aria-label="Открыть меню"
               aria-expanded={drawerOpen}
+              aria-controls="iburo-client-mobile-drawer"
               onClick={() => setDrawerOpen(true)}
             >
               <Menu aria-hidden="true" />
@@ -165,11 +192,7 @@ export function IBuroClientShellV2({
           </div>
 
           <div className={styles.topbarActions}>
-            <Link
-              href={`/portal/notifications?caseId=${caseId}`}
-              className={styles.notificationButton}
-              aria-label={unreadCount ? `Уведомления: ${unreadCount} новых` : "Уведомления"}
-            >
+            <Link href={`/portal/notifications?caseId=${caseId}`} className={styles.notificationButton} aria-label={unreadCount ? `Уведомления: ${unreadCount} новых` : "Уведомления"}>
               <Bell aria-hidden="true" />
               {unreadCount > 0 ? <span className={styles.notificationBadge}>{Math.min(unreadCount, 99)}</span> : null}
             </Link>
@@ -177,10 +200,7 @@ export function IBuroClientShellV2({
             <details className={styles.userMenu}>
               <summary className={styles.userChip}>
                 <span className={styles.userAvatar}>{userInitials}</span>
-                <span className={styles.userCopy}>
-                  <strong>{displayName}</strong>
-                  <span>{planLabel}</span>
-                </span>
+                <span className={styles.userCopy}><strong>{displayName}</strong><span>{planLabel}</span></span>
                 <ChevronDown aria-hidden="true" />
               </summary>
               <div className={styles.userPopover}>
@@ -197,11 +217,11 @@ export function IBuroClientShellV2({
       </div>
 
       {drawerOpen ? (
-        <div className={styles.drawerOverlay} onMouseDown={() => setDrawerOpen(false)}>
-          <aside className={styles.drawer} onMouseDown={(event) => event.stopPropagation()}>
+        <div className={styles.drawerOverlay} onMouseDown={() => closeDrawer(true)}>
+          <aside id="iburo-client-mobile-drawer" className={styles.drawer} aria-label="Меню iБюро" onMouseDown={(event) => event.stopPropagation()}>
             <div className={styles.drawerHeader}>
               <IBuroBrand dot />
-              <button type="button" aria-label="Закрыть меню" onClick={() => setDrawerOpen(false)}>
+              <button ref={closeButtonRef} type="button" aria-label="Закрыть меню" onClick={() => closeDrawer(true)}>
                 <X aria-hidden="true" />
               </button>
             </div>
@@ -209,9 +229,7 @@ export function IBuroClientShellV2({
             <div className={styles.drawerAccount}>
               <strong>{displayName}</strong>
               <span>{caseDisplayNumber}</span>
-              <Link href={`/portal/notifications?caseId=${caseId}`} onClick={() => setDrawerOpen(false)}>
-                Уведомления{unreadCount ? ` · ${unreadCount}` : ""}
-              </Link>
+              <Link href={`/portal/notifications?caseId=${caseId}`} onClick={() => closeDrawer()}>Уведомления{unreadCount ? ` · ${unreadCount}` : ""}</Link>
             </div>
           </aside>
         </div>
