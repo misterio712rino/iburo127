@@ -10,10 +10,12 @@ const profileRouteSource = await readFile(resolve("app/api/platform/account/prof
 
 assert.match(profilePageSource, /getCurrentAccountProfile\(sessionProvider\)/);
 assert.match(profilePageSource, /getCurrentAccountAvatarUrl\(\)/);
+assert.match(profilePageSource, /listAccessibleClientCases\(sessionProvider\)/);
 assert.match(profilePageSource, /<ProfileAvatarEditor avatarUrl=\{avatarUrl\} \/>/);
 assert.match(profilePageSource, /<ProfileDisplayNameEditor displayName=\{displayName\} \/>/);
-assert.match(profilePageSource, /<ClientCaseFrame[\s\S]*caseId=\{selectedClientCase\.id\}/);
+assert.match(profilePageSource, /<IBuroClientShellV2[\s\S]*caseId=\{selectedClientCase\.id\}[\s\S]*cases=\{caseOptions\}/);
 assert.match(profilePageSource, /<PortalFrame sectionLabel="Профиль" showStaffTasks=\{isStaff\}>/);
+assert.doesNotMatch(profilePageSource, /ClientPlanVisualStyles|<ClientCaseFrame/);
 assert.match(profilePageSource, /grid min-w-0 gap-5/);
 assert.match(profilePageSource, /Контактные данные/);
 assert.match(profilePageSource, /min-h-11/);
