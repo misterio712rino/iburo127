@@ -106,10 +106,12 @@ assert.equal(yandexSerialized.includes(yandexApiKey), false, "readiness must nev
 assert.equal(yandexSerialized.includes(yandexFingerprint), false, "readiness must never expose the Yandex key fingerprint");
 
 const wrappedYandexInventory = buildProviderAwareStagingEnvironmentInventory(yandexEnv);
+const wrappedYandexMissingRequirements: readonly string[] =
+  wrappedYandexInventory.phases.openai.missingOrPlaceholder;
 assert.equal(wrappedYandexInventory.phases.openai.ready, true);
 assert.deepEqual(wrappedYandexInventory.phases.openai.missingOrPlaceholder, []);
 assert.equal(
-  wrappedYandexInventory.phases.openai.missingOrPlaceholder.some((name) => name.startsWith("OPENAI_")),
+  wrappedYandexMissingRequirements.some((name) => name.startsWith("OPENAI_")),
   false,
   "provider-aware environment inventory must not require OpenAI credentials for Yandex",
 );
