@@ -4,13 +4,12 @@ import { resolve } from "node:path";
 
 const portalSource = await readFile(resolve("app/portal/page.tsx"), "utf8");
 const casePageSource = await readFile(resolve("app/portal/cases/[caseId]/page.tsx"), "utf8");
-const demoAdapterSource = await readFile(
-  resolve("components/portal/ProductionDemoClientDashboard.tsx"),
+const clientDashboardSource = await readFile(
+  resolve("components/portal/IBuroClientDashboardV2.tsx"),
   "utf8",
 );
-const clientFrameSource = await readFile(resolve("components/portal/ClientCaseFrame.tsx"), "utf8");
-const clientNavigationSource = await readFile(
-  resolve("components/portal/ClientCaseNavigation.tsx"),
+const clientShellSource = await readFile(
+  resolve("components/portal/IBuroClientShellV2.tsx"),
   "utf8",
 );
 const progressPageSource = await readFile(
@@ -70,18 +69,23 @@ assert.match(
 
 assert.match(
   casePageSource,
-  /import \{ ProductionDemoClientDashboard \}/,
-  "the production case route must consume the shared demo presentation adapter",
+  /import \{ IBuroClientDashboardV2 \} from "@\/components\/portal\/IBuroClientDashboardV2"/,
+  "the production CLIENT case route must consume the unified client UI v2 dashboard",
 );
 assert.match(
   casePageSource,
-  /if \(isClient\)[\s\S]*renderClientDashboard/,
-  "client-owned cases must use the dedicated production client dashboard",
+  /if \(isClient\) return renderClientDashboard\(sessionProvider, actor, clientCase, summary\)/,
+  "client-owned cases must use the dedicated server-authoritative production client dashboard",
 );
 assert.match(
   casePageSource,
-  /<ProductionDemoClientDashboard/,
-  "the CLIENT branch must render the seated demo dashboard with production data",
+  /<IBuroClientDashboardV2[\s\S]*nextAction=\{\{ title: summary\.nextAction\.title, description: summary\.nextAction\.description, segment: summary\.nextAction\.segment \}\}/,
+  "the CLIENT dashboard must receive the next action directly from the shared server progress summary",
+);
+assert.doesNotMatch(
+  casePageSource,
+  /ProductionDemoClientDashboard/,
+  "the production CLIENT homepage must no longer depend on the legacy demo presentation adapter",
 );
 assert.match(
   casePageSource,
@@ -90,55 +94,64 @@ assert.match(
 );
 
 assert.match(
-  demoAdapterSource,
-  /<ClientCaseFrame/,
-  "the seated demo dashboard must retain the production client shell and case boundary",
-);
-assert.match(demoAdapterSource, /title: "AI-помощник"/);
-assert.match(
-  demoAdapterSource,
-  /code: "AI_ASSISTANT"[\s\S]*state: "active"[\s\S]*href: `\$\{base\}\/ai`/,
-  "AI must remain available for every client tariff in the seated demo dashboard",
+  clientDashboardSource,
+  /href=\{`\$\{base\}\/\$\{props\.nextAction\.segment\}`\}/,
+  "the primary CLIENT CTA must route to the production case module selected by the server next action",
 );
 assert.match(
-  demoAdapterSource,
-  /const mortgageAvailable = props\.mortgageAvailable/,
-  "mortgage analysis must consume the production case-plan entitlement while AI remains universal",
+  clientDashboardSource,
+  /\{props\.nextAction\.title\}/,
+  "the primary CLIENT CTA title must remain server-derived rather than hard-coded from a design fixture",
+);
+assert.match(
+  clientDashboardSource,
+  /\{props\.nextAction\.description\}/,
+  "the primary CLIENT CTA description must remain server-derived",
 );
 assert.doesNotMatch(
-  demoAdapterSource,
-  /props\.planCode === "PRO" \|\| props\.planCode === "INDIVIDUAL"/,
-  "the premium dashboard must not duplicate mortgage plan policy",
+  clientDashboardSource,
+  /Проверить подготовленные документы/,
+  "the UI v2 dashboard must not hard-code a demo-only next action",
+);
+assert.doesNotMatch(
+  clientDashboardSource,
+  /DemoIdentityProvider|useDemoIdentity|localStorage|\/app\/client/,
+  "the production UI v2 dashboard must not consume demo identity, browser mock state, or demo routes",
 );
 assert.match(
-  demoAdapterSource,
-  /summary: mortgageAvailable \? "Индивидуальная оценка" : "Расширенная возможность"/,
-  "mortgage module presentation must follow the real plan-feature entitlement",
+  casePageSource,
+  /features:[\s\S]*where: \{ feature: \{ code: "MORTGAGE_ANALYSIS" \} \}[\s\S]*take: 1/,
+  "mortgage availability must remain derived from the real plan-feature entitlement",
 );
 assert.match(
-  demoAdapterSource,
-  /state: mortgageAvailable \? "active" : "locked"/,
-  "mortgage module state must follow the real plan-feature entitlement",
+  casePageSource,
+  /const mortgageAvailable = \(caseMetadata\?\.plan\.features\.length \?\? 0\) > 0/,
+  "the CLIENT dashboard must not infer mortgage entitlement from a visual plan label",
 );
 assert.match(
-  clientFrameSource,
-  /<ClientCaseNavigation caseId=\{caseId\}/,
-  "the production client shell must render the shared case navigation",
+  clientDashboardSource,
+  /\{props\.mortgageAvailable \? \(/,
+  "the mortgage presentation must consume the production entitlement supplied by the server route",
 );
 assert.match(
-  clientNavigationSource,
+  clientShellSource,
   /AI-помощник/,
-  "AI navigation must be present in the production client navigation for every plan",
+  "AI navigation must remain present in the unified production client shell",
 );
 assert.match(
-  clientNavigationSource,
+  clientShellSource,
   /Профиль/,
-  "client navigation must expose profile access on desktop and mobile",
+  "the unified client shell must expose profile access on desktop and mobile",
 );
 assert.match(
-  clientFrameSource,
-  /Сменить дело/,
-  "multiple genuine client cases must be separated through a compact case switcher",
+  clientShellSource,
+  /cases\.length > 1/,
+  "multiple genuine client cases must retain a safe case switcher",
+);
+assert.doesNotMatch(
+  clientShellSource,
+  /\/app\/client/,
+  "the unified client shell must use production portal routes only",
 );
 
 assert.match(
