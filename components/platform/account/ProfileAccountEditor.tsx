@@ -80,9 +80,9 @@ export function ProfileAvatarEditor({ avatarUrl }: AvatarProps) {
           onClick={() => inputRef.current?.click()}
           disabled={pending}
           aria-busy={pending}
-          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200/80 bg-white/60 px-3.5 py-2 text-xs font-semibold text-slate-600 shadow-none transition-colors hover:border-slate-300 hover:bg-slate-100/70 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330]/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
-          <Camera className="size-4" aria-hidden="true" />
+          <Camera className="size-3.5" aria-hidden="true" />
           {pending ? "Загрузка…" : avatarUrl ? "Изменить фото" : "Добавить фото"}
         </button>
       </div>
@@ -129,9 +129,9 @@ export function ProfileDisplayNameEditor({ displayName }: NameProps) {
           setEditing(true);
           setStatus(null);
         }}
-        className="mt-3 inline-flex min-h-11 max-w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330] focus-visible:ring-offset-2"
+        className="mt-3 inline-flex min-h-11 max-w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200/80 bg-white/60 px-3.5 py-2 text-xs font-semibold text-slate-600 shadow-none transition-colors hover:border-slate-300 hover:bg-slate-100/70 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330]/30 focus-visible:ring-offset-2"
       >
-        <Pencil className="size-4" aria-hidden="true" />
+        <Pencil className="size-3.5" aria-hidden="true" />
         Изменить имя
       </button>
     );
@@ -166,7 +166,7 @@ export function ProfileDisplayNameEditor({ displayName }: NameProps) {
             setValue(displayName);
             setStatus(null);
           }}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330] focus-visible:ring-offset-2"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200/80 bg-transparent px-4 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-white/70 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330]/30 focus-visible:ring-offset-2"
         >
           <X className="size-4" aria-hidden="true" />
           Отмена
