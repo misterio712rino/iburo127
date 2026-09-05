@@ -43,8 +43,8 @@ export function ProfileAvatarEditor({ avatarUrl }: AvatarProps) {
   }
 
   return (
-    <div className="w-fit shrink-0 rounded-[26px] border border-slate-100 bg-slate-50/65 p-3 sm:p-4">
-      <div className="flex flex-col items-start gap-3 sm:items-center">
+    <div className="mx-auto w-fit shrink-0 rounded-[26px] border border-slate-100 bg-slate-50/65 p-3 sm:mx-0 sm:p-4">
+      <div className="flex flex-col items-center gap-3">
         <div className="relative grid size-24 overflow-hidden rounded-full border-4 border-white bg-[#f0eeea] text-[#b9202b] shadow-[0_8px_20px_rgba(23,32,42,0.12)] sm:size-28 lg:size-32">
           {showAvatar ? (
             // The browser reads the avatar only from the authenticated same-origin proxy.
@@ -86,7 +86,7 @@ export function ProfileAvatarEditor({ avatarUrl }: AvatarProps) {
           {pending ? "Загрузка…" : avatarUrl ? "Изменить фото" : "Добавить фото"}
         </button>
       </div>
-      {status ? <p className="mt-2 max-w-56 text-xs font-medium leading-5 text-[#7B2330]" role="alert">{status}</p> : null}
+      {status ? <p className="mt-2 max-w-56 text-center text-xs font-medium leading-5 text-[#7B2330] sm:text-left" role="alert">{status}</p> : null}
     </div>
   );
 }
@@ -138,7 +138,7 @@ export function ProfileDisplayNameEditor({ displayName }: NameProps) {
   }
 
   return (
-    <div className="mt-3 min-w-0 max-w-xl rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+    <div className="mx-auto mt-3 min-w-0 max-w-xl rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-left sm:mx-0">
       <label htmlFor="profile-display-name" className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Имя в профиле</label>
       <input
         id="profile-display-name"
