@@ -3,7 +3,7 @@ import "server-only";
 import { headers } from "next/headers";
 import type { SessionProvider } from "@/server/auth/contracts";
 import { getBetterAuthInstance } from "@/server/auth/better-auth-instance";
-import { requireServerActor, UNAUTHENTICATED } from "@/server/auth/runtime";
+import { requireServerActor } from "@/server/auth/runtime";
 import { getPrivateObjectStorage } from "@/server/files/object-storage-runtime";
 
 const AVATAR_POINTER_PREFIX = "iburo-avatar:";
@@ -34,13 +34,10 @@ function avatarObjectKeyForUser(userId: string) {
   return `${avatarPrefixForUser(userId)}${AVATAR_OBJECT_NAME}`;
 }
 
-async function getCurrentAvatarObjectKey() {
-  const auth = getBetterAuthInstance();
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user?.id) throw new Error(UNAUTHENTICATED);
-
+async function getCurrentAvatarObjectKey(sessionProvider: SessionProvider) {
+  const actor = await requireServerActor(sessionProvider);
   const storage = getPrivateObjectStorage();
-  const canonicalObjectKey = avatarObjectKeyForUser(session.user.id);
+  const canonicalObjectKey = avatarObjectKeyForUser(actor.userId);
 
   try {
     const metadata = await storage.statObject(canonicalObjectKey);
@@ -51,16 +48,20 @@ async function getCurrentAvatarObjectKey() {
     // Fall through to the legacy Better Auth image pointer for existing avatars.
   }
 
-  const image = session.user.image?.trim();
+  const auth = getBetterAuthInstance();
+  const session = await auth.api.getSession({ headers: await headers() });
+  const image = session?.user?.image?.trim();
   if (!image?.startsWith(AVATAR_POINTER_PREFIX)) return null;
 
   const legacyObjectKey = image.slice(AVATAR_POINTER_PREFIX.length);
-  if (!legacyObjectKey.startsWith(avatarPrefixForUser(session.user.id))) return null;
+  if (!legacyObjectKey.startsWith(avatarPrefixForUser(actor.userId))) return null;
   return legacyObjectKey;
 }
 
-export async function getCurrentAccountAvatarUrl(): Promise<string | null> {
-  const objectKey = await getCurrentAvatarObjectKey();
+export async function getCurrentAccountAvatarUrl(
+  sessionProvider: SessionProvider,
+): Promise<string | null> {
+  const objectKey = await getCurrentAvatarObjectKey(sessionProvider);
   if (!objectKey) return null;
 
   try {
@@ -72,8 +73,10 @@ export async function getCurrentAccountAvatarUrl(): Promise<string | null> {
   }
 }
 
-export async function createCurrentAccountAvatarDownload() {
-  const objectKey = await getCurrentAvatarObjectKey();
+export async function createCurrentAccountAvatarDownload(
+  sessionProvider: SessionProvider,
+) {
+  const objectKey = await getCurrentAvatarObjectKey(sessionProvider);
   if (!objectKey) throw new Error(ACCOUNT_AVATAR_NOT_FOUND);
 
   const storage = getPrivateObjectStorage();
