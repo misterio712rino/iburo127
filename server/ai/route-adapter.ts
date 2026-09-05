@@ -3,6 +3,7 @@ import "server-only";
 import type { SessionProvider } from "@/server/auth/contracts";
 import { requireServerActor, UNAUTHENTICATED } from "@/server/auth/runtime";
 import { AI_PROVIDER_ERROR } from "@/server/ai/openai-responses-core";
+import { AI_PROVIDER_CONFIG_ERROR } from "@/server/ai/provider-config-core";
 import { getAiAssistantService } from "@/server/ai/runtime";
 import { AI_USAGE_CONFIG_ERROR } from "@/server/ai/usage-config";
 import {
@@ -49,6 +50,7 @@ function toAiErrorResponse(error: unknown): Response {
     code === AI_AUDIT_FAILED ||
     code === AI_MODEL_RESPONSE_INVALID ||
     code.startsWith(`${AI_PROVIDER_ERROR}:`) ||
+    code.startsWith(`${AI_PROVIDER_CONFIG_ERROR}:`) ||
     code.startsWith(`${AI_USAGE_CONFIG_ERROR}:`) ||
     code.startsWith(`${PRODUCTION_CONFIG_ERROR}:`)
   ) {
