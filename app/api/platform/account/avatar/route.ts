@@ -20,7 +20,8 @@ const ALLOWED_AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 export async function GET() {
   try {
-    const avatar = await createCurrentAccountAvatarDownload();
+    const sessionProvider = createProductionSessionProvider();
+    const avatar = await createCurrentAccountAvatarDownload(sessionProvider);
     const upstream = await fetch(avatar.url, {
       cache: "no-store",
       signal: AbortSignal.timeout(AVATAR_FETCH_TIMEOUT_MS),
