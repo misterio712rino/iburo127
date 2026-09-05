@@ -134,7 +134,7 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
               <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-muted text-primary"><KeyRound className="size-5" aria-hidden="true" /></span>
               <div className="min-w-0"><h2 className="text-lg font-bold text-foreground">Безопасность</h2><p className="mt-0.5 text-sm text-muted-foreground">Двухфакторная защита и резервные коды.</p></div>
             </div>
-            <Link href={securityHref} className="mt-5 inline-flex min-h-11 max-w-full items-center gap-2 rounded-full bg-foreground px-5 py-3 text-sm font-bold text-background transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/15">Настройки безопасности<ArrowRight className="size-4" aria-hidden="true" /></Link>
+            <Link href={securityHref} className="mt-5 inline-flex min-h-11 max-w-full items-center gap-2 rounded-xl border border-border bg-muted/45 px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2">Настройки безопасности<ArrowRight className="size-4 text-muted-foreground" aria-hidden="true" /></Link>
           </article>
         </aside>
       </section>
