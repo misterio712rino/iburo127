@@ -9,7 +9,7 @@ import {
 } from "../server/auth/access-gate-rate-limit";
 
 const secret = "s".repeat(32);
-const contactKey = "email:client.individual@example.test";
+const contactKey = "email:client.staging-e2e@example.test";
 const contactDigest = accessGateRateLimitDigest("contact", contactKey, secret);
 const ipDigest = accessGateRateLimitDigest("ip", "203.0.113.127", secret);
 
@@ -65,7 +65,7 @@ assert.ok(keyBuildIndex > confirmationIndex, "limiter keys must not be built bef
 assert.ok(deleteIndex > keyBuildIndex, "limiter rows must not be mutated before guarded key construction");
 
 for (const email of [
-  "client.individual@example.test",
+  "client.staging-e2e@example.test",
   "lawyer.demo@example.test",
   "manager.demo@example.test",
 ]) {

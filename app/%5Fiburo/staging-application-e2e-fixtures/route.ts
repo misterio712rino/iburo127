@@ -23,7 +23,9 @@ const ADVISORY_LOCK_KEY = "iburo127:staging:application-e2e-fixtures:v1";
 const EXACT_GIT_SHA_PATTERN = /^[a-f0-9]{40}$/i;
 const MUTATION_CASE_NUMBER = "IBR-2026-009901";
 const MUTATION_TASK_ID = "12700000-9901-4000-8000-000000000001";
-const CLIENT_EMAIL = "client.individual@example.test";
+// Guarded E2E mutations must never be visible in an ordinary demo account.
+const CLIENT_EMAIL = "client.staging-e2e@example.test";
+const LEGACY_MUTATION_CLIENT_EMAIL = "client.individual@example.test";
 const LAWYER_EMAIL = "lawyer.demo@example.test";
 const MANAGER_EMAIL = "manager.demo@example.test";
 const PLAN_CODE = "INDIVIDUAL";
@@ -176,7 +178,7 @@ async function readDatabaseIdentity(
 }
 
 async function inspectDependencies(prisma: PrismaClient) {
-  const [client, lawyer, plan, stage, existingCase, existingTask] = await Promise.all([
+  const [client, legacyClient, lawyer, plan, stage, existingCase, existingTask] = await Promise.all([
     prisma.user.findUnique({
       where: { email: CLIENT_EMAIL },
       select: {
@@ -184,6 +186,10 @@ async function inspectDependencies(prisma: PrismaClient) {
         status: true,
         roles: { select: { role: { select: { code: true } } } },
       },
+    }),
+    prisma.user.findUnique({
+      where: { email: LEGACY_MUTATION_CLIENT_EMAIL },
+      select: { id: true },
     }),
     prisma.user.findUnique({
       where: { email: LAWYER_EMAIL },
@@ -223,7 +229,12 @@ async function inspectDependencies(prisma: PrismaClient) {
     plan?.isActive === true &&
     stage?.isActive === true;
 
-  const caseCollision = Boolean(existingCase && client && existingCase.clientId !== client.id);
+  const caseCollision = Boolean(
+    existingCase &&
+      client &&
+      existingCase.clientId !== client.id &&
+      existingCase.clientId !== legacyClient?.id,
+  );
   const taskCollision = Boolean(
     existingTask &&
       existingCase &&
@@ -461,6 +472,10 @@ export async function POST(request: Request) {
             roles: { select: { role: { select: { code: true } } } },
           },
         });
+        const legacyClient = await tx.user.findUnique({
+          where: { email: LEGACY_MUTATION_CLIENT_EMAIL },
+          select: { id: true },
+        });
         const lawyer = await tx.user.findUnique({
           where: { email: LAWYER_EMAIL },
           select: {
@@ -497,7 +512,11 @@ export async function POST(request: Request) {
           where: { caseNumber: MUTATION_CASE_NUMBER },
           select: { id: true, clientId: true },
         });
-        if (existingCase && existingCase.clientId !== client.id) {
+        if (
+          existingCase &&
+          existingCase.clientId !== client.id &&
+          existingCase.clientId !== legacyClient?.id
+        ) {
           throw new Error("dedicated mutation case number collision");
         }
 
@@ -505,6 +524,10 @@ export async function POST(request: Request) {
           ? await tx.clientCase.update({
               where: { id: existingCase.id },
               data: {
+                // A previous fixture revision used the ordinary INDIVIDUAL demo
+                // account. This bounded, exact-case migration keeps that legacy
+                // E2E row out of the client-facing demo profile.
+                clientId: client.id,
                 planId: plan.id,
                 stageId: stage.id,
                 assignedLawyerId: lawyer.id,

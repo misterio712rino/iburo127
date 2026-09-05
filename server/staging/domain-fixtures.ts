@@ -104,6 +104,13 @@ export const STAGING_DEMO_USERS = [
     roleCode: "CLIENT",
   },
   {
+    // This account owns only guarded application-E2E cases. Keeping it separate
+    // prevents resettable technical data from appearing in a demo client's portal.
+    email: "client.staging-e2e@example.test",
+    displayName: "Технический клиент E2E",
+    roleCode: "CLIENT",
+  },
+  {
     email: "lawyer.demo@example.test",
     displayName: "Анна Орлова",
     roleCode: "LAWYER",
@@ -137,7 +144,7 @@ export const STAGING_DEMO_CASES = [
   },
   {
     caseNumber: "IBR-2026-000104",
-    clientEmail: "client.individual@example.test",
+    clientEmail: "client.staging-e2e@example.test",
     planCode: "LITE",
     stageCode: "QUESTIONNAIRE",
     assignLawyer: false,

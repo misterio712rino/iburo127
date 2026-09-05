@@ -290,6 +290,16 @@ const fixtureResetSource = await readFile(
   "utf8",
 );
 assert.match(workflowSource, /IB_STAGING_OTHER_CLIENT_EMAIL:\s*client\.lite@example\.test/);
+assert.match(workflowSource, /IB_STAGING_CLIENT_EMAIL:\s*client\.staging-e2e@example\.test/);
+assert.match(workflowSource, /IB_STAGING_CLIENT_CASE_NUMBER:\s*IBR-2026-009901/);
+assert.match(workflowSource, /IB_STAGING_CLIENT_UNASSIGNED_CASE_NUMBER:\s*IBR-2026-000104/);
+assert.match(workflowSource, /IB_STAGING_CLIENT_AI_CASE_NUMBER:\s*IBR-2026-009901/);
+assert.match(workflowSource, /IB_STAGING_CLIENT_SECOND_AI_CASE_NUMBER:\s*IBR-2026-000104/);
+assert.match(
+  workflowSource,
+  /JSON\.stringify\(labels\) !== JSON\.stringify\(\["CLIENT_E2E", "CLIENT_LITE", "CLIENT_PRO"\]\)/,
+  "application E2E must bootstrap its dedicated technical client alongside plan fixtures",
+);
 assert.match(workflowSource, /IB_STAGING_OTHER_CLIENT_PASSWORD:\s*\$\{\{ secrets\.IB_STAGING_CLIENT_PASSWORD \}\}/);
 assert.doesNotMatch(workflowSource, /secrets\.IB_STAGING_OTHER_CLIENT_(?:EMAIL|PASSWORD)/);
 assert.match(workflowSource, /IB_STAGING_FILES_E2E: "1"/);
@@ -300,6 +310,8 @@ assert.match(
 );
 
 assert.match(fixtureResetSource, /const FILES_E2E_FIXTURE_NAME = "iburo-staging-e2e\.pdf"/);
+assert.match(fixtureResetSource, /const CLIENT_EMAIL = "client\.staging-e2e@example\.test"/);
+assert.doesNotMatch(fixtureResetSource, /const CLIENT_EMAIL = "client\.individual@example\.test"/);
 assert.match(fixtureResetSource, /const MAX_FILES_E2E_FIXTURES = 4/);
 assert.match(fixtureResetSource, /const filesE2eEnabled = env\.IB_STAGING_FILES_E2E\?\.trim\(\) === "1"/);
 assert.match(fixtureResetSource, /isPrivateStagingBucketConfirmed\(request, env\)/);

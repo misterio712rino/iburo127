@@ -85,6 +85,7 @@ for (const email of [
   "client.lite@example.test",
   "client.pro@example.test",
   "client.individual@example.test",
+  "client.staging-e2e@example.test",
   "lawyer.demo@example.test",
 ]) {
   assert.ok(helper.includes(email), `shared staging fixture helper must pin ${email}`);
@@ -99,8 +100,18 @@ for (const caseNumber of [
 }
 assert.match(
   helper,
-  /caseNumber: "IBR-2026-000104"[\s\S]*?clientEmail: "client\.individual@example\.test"[\s\S]*?planCode: "LITE"[\s\S]*?assignLawyer: false/,
-  "E2E boundary fixture must be a CLIENT-owned LITE case that is intentionally unassigned",
+  /caseNumber: "IBR-2026-000104"[\s\S]*?clientEmail: "client\.staging-e2e@example\.test"[\s\S]*?planCode: "LITE"[\s\S]*?assignLawyer: false/,
+  "E2E boundary fixture must be a technical CLIENT-owned LITE case that is intentionally unassigned",
+);
+assert.match(
+  helper,
+  /caseNumber: "IBR-2026-000103"[\s\S]*?clientEmail: "client\.individual@example\.test"[\s\S]*?planCode: "INDIVIDUAL"/,
+  "the ordinary INDIVIDUAL demo client must retain only its INDIVIDUAL demo case",
+);
+assert.doesNotMatch(
+  helper,
+  /caseNumber: "IBR-2026-000104"[\s\S]*?clientEmail: "client\.individual@example\.test"/,
+  "ordinary demo clients must not own guarded E2E boundary cases",
 );
 assert.match(
   helper,

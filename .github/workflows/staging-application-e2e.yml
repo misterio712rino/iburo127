@@ -31,13 +31,13 @@ jobs:
       IB_STAGING_AUTH_FLOW_TARGET: staging
       IB_STAGING_AUTH_FLOW_CONFIRM: AUTH-FLOW:iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
       IB_STAGING_AUTH_REQUEST_TIMEOUT_MS: "15000"
-      IB_STAGING_CLIENT_EMAIL: client.individual@example.test
+      IB_STAGING_CLIENT_EMAIL: client.staging-e2e@example.test
       IB_STAGING_LAWYER_EMAIL: lawyer.demo@example.test
       IB_STAGING_MANAGER_EMAIL: manager.demo@example.test
-      IB_STAGING_CLIENT_CASE_NUMBER: IBR-2026-000103
+      IB_STAGING_CLIENT_CASE_NUMBER: IBR-2026-009901
       IB_STAGING_CLIENT_UNASSIGNED_CASE_NUMBER: IBR-2026-000104
       IB_STAGING_LAWYER_CASE_NUMBER: IBR-2026-000102
-      IB_STAGING_CLIENT_AI_CASE_NUMBER: IBR-2026-000103
+      IB_STAGING_CLIENT_AI_CASE_NUMBER: IBR-2026-009901
       IB_STAGING_CLIENT_SECOND_AI_CASE_NUMBER: IBR-2026-000104
       IB_STAGING_MUTATION_TARGET: staging
       IB_STAGING_MUTATION_CONFIRM: MUTATE:iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
@@ -164,7 +164,7 @@ jobs:
                 body.runtimeTarget !== "staging" ||
                 body.database !== process.env.IB_STAGING_DATABASE_NAME ||
                 body.schema !== "public" ||
-                JSON.stringify(labels) !== JSON.stringify(["CLIENT_LITE", "CLIENT_PRO"])
+                JSON.stringify(labels) !== JSON.stringify(["CLIENT_E2E", "CLIENT_LITE", "CLIENT_PRO"])
               ) {
                 console.error("STAGING_CLIENT_PLAN_AUTH_FIXTURE_FAIL");
                 process.exit(1);

@@ -25,6 +25,11 @@ const EXACT_GIT_SHA_PATTERN = /^[a-f0-9]{40}$/i;
 const FIXTURES = [
   { label: "CLIENT_LITE", email: "client.lite@example.test", displayName: "Клиент LITE" },
   { label: "CLIENT_PRO", email: "client.pro@example.test", displayName: "Клиент PRO" },
+  {
+    label: "CLIENT_E2E",
+    email: "client.staging-e2e@example.test",
+    displayName: "Технический клиент E2E",
+  },
 ] as const;
 
 const NO_STORE_HEADERS = {
