@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, ListChecks } from "lucide-react";
+import { ListChecks } from "lucide-react";
 
 import { ProductionQuestionnaire } from "@/components/platform/questionnaire/ProductionQuestionnaire";
 import { IBuroQuestionnaireV2 } from "@/components/platform/questionnaire/IBuroQuestionnaireV2";
 import { CasePortalFrame } from "@/components/portal/CasePortalFrame";
+import { ClientCaseModuleIntro } from "@/components/portal/ClientCaseModuleIntro";
 import { IBuroClientShellV2 } from "@/components/portal/IBuroClientShellV2";
 import { getPlanDisplayLabel } from "@/lib/platform/case-progress";
 import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
@@ -60,19 +60,14 @@ export default async function PortalQuestionnairePage({ params }: { params: Prom
     return (
       <CasePortalFrame sessionProvider={sessionProvider} actor={actor} clientCase={clientCase} sectionLabel="Анкета дела" showStaffTasks>
         <div className="py-10">
-          <Link href={`/portal/cases/${clientCase.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-slate-500 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20">
-            <ArrowLeft className="size-4" aria-hidden="true" />
-            Назад к делу
-          </Link>
+          <ClientCaseModuleIntro
+            caseId={clientCase.id}
+            caseNumber={getClientCaseDisplayNumber(clientCase.caseNumber)}
+            title="Анкета"
+            description="Сведения клиента, необходимые для анализа ситуации и подготовки материалов дела."
+            icon={ListChecks}
+          />
           <section className="mt-6 rounded-[32px] border border-white/80 bg-white/80 p-5 shadow-[0_18px_55px_rgba(75,57,43,0.07)] sm:p-8">
-            <div className="flex min-w-0 items-start gap-3 sm:gap-4">
-              <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#f0eeea] text-[#b9202b] sm:size-12"><ListChecks className="size-5 sm:size-6" aria-hidden="true" /></span>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold tracking-[0.02em] text-slate-400">{getClientCaseDisplayNumber(clientCase.caseNumber)}</p>
-                <h1 className="mt-2 break-words font-[var(--font-iburo-display)] text-3xl font-semibold leading-none text-slate-900 sm:text-5xl">Анкета</h1>
-                <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">Сведения клиента, необходимые для анализа ситуации и подготовки материалов дела.</p>
-              </div>
-            </div>
             <ProductionQuestionnaire caseId={clientCase.id} canEdit={false} planCode={planCode} initialState={questionnaireState} />
           </section>
         </div>
