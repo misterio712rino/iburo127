@@ -68,7 +68,7 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
   const securityHref = selectedClientCase ? `/portal/security?caseId=${selectedClientCase.id}` : "/portal/security";
 
   const content = (
-    <div className="flex min-w-0 flex-col gap-7 py-1 sm:gap-9 sm:py-2">
+    <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-7 py-1 sm:gap-9 sm:py-2">
       <header>
         <p className="text-sm font-semibold text-primary">Учётная запись</p>
         <h1 className="mt-2 break-words font-[var(--font-iburo-display)] text-3xl font-semibold tracking-[-.04em] text-foreground sm:text-5xl">Профиль</h1>
@@ -77,14 +77,14 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
 
       <section className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.18fr)_minmax(20rem,.82fr)] lg:gap-6">
         <article className="min-w-0 rounded-[30px] border border-border bg-card p-5 text-card-foreground shadow-[0_18px_55px_rgba(0,0,0,.05)] sm:p-7 lg:p-8">
-          <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-start sm:gap-6">
+          <div className="flex min-w-0 flex-col items-center gap-5 text-center sm:flex-row sm:items-start sm:gap-6 sm:text-left">
             <ProfileAvatarEditor avatarUrl={avatarUrl} />
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 w-full flex-1">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Личный кабинет</p>
               <h2 className="mt-2 break-words font-[var(--font-iburo-display)] text-3xl font-semibold tracking-[-.04em] text-foreground sm:text-4xl">{displayName}</h2>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">Имя и фотографию можно менять прямо здесь. Контактные данные берутся из защищённой учётной записи iБюро.</p>
+              <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:mx-0">Имя и фотографию можно менять прямо здесь. Контактные данные берутся из защищённой учётной записи iБюро.</p>
               <ProfileDisplayNameEditor displayName={displayName} />
-              <div className="mt-4 flex flex-wrap gap-2" aria-label="Роли учётной записи">
+              <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start" aria-label="Роли учётной записи">
                 {profile.roles.map((role) => (
                   <span key={role} className="inline-flex min-h-7 items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">{ROLE_LABELS[role]}</span>
                 ))}
@@ -92,7 +92,7 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
             </div>
           </div>
 
-          <section className="mt-7 border-t border-border pt-6" aria-labelledby="profile-contact-heading">
+          <section className="mt-7 border-t border-border pt-6 text-left" aria-labelledby="profile-contact-heading">
             <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
               <h2 id="profile-contact-heading" className="text-lg font-bold text-foreground">Контактные данные</h2>
               <p className="text-sm text-muted-foreground">Из учётной записи</p>
@@ -103,7 +103,7 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
             </dl>
           </section>
 
-          <p className="mt-6 text-xs leading-5 text-muted-foreground">Учётная запись создана {profile.createdAt.toLocaleDateString("ru-RU")}.</p>
+          <p className="mt-6 text-left text-xs leading-5 text-muted-foreground">Учётная запись создана {profile.createdAt.toLocaleDateString("ru-RU")}.</p>
         </article>
 
         <aside className="grid min-w-0 content-start gap-5 lg:gap-6" aria-label="Сводка учётной записи">
