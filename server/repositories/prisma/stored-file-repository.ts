@@ -19,7 +19,7 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
   async listByCase(clientCaseId: string) {
     const prisma = getPrismaClient();
     const rows = await prisma.storedFile.findMany({
-      where: { clientCaseId, status: "READY" },
+      where: { clientCaseId },
       orderBy: { createdAt: "desc" },
     });
     return rows.map(toRecord);
