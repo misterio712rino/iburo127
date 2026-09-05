@@ -90,7 +90,7 @@ assert.match(notificationReadSource, /min-h-11/);
 assert.match(notificationReadSource, /role="alert"/);
 
 assert.match(profileSource, /<ProfileAvatarEditor avatarUrl=\{avatarUrl\}/, "Profile must preserve avatar editing");
-assert.match(profileSource, /<ProfileDisplayNameEditor displayName=\{displayName\}/, "Profile must preserve display-name editing");
+assert.match(profileSource, /<ProfileDisplayNameEditor displayName=\{storedDisplayName\}/, "Profile must preserve display-name editing against the stored account value");
 assert.match(profileSource, /getClientCaseDisplayNumber\(item\.caseNumber\)/, "Profile must never present raw technical case ids as court numbers");
 assert.match(profileSource, /min-h-\[52px\]/, "Profile case links must keep a large touch target");
 assert.match(profileSource, /min-h-11/, "Profile security action must keep a 44px touch target");
