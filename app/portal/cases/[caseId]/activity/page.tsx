@@ -7,6 +7,7 @@ import { IBuroClientShellV2 } from "@/components/portal/IBuroClientShellV2";
 import { getPlanDisplayLabel } from "@/lib/platform/case-progress";
 import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
 import { resolveCasePortalAudience } from "@/lib/platform/case-portal-audience";
+import { formatProfileDisplayName } from "@/lib/platform/profile-display-name";
 import type { PlanCode } from "@/lib/platform/types";
 import { getCurrentAccountProfile } from "@/server/account/operations";
 import { listCaseActivity } from "@/server/activity/operations";
@@ -71,6 +72,9 @@ export default async function PortalCaseActivityPage({ params }: { params: Promi
     listNotifications(sessionProvider, 100),
   ]);
   const planCode = requirePlanCode(clientCase.planCode);
+  const displayName = profile.displayName?.trim()
+    ? formatProfileDisplayName(profile.displayName)
+    : "Клиент iБюро";
   const caseOptions = allCases
     .filter((item) => item.clientId === actor.userId)
     .map((item) => ({
@@ -83,7 +87,7 @@ export default async function PortalCaseActivityPage({ params }: { params: Promi
   return (
     <IBuroClientShellV2
       caseId={clientCase.id}
-      displayName={profile.displayName?.trim() || "Клиент iБюро"}
+      displayName={displayName}
       caseDisplayNumber={getClientCaseDisplayNumber(clientCase.caseNumber)}
       planLabel={getClientPlanLabel(planCode)}
       unreadCount={unreadCount}
@@ -124,7 +128,7 @@ function ActivityList({
       {events.map((event) => (
         <li key={event.id} className={staff
           ? "rounded-[24px] border border-white/80 bg-white/90 p-5 shadow-[0_12px_40px_rgba(15,23,42,0.06)]"
-          : "rounded-[24px] border border-border bg-card p-5 text-card-foreground shadow-[0_10px_30px_rgba(0,0,0,.04)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_44px_rgba(0,0,0,.06)]"}
+          : "rounded-[24px] border border-border bg-card p-5 text-card-foreground shadow-[0_10px_30px_rgba(0,0,0,.035)] transition-colors duration-200"}
         >
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex min-w-0 gap-3">
