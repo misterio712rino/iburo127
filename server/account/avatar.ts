@@ -110,6 +110,7 @@ export async function createCurrentAccountAvatarUpload(
     mimeType,
     sizeBytes: BigInt(sizeBytes),
     expiresInSeconds: 300,
+    allowOverwrite: true,
   });
 
   return {
