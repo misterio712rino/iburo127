@@ -33,6 +33,11 @@ write_files:
     content: |
       SCANNER_IMAGE=${scanner_image}
       SCANNER_IMAGE_DIGEST=${scanner_image_digest}
+  - path: /opt/iburo/file-scanner/docker-compose.staging.yml
+    owner: root:root
+    permissions: "0644"
+    encoding: b64
+    content: ${scanner_compose_b64}
 
 runcmd:
   - [install, -d, -m, "0700", -o, root, -g, root, /etc/iburo-file-scanner]
