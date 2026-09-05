@@ -85,6 +85,8 @@ export interface StoredFileRepository {
     scannedAt: Date;
     errorCode: string;
   }): Promise<boolean>;
+  takeOwnedForDeletion(fileId: string, uploadedById: string): Promise<StoredFileRecord | null>;
+  restoreDeleted(file: StoredFileRecord): Promise<boolean>;
   deletePending(fileId: string): Promise<boolean>;
   restorePending(file: StoredFileRecord): Promise<boolean>;
 }
