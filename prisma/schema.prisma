@@ -33,6 +33,20 @@ enum PracticumProgressStatus {
   COMPLETED
 }
 
+enum PracticumHomeworkStatus {
+  NOT_STARTED
+  DRAFT
+  SUBMITTED
+  IN_REVIEW
+  CHANGES_REQUESTED
+  ACCEPTED
+}
+
+enum PracticumHomeworkReviewDecision {
+  CHANGES_REQUESTED
+  ACCEPTED
+}
+
 enum TaskStatus {
   NEW
   WORKING
@@ -87,16 +101,20 @@ model User {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  roles                 UserRole[]
-  clientCases           ClientCase[]         @relation("ClientCases")
-  assignedCases         ClientCase[]         @relation("AssignedLawyerCases")
-  authIdentities        AuthIdentity[]
-  securityEvents        UserSecurityEvent[]   @relation("UserSecurityEvents")
-  assignedTasks         CaseTask[]            @relation("AssignedTasks")
-  taskStatusEvents      TaskStatusEvent[]     @relation("TaskStatusEventActors")
-  activityEvents        CaseActivityEvent[]   @relation("CaseActivityActors")
-  notifications         Notification[]
-  uploadedFiles         StoredFile[]          @relation("StoredFileUploaders")
+  roles                        UserRole[]
+  clientCases                  ClientCase[]                      @relation("ClientCases")
+  assignedCases                ClientCase[]                      @relation("AssignedLawyerCases")
+  authIdentities               AuthIdentity[]
+  securityEvents               UserSecurityEvent[]               @relation("UserSecurityEvents")
+  assignedTasks                CaseTask[]                        @relation("AssignedTasks")
+  taskStatusEvents             TaskStatusEvent[]                 @relation("TaskStatusEventActors")
+  activityEvents               CaseActivityEvent[]               @relation("CaseActivityActors")
+  notifications                Notification[]
+  uploadedFiles                StoredFile[]                      @relation("StoredFileUploaders")
+  practicumHomeworkSubmissions CasePracticumHomeworkRevision[]  @relation("PracticumHomeworkSubmitters")
+  practicumHomeworkReviews     CasePracticumHomeworkRevision[]  @relation("PracticumHomeworkReviewers")
+  practicumLessonMessages      CasePracticumLessonMessage[]     @relation("PracticumLessonMessageAuthors")
+  practicumLessonReadStates    CasePracticumLessonReadState[]
 }
 
 model Role {
@@ -217,13 +235,16 @@ model ClientCase {
   stage          CaseStage @relation(fields: [stageId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   assignedLawyer User?     @relation("AssignedLawyerCases", fields: [assignedLawyerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
-  questionnaire     CaseQuestionnaire?
-  practicumProgress CasePracticumProgress?
-  tasks              CaseTask[]
-  documents          CaseDocument[]
-  activityEvents     CaseActivityEvent[]
-  notifications      Notification[]
-  storedFiles         StoredFile[]
+  questionnaire             CaseQuestionnaire?
+  practicumProgress         CasePracticumProgress?
+  practicumHomeworks        CasePracticumHomework[]
+  practicumLessonMessages   CasePracticumLessonMessage[]
+  practicumLessonReadStates CasePracticumLessonReadState[]
+  tasks                     CaseTask[]
+  documents                 CaseDocument[]
+  activityEvents            CaseActivityEvent[]
+  notifications             Notification[]
+  storedFiles               StoredFile[]
 
   @@index([clientId])
   @@index([planId])
@@ -253,11 +274,82 @@ model CasePracticumProgress {
   completedLessonIds String[]
   startedAt          DateTime?
   completedAt        DateTime?
-  version             Int                      @default(1)
-  createdAt           DateTime                  @default(now())
-  updatedAt           DateTime                  @updatedAt
+  version            Int                      @default(1)
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
 
   clientCase ClientCase @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+}
+
+model CasePracticumHomework {
+  id           String                  @id @default(uuid()) @db.Uuid
+  clientCaseId String                  @db.Uuid
+  lessonId     String
+  status       PracticumHomeworkStatus @default(NOT_STARTED)
+  draftText    String                  @default("")
+  submittedAt  DateTime?
+  reviewedAt   DateTime?
+  version      Int                     @default(1)
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  clientCase ClientCase                       @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  revisions  CasePracticumHomeworkRevision[]
+
+  @@unique([clientCaseId, lessonId])
+  @@index([clientCaseId, status, updatedAt])
+  @@index([status, submittedAt])
+}
+
+model CasePracticumHomeworkRevision {
+  id                String                            @id @default(uuid()) @db.Uuid
+  homeworkId        String                            @db.Uuid
+  revisionNumber    Int
+  submittedByUserId String                            @db.Uuid
+  answerText        String
+  submittedAt       DateTime                          @default(now())
+  reviewedByUserId  String?                           @db.Uuid
+  reviewDecision    PracticumHomeworkReviewDecision?
+  reviewComment     String?
+  reviewedAt        DateTime?
+
+  homework    CasePracticumHomework @relation(fields: [homeworkId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  submittedBy User                  @relation("PracticumHomeworkSubmitters", fields: [submittedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  reviewedBy  User?                 @relation("PracticumHomeworkReviewers", fields: [reviewedByUserId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@unique([homeworkId, revisionNumber])
+  @@index([homeworkId, submittedAt])
+  @@index([submittedByUserId])
+  @@index([reviewedByUserId, reviewedAt])
+}
+
+model CasePracticumLessonMessage {
+  id           String   @id @default(uuid()) @db.Uuid
+  clientCaseId String   @db.Uuid
+  lessonId     String
+  authorUserId String   @db.Uuid
+  body         String
+  createdAt    DateTime @default(now())
+
+  clientCase ClientCase @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  author     User       @relation("PracticumLessonMessageAuthors", fields: [authorUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([clientCaseId, lessonId, createdAt])
+  @@index([authorUserId, createdAt])
+}
+
+model CasePracticumLessonReadState {
+  clientCaseId String   @db.Uuid
+  lessonId     String
+  userId       String   @db.Uuid
+  lastReadAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  clientCase ClientCase @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([clientCaseId, lessonId, userId])
+  @@index([userId, lastReadAt])
 }
 
 model CaseTask {
