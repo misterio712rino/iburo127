@@ -83,6 +83,12 @@ const yandexEnv = {
 } as const;
 
 const providerAwareYandex = buildProviderAwareStagingAiReadiness(yandexEnv);
+const yandexMissingRequirements: readonly string[] = providerAwareYandex.missingOrPlaceholder;
+assert.equal(
+  yandexMissingRequirements.some((name) => name.startsWith("OPENAI_")),
+  false,
+  "Yandex readiness must not require OpenAI credentials",
+);
 assert.equal(providerAwareYandex.provider, "yandex");
 assert.equal(providerAwareYandex.ready, true);
 assert.deepEqual(providerAwareYandex.missingOrPlaceholder, []);
@@ -92,11 +98,6 @@ assert.equal(providerAwareYandex.valuesPrinted, false);
 const yandexSerialized = JSON.stringify(providerAwareYandex);
 assert.equal(yandexSerialized.includes(yandexApiKey), false, "readiness must never expose the Yandex API key");
 assert.equal(yandexSerialized.includes(yandexFingerprint), false, "readiness must never expose the Yandex key fingerprint");
-assert.equal(
-  providerAwareYandex.missingOrPlaceholder.some((name) => name.startsWith("OPENAI_")),
-  false,
-  "Yandex readiness must not require OpenAI credentials",
-);
 
 const mismatchedYandexFolder = buildProviderAwareStagingAiReadiness({
   ...yandexEnv,
