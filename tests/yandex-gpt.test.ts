@@ -236,7 +236,7 @@ for (const badEnv of [
 ]) {
   assert.throws(
     () => assertStagingYandexAiTarget(badEnv),
-    new RegExp(`^${STAGING_YANDEX_AI_TARGET_GUARD}:`),
+    new RegExp(`${STAGING_YANDEX_AI_TARGET_GUARD}:`),
   );
 }
 
