@@ -67,7 +67,7 @@ async function resolveClientAiCase(requestedCaseId?: string): Promise<AiCaseStat
 
 function LoadingCard() {
   return (
-    <PlatformCard className="p-6 sm:p-8">
+    <PlatformCard className="rounded-[24px] border-[#e8e8e6] p-6 shadow-none sm:p-8">
       <div role="status" className="flex items-center gap-3 text-sm text-muted-foreground">
         <span className="size-2 animate-pulse rounded-full bg-primary" />
         Загружаем данные вашего дела…
@@ -85,7 +85,7 @@ function AccessState({ state }: { state: Exclude<LoadState["status"], "loading" 
   }[state];
 
   return (
-    <PlatformCard className="p-6 sm:p-8">
+    <PlatformCard className="rounded-[24px] border-[#e8e8e6] p-6 shadow-none sm:p-8">
       <h2 className="text-xl font-semibold">{copy[0]}</h2>
       <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">{copy[1]}</p>
     </PlatformCard>
@@ -197,7 +197,7 @@ function AiChat({
         title={<>AI-помощник <IBuroBrand /></>}
         description="Поможет разобраться в текущем этапе и работе платформы."
         action={
-          <Button type="button" variant="ghost" className="w-fit rounded-full" onClick={clearChat}>
+          <Button type="button" variant="ghost" className="w-fit rounded-xl px-3 text-xs font-semibold text-muted-foreground hover:bg-muted/70 hover:text-foreground" onClick={clearChat}>
             <RotateCcw data-icon="inline-start" />
             Очистить чат
           </Button>
@@ -213,9 +213,9 @@ function AiChat({
         </div>
       </div>
       <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
-        <PlatformCard className="flex min-w-0 flex-col overflow-hidden">
+        <PlatformCard className="flex min-w-0 flex-col overflow-hidden rounded-[24px] border-[#e8e8e6] shadow-none">
           <div className="flex items-center gap-3 border-b border-border p-4 sm:p-5">
-            <span className="grid size-10 place-items-center rounded-2xl bg-primary text-primary-foreground">
+            <span className="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground">
               <Bot className="size-5" aria-hidden="true" />
             </span>
             <div>
@@ -249,7 +249,7 @@ function AiChat({
                   key={suggestion}
                   disabled={typing}
                   onClick={() => void send(suggestion)}
-                  className="max-w-full rounded-full border border-border bg-background px-3 py-2 text-left text-xs leading-5 transition hover:border-primary/40 hover:bg-muted focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/15 disabled:opacity-50"
+                  className="max-w-full rounded-xl border border-border/80 bg-background/70 px-3 py-2 text-left text-xs leading-5 text-muted-foreground transition-colors hover:border-border hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/12 disabled:opacity-50"
                 >
                   {suggestion}
                 </button>
