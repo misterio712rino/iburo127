@@ -4,6 +4,7 @@ import type { SessionProvider } from "@/server/auth/contracts";
 import {
   handleCompleteStoredFileUpload,
   handleCreateStoredFileDownloadUrl,
+  handleDeleteStoredFile,
   handleGetStoredFile,
   handleListStoredFiles,
   handlePrepareStoredFileUpload,
@@ -19,6 +20,10 @@ export function createStoredFileRouteAdapter(sessionProvider: SessionProvider) {
 
     async get(fileId: unknown): Promise<Response> {
       return toStoredFileHttpResponse(await handleGetStoredFile(sessionProvider, fileId));
+    },
+
+    async delete(fileId: unknown): Promise<Response> {
+      return toStoredFileHttpResponse(await handleDeleteStoredFile(sessionProvider, fileId));
     },
 
     async prepareUpload(clientCaseId: unknown, request: Request): Promise<Response> {
