@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import {
   ArrowRight,
   BookOpen,
@@ -28,6 +31,8 @@ const STATUS_LABELS = {
 } as const;
 
 export function IBuroProgressV2({ caseId, summary }: { caseId: string; summary: ProgressSummary }) {
+  const stageScrollerRef = useRef<HTMLDivElement>(null);
+  const currentStageRef = useRef<HTMLLIElement>(null);
   const currentIndex = summary.stage.position ? summary.stage.position - 1 : -1;
   const nextStage = currentIndex >= 0 ? CASE_STAGE_FLOW[currentIndex + 1]?.label ?? "Завершено" : "Уточняется";
   const routePercent = summary.stage.position && summary.stage.total > 1
@@ -36,6 +41,21 @@ export function IBuroProgressV2({ caseId, summary }: { caseId: string; summary: 
   const documentsReady = summary.documents.readyForReview + summary.documents.sentForReview + summary.documents.reviewed;
   const documentPercent = summary.documents.total > 0 ? Math.round((documentsReady / summary.documents.total) * 100) : 0;
   const base = `/portal/cases/${caseId}`;
+
+  useEffect(() => {
+    const scroller = stageScrollerRef.current;
+    const currentStage = currentStageRef.current;
+    if (!scroller || !currentStage || !window.matchMedia("(max-width: 960px)").matches) return;
+
+    const maxLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+    const centeredLeft = currentStage.offsetLeft - (scroller.clientWidth - currentStage.offsetWidth) / 2;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    scroller.scrollTo({
+      left: Math.max(0, Math.min(maxLeft, centeredLeft)),
+      behavior: reducedMotion ? "auto" : "smooth",
+    });
+  }, [summary.stage.position]);
 
   return (
     <div className={styles.page}>
@@ -64,19 +84,32 @@ export function IBuroProgressV2({ caseId, summary }: { caseId: string; summary: 
 
       <section className={styles.stages} aria-labelledby="v2-progress-stages">
         <div className={styles.sectionHeading}><div><span>Процедура</span><h2 id="v2-progress-stages">Этапы дела</h2></div><small>Актуально по данным дела</small></div>
-        <ol>
-          {CASE_STAGE_FLOW.map((stage, index) => {
-            const position = index + 1;
-            const current = summary.stage.position === position;
-            const complete = summary.stage.position !== null && position < summary.stage.position;
-            return (
-              <li key={stage.code} className={current ? styles.stageCurrent : complete ? styles.stageComplete : ""}>
-                <div className={styles.stageLine}><span>{complete ? <Check aria-hidden="true" /> : position}</span></div>
-                <p>{stage.label}</p>
-              </li>
-            );
-          })}
-        </ol>
+        <div
+          ref={stageScrollerRef}
+          className={styles.stageScroller}
+          tabIndex={0}
+          role="region"
+          aria-label="Горизонтальная лента этапов дела"
+        >
+          <ol>
+            {CASE_STAGE_FLOW.map((stage, index) => {
+              const position = index + 1;
+              const current = summary.stage.position === position;
+              const complete = summary.stage.position !== null && position < summary.stage.position;
+              return (
+                <li
+                  key={stage.code}
+                  ref={current ? currentStageRef : undefined}
+                  className={current ? styles.stageCurrent : complete ? styles.stageComplete : ""}
+                  aria-current={current ? "step" : undefined}
+                >
+                  <div className={styles.stageLine}><span>{complete ? <Check aria-hidden="true" /> : position}</span></div>
+                  <p>{stage.label}</p>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
       </section>
 
       <section className={styles.metrics} aria-label="Готовность материалов дела">
