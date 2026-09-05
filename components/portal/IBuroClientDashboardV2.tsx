@@ -12,6 +12,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import { formatProfileDisplayName } from "@/lib/platform/profile-display-name";
 import { IBuroClientShellV2, type IBuroClientCaseOptionV2 } from "./IBuroClientShellV2";
 import styles from "./IBuroClientDashboardV2.module.css";
 
@@ -125,11 +126,14 @@ export function IBuroClientDashboardV2(props: DashboardProps) {
   const boundedProgress = Math.max(0, Math.min(100, props.progress));
   const stagePosition = props.stagePosition ?? 1;
   const completedSegments = Math.max(0, Math.min(props.stageTotal, stagePosition - 1));
+  const shellDisplayName = props.displayName.trim()
+    ? formatProfileDisplayName(props.displayName)
+    : "Клиент iБюро";
 
   return (
     <IBuroClientShellV2
       caseId={props.caseId}
-      displayName={props.displayName}
+      displayName={shellDisplayName}
       caseDisplayNumber={props.caseDisplayNumber}
       planLabel={props.planLabel}
       unreadCount={props.unreadCount}
