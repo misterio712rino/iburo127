@@ -11,6 +11,20 @@ type NameProps = {
   displayName: string;
 };
 
+function swapFirstAndLastName(value: string) {
+  const parts = value.trim().replace(/\s+/g, " ").split(" ");
+  if (parts.length !== 3) return parts.join(" ");
+  return [parts[1], parts[0], parts[2]].join(" ");
+}
+
+export function formatProfileDisplayName(value: string) {
+  return swapFirstAndLastName(value);
+}
+
+function formatProfileNameForStorage(value: string) {
+  return swapFirstAndLastName(value);
+}
+
 export function ProfileAvatarEditor({ avatarUrl }: AvatarProps) {
   const [pending, setPending] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -107,15 +121,16 @@ export function ProfileAvatarEditor({ avatarUrl }: AvatarProps) {
 }
 
 export function ProfileDisplayNameEditor({ displayName }: NameProps) {
+  const profileDisplayName = formatProfileDisplayName(displayName);
   const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(displayName);
+  const [value, setValue] = useState(profileDisplayName);
   const [pending, setPending] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
   async function saveName() {
     const normalized = value.trim().replace(/\s+/g, " ");
     if (normalized.length < 2 || normalized.length > 80) {
-      setStatus("Имя должно содержать от 2 до 80 символов.");
+      setStatus("ФИО должно содержать от 2 до 80 символов.");
       return;
     }
 
@@ -125,12 +140,12 @@ export function ProfileDisplayNameEditor({ displayName }: NameProps) {
       const response = await fetch("/api/platform/account/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ displayName: normalized }),
+        body: JSON.stringify({ displayName: formatProfileNameForStorage(normalized) }),
       });
       if (!response.ok) throw new Error("PROFILE_UPDATE_FAILED");
       window.location.reload();
     } catch {
-      setStatus("Не удалось сохранить имя. Попробуйте ещё раз.");
+      setStatus("Не удалось сохранить ФИО. Попробуйте ещё раз.");
     } finally {
       setPending(false);
     }
@@ -138,23 +153,30 @@ export function ProfileDisplayNameEditor({ displayName }: NameProps) {
 
   if (!editing) {
     return (
-      <button
-        type="button"
-        onClick={() => {
-          setEditing(true);
-          setStatus(null);
-        }}
-        className="mt-3 inline-flex min-h-11 max-w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200/80 bg-white/60 px-3.5 py-2 text-xs font-semibold text-slate-600 shadow-none transition-colors hover:border-slate-300 hover:bg-slate-100/70 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330]/30 focus-visible:ring-offset-2"
-      >
-        <Pencil className="size-3.5" aria-hidden="true" />
-        Изменить имя
-      </button>
+      <div className="mt-2 flex min-w-0 items-start justify-center gap-1.5 sm:justify-start">
+        <h2 className="min-w-0 break-words font-[var(--font-iburo-display)] text-3xl font-semibold tracking-[-.04em] text-foreground sm:text-4xl">
+          {profileDisplayName}
+        </h2>
+        <button
+          type="button"
+          onClick={() => {
+            setValue(profileDisplayName);
+            setEditing(true);
+            setStatus(null);
+          }}
+          aria-label="Изменить ФИО"
+          title="Изменить ФИО"
+          className="mt-1 grid size-8 shrink-0 place-items-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330]/30 sm:mt-1.5"
+        >
+          <Pencil className="size-3.5" aria-hidden="true" />
+        </button>
+      </div>
     );
   }
 
   return (
     <div className="mx-auto mt-3 min-w-0 max-w-xl rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-left sm:mx-0">
-      <label htmlFor="profile-display-name" className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Имя в профиле</label>
+      <label htmlFor="profile-display-name" className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Фамилия Имя Отчество</label>
       <input
         id="profile-display-name"
         value={value}
@@ -178,7 +200,7 @@ export function ProfileDisplayNameEditor({ displayName }: NameProps) {
           type="button"
           onClick={() => {
             setEditing(false);
-            setValue(displayName);
+            setValue(profileDisplayName);
             setStatus(null);
           }}
           className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200/80 bg-transparent px-4 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-white/70 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330]/30 focus-visible:ring-offset-2"
