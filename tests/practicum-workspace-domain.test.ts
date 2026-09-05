@@ -12,6 +12,7 @@ import {
   PRACTICUM_WORKSPACE_INVALID_LESSON,
   PRACTICUM_WORKSPACE_INVALID_MESSAGE,
   PRACTICUM_WORKSPACE_LAWYER_NOT_ASSIGNED,
+  PRACTICUM_WORKSPACE_NOT_FOUND,
   type PracticumLessonWorkspaceRecord,
   type PracticumWorkspaceRepository,
 } from "@/server/domain/practicum/workspace-contracts";
@@ -211,7 +212,7 @@ async function expectCode(action: () => Promise<unknown>, code: string) {
       decision: "ACCEPTED",
       comment: "",
     }),
-    PRACTICUM_WORKSPACE_FORBIDDEN,
+    PRACTICUM_WORKSPACE_NOT_FOUND,
   );
 }
 
