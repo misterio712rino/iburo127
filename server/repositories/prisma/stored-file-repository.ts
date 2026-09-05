@@ -15,6 +15,31 @@ function toRecord(row: StoredFileRecord): StoredFileRecord {
   return row;
 }
 
+function restoreData(file: StoredFileRecord) {
+  return {
+    id: file.id,
+    clientCaseId: file.clientCaseId,
+    uploadedById: file.uploadedById,
+    status: file.status,
+    storageProvider: file.storageProvider,
+    objectKey: file.objectKey,
+    fileName: file.fileName,
+    mimeType: file.mimeType,
+    sizeBytes: file.sizeBytes,
+    checksumSha256: file.checksumSha256,
+    scanAttemptCount: file.scanAttemptCount,
+    scanNextAttemptAt: file.scanNextAttemptAt,
+    scanLeaseUntil: file.scanLeaseUntil,
+    scanLeaseToken: file.scanLeaseToken,
+    scanProvider: file.scanProvider,
+    scanLastErrorCode: file.scanLastErrorCode,
+    scannedAt: file.scannedAt,
+    quarantinedAt: file.quarantinedAt,
+    readyAt: file.readyAt,
+    createdAt: file.createdAt,
+  };
+}
+
 export class PrismaStoredFileRepository implements StoredFileRepository {
   async listByCase(clientCaseId: string) {
     const prisma = getPrismaClient();
@@ -370,6 +395,47 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
     });
   }
 
+  async takeOwnedForDeletion(fileId: string, uploadedById: string) {
+    const prisma = getPrismaClient();
+    return prisma.$transaction(async (tx) => {
+      const current = await tx.storedFile.findUnique({ where: { id: fileId } });
+      if (
+        !current ||
+        current.uploadedById !== uploadedById ||
+        current.status === "PENDING_UPLOAD" ||
+        current.status === "SCANNING"
+      ) {
+        return null;
+      }
+
+      const deleted = await tx.storedFile.deleteMany({
+        where: {
+          id: current.id,
+          uploadedById,
+          status: current.status,
+        },
+      });
+      if (deleted.count !== 1) return null;
+      return toRecord(current);
+    });
+  }
+
+  async restoreDeleted(file: StoredFileRecord) {
+    const prisma = getPrismaClient();
+    try {
+      await prisma.storedFile.create({ data: restoreData(file) });
+      return true;
+    } catch (error) {
+      if (!isPrismaUniqueConstraintError(error)) throw error;
+      const existing = await prisma.storedFile.findUnique({ where: { id: file.id } });
+      return Boolean(
+        existing &&
+          existing.clientCaseId === file.clientCaseId &&
+          existing.objectKey === file.objectKey,
+      );
+    }
+  }
+
   async deletePending(fileId: string) {
     const prisma = getPrismaClient();
     const result = await prisma.storedFile.deleteMany({
@@ -386,30 +452,7 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
     const prisma = getPrismaClient();
 
     try {
-      await prisma.storedFile.create({
-        data: {
-          id: file.id,
-          clientCaseId: file.clientCaseId,
-          uploadedById: file.uploadedById,
-          status: "PENDING_UPLOAD",
-          storageProvider: file.storageProvider,
-          objectKey: file.objectKey,
-          fileName: file.fileName,
-          mimeType: file.mimeType,
-          sizeBytes: file.sizeBytes,
-          checksumSha256: file.checksumSha256,
-          scanAttemptCount: 0,
-          scanNextAttemptAt: null,
-          scanLeaseUntil: null,
-          scanLeaseToken: null,
-          scanProvider: null,
-          scanLastErrorCode: null,
-          scannedAt: null,
-          quarantinedAt: null,
-          readyAt: null,
-          createdAt: file.createdAt,
-        },
-      });
+      await prisma.storedFile.create({ data: restoreData(file) });
       return true;
     } catch (error) {
       if (!isPrismaUniqueConstraintError(error)) throw error;
