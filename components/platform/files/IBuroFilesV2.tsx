@@ -238,7 +238,7 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
             <p className="text-xs font-semibold uppercase tracking-[.14em] text-[#b9202b]">Хранилище</p>
             <h2 id="case-files-heading" className="mt-2 text-2xl font-semibold tracking-[-.04em] text-slate-950 sm:text-3xl">Файлы дела</h2>
           </div>
-          <span className="text-xs font-semibold text-slate-400">{files.length} шт.</span>
+          <span aria-live="polite" className="text-xs font-semibold text-slate-400">{files.length} шт.</span>
         </div>
 
         {files.length ? (
