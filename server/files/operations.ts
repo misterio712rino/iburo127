@@ -11,6 +11,7 @@ import { storedFileService } from "@/server/files/runtime";
 export const FILE_UPLOAD_INCOMPLETE = "FILE_UPLOAD_INCOMPLETE";
 export const FILE_UPLOAD_METADATA_MISMATCH = "FILE_UPLOAD_METADATA_MISMATCH";
 export const FILE_STORAGE_PROVIDER_MISMATCH = "FILE_STORAGE_PROVIDER_MISMATCH";
+export const FILE_DELETE_RESTORE_FAILED = "FILE_DELETE_RESTORE_FAILED";
 
 const MIME_EXTENSIONS: Record<string, string> = {
   "application/pdf": "pdf",
@@ -90,6 +91,38 @@ export async function completeStoredFileUpload(sessionProvider: SessionProvider,
   }
 
   return storedFileService.markUploadPendingScan(actor, file.id);
+}
+
+export async function deleteStoredFile(sessionProvider: SessionProvider, fileId: string) {
+  const actor = await requireServerActor(sessionProvider);
+  const candidate = await storedFileService.getOwnedForDeletion(actor, fileId);
+  const storage = getPrivateObjectStorage();
+
+  if (candidate.storageProvider !== storage.providerCode) {
+    throw new Error(FILE_STORAGE_PROVIDER_MISMATCH);
+  }
+
+  const deleted = await storedFileService.takeOwnedForDeletion(actor, fileId);
+
+  try {
+    await storage.deleteObject(deleted.objectKey);
+  } catch (error) {
+    const restored = await storedFileService.restoreDeleted(deleted);
+    if (!restored) throw new Error(FILE_DELETE_RESTORE_FAILED);
+    throw error;
+  }
+
+  await caseActivityService.appendForActor(actor, {
+    clientCaseId: deleted.clientCaseId,
+    type: "file.deleted",
+    metadata: {
+      fileId: deleted.id,
+      storageProvider: deleted.storageProvider,
+      fileStatus: deleted.status,
+    },
+  });
+
+  return { fileId: deleted.id };
 }
 
 export async function createStoredFileDownloadUrl(
