@@ -18,8 +18,101 @@ import {
   isVercelPreviewBackendAllowed,
   VERCEL_STAGING_CONFIRMATION,
 } from "../server/config/vercel-preview-boundary";
+import {
+  LEGACY_E2E_CLIENT_EMAIL,
+  TECHNICAL_E2E_CLIENT,
+  TECHNICAL_E2E_CASE_NUMBERS,
+  classifyTechnicalE2eCaseOwnership,
+  classifyTechnicalE2eDomainUser,
+  isTechnicalE2eFixture,
+} from "../server/staging/technical-e2e-fixture";
 
 const previewCommitSha = "a".repeat(40);
+
+// Cold-state regression: the technical account did not exist in staging when
+// the fixture model was first deployed. Only this exact fixture may create its
+// domain user, and legacy E2E cases may transition only from the old ordinary
+// INDIVIDUAL demo client to that technical account.
+assert.equal(isTechnicalE2eFixture(TECHNICAL_E2E_CLIENT), true);
+assert.equal(
+  isTechnicalE2eFixture({ label: "CLIENT_LITE", email: "client.lite@example.test" }),
+  false,
+  "ordinary plan fixture accounts must never gain internal domain-user bootstrap",
+);
+assert.equal(
+  classifyTechnicalE2eDomainUser({ rowCount: 0 }),
+  "create",
+  "a cold staging database may bootstrap only the exact technical client",
+);
+assert.equal(
+  classifyTechnicalE2eDomainUser({ rowCount: 1, status: "ACTIVE", roleCodes: ["CLIENT"] }),
+  "ready",
+);
+for (const unsafeDomainState of [
+  { rowCount: 2, status: "ACTIVE", roleCodes: ["CLIENT"] },
+  { rowCount: 1, status: "SUSPENDED", roleCodes: ["CLIENT"] },
+  { rowCount: 1, status: "ACTIVE", roleCodes: ["CLIENT", "LAWYER"] },
+  { rowCount: 1, status: "ACTIVE", roleCodes: ["LAWYER"] },
+]) {
+  assert.equal(
+    classifyTechnicalE2eDomainUser(unsafeDomainState),
+    "blocked",
+    "ambiguous or role-unsafe technical domain users must fail closed",
+  );
+}
+
+const technicalClientId = "technical-client";
+const legacyIndividualClientId = "legacy-individual-client";
+const foreignClientId = "foreign-client";
+const ownershipByCase = new Map(
+  TECHNICAL_E2E_CASE_NUMBERS.map((caseNumber) => [caseNumber, legacyIndividualClientId]),
+);
+for (const caseNumber of TECHNICAL_E2E_CASE_NUMBERS) {
+  assert.equal(
+    classifyTechnicalE2eCaseOwnership({
+      caseNumber,
+      ownerId: ownershipByCase.get(caseNumber) ?? null,
+      technicalClientId,
+      legacyClientId: legacyIndividualClientId,
+    }),
+    "migrate",
+    `${caseNumber} may migrate only from the exact legacy demo INDIVIDUAL owner`,
+  );
+  ownershipByCase.set(caseNumber, technicalClientId);
+}
+for (const caseNumber of TECHNICAL_E2E_CASE_NUMBERS) {
+  assert.equal(
+    classifyTechnicalE2eCaseOwnership({
+      caseNumber,
+      ownerId: ownershipByCase.get(caseNumber) ?? null,
+      technicalClientId,
+      legacyClientId: legacyIndividualClientId,
+    }),
+    "ready",
+    `${caseNumber} ownership migration must be idempotent`,
+  );
+  assert.equal(
+    classifyTechnicalE2eCaseOwnership({
+      caseNumber,
+      ownerId: foreignClientId,
+      technicalClientId,
+      legacyClientId: legacyIndividualClientId,
+    }),
+    "blocked",
+    `${caseNumber} must fail closed for a foreign owner`,
+  );
+}
+assert.equal(
+  classifyTechnicalE2eCaseOwnership({
+    caseNumber: "IBR-2026-000103",
+    ownerId: legacyIndividualClientId,
+    technicalClientId,
+    legacyClientId: legacyIndividualClientId,
+  }),
+  "blocked",
+  "the migration helper must not generalize to ordinary demo cases",
+);
+assert.equal(LEGACY_E2E_CLIENT_EMAIL, "client.individual@example.test");
 assert.equal(STAGING_SIGN_IN_LIMITER_WINDOW_WAIT_MS, 11_000);
 assert.equal(
   requiresStagingSignInLimiterWait(false, 3),
@@ -289,6 +382,10 @@ const fixtureResetSource = await readFile(
   resolve("app/%5Fiburo/staging-application-e2e-fixtures/route.ts"),
   "utf8",
 );
+const clientPlanAuthFixtureSource = await readFile(
+  resolve("app/%5Fiburo/staging-client-plan-auth-fixtures/route.ts"),
+  "utf8",
+);
 assert.match(workflowSource, /IB_STAGING_OTHER_CLIENT_EMAIL:\s*client\.lite@example\.test/);
 assert.match(workflowSource, /IB_STAGING_CLIENT_EMAIL:\s*client\.staging-e2e@example\.test/);
 assert.match(workflowSource, /IB_STAGING_CLIENT_CASE_NUMBER:\s*IBR-2026-009901/);
@@ -310,8 +407,49 @@ assert.match(
 );
 
 assert.match(fixtureResetSource, /const FILES_E2E_FIXTURE_NAME = "iburo-staging-e2e\.pdf"/);
-assert.match(fixtureResetSource, /const CLIENT_EMAIL = "client\.staging-e2e@example\.test"/);
+assert.match(fixtureResetSource, /const CLIENT_EMAIL = TECHNICAL_E2E_CLIENT\.email/);
 assert.doesNotMatch(fixtureResetSource, /const CLIENT_EMAIL = "client\.individual@example\.test"/);
+assert.match(
+  fixtureResetSource,
+  /TECHNICAL_E2E_UNASSIGNED_CASE_NUMBER/,
+  "application reset must explicitly handle the legacy technical unassigned case",
+);
+assert.match(
+  fixtureResetSource,
+  /classifyTechnicalE2eCaseOwnership/,
+  "application reset must use the exact-case ownership guard, not broad client updates",
+);
+assert.match(
+  fixtureResetSource, /where: \{ caseNumber: UNASSIGNED_CASE_NUMBER \}/);
+assert.match(
+  fixtureResetSource,
+  /where: \{ id: unassignedCase\.id \}[\s\S]{0,100}?data: \{ clientId: client\.id \}/,
+  "legacy unassigned ownership migration must update one exact case only",
+);
+assert.match(
+  fixtureResetSource,
+  /unassignedCase\.plan\.code !== "LITE"[\s\S]{0,180}?unassignedCase\.stage\.code !== "QUESTIONNAIRE"[\s\S]{0,180}?unassignedCase\.assignedLawyerId !== null/,
+  "the unassigned E2E case must preserve its LITE/questionnaire/unassigned contract",
+);
+const resetTransactionIndex = fixtureResetSource.indexOf("const reset = await prisma.$transaction");
+const unassignedMigrationIndex = fixtureResetSource.indexOf("const unassignedCaseOwnership", resetTransactionIndex);
+assert.ok(
+  resetTransactionIndex >= 0 && unassignedMigrationIndex > resetTransactionIndex,
+  "case migrations must execute inside the guarded reset transaction",
+);
+assert.match(
+  clientPlanAuthFixtureSource,
+  /ensureTechnicalDomainUser\(pool, fixture\)/,
+  "auth fixture bootstrap must repair the exact missing technical domain client before auth signup",
+);
+assert.match(
+  clientPlanAuthFixtureSource,
+  /if \(!isTechnicalE2eFixture\(fixture\)\) return false;/,
+  "internal domain-user creation must remain impossible for ordinary client fixtures",
+);
+assert.match(
+  clientPlanAuthFixtureSource, /where code = 'CLIENT'/);
+assert.match(clientPlanAuthFixtureSource, /technical E2E domain user is unsafe/);
 assert.match(fixtureResetSource, /const MAX_FILES_E2E_FIXTURES = 4/);
 assert.match(fixtureResetSource, /const filesE2eEnabled = env\.IB_STAGING_FILES_E2E\?\.trim\(\) === "1"/);
 assert.match(fixtureResetSource, /isPrivateStagingBucketConfirmed\(request, env\)/);

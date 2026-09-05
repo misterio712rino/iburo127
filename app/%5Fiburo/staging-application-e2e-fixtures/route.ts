@@ -14,6 +14,13 @@ import {
   VERCEL_STAGING_BRANCH,
   isVercelPreviewBackendAllowed,
 } from "@/server/config/vercel-preview-boundary";
+import {
+  LEGACY_E2E_CLIENT_EMAIL,
+  TECHNICAL_E2E_CLIENT,
+  TECHNICAL_E2E_MUTATION_CASE_NUMBER,
+  TECHNICAL_E2E_UNASSIGNED_CASE_NUMBER,
+  classifyTechnicalE2eCaseOwnership,
+} from "@/server/staging/technical-e2e-fixture";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -21,11 +28,12 @@ export const runtime = "nodejs";
 const SCHEMA = "public";
 const ADVISORY_LOCK_KEY = "iburo127:staging:application-e2e-fixtures:v1";
 const EXACT_GIT_SHA_PATTERN = /^[a-f0-9]{40}$/i;
-const MUTATION_CASE_NUMBER = "IBR-2026-009901";
+const MUTATION_CASE_NUMBER = TECHNICAL_E2E_MUTATION_CASE_NUMBER;
+const UNASSIGNED_CASE_NUMBER = TECHNICAL_E2E_UNASSIGNED_CASE_NUMBER;
 const MUTATION_TASK_ID = "12700000-9901-4000-8000-000000000001";
 // Guarded E2E mutations must never be visible in an ordinary demo account.
-const CLIENT_EMAIL = "client.staging-e2e@example.test";
-const LEGACY_MUTATION_CLIENT_EMAIL = "client.individual@example.test";
+const CLIENT_EMAIL = TECHNICAL_E2E_CLIENT.email;
+const LEGACY_MUTATION_CLIENT_EMAIL = LEGACY_E2E_CLIENT_EMAIL;
 const LAWYER_EMAIL = "lawyer.demo@example.test";
 const MANAGER_EMAIL = "manager.demo@example.test";
 const PLAN_CODE = "INDIVIDUAL";
@@ -178,7 +186,7 @@ async function readDatabaseIdentity(
 }
 
 async function inspectDependencies(prisma: PrismaClient) {
-  const [client, legacyClient, lawyer, plan, stage, existingCase, existingTask] = await Promise.all([
+  const [client, legacyClient, lawyer, plan, stage, existingCase, unassignedCase, existingTask] = await Promise.all([
     prisma.user.findUnique({
       where: { email: CLIENT_EMAIL },
       select: {
@@ -211,6 +219,17 @@ async function inspectDependencies(prisma: PrismaClient) {
       where: { caseNumber: MUTATION_CASE_NUMBER },
       select: { id: true, clientId: true, assignedLawyerId: true },
     }),
+    prisma.clientCase.findUnique({
+      where: { caseNumber: UNASSIGNED_CASE_NUMBER },
+      select: {
+        id: true,
+        clientId: true,
+        assignedLawyerId: true,
+        status: true,
+        plan: { select: { code: true } },
+        stage: { select: { code: true } },
+      },
+    }),
     prisma.caseTask.findUnique({
       where: { id: MUTATION_TASK_ID },
       select: { id: true, clientCaseId: true, assigneeId: true, status: true, version: true },
@@ -229,11 +248,29 @@ async function inspectDependencies(prisma: PrismaClient) {
     plan?.isActive === true &&
     stage?.isActive === true;
 
-  const caseCollision = Boolean(
-    existingCase &&
-      client &&
-      existingCase.clientId !== client.id &&
-      existingCase.clientId !== legacyClient?.id,
+  const caseOwnership = existingCase && client
+    ? classifyTechnicalE2eCaseOwnership({
+        caseNumber: MUTATION_CASE_NUMBER,
+        ownerId: existingCase.clientId,
+        technicalClientId: client.id,
+        legacyClientId: legacyClient?.id ?? null,
+      })
+    : "blocked";
+  const unassignedCaseOwnership = unassignedCase && client
+    ? classifyTechnicalE2eCaseOwnership({
+        caseNumber: UNASSIGNED_CASE_NUMBER,
+        ownerId: unassignedCase.clientId,
+        technicalClientId: client.id,
+        legacyClientId: legacyClient?.id ?? null,
+      })
+    : "blocked";
+  const caseCollision = Boolean(existingCase && caseOwnership === "blocked");
+  const unassignedCaseCollision = Boolean(unassignedCase && unassignedCaseOwnership === "blocked");
+  const unassignedCaseInvalid = Boolean(
+    unassignedCase &&
+      (unassignedCase.plan.code !== "LITE" ||
+        unassignedCase.stage.code !== "QUESTIONNAIRE" ||
+        unassignedCase.assignedLawyerId !== null),
   );
   const taskCollision = Boolean(
     existingTask &&
@@ -245,6 +282,11 @@ async function inspectDependencies(prisma: PrismaClient) {
   return {
     dependenciesReady,
     caseState: existingCase ? (caseCollision ? "collision" : "present") : "missing",
+    unassignedCaseState: unassignedCase
+      ? unassignedCaseCollision || unassignedCaseInvalid
+        ? "collision"
+        : "present"
+      : "missing",
     taskState: existingTask
       ? taskCollision
         ? "collision"
@@ -252,7 +294,13 @@ async function inspectDependencies(prisma: PrismaClient) {
           ? "ready"
           : "needs-reset"
       : "missing",
-    safeToReset: dependenciesReady && !caseCollision && !taskCollision,
+    safeToReset:
+      dependenciesReady &&
+      !caseCollision &&
+      unassignedCase !== null &&
+      !unassignedCaseCollision &&
+      !unassignedCaseInvalid &&
+      !taskCollision,
   };
 }
 
@@ -508,15 +556,53 @@ export async function POST(request: Request) {
           throw new Error("staging E2E dependencies are not ready");
         }
 
+        const unassignedCase = await tx.clientCase.findUnique({
+          where: { caseNumber: UNASSIGNED_CASE_NUMBER },
+          select: {
+            id: true,
+            clientId: true,
+            assignedLawyerId: true,
+            plan: { select: { code: true } },
+            stage: { select: { code: true } },
+          },
+        });
+        if (!unassignedCase) throw new Error("dedicated unassigned E2E case is missing");
+        if (
+          unassignedCase.plan.code !== "LITE" ||
+          unassignedCase.stage.code !== "QUESTIONNAIRE" ||
+          unassignedCase.assignedLawyerId !== null
+        ) {
+          throw new Error("dedicated unassigned E2E case state collision");
+        }
+        const unassignedCaseOwnership = classifyTechnicalE2eCaseOwnership({
+          caseNumber: UNASSIGNED_CASE_NUMBER,
+          ownerId: unassignedCase.clientId,
+          technicalClientId: client.id,
+          legacyClientId: legacyClient?.id ?? null,
+        });
+        if (unassignedCaseOwnership === "blocked") {
+          throw new Error("dedicated unassigned E2E case owner collision");
+        }
+        if (unassignedCaseOwnership === "migrate") {
+          await tx.clientCase.update({
+            where: { id: unassignedCase.id },
+            data: { clientId: client.id },
+          });
+        }
+
         const existingCase = await tx.clientCase.findUnique({
           where: { caseNumber: MUTATION_CASE_NUMBER },
           select: { id: true, clientId: true },
         });
-        if (
-          existingCase &&
-          existingCase.clientId !== client.id &&
-          existingCase.clientId !== legacyClient?.id
-        ) {
+        const mutationCaseOwnership = existingCase
+          ? classifyTechnicalE2eCaseOwnership({
+              caseNumber: MUTATION_CASE_NUMBER,
+              ownerId: existingCase.clientId,
+              technicalClientId: client.id,
+              legacyClientId: legacyClient?.id ?? null,
+            })
+          : null;
+        if (mutationCaseOwnership === "blocked") {
           throw new Error("dedicated mutation case number collision");
         }
 

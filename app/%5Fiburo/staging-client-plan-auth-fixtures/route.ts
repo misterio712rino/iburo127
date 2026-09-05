@@ -14,6 +14,11 @@ import {
   VERCEL_STAGING_BRANCH,
   isVercelPreviewBackendAllowed,
 } from "@/server/config/vercel-preview-boundary";
+import {
+  TECHNICAL_E2E_CLIENT,
+  classifyTechnicalE2eDomainUser,
+  isTechnicalE2eFixture,
+} from "@/server/staging/technical-e2e-fixture";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -25,11 +30,7 @@ const EXACT_GIT_SHA_PATTERN = /^[a-f0-9]{40}$/i;
 const FIXTURES = [
   { label: "CLIENT_LITE", email: "client.lite@example.test", displayName: "Клиент LITE" },
   { label: "CLIENT_PRO", email: "client.pro@example.test", displayName: "Клиент PRO" },
-  {
-    label: "CLIENT_E2E",
-    email: "client.staging-e2e@example.test",
-    displayName: "Технический клиент E2E",
-  },
+  TECHNICAL_E2E_CLIENT,
 ] as const;
 
 const NO_STORE_HEADERS = {
@@ -196,12 +197,71 @@ async function linkSubject(pool: Pool, userId: string, subject: string) {
   }
 }
 
+async function ensureTechnicalDomainUser(pool: Pool, fixture: Fixture) {
+  if (!isTechnicalE2eFixture(fixture)) return false;
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const domain = await client.query<DomainUser>(
+      `select id::text as id, status::text as status, "displayName" from "User" where lower(email) = lower($1) for update`,
+      [fixture.email],
+    );
+    const user = domain.rows[0];
+    const roles = user
+      ? await client.query<{ code: string }>(
+          `select r.code from "UserRole" ur join "Role" r on r.id = ur."roleId" where ur."userId" = $1::uuid order by r.code`,
+          [user.id],
+        )
+      : null;
+    const state = classifyTechnicalE2eDomainUser({
+      rowCount: domain.rows.length,
+      status: user?.status,
+      roleCodes: roles?.rows.map((role) => role.code),
+    });
+    if (state === "blocked") throw new Error("technical E2E domain user is unsafe");
+    if (state === "ready") {
+      await client.query("COMMIT");
+      return false;
+    }
+
+    const clientRoles = await client.query<{ id: string }>(
+      `select id::text as id from "Role" where code = 'CLIENT' limit 2`,
+    );
+    if (clientRoles.rows.length !== 1 || !clientRoles.rows[0]?.id) {
+      throw new Error("CLIENT role is unavailable for technical E2E bootstrap");
+    }
+
+    const userId = randomUUID();
+    await client.query(
+      `insert into "User" (id, email, "displayName", status, "createdAt", "updatedAt") values ($1::uuid, $2, $3, 'ACTIVE', now(), now())`,
+      [userId, fixture.email, fixture.displayName],
+    );
+    await client.query(
+      `insert into "UserRole" ("userId", "roleId", "assignedAt") values ($1::uuid, $2::uuid, now())`,
+      [userId, clientRoles.rows[0].id],
+    );
+    await client.query("COMMIT");
+    return true;
+  } catch (error) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      // Preserve the original bounded bootstrap failure.
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function ensureFixture(
   pool: Pool,
   fixture: Fixture,
   password: string,
   signUp: (body: { name: string; email: string; password: string; rememberMe: boolean }) => Promise<unknown>,
 ) {
+  await ensureTechnicalDomainUser(pool, fixture);
   const initial = await readFixtureState(pool, fixture);
   if (initial.state === "complete" && initial.userId && initial.subject) {
     return { label: fixture.label, email: fixture.email, created: false, state: "complete" as const };

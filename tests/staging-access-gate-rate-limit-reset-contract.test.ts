@@ -46,6 +46,10 @@ const fixtureSource = await readFile(
   resolve("app/%5Fiburo/staging-application-e2e-fixtures/route.ts"),
   "utf8",
 );
+const technicalFixtureSource = await readFile(
+  resolve("server/staging/technical-e2e-fixture.ts"),
+  "utf8",
+);
 
 assert.match(accessGateSource, /accessGateRateLimitDigest\("ip", clientIp, secret\)/);
 assert.match(
@@ -64,11 +68,13 @@ assert.ok(confirmationIndex > boundaryIndex, "commit-bound confirmation must fol
 assert.ok(keyBuildIndex > confirmationIndex, "limiter keys must not be built before request confirmation");
 assert.ok(deleteIndex > keyBuildIndex, "limiter rows must not be mutated before guarded key construction");
 
-for (const email of [
-  "client.staging-e2e@example.test",
-  "lawyer.demo@example.test",
-  "manager.demo@example.test",
-]) {
+assert.match(
+  fixtureSource,
+  /const CLIENT_EMAIL = TECHNICAL_E2E_CLIENT\.email/,
+  "fixture reset must use the shared exact technical client identity",
+);
+assert.match(technicalFixtureSource, /email: "client\.staging-e2e@example\.test"/);
+for (const email of ["lawyer.demo@example.test", "manager.demo@example.test"]) {
   assert.ok(fixtureSource.includes(email), `fixture reset must pin ${email}`);
 }
 assert.match(fixtureSource, /staging\.e2e\.\$\{commitSha\.slice\(0, 16\)\}@example\.test/);
