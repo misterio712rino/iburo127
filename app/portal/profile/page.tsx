@@ -48,7 +48,7 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
     [profile, cases, avatarUrl, notifications] = await Promise.all([
       getCurrentAccountProfile(sessionProvider),
       listAccessibleClientCases(sessionProvider),
-      getCurrentAccountAvatarUrl(),
+      getCurrentAccountAvatarUrl(sessionProvider),
       listNotifications(sessionProvider, 100),
     ]);
   } catch (error) {
