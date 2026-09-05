@@ -60,26 +60,49 @@ jobs:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
-          curl --silent --show-error --fail-with-body \
-            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
-            "$IB_STAGING_BASE_URL/_iburo/staging-identity" \
-          | node --input-type=module -e '
-              let input = "";
-              for await (const chunk of process.stdin) input += chunk;
-              const body = JSON.parse(input);
-              if (
-                body.service !== "iburo127" ||
-                body.environment !== "preview" ||
-                body.branch !== "audit/production-readiness" ||
-                body.commitSha !== process.env.GITHUB_SHA ||
-                body.runtimeTarget !== "staging" ||
-                body.backendEnabled !== true
-              ) {
-                console.error("STAGING_EXTERNAL_READINESS_IDENTITY_FAIL");
-                process.exit(1);
-              }
-              console.log("STAGING_EXTERNAL_READINESS_IDENTITY_PASS");
-            '
+          identity_file="$RUNNER_TEMP/staging-external-readiness-identity.json"
+          max_attempts=18
+          delay_seconds=5
+          rm -f "$identity_file"
+          trap 'rm -f "$identity_file"' EXIT
+
+          for attempt in $(seq 1 "$max_attempts"); do
+            http_status="$(
+              curl --silent --show-error \
+                --output "$identity_file" \
+                --write-out '%{http_code}' \
+                -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+                "$IB_STAGING_BASE_URL/_iburo/staging-identity" \
+                || true
+            )"
+
+            if [ "$http_status" = "200" ] && IDENTITY_FILE="$identity_file" node --input-type=module -e '
+              import { readFileSync } from "node:fs";
+              try {
+                const body = JSON.parse(readFileSync(process.env.IDENTITY_FILE, "utf8"));
+                if (
+                  body.service === "iburo127" &&
+                  body.environment === "preview" &&
+                  body.branch === "audit/production-readiness" &&
+                  body.commitSha === process.env.GITHUB_SHA &&
+                  body.runtimeTarget === "staging" &&
+                  body.backendEnabled === true
+                ) process.exit(0);
+              } catch {}
+              process.exit(1);
+            '; then
+              echo "STAGING_EXTERNAL_READINESS_IDENTITY_PASS"
+              exit 0
+            fi
+
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              echo "STAGING_EXTERNAL_READINESS_IDENTITY_WAIT: attempt=$attempt/$max_attempts"
+              sleep "$delay_seconds"
+            fi
+          done
+
+          echo "STAGING_EXTERNAL_READINESS_IDENTITY_FAIL" >&2
+          exit 1
 
       - name: Read external readiness inventory
         shell: bash
