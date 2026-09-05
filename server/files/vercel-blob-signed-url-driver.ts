@@ -128,7 +128,7 @@ export function createVercelBlobSignedUrlDriver(
         allowedContentTypes: [input.mimeType],
         maximumSizeInBytes: input.maximumSizeInBytes,
         addRandomSuffix: false,
-        allowOverwrite: false,
+        allowOverwrite: input.allowOverwrite === true,
       });
     },
 
