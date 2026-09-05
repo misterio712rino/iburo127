@@ -3,6 +3,8 @@ import "server-only";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import {
   FILE_CASE_NOT_FOUND,
+  FILE_DELETE_CONFLICT,
+  FILE_DELETE_FORBIDDEN,
   FILE_NOT_FOUND,
   FILE_UPLOAD_FORBIDDEN,
   FILE_UPLOAD_NOT_PENDING,
@@ -10,6 +12,7 @@ import {
 import type { StoredFileStatus } from "@/server/domain/files/contracts";
 import { FILE_TRANSPORT_INVALID_INPUT } from "@/server/files/input";
 import {
+  FILE_DELETE_RESTORE_FAILED,
   FILE_STORAGE_PROVIDER_MISMATCH,
   FILE_UPLOAD_INCOMPLETE,
   FILE_UPLOAD_METADATA_MISMATCH,
@@ -74,11 +77,17 @@ export async function executeStoredFileOperation<T>(operation: () => Promise<T>)
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
     if (code === UNAUTHENTICATED) return { ok: false, error: { code: "UNAUTHENTICATED", status: 401 } };
-    if (code === FILE_UPLOAD_FORBIDDEN) return { ok: false, error: { code: "FORBIDDEN", status: 403 } };
+    if (code === FILE_UPLOAD_FORBIDDEN || code === FILE_DELETE_FORBIDDEN) {
+      return { ok: false, error: { code: "FORBIDDEN", status: 403 } };
+    }
     if (code === FILE_CASE_NOT_FOUND || code === FILE_NOT_FOUND) return { ok: false, error: { code: "NOT_FOUND", status: 404 } };
     if (code === FILE_TRANSPORT_INVALID_INPUT || code === FILE_UPLOAD_METADATA_MISMATCH) return { ok: false, error: { code: "INVALID_INPUT", status: 400 } };
-    if (code === FILE_UPLOAD_INCOMPLETE || code === FILE_UPLOAD_NOT_PENDING) return { ok: false, error: { code: "CONFLICT", status: 409 } };
-    if (code === FILE_STORAGE_PROVIDER_MISMATCH) return { ok: false, error: { code: "INTERNAL_ERROR", status: 500 } };
+    if (code === FILE_UPLOAD_INCOMPLETE || code === FILE_UPLOAD_NOT_PENDING || code === FILE_DELETE_CONFLICT) {
+      return { ok: false, error: { code: "CONFLICT", status: 409 } };
+    }
+    if (code === FILE_STORAGE_PROVIDER_MISMATCH || code === FILE_DELETE_RESTORE_FAILED) {
+      return { ok: false, error: { code: "INTERNAL_ERROR", status: 500 } };
+    }
     return { ok: false, error: { code: "INTERNAL_ERROR", status: 500 } };
   }
 }
