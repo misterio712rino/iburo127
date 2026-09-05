@@ -56,7 +56,7 @@ class FileRepository implements StoredFileRepository {
   lastAuditActorUserId: string | null = null;
 
   async listByCase() {
-    return this.current?.status === "READY" ? [this.current] : [];
+    return this.current ? [this.current] : [];
   }
 
   async getById(fileId: string) {
@@ -150,15 +150,38 @@ assert.equal(requireCaseActivityType("file.scan.clean"), "file.scan.clean");
 assert.equal(requireCaseActivityType("file.scan.quarantined"), "file.scan.quarantined");
 assert.equal(requireCaseActivityType("file.scan.failed"), "file.scan.failed");
 
-const [nextConfigSource, productionFilesSource, vercelBlobSignerSource] = await Promise.all([
+const [
+  nextConfigSource,
+  productionFilesSource,
+  clientFilesSource,
+  storedFileRepositorySource,
+  vercelBlobSignerSource,
+] = await Promise.all([
   readFile(resolve("next.config.ts"), "utf8"),
   readFile(resolve("components/platform/files/ProductionFiles.tsx"), "utf8"),
+  readFile(resolve("components/platform/files/IBuroFilesV2.tsx"), "utf8"),
+  readFile(resolve("server/repositories/prisma/stored-file-repository.ts"), "utf8"),
   readFile(resolve("server/files/vercel-blob-native-signed-url.ts"), "utf8"),
 ]);
 assert.match(
   productionFilesSource,
   /fetch\(prepared\.data\.uploadUrl/,
   "CLIENT file upload must remain a direct browser request to the prepared signed URL",
+);
+assert.match(
+  clientFilesSource,
+  /label: "На проверке"/,
+  "CLIENT files UI must surface completed uploads while security scan is pending",
+);
+assert.match(
+  clientFilesSource,
+  /file\.status === "READY"/,
+  "CLIENT files UI must keep downloads gated on READY status",
+);
+assert.doesNotMatch(
+  storedFileRepositorySource,
+  /where: \{ clientCaseId, status: "READY" \}/,
+  "repository must return scan states so domain visibility policy can show the uploader their pending file",
 );
 assert.match(
   vercelBlobSignerSource,
@@ -210,12 +233,29 @@ const pending = await service.registerPendingUpload(actor, {
   sizeBytes: BigInt(1024),
 });
 assert.equal(pending.status, "PENDING_UPLOAD");
+assert.equal((await service.list(actor, clientCase.id)).length, 0);
 
 const pendingScan = await service.markUploadPendingScan(actor, pending.id, now);
 assert.equal(pendingScan.status, "PENDING_SCAN");
 assert.equal(pendingScan.readyAt, null);
 assert.equal(repository.lastAuditActorUserId, actor.userId);
+assert.deepEqual(
+  (await service.list(actor, clientCase.id)).map((file) => file.id),
+  [pending.id],
+  "CLIENT must see their completed upload while it waits for security scan",
+);
+assert.equal(
+  (await service.list(manager, clientCase.id)).length,
+  0,
+  "MANAGER must not see a non-READY file as available case material",
+);
+assert.equal(
+  (await service.list(lawyer, clientCase.id)).length,
+  0,
+  "LAWYER must not see a non-READY file as available case material",
+);
 await assert.rejects(service.get(actor, pending.id), /FILE_NOT_FOUND/);
+await assert.rejects(service.get(lawyer, pending.id), /FILE_NOT_FOUND/);
 
 await service.registerPendingUpload(actor, {
   id: "file-2",
