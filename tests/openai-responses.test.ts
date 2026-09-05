@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import "@/tests/yandex-gpt.test";
 import { OpenAiResponsesGateway } from "@/server/ai/openai-responses-core";
 
 const config = {
