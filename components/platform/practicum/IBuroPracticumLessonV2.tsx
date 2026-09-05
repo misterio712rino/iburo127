@@ -50,7 +50,7 @@ export function IBuroPracticumLessonV2({
   if (!lesson) throw new Error("PRACTICUM_LESSON_NOT_FOUND");
   const currentLesson = lesson;
 
-  const module = getLessonModule(currentLesson);
+  const lessonModule = getLessonModule(currentLesson);
   const lessonIndex = PRACTICUM_LESSONS.findIndex((item) => item.id === currentLesson.id);
   const previousLesson = lessonIndex > 0 ? PRACTICUM_LESSONS[lessonIndex - 1] : null;
   const nextLesson = lessonIndex < PRACTICUM_LESSONS.length - 1 ? PRACTICUM_LESSONS[lessonIndex + 1] : null;
@@ -127,7 +127,7 @@ export function IBuroPracticumLessonV2({
 
       <header className="mt-5 border-b border-slate-200 pb-7 sm:mt-7 sm:pb-9">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#b51f2a]">
-          <span>Модуль {module.number}</span>
+          <span>Модуль {lessonModule.number}</span>
           <span className="text-slate-400">Урок {currentLesson.number} из {total}</span>
         </div>
         <h1 className="mt-4 max-w-4xl font-[var(--font-iburo-display)] text-3xl font-semibold leading-[1.08] tracking-[-0.035em] text-slate-950 sm:text-5xl">
