@@ -4,6 +4,7 @@ import { ArrowLeft, GraduationCap } from "lucide-react";
 
 import { ProductionPracticum } from "@/components/platform/practicum/ProductionPracticum";
 import { IBuroPracticumV2 } from "@/components/platform/practicum/IBuroPracticumV2";
+import polishStyles from "@/components/platform/practicum/IBuroPracticumPolish.module.css";
 import { CasePortalFrame } from "@/components/portal/CasePortalFrame";
 import { IBuroClientShellV2 } from "@/components/portal/IBuroClientShellV2";
 import { getPlanDisplayLabel } from "@/lib/platform/case-progress";
@@ -107,7 +108,9 @@ export default async function PortalPracticumPage({ params }: { params: Promise<
       unreadCount={unreadCount}
       cases={cases}
     >
-      <IBuroPracticumV2 caseId={clientCase.id} initialState={practicumState} />
+      <div className={polishStyles.root}>
+        <IBuroPracticumV2 caseId={clientCase.id} initialState={practicumState} />
+      </div>
     </IBuroClientShellV2>
   );
 }
