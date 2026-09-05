@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Camera, Check, Pencil, UserRound, X } from "lucide-react";
+import { Camera, Check, Mail, Pencil, Phone, UserRound, X } from "lucide-react";
 
 import { formatProfileDisplayName, formatProfileNameForStorage } from "@/lib/platform/profile-display-name";
 
@@ -11,6 +11,11 @@ type AvatarProps = {
 
 type NameProps = {
   displayName: string;
+};
+
+type ContactProps = {
+  field: "email" | "phone";
+  value: string | null;
 };
 
 export function ProfileAvatarEditor({ avatarUrl }: AvatarProps) {
@@ -198,6 +203,126 @@ export function ProfileDisplayNameEditor({ displayName }: NameProps) {
         </button>
       </div>
       {status ? <p className="mt-2 text-sm font-medium text-[#7B2330]" role="alert">{status}</p> : null}
+    </div>
+  );
+}
+
+export function ProfileContactEditor({ field, value }: ContactProps) {
+  const isEmail = field === "email";
+  const label = isEmail ? "Email" : "Телефон";
+  const Icon = isEmail ? Mail : Phone;
+  const currentValue = value?.trim() ?? "";
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(currentValue);
+  const [pending, setPending] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+
+  async function saveContact() {
+    const normalized = draft.trim();
+    if (isEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+      setStatus("Укажите корректный email.");
+      return;
+    }
+    if (!isEmail && normalized) {
+      const compact = normalized.replace(/[\s().-]/g, "");
+      if (!/^\+?\d{7,15}$/.test(compact)) {
+        setStatus("Укажите корректный номер телефона.");
+        return;
+      }
+    }
+
+    setPending(true);
+    setStatus(null);
+    try {
+      const response = await fetch("/api/platform/account/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: normalized }),
+      });
+      if (response.status === 409) {
+        setStatus("Этот email уже используется в другой учётной записи.");
+        return;
+      }
+      if (!response.ok) throw new Error("PROFILE_CONTACT_UPDATE_FAILED");
+      window.location.reload();
+    } catch {
+      setStatus("Не удалось сохранить контактные данные. Попробуйте ещё раз.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  if (!editing) {
+    return (
+      <div className="relative min-w-0 rounded-2xl border border-border bg-muted/60 p-4 pr-12">
+        <dt className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          <Icon className="size-4 shrink-0" aria-hidden="true" />
+          {label}
+        </dt>
+        <dd className="mt-2 break-all text-sm font-semibold text-foreground">{currentValue || "Не указан"}</dd>
+        <button
+          type="button"
+          onClick={() => {
+            setDraft(currentValue);
+            setEditing(true);
+            setStatus(null);
+          }}
+          aria-label={`Изменить ${label.toLowerCase()}`}
+          title={`Изменить ${label.toLowerCase()}`}
+          className="absolute right-3 top-3 grid size-8 place-items-center rounded-full text-slate-400 transition-colors hover:bg-white/80 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330]/30"
+        >
+          <Pencil className="size-3.5" aria-hidden="true" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+      <label htmlFor={`profile-contact-${field}`} className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+        <Icon className="size-4 shrink-0" aria-hidden="true" />
+        {label}
+      </label>
+      <div className="mt-2 flex min-w-0 items-center gap-2">
+        <input
+          id={`profile-contact-${field}`}
+          type={isEmail ? "email" : "tel"}
+          inputMode={isEmail ? "email" : "tel"}
+          autoComplete={isEmail ? "email" : "tel"}
+          value={draft}
+          maxLength={isEmail ? 254 : 32}
+          autoFocus
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder={isEmail ? "name@example.ru" : "+7 999 000-00-00"}
+          className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#7B2330] focus:ring-2 focus:ring-[#7B2330]/15"
+        />
+        <button
+          type="button"
+          onClick={() => void saveContact()}
+          disabled={pending}
+          aria-busy={pending}
+          aria-label={`Сохранить ${label.toLowerCase()}`}
+          title="Сохранить"
+          className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#17202a] text-white transition hover:bg-[#263342] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <Check className="size-4" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setEditing(false);
+            setDraft(currentValue);
+            setStatus(null);
+          }}
+          aria-label={`Отменить изменение ${label.toLowerCase()}`}
+          title="Отмена"
+          className="grid size-11 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white/65 text-slate-500 transition hover:bg-white hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330]/25"
+        >
+          <X className="size-4" aria-hidden="true" />
+        </button>
+      </div>
+      {isEmail ? <p className="mt-2 text-[11px] leading-4 text-slate-500">Контактный email для связи и уведомлений. Адрес входа не изменяется.</p> : null}
+      {status ? <p className="mt-2 text-xs font-medium leading-5 text-[#7B2330]" role="alert">{status}</p> : null}
     </div>
   );
 }
