@@ -9,8 +9,10 @@ const clientShellV2Source = await readFile(resolve("components/portal/IBuroClien
 const questionnaireSource = await readFile(resolve("app/portal/cases/[caseId]/questionnaire/page.tsx"), "utf8");
 const questionnaireV2Source = await readFile(resolve("components/platform/questionnaire/IBuroQuestionnaireV2.tsx"), "utf8");
 const practicumSource = await readFile(resolve("app/portal/cases/[caseId]/practicum/page.tsx"), "utf8");
+const practicumLessonSource = await readFile(resolve("app/portal/cases/[caseId]/practicum/[lessonId]/page.tsx"), "utf8");
 const practicumComponentSource = await readFile(resolve("components/platform/practicum/ProductionPracticum.tsx"), "utf8");
 const practicumV2Source = await readFile(resolve("components/platform/practicum/IBuroPracticumV2.tsx"), "utf8");
+const practicumLessonV2Source = await readFile(resolve("components/platform/practicum/IBuroPracticumLessonV2.tsx"), "utf8");
 const documentsSource = await readFile(resolve("app/portal/cases/[caseId]/documents/page.tsx"), "utf8");
 const documentsV2Source = await readFile(resolve("components/platform/documents/IBuroDocumentsV2.tsx"), "utf8");
 const filesSource = await readFile(resolve("app/portal/cases/[caseId]/files/page.tsx"), "utf8");
@@ -43,6 +45,7 @@ assert.match(clientShellV2Source, /caseDisplayNumber/, "UI v2 must render the us
 
 for (const [name, routeSource] of [
   ["practicum", practicumSource],
+  ["practicum lesson", practicumLessonSource],
   ["questionnaire", questionnaireSource],
   ["documents", documentsSource],
   ["files", filesSource],
@@ -57,8 +60,19 @@ for (const [name, routeSource] of [
 assert.match(practicumSource, /<IBuroPracticumV2/, "Practicum CLIENT module must render the dedicated UI v2 presentation");
 assert.match(practicumV2Source, /role="progressbar"/);
 assert.match(practicumV2Source, /aria-valuenow=\{percent\}/);
-assert.match(practicumV2Source, /expectedVersion: state\.version/, "Practicum UI v2 must preserve optimistic versioning");
-assert.match(practicumV2Source, /VERSION_CONFLICT/, "Practicum UI v2 must preserve cross-tab conflict recovery");
+assert.match(practicumV2Source, /`\/portal\/cases\/\$\{caseId\}\/practicum\/\$\{lesson\.id\}`/, "Practicum overview must navigate into dedicated lesson workspaces");
+assert.doesNotMatch(practicumV2Source, /practicum\/lessons\/complete/, "Practicum overview must not complete lessons inline");
+
+assert.match(practicumLessonSource, /getPracticumLesson\(lessonId\)/, "Practicum lesson route must validate the requested lesson against authoritative content");
+assert.match(practicumLessonSource, /resolveCasePortalAudience\(actor, clientCase\)/, "Practicum lesson route must preserve server-authoritative audience resolution");
+assert.match(practicumLessonSource, /getPracticumProgress\(sessionProvider, caseId\)/, "Practicum lesson route must read real case-scoped progress");
+assert.match(practicumLessonSource, /<IBuroPracticumLessonV2/, "Practicum lesson route must render the production lesson workspace");
+assert.match(practicumLessonV2Source, /practicum\/lessons\/complete/, "Lesson workspace must preserve the real completion endpoint");
+assert.match(practicumLessonV2Source, /expectedVersion: state\.version/, "Lesson workspace must preserve optimistic versioning");
+assert.match(practicumLessonV2Source, /VERSION_CONFLICT/, "Lesson workspace must preserve cross-tab conflict recovery");
+assert.match(practicumLessonV2Source, /min-h-11/, "Lesson workspace actions must keep a 44px minimum touch target");
+assert.match(practicumLessonV2Source, /role="progressbar"/);
+assert.match(practicumLessonV2Source, /aria-valuenow=\{percent\}/);
 
 assert.match(questionnaireSource, /<IBuroQuestionnaireV2/, "Questionnaire CLIENT module must render the dedicated UI v2 presentation");
 assert.match(questionnaireV2Source, /role="progressbar"/);
