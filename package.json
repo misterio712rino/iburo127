@@ -13,7 +13,7 @@
     "check:ci-action-pins": "node scripts/check-github-actions-pins.mjs",
     "check:ci-workflow-security": "node scripts/check-github-workflow-security.mjs",
     "check:runtime-logging": "tsx scripts/check-runtime-logging.ts",
-    "staging:env:inventory": "tsx scripts/staging-environment-inventory.ts",
+    "staging:env:inventory": "tsx scripts/staging-environment-inventory-provider-aware.ts",
     "check:staging:target": "tsx scripts/check-staging-target.ts",
     "check:staging:preview-identity": "tsx scripts/verify-vercel-preview-identity.ts --release",
     "check:staging:core": "tsx scripts/check-staging-readiness.ts",

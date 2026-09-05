@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 
 import { buildProviderAwareStagingAiReadiness } from "../scripts/staging-ai-readiness";
 import { buildStagingEnvironmentInventory } from "../scripts/staging-environment-inventory";
+import { buildProviderAwareStagingEnvironmentInventory } from "../scripts/staging-environment-inventory-provider-aware";
 
 const apiKey = "openai-staging-timeout-regression-key";
 const fingerprint = createHash("sha256").update(apiKey, "utf8").digest("hex");
@@ -56,6 +57,11 @@ assert.equal(providerAwareOpenAi.networkAccessed, false);
 assert.equal(providerAwareOpenAi.valuesPrinted, false);
 assert.equal(JSON.stringify(providerAwareOpenAi).includes(apiKey), false);
 
+const wrappedOpenAiInventory = buildProviderAwareStagingEnvironmentInventory(baseEnv);
+assert.equal(wrappedOpenAiInventory.phases.openai.ready, true);
+assert.deepEqual(wrappedOpenAiInventory.phases.openai.missingOrPlaceholder, []);
+assert.equal(JSON.stringify(wrappedOpenAiInventory).includes(apiKey), false);
+
 for (const timeout of ["999", "60001", "1.5", "abc"] as const) {
   const readiness = buildProviderAwareStagingAiReadiness({
     ...baseEnv,
@@ -99,6 +105,18 @@ const yandexSerialized = JSON.stringify(providerAwareYandex);
 assert.equal(yandexSerialized.includes(yandexApiKey), false, "readiness must never expose the Yandex API key");
 assert.equal(yandexSerialized.includes(yandexFingerprint), false, "readiness must never expose the Yandex key fingerprint");
 
+const wrappedYandexInventory = buildProviderAwareStagingEnvironmentInventory(yandexEnv);
+assert.equal(wrappedYandexInventory.phases.openai.ready, true);
+assert.deepEqual(wrappedYandexInventory.phases.openai.missingOrPlaceholder, []);
+assert.equal(
+  wrappedYandexInventory.phases.openai.missingOrPlaceholder.some((name) => name.startsWith("OPENAI_")),
+  false,
+  "provider-aware environment inventory must not require OpenAI credentials for Yandex",
+);
+const wrappedYandexSerialized = JSON.stringify(wrappedYandexInventory);
+assert.equal(wrappedYandexSerialized.includes(yandexApiKey), false);
+assert.equal(wrappedYandexSerialized.includes(yandexFingerprint), false);
+
 const mismatchedYandexFolder = buildProviderAwareStagingAiReadiness({
   ...yandexEnv,
   IB_STAGING_YANDEX_AI_FOLDER_ID: "b1gotherfolder0000000",
@@ -134,5 +152,12 @@ const invalidProvider = buildProviderAwareStagingAiReadiness({
 assert.equal(invalidProvider.provider, null);
 assert.equal(invalidProvider.ready, false);
 assert.deepEqual(invalidProvider.invalidOrInconsistent, ["IB_AI_PROVIDER"]);
+
+const wrappedInvalidProvider = buildProviderAwareStagingEnvironmentInventory({
+  ...baseEnv,
+  IB_AI_PROVIDER: "unknown",
+});
+assert.equal(wrappedInvalidProvider.phases.openai.ready, false);
+assert.deepEqual(wrappedInvalidProvider.phases.openai.invalidOrInconsistent, ["IB_AI_PROVIDER"]);
 
 console.log("STAGING_ENVIRONMENT_OPENAI_TIMEOUT_TEST_PASS");
