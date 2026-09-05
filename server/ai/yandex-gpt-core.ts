@@ -148,6 +148,7 @@ export class YandexGptGateway implements AiModelGateway {
         headers: {
           authorization: `Api-Key ${this.config.apiKey}`,
           "content-type": "application/json",
+          "x-data-logging-enabled": "false",
         },
         body: payload,
         cache: "no-store",
