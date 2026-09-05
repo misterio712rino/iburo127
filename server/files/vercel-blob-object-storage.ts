@@ -18,6 +18,7 @@ export type VercelBlobStorageDriver = {
     mimeType: string;
     maximumSizeInBytes: number;
     expiresInSeconds: number;
+    allowOverwrite?: boolean;
   }): Promise<string>;
   createPrivateDownloadUrl(input: {
     pathname: string;
@@ -56,6 +57,7 @@ export class VercelBlobPrivateObjectStorage implements PrivateObjectStorage {
       mimeType: input.mimeType,
       maximumSizeInBytes,
       expiresInSeconds: input.expiresInSeconds,
+      allowOverwrite: input.allowOverwrite === true,
     });
     return result(url, input.expiresInSeconds);
   }
