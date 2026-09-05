@@ -15,6 +15,7 @@ export type CreateUploadUrlInput = {
   mimeType: string;
   sizeBytes: bigint;
   expiresInSeconds: number;
+  allowOverwrite?: boolean;
 };
 
 export type CreateDownloadUrlInput = {
