@@ -1,5 +1,10 @@
-import { Geist_Mono, Onest } from "next/font/google";
+import { Geist, Geist_Mono, Onest } from "next/font/google";
 import "./globals.css";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
 
 const iburoUi = Onest({
   variable: "--font-iburo-ui",
@@ -18,7 +23,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru" className={`${iburoUi.variable} ${geistMono.variable} h-full antialiased`}>
+    <html
+      lang="ru"
+      className={`${geistSans.variable} ${iburoUi.variable} ${geistMono.variable} h-full antialiased`}
+    >
       <body className="min-h-full">{children}</body>
     </html>
   );
