@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, BriefcaseBusiness, KeyRound, Mail, Phone } from "lucide-react";
+import { ArrowRight, BriefcaseBusiness, KeyRound } from "lucide-react";
 
-import { ProfileAvatarEditor, ProfileDisplayNameEditor } from "@/components/platform/account/ProfileAccountEditor";
+import { ProfileAvatarEditor, ProfileContactEditor, ProfileDisplayNameEditor } from "@/components/platform/account/ProfileAccountEditor";
 import { IBuroClientShellV2 } from "@/components/portal/IBuroClientShellV2";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import { getCaseStatusLabel, getPlanDisplayLabel } from "@/lib/platform/case-progress";
@@ -81,7 +81,7 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
             <div className="min-w-0 w-full flex-1">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Личный кабинет</p>
               <ProfileDisplayNameEditor displayName={storedDisplayName} />
-              <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:mx-0">Имя и фотографию можно менять прямо здесь. Контактные данные берутся из защищённой учётной записи iБюро.</p>
+              <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:mx-0">Имя, фотографию и контактные данные можно менять прямо здесь.</p>
               <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start" aria-label="Роли учётной записи">
                 {profile.roles.map((role) => (
                   <span key={role} className="inline-flex min-h-7 items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">{ROLE_LABELS[role]}</span>
@@ -93,11 +93,11 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
           <section className="mt-7 border-t border-border pt-6 text-left" aria-labelledby="profile-contact-heading">
             <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
               <h2 id="profile-contact-heading" className="text-lg font-bold text-foreground">Контактные данные</h2>
-              <p className="text-sm text-muted-foreground">Из учётной записи</p>
+              <p className="text-sm text-muted-foreground">Для связи и уведомлений</p>
             </div>
             <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-              <ProfileField icon={Mail} label="Email" value={profile.email || "Не указан"} />
-              <ProfileField icon={Phone} label="Телефон" value={profile.phone || "Не указан"} />
+              <ProfileContactEditor field="email" value={profile.email} />
+              <ProfileContactEditor field="phone" value={profile.phone} />
             </dl>
           </section>
 
@@ -162,15 +162,6 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
   }
 
   return <PortalFrame sectionLabel="Профиль" showStaffTasks={isStaff}>{content}</PortalFrame>;
-}
-
-function ProfileField({ icon: Icon, label, value }: { icon: typeof Mail; label: string; value: string }) {
-  return (
-    <div className="min-w-0 rounded-2xl border border-border bg-muted/60 p-4">
-      <dt className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground"><Icon className="size-4 shrink-0" aria-hidden="true" />{label}</dt>
-      <dd className="mt-2 break-all text-sm font-semibold text-foreground">{value}</dd>
-    </div>
-  );
 }
 
 function Metric({ label, value }: { label: string; value: number }) {
