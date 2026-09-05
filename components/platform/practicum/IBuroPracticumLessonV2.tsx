@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   ArrowLeft,
@@ -117,13 +116,13 @@ export function IBuroPracticumLessonV2({
 
   return (
     <div className="mx-auto w-full max-w-6xl py-3 sm:py-6">
-      <Link
+      <a
         href={overviewHref}
         className="inline-flex min-h-11 items-center gap-2 rounded-xl px-1 text-sm font-semibold text-slate-500 transition-colors hover:text-slate-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
         К программе
-      </Link>
+      </a>
 
       <header className="mt-5 border-b border-slate-200 pb-7 sm:mt-7 sm:pb-9">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#b51f2a]">
@@ -217,14 +216,14 @@ export function IBuroPracticumLessonV2({
             <p className="text-xs font-semibold uppercase tracking-[0.06em] text-slate-400">Навигация</p>
             <div className="mt-3 grid gap-2">
               {previousLesson ? (
-                <Link href={`/portal/cases/${caseId}/practicum/${previousLesson.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10">
+                <a href={`/portal/cases/${caseId}/practicum/${previousLesson.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10">
                   <ArrowLeft className="size-4" aria-hidden="true" /> Предыдущий урок
-                </Link>
+                </a>
               ) : null}
               {nextLesson && isCompleted ? (
-                <Link href={`/portal/cases/${caseId}/practicum/${nextLesson.id}`} className="inline-flex min-h-11 items-center justify-between gap-2 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-900 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10">
+                <a href={`/portal/cases/${caseId}/practicum/${nextLesson.id}`} className="inline-flex min-h-11 items-center justify-between gap-2 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-900 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10">
                   Следующий урок <ArrowRight className="size-4" aria-hidden="true" />
-                </Link>
+                </a>
               ) : nextLesson ? (
                 <div className="rounded-xl bg-slate-50 px-3 py-3 text-xs leading-5 text-slate-500">Завершите этот урок, чтобы перейти к следующему.</div>
               ) : null}
