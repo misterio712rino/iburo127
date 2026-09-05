@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowRight, BriefcaseBusiness, KeyRound, Mail, Phone } from "lucide-react";
 
 import {
+  formatProfileDisplayName,
   ProfileAvatarEditor,
   ProfileDisplayNameEditor,
 } from "@/components/platform/account/ProfileAccountEditor";
@@ -63,7 +64,8 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
     : undefined;
   const activeCases = cases.filter((item) => item.status === "ACTIVE").length;
   const completedCases = cases.filter((item) => item.status === "COMPLETED").length;
-  const displayName = profile.displayName?.trim() || (isStaff ? "Пользователь iБюро" : "Клиент iБюро");
+  const storedDisplayName = profile.displayName?.trim() || (isStaff ? "Пользователь iБюро" : "Клиент iБюро");
+  const displayName = formatProfileDisplayName(storedDisplayName);
   const unreadCount = notifications.filter((item) => !item.readAt).length;
   const securityHref = selectedClientCase ? `/portal/security?caseId=${selectedClientCase.id}` : "/portal/security";
 
@@ -81,9 +83,8 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
             <ProfileAvatarEditor avatarUrl={avatarUrl} />
             <div className="min-w-0 w-full flex-1">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Личный кабинет</p>
-              <h2 className="mt-2 break-words font-[var(--font-iburo-display)] text-3xl font-semibold tracking-[-.04em] text-foreground sm:text-4xl">{displayName}</h2>
+              <ProfileDisplayNameEditor displayName={storedDisplayName} />
               <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:mx-0">Имя и фотографию можно менять прямо здесь. Контактные данные берутся из защищённой учётной записи iБюро.</p>
-              <ProfileDisplayNameEditor displayName={displayName} />
               <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start" aria-label="Роли учётной записи">
                 {profile.roles.map((role) => (
                   <span key={role} className="inline-flex min-h-7 items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">{ROLE_LABELS[role]}</span>
