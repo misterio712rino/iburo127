@@ -4,6 +4,7 @@ import type { SessionProvider } from "@/server/auth/contracts";
 import {
   completeStoredFileUpload,
   createStoredFileDownloadUrl,
+  deleteStoredFile,
   getStoredFile,
   listStoredFiles,
   prepareStoredFileUpload,
@@ -50,6 +51,12 @@ export function handleCompleteStoredFileUpload(sessionProvider: SessionProvider,
     toStoredFileTransportRecord(
       await completeStoredFileUpload(sessionProvider, parseStoredFileId(fileId)),
     ),
+  );
+}
+
+export function handleDeleteStoredFile(sessionProvider: SessionProvider, fileId: unknown) {
+  return executeStoredFileOperation(() =>
+    deleteStoredFile(sessionProvider, parseStoredFileId(fileId)),
   );
 }
 
