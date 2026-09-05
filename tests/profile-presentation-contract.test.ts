@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 
 const profilePageSource = await readFile(resolve("app/portal/profile/page.tsx"), "utf8");
 const editorSource = await readFile(resolve("components/platform/account/ProfileAccountEditor.tsx"), "utf8");
+const profileNameSource = await readFile(resolve("lib/platform/profile-display-name.ts"), "utf8");
 const accountOperationsSource = await readFile(resolve("server/account/operations.ts"), "utf8");
 const avatarSource = await readFile(resolve("server/account/avatar.ts"), "utf8");
 const avatarRouteSource = await readFile(resolve("app/api/platform/account/avatar/route.ts"), "utf8");
@@ -12,6 +13,7 @@ const profileRouteSource = await readFile(resolve("app/api/platform/account/prof
 assert.match(profilePageSource, /getCurrentAccountProfile\(sessionProvider\)/);
 assert.match(profilePageSource, /getCurrentAccountAvatarUrl\(sessionProvider\)/);
 assert.match(profilePageSource, /listAccessibleClientCases\(sessionProvider\)/);
+assert.match(profilePageSource, /from "@\/lib\/platform\/profile-display-name"/);
 assert.match(profilePageSource, /formatProfileDisplayName\(storedDisplayName\)/);
 assert.match(profilePageSource, /<ProfileAvatarEditor avatarUrl=\{avatarUrl\} \/>/);
 assert.match(profilePageSource, /<ProfileDisplayNameEditor displayName=\{storedDisplayName\} \/>/);
@@ -34,13 +36,18 @@ assert.match(editorSource, /sm:hidden/);
 assert.match(editorSource, /aria-label=\{avatarUrl \? "Изменить фотографию профиля" : "Добавить фотографию профиля"\}/);
 assert.match(editorSource, /aria-label="Изменить ФИО"/);
 assert.match(editorSource, /title="Изменить ФИО"/);
+assert.match(editorSource, /from "@\/lib\/platform\/profile-display-name"/);
 assert.match(editorSource, /formatProfileDisplayName/);
 assert.match(editorSource, /formatProfileNameForStorage/);
-assert.match(editorSource, /\[parts\[1\], parts\[0\], parts\[2\]\]/);
 assert.match(editorSource, /Фамилия Имя Отчество/);
 assert.match(editorSource, /aria-busy=\{pending\}/);
 assert.doesNotMatch(editorSource, />\s*Изменить имя\s*</);
 assert.doesNotMatch(editorSource, /localStorage|lib\/platform\/demo|DEMO_/i);
+
+assert.match(profileNameSource, /\[parts\[1\], parts\[0\], parts\[2\]\]/);
+assert.match(profileNameSource, /export function formatProfileDisplayName/);
+assert.match(profileNameSource, /export function formatProfileNameForStorage/);
+assert.doesNotMatch(profileNameSource, /"use client"/);
 
 assert.match(accountOperationsSource, /requireServerActor\(sessionProvider\)/);
 assert.match(accountOperationsSource, /where: \{ id: actor\.userId \}/);
