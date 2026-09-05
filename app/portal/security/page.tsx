@@ -7,6 +7,7 @@ import { IBuroClientShellV2 } from "@/components/portal/IBuroClientShellV2";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import { getPlanDisplayLabel } from "@/lib/platform/case-progress";
 import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
+import { formatProfileDisplayName } from "@/lib/platform/profile-display-name";
 import type { PlanCode } from "@/lib/platform/types";
 import { getCurrentAccountProfile } from "@/server/account/operations";
 import { createProductionSessionProvider, resolveProductionAccountSecurityState } from "@/server/auth/production-session-provider";
@@ -54,6 +55,9 @@ export default async function AccountSecurityPage({ searchParams }: { searchPara
   const accessLabel = state.twoFactorEnabled ? "2FA включена" : "Сессия подтверждена";
   const completionHref = selectedClientCase ? `/portal/security?caseId=${selectedClientCase.id}` : "/portal/security";
   const unreadCount = notifications.filter((item) => !item.readAt).length;
+  const clientDisplayName = profile.displayName?.trim()
+    ? formatProfileDisplayName(profile.displayName)
+    : "Клиент iБюро";
 
   const content = (
     <div className="flex min-w-0 flex-col gap-7 py-1 sm:gap-9 sm:py-2">
@@ -64,18 +68,18 @@ export default async function AccountSecurityPage({ searchParams }: { searchPara
       </header>
 
       <section className="grid gap-5 sm:gap-6 lg:grid-cols-[minmax(0,.82fr)_minmax(0,1.18fr)]" aria-label="Управление безопасностью учётной записи">
-        <article className="min-w-0 rounded-[28px] border border-border bg-card p-5 text-card-foreground shadow-[0_16px_50px_rgba(0,0,0,.05)] sm:p-6 lg:p-7">
+        <article className="min-w-0 rounded-[24px] border border-border bg-card p-5 text-card-foreground shadow-[0_8px_30px_rgba(0,0,0,.035)] sm:p-6 lg:p-7">
           <div className="flex min-w-0 items-center gap-4">
-            <span className={`grid size-11 shrink-0 place-items-center rounded-2xl ${state.twoFactorEnabled ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+            <span className={`grid size-11 shrink-0 place-items-center rounded-xl ${state.twoFactorEnabled ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
               <ShieldCheck className="size-5" aria-hidden="true" />
             </span>
             <div className="min-w-0">
-              <p className="break-words text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Двухфакторная защита</p>
-              <h2 className="mt-1 break-words text-xl font-bold text-foreground">{state.twoFactorEnabled ? "Подключена" : "Не подключена"}</h2>
+              <p className="break-words text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Двухфакторная защита</p>
+              <h2 className="mt-1 break-words text-xl font-semibold text-foreground">{state.twoFactorEnabled ? "Подключена" : "Не подключена"}</h2>
             </div>
           </div>
 
-          <span className={`mt-5 inline-flex min-h-7 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${state.twoFactorEnabled ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+          <span className={`mt-5 inline-flex min-h-7 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${state.twoFactorEnabled ? "border-emerald-200/80 bg-emerald-50 text-emerald-700" : "border-amber-200/80 bg-amber-50 text-amber-700"}`}>
             {state.twoFactorEnabled ? <CheckCircle2 className="size-3.5" aria-hidden="true" /> : <KeyRound className="size-3.5" aria-hidden="true" />}
             {state.twoFactorEnabled ? "Защита активна" : "Рекомендуется настройка"}
           </span>
@@ -89,12 +93,12 @@ export default async function AccountSecurityPage({ searchParams }: { searchPara
           </p>
         </article>
 
-        <article className="min-w-0 rounded-[28px] border border-border bg-card p-5 text-card-foreground shadow-[0_16px_50px_rgba(0,0,0,.05)] sm:p-6 lg:p-7">
+        <article className="min-w-0 rounded-[24px] border border-border bg-card p-5 text-card-foreground shadow-[0_8px_30px_rgba(0,0,0,.035)] sm:p-6 lg:p-7">
           <div className="mb-5 flex min-w-0 items-start gap-3.5 sm:mb-6">
-            <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-muted text-primary"><KeyRound className="size-5" aria-hidden="true" /></span>
+            <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-muted text-primary"><KeyRound className="size-5" aria-hidden="true" /></span>
             <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Управление доступом</p>
-              <h2 className="break-words text-xl font-bold text-foreground lg:text-2xl">{state.twoFactorEnabled ? "Резервные коды" : "Подключить 2FA"}</h2>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Управление доступом</p>
+              <h2 className="break-words text-xl font-semibold text-foreground lg:text-2xl">{state.twoFactorEnabled ? "Резервные коды" : "Подключить 2FA"}</h2>
               <p className="mt-1 text-sm leading-6 text-muted-foreground">{state.twoFactorEnabled ? "Создайте новый набор кодов, если прежний больше недоступен." : "Подтвердите пароль, добавьте приложение-аутентификатор и введите код."}</p>
             </div>
           </div>
@@ -116,7 +120,7 @@ export default async function AccountSecurityPage({ searchParams }: { searchPara
     return (
       <IBuroClientShellV2
         caseId={selectedClientCase.id}
-        displayName={profile.displayName?.trim() || "Клиент iБюро"}
+        displayName={clientDisplayName}
         caseDisplayNumber={getClientCaseDisplayNumber(selectedClientCase.caseNumber)}
         planLabel={getClientPlanLabel(planCode)}
         unreadCount={unreadCount}
