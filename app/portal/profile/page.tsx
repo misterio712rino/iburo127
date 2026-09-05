@@ -2,15 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight, BriefcaseBusiness, KeyRound, Mail, Phone } from "lucide-react";
 
-import {
-  formatProfileDisplayName,
-  ProfileAvatarEditor,
-  ProfileDisplayNameEditor,
-} from "@/components/platform/account/ProfileAccountEditor";
+import { ProfileAvatarEditor, ProfileDisplayNameEditor } from "@/components/platform/account/ProfileAccountEditor";
 import { IBuroClientShellV2 } from "@/components/portal/IBuroClientShellV2";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import { getCaseStatusLabel, getPlanDisplayLabel } from "@/lib/platform/case-progress";
 import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
+import { formatProfileDisplayName } from "@/lib/platform/profile-display-name";
 import type { PlanCode } from "@/lib/platform/types";
 import { getCurrentAccountAvatarUrl } from "@/server/account/avatar";
 import { getCurrentAccountProfile } from "@/server/account/operations";
