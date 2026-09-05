@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   ArrowRight,
@@ -47,23 +48,12 @@ export function IBuroPracticumV2({
 }) {
   const [state, setState] = useState<PracticumState | null>(initialState);
   const [creating, setCreating] = useState(false);
-  const [pendingLessonId, setPendingLessonId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const completed = useMemo(
     () => new Set(state?.completedLessonIds ?? []),
     [state?.completedLessonIds],
   );
-
-  async function refresh() {
-    const response = await fetch(`/api/platform/cases/${caseId}/practicum`, {
-      method: "GET",
-      cache: "no-store",
-    });
-    const result = (await response.json()) as ApiResult;
-    if (!result.ok) throw new Error(result.error.code);
-    setState(normalize(result.data));
-  }
 
   async function createProgress() {
     if (creating) return;
@@ -81,41 +71,6 @@ export function IBuroPracticumV2({
       setError("Не удалось начать практикум. Обновите страницу и повторите попытку.");
     } finally {
       setCreating(false);
-    }
-  }
-
-  async function completeLesson(lessonId: string) {
-    if (!state || pendingLessonId || completed.has(lessonId)) return;
-    setPendingLessonId(lessonId);
-    setError(null);
-    try {
-      const response = await fetch(
-        `/api/platform/cases/${caseId}/practicum/lessons/complete`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({ lessonId, expectedVersion: state.version }),
-        },
-      );
-      const result = (await response.json()) as ApiResult;
-
-      if (!result.ok) {
-        if (response.status === 409 || result.error.code === "VERSION_CONFLICT") {
-          await refresh();
-          setError("Прогресс изменился в другой вкладке. Мы обновили данные — повторите действие.");
-          return;
-        }
-        throw new Error(result.error.code);
-      }
-
-      setState(normalize(result.data));
-    } catch {
-      setError("Не удалось сохранить прогресс. Повторите попытку.");
-    } finally {
-      setPendingLessonId(null);
     }
   }
 
@@ -155,6 +110,7 @@ export function IBuroPracticumV2({
     PRACTICUM_LESSONS.find((lesson) => !completed.has(lesson.id)) ??
     PRACTICUM_LESSONS[PRACTICUM_LESSONS.length - 1];
   const currentModule = getLessonModule(currentLesson);
+  const currentLessonHref = `/portal/cases/${caseId}/practicum/${currentLesson.id}`;
 
   return (
     <div className={styles.page}>
@@ -181,19 +137,10 @@ export function IBuroPracticumV2({
               ? "Материалы остаются доступными — можно вернуться к любому уроку."
               : `Модуль ${currentModule.number} · ${currentLesson.duration}`}
           </p>
-          <button
-            type="button"
-            className={styles.whiteButton}
-            onClick={() =>
-              document.getElementById(`lesson-${currentLesson.id}`)?.scrollIntoView({
-                behavior: "smooth",
-                block: "center",
-              })
-            }
-          >
-            {complete ? "Открыть программу" : "Продолжить"}
+          <Link href={currentLessonHref} className={styles.whiteButton}>
+            {complete ? "Открыть урок" : "Продолжить урок"}
             <ArrowRight aria-hidden="true" />
-          </button>
+          </Link>
           <BookOpen className={styles.continueDecoration} aria-hidden="true" />
         </article>
 
@@ -216,7 +163,7 @@ export function IBuroPracticumV2({
         <div className={styles.sectionHeading}>
           <div>
             <h2 id="program-title">Программа</h2>
-            <p>Четыре коротких модуля — от основ до завершения процедуры.</p>
+            <p>Откройте урок, чтобы перейти в отдельное пространство обучения.</p>
           </div>
           <span>{PRACTICUM_MODULES.length} модуля</span>
         </div>
@@ -243,15 +190,14 @@ export function IBuroPracticumV2({
                   {moduleLessons.map((lesson) => {
                     const isDone = completed.has(lesson.id);
                     const isCurrent = !complete && lesson.id === currentLesson.id;
-                    const pending = pendingLessonId === lesson.id;
+                    const href = `/portal/cases/${caseId}/practicum/${lesson.id}`;
 
                     return (
-                      <details
+                      <div
                         className={`${styles.lesson} ${isCurrent ? styles.lessonCurrent : ""}`}
                         key={lesson.id}
-                        id={`lesson-${lesson.id}`}
                       >
-                        <summary className={styles.lessonSummary}>
+                        <Link href={href} className={styles.lessonSummary}>
                           <span className={`${styles.lessonStatus} ${isDone ? styles.lessonDone : ""}`}>
                             {isDone ? <Check aria-hidden="true" /> : lesson.number}
                           </span>
@@ -260,37 +206,11 @@ export function IBuroPracticumV2({
                             <small><Clock3 aria-hidden="true" />{lesson.duration}</small>
                           </span>
                           <span className={styles.lessonState}>
-                            {isDone ? "Завершено" : isCurrent ? "Продолжить" : "Доступно"}
+                            {isDone ? "Открыть" : isCurrent ? "Продолжить" : "Начать"}
                           </span>
                           <ChevronRight className={styles.chevron} aria-hidden="true" />
-                        </summary>
-
-                        <div className={styles.lessonBody}>
-                          <p className={styles.lessonIntro}>{lesson.introduction}</p>
-                          {lesson.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
-                          <div className={styles.keyPoints}>
-                            <span>Главное</span>
-                            <ul>
-                              {lesson.keyPoints.map((point) => <li key={point}>{point}</li>)}
-                            </ul>
-                          </div>
-                          <p className={styles.nextText}>{lesson.nextText}</p>
-
-                          {!isDone ? (
-                            <button
-                              type="button"
-                              className={styles.completeButton}
-                              onClick={() => completeLesson(lesson.id)}
-                              disabled={pending}
-                            >
-                              {pending ? <Loader2 className={styles.spin} aria-hidden="true" /> : <Check aria-hidden="true" />}
-                              {pending ? "Сохраняем…" : "Отметить урок пройденным"}
-                            </button>
-                          ) : (
-                            <div className={styles.completedMessage}><CheckCircle2 aria-hidden="true" /> Урок завершён</div>
-                          )}
-                        </div>
-                      </details>
+                        </Link>
+                      </div>
                     );
                   })}
                 </div>
