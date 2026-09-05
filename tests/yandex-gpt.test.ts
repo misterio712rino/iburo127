@@ -89,6 +89,11 @@ assert.equal(capturedInit?.method, "POST");
 const headers = new Headers(capturedInit?.headers);
 assert.equal(headers.get("authorization"), `Api-Key ${env.YANDEX_AI_API_KEY}`);
 assert.equal(headers.get("content-type"), "application/json");
+assert.equal(
+  headers.get("x-data-logging-enabled"),
+  "false",
+  "legal-client prompts must opt out of Yandex AI request data logging",
+);
 
 const payloadText = String(capturedInit?.body);
 const payload = JSON.parse(payloadText) as {
