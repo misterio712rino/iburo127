@@ -5,8 +5,10 @@ package_upgrade: false
 packages:
   - ca-certificates
   - caddy
+  - curl
   - docker.io
   - docker-compose-v2
+  - jq
 
 write_files:
   - path: /etc/docker/daemon.json
@@ -38,6 +40,11 @@ write_files:
     permissions: "0644"
     encoding: b64
     content: ${scanner_compose_b64}
+  - path: /usr/local/sbin/iburo-file-scanner-activate
+    owner: root:root
+    permissions: "0750"
+    encoding: b64
+    content: ${scanner_activate_b64}
 
 runcmd:
   - [install, -d, -m, "0700", -o, root, -g, root, /etc/iburo-file-scanner]
