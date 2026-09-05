@@ -48,9 +48,10 @@ export function IBuroPracticumLessonV2({
 }) {
   const lesson = getPracticumLesson(lessonId);
   if (!lesson) throw new Error("PRACTICUM_LESSON_NOT_FOUND");
+  const currentLesson = lesson;
 
-  const module = getLessonModule(lesson);
-  const lessonIndex = PRACTICUM_LESSONS.findIndex((item) => item.id === lesson.id);
+  const module = getLessonModule(currentLesson);
+  const lessonIndex = PRACTICUM_LESSONS.findIndex((item) => item.id === currentLesson.id);
   const previousLesson = lessonIndex > 0 ? PRACTICUM_LESSONS[lessonIndex - 1] : null;
   const nextLesson = lessonIndex < PRACTICUM_LESSONS.length - 1 ? PRACTICUM_LESSONS[lessonIndex + 1] : null;
 
@@ -62,7 +63,7 @@ export function IBuroPracticumLessonV2({
     () => new Set(state.completedLessonIds),
     [state.completedLessonIds],
   );
-  const isCompleted = completed.has(lesson.id);
+  const isCompleted = completed.has(currentLesson.id);
   const completedCount = completed.size;
   const total = PRACTICUM_LESSONS.length;
   const percent = Math.round((completedCount / total) * 100);
@@ -92,7 +93,7 @@ export function IBuroPracticumLessonV2({
             "Content-Type": "application/json",
             Accept: "application/json",
           },
-          body: JSON.stringify({ lessonId: lesson.id, expectedVersion: state.version }),
+          body: JSON.stringify({ lessonId: currentLesson.id, expectedVersion: state.version }),
         },
       );
       const result = (await response.json()) as ApiResult;
@@ -127,13 +128,13 @@ export function IBuroPracticumLessonV2({
       <header className="mt-5 border-b border-slate-200 pb-7 sm:mt-7 sm:pb-9">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#b51f2a]">
           <span>Модуль {module.number}</span>
-          <span className="text-slate-400">Урок {lesson.number} из {total}</span>
+          <span className="text-slate-400">Урок {currentLesson.number} из {total}</span>
         </div>
         <h1 className="mt-4 max-w-4xl font-[var(--font-iburo-display)] text-3xl font-semibold leading-[1.08] tracking-[-0.035em] text-slate-950 sm:text-5xl">
-          {lesson.title}
+          {currentLesson.title}
         </h1>
         <div className="mt-5 flex flex-wrap items-center gap-4 text-sm text-slate-500">
-          <span className="inline-flex items-center gap-2"><Clock3 className="size-4" aria-hidden="true" />{lesson.duration}</span>
+          <span className="inline-flex items-center gap-2"><Clock3 className="size-4" aria-hidden="true" />{currentLesson.duration}</span>
           <span className="inline-flex items-center gap-2">
             {isCompleted ? <CheckCircle2 className="size-4 text-[#b51f2a]" aria-hidden="true" /> : <BookOpen className="size-4 text-[#b51f2a]" aria-hidden="true" />}
             {isCompleted ? "Урок завершён" : "Материал урока"}
@@ -143,19 +144,19 @@ export function IBuroPracticumLessonV2({
 
       <div className="mt-7 grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-10">
         <article className="min-w-0">
-          <p className="max-w-3xl text-lg font-medium leading-8 text-slate-800 sm:text-xl">{lesson.introduction}</p>
+          <p className="max-w-3xl text-lg font-medium leading-8 text-slate-800 sm:text-xl">{currentLesson.introduction}</p>
 
           <section className="mt-9 max-w-3xl">
             <h2 className="text-xl font-semibold tracking-[-0.025em] text-slate-950 sm:text-2xl">Основное</h2>
             <div className="mt-4 space-y-5 text-[15px] leading-7 text-slate-600 sm:text-base sm:leading-8">
-              {lesson.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+              {currentLesson.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
             </div>
           </section>
 
           <section className="mt-9 max-w-3xl rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
             <p className="text-xs font-bold uppercase tracking-[0.08em] text-[#b51f2a]">Главное из урока</p>
             <ul className="mt-4 space-y-3">
-              {lesson.keyPoints.map((point) => (
+              {currentLesson.keyPoints.map((point) => (
                 <li key={point} className="flex gap-3 text-sm leading-6 text-slate-700">
                   <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-[#b51f2a] text-white">
                     <Check className="size-3" aria-hidden="true" />
@@ -176,7 +177,7 @@ export function IBuroPracticumLessonV2({
 
           <section className="mt-9 max-w-3xl">
             <h2 className="text-xl font-semibold tracking-[-0.025em] text-slate-950">Что дальше</h2>
-            <p className="mt-3 text-sm leading-7 text-slate-600">{lesson.nextText}</p>
+            <p className="mt-3 text-sm leading-7 text-slate-600">{currentLesson.nextText}</p>
           </section>
 
           {error ? <div className="mt-6 max-w-3xl rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">{error}</div> : null}
