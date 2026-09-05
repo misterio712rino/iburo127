@@ -180,8 +180,18 @@ await requireGuardBefore(
 );
 await requireGuardBefore(
   "scripts/verify-staging-openai.ts",
+  ["readAiProviderName(process.env)"],
+  'if (provider === "yandex")',
+);
+await requireGuardBefore(
+  "scripts/verify-staging-openai-provider.ts",
   ["assertStagingAiTarget(process.env)"],
   "new OpenAiResponsesGateway(",
+);
+await requireGuardBefore(
+  "scripts/verify-staging-yandex-ai.ts",
+  ["assertStagingYandexAiTarget(process.env)"],
+  "new YandexGptGateway(",
 );
 await requireGuardBefore(
   "scripts/verify-staging-bitrix24.ts",
