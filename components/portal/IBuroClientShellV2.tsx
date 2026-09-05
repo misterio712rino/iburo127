@@ -73,6 +73,8 @@ export function IBuroClientShellV2({
 }: ShellProps) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [topbarAvatarLoaded, setTopbarAvatarLoaded] = useState(false);
+  const [topbarAvatarFailed, setTopbarAvatarFailed] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previousPathnameRef = useRef(pathname);
@@ -199,7 +201,23 @@ export function IBuroClientShellV2({
 
             <details className={styles.userMenu}>
               <summary className={styles.userChip}>
-                <span className={styles.userAvatar}>{userInitials}</span>
+                <span className={styles.userAvatar}>
+                  {!topbarAvatarLoaded ? userInitials : null}
+                  {!topbarAvatarFailed ? (
+                    // Authenticated same-origin avatar proxy; initials remain the graceful fallback.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src="/api/platform/account/avatar"
+                      alt=""
+                      className={`${styles.userAvatarImage} ${topbarAvatarLoaded ? styles.userAvatarImageLoaded : ""}`}
+                      onLoad={() => setTopbarAvatarLoaded(true)}
+                      onError={() => {
+                        setTopbarAvatarFailed(true);
+                        setTopbarAvatarLoaded(false);
+                      }}
+                    />
+                  ) : null}
+                </span>
                 <span className={styles.userCopy}><strong>{displayName}</strong><span>{planLabel}</span></span>
                 <ChevronDown aria-hidden="true" />
               </summary>
