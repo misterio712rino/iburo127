@@ -21,6 +21,7 @@ const practicumV2Source = await readFile(resolve("components/platform/practicum/
 const documentsSource = await readFile(resolve("app/portal/cases/[caseId]/documents/page.tsx"), "utf8");
 const documentsV2Source = await readFile(resolve("components/platform/documents/IBuroDocumentsV2.tsx"), "utf8");
 const filesSource = await readFile(resolve("app/portal/cases/[caseId]/files/page.tsx"), "utf8");
+const filesV2Source = await readFile(resolve("components/platform/files/IBuroFilesV2.tsx"), "utf8");
 const productionFilesSource = await readFile(resolve("components/platform/files/ProductionFiles.tsx"), "utf8");
 const aiSource = await readFile(resolve("app/portal/cases/[caseId]/ai/page.tsx"), "utf8");
 const aiMessageSource = await readFile(resolve("components/platform/ai/AiMessage.tsx"), "utf8");
@@ -63,9 +64,7 @@ assert.ok(clientCaseNavigationSource.includes('label: "Уведомления"')
 assert.ok(clientCaseNavigationSource.includes('return `/portal/notifications?caseId=${caseId}`;'), "CLIENT Notifications navigation must preserve selected case visual context");
 assert.match(clientCaseNavigationSource, /if \(path === "\/portal\/notifications"\) return pathname === path/, "CLIENT Notifications navigation must expose an exact active state");
 
-for (const [name, source] of [["files", filesSource], ["ai", aiSource]] as const) {
-  assert.match(source, /<ClientCaseModuleIntro/, `${name} legacy CLIENT module must retain its reviewed shared responsive intro until migrated to UI v2`);
-}
+assert.match(aiSource, /<ClientCaseModuleIntro/, "ai legacy CLIENT module must retain its reviewed shared responsive intro until migrated to UI v2");
 
 for (const [name, routeSource, componentSource] of [
   ["practicum", practicumSource, practicumV2Source],
@@ -88,6 +87,11 @@ assert.match(documentsSource, /<IBuroDocumentsV2/, "Documents CLIENT module must
 assert.match(documentsV2Source, /expectedVersion: current\?\.version/, "Documents UI v2 must preserve optimistic document versioning");
 assert.match(documentsV2Source, /VERSION_CONFLICT/, "Documents UI v2 must preserve cross-tab document conflict recovery");
 assert.match(documentsV2Source, /send-for-review/, "Documents UI v2 must preserve the real review handoff endpoint");
+assert.match(filesSource, /<IBuroClientShellV2/, "Files CLIENT module must use the unified responsive UI v2 shell");
+assert.match(filesSource, /<IBuroFilesV2/, "Files CLIENT module must render the dedicated UI v2 presentation");
+assert.match(filesV2Source, /\/api\/platform\/cases\/\$\{caseId\}\/files/, "Files UI v2 must preserve the authorized case-scoped upload/list API");
+assert.match(filesV2Source, /\/api\/platform\/files\/\$\{fileId\}\/download/, "Files UI v2 must preserve protected file download handoff");
+assert.match(filesV2Source, /MAX_UPLOAD_BYTES = 50 \* 1024 \* 1024/, "Files UI v2 must retain the 50 MB client-side boundary");
 
 assert.match(clientCaseModuleIntroSource, /text-3xl[^\"]*sm:text-5xl/, "shared CLIENT module headings must remain compact on mobile and expand on larger screens");
 assert.match(clientCaseModuleIntroSource, /inline-flex min-h-11 items-center/, "shared CLIENT module back navigation must keep a 44px minimum touch target");
