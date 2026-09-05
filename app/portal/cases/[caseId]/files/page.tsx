@@ -53,6 +53,7 @@ export default async function PortalFilesPage({ params }: { params: Promise<{ ca
     fileName: file.fileName,
     mimeType: file.mimeType,
     sizeBytes: file.sizeBytes.toString(),
+    status: file.status,
     readyAt: file.readyAt?.toISOString() ?? null,
     createdAt: file.createdAt.toISOString(),
   }));
