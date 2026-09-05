@@ -170,12 +170,12 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
     }
   }
 
-  async function download(file: StoredFileView) {
-    if (file.status !== "READY" || downloadingId) return;
-    setDownloadingId(file.id);
+  async function download(fileId: string) {
+    if (downloadingId) return;
+    setDownloadingId(fileId);
     setError(null);
     try {
-      const response = await fetch(`/api/platform/files/${file.id}/download`, {
+      const response = await fetch(`/api/platform/files/${fileId}/download`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ expiresInSeconds: 120 }),
@@ -263,7 +263,7 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
                   {canDownload ? (
                     <button
                       type="button"
-                      onClick={() => download(file)}
+                      onClick={() => download(file.id)}
                       disabled={Boolean(downloadingId)}
                       className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#b9202b]/15 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                     >
