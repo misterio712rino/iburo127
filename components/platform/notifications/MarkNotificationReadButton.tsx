@@ -40,7 +40,7 @@ export function MarkNotificationReadButton({ notificationId }: { notificationId:
         type="button"
         onClick={markRead}
         disabled={pending}
-        className="inline-flex min-h-9 max-w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200/90 bg-white/70 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex min-h-11 max-w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200/90 bg-white/70 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Check className="size-3.5 shrink-0" aria-hidden="true" />
         {pending ? "Сохраняем…" : "Отметить прочитанным"}
