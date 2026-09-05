@@ -26,8 +26,11 @@ assert.match(editorSource, /fetch\("\/api\/platform\/account\/avatar"/);
 assert.match(editorSource, /fetch\("\/api\/platform\/account\/profile"/);
 assert.match(editorSource, /image\/jpeg", "image\/png", "image\/webp/);
 assert.match(editorSource, /5 \* 1024 \* 1024/);
-assert.match(editorSource, /min-h-11/);
-assert.match(editorSource, /min-h-11[^\"]*w-full[^\"]*sm:w-auto/);
+assert.match(editorSource, /hover:opacity-100/);
+assert.match(editorSource, /focus-visible:opacity-100/);
+assert.match(editorSource, /sm:flex/);
+assert.match(editorSource, /sm:hidden/);
+assert.match(editorSource, /aria-label=\{avatarUrl \? "Изменить фотографию профиля" : "Добавить фотографию профиля"\}/);
 assert.match(editorSource, /aria-busy=\{pending\}/);
 assert.doesNotMatch(editorSource, /localStorage|lib\/platform\/demo|DEMO_/i);
 
