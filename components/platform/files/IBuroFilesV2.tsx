@@ -9,6 +9,7 @@ import {
   FileWarning,
   Loader2,
   ShieldCheck,
+  Trash2,
   UploadCloud,
 } from "lucide-react";
 
@@ -106,6 +107,7 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
   const [files, setFiles] = useState(initialFiles);
   const [uploading, setUploading] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -171,7 +173,7 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
   }
 
   async function download(fileId: string) {
-    if (downloadingId) return;
+    if (downloadingId || deletingId) return;
     setDownloadingId(fileId);
     setError(null);
     try {
@@ -187,6 +189,42 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
       setError("Не удалось подготовить защищённую ссылку на файл. Повторите попытку.");
     } finally {
       setDownloadingId(null);
+    }
+  }
+
+  async function remove(file: StoredFileView) {
+    if (deletingId || downloadingId) return;
+    if (file.status === "SCANNING") {
+      setError("Файл сейчас проверяется. Дождитесь завершения проверки и повторите удаление.");
+      return;
+    }
+    if (!window.confirm(`Удалить файл «${file.fileName}»? Это действие нельзя отменить.`)) return;
+
+    setDeletingId(file.id);
+    setError(null);
+    try {
+      const response = await fetch(`/api/platform/files/${file.id}`, {
+        method: "DELETE",
+        headers: { Accept: "application/json" },
+      });
+      const result = (await response.json()) as ApiResult<{ fileId: string }>;
+      if (!result.ok) {
+        if (response.status === 409) {
+          setError("Файл сейчас занят проверкой. Повторите удаление через несколько секунд.");
+          return;
+        }
+        if (response.status === 403 || response.status === 404) {
+          setError("Удалить этот файл нельзя или он уже удалён.");
+          await refreshFiles();
+          return;
+        }
+        throw new Error(result.error.code);
+      }
+      setFiles((current) => current.filter((item) => item.id !== result.data.fileId));
+    } catch {
+      setError("Не удалось удалить файл. Повторите попытку.");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -247,6 +285,8 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
               const status = getStatusPresentation(file.status);
               const StatusIcon = status.icon;
               const canDownload = file.status === "READY";
+              const canDelete = file.status !== "SCANNING";
+              const busy = deletingId === file.id || downloadingId === file.id;
 
               return (
                 <article key={file.id} className="group rounded-[24px] border border-[#e8e8e6] bg-white p-5 shadow-[0_8px_28px_rgba(15,23,42,.035)] transition-colors hover:bg-slate-50/40 sm:p-6">
@@ -260,21 +300,35 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
                     <div className="min-w-0"><dt className="text-slate-400">Размер</dt><dd className="mt-1 font-semibold text-slate-700">{formatSize(file.sizeBytes)}</dd></div>
                     <div className="min-w-0"><dt className="text-slate-400">Добавлен</dt><dd className="mt-1 font-semibold text-slate-700">{formatDate(file.createdAt)}</dd></div>
                   </dl>
-                  {canDownload ? (
+                  <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                    {canDownload ? (
+                      <button
+                        type="button"
+                        onClick={() => download(file.id)}
+                        disabled={Boolean(deletingId || downloadingId)}
+                        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#b9202b]/15 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                      >
+                        {downloadingId === file.id ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Download className="size-4" aria-hidden="true" />}
+                        {downloadingId === file.id ? "Готовим ссылку…" : "Скачать"}
+                      </button>
+                    ) : (
+                      <div className="inline-flex min-h-11 items-center rounded-xl bg-slate-50 px-4 text-xs font-semibold text-slate-500" role="status">
+                        Скачивание станет доступно после проверки
+                      </div>
+                    )}
                     <button
                       type="button"
-                      onClick={() => download(file.id)}
-                      disabled={Boolean(downloadingId)}
-                      className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#b9202b]/15 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                      onClick={() => void remove(file)}
+                      disabled={!canDelete || Boolean(deletingId || downloadingId)}
+                      aria-label={`Удалить файл ${file.fileName}`}
+                      title={canDelete ? "Удалить файл" : "Дождитесь завершения проверки файла"}
+                      className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-red-100 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:border-red-200 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-500/15 disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto"
                     >
-                      {downloadingId === file.id ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Download className="size-4" aria-hidden="true" />}
-                      {downloadingId === file.id ? "Готовим ссылку…" : "Скачать"}
+                      {deletingId === file.id ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Trash2 className="size-4" aria-hidden="true" />}
+                      {deletingId === file.id ? "Удаление…" : "Удалить"}
                     </button>
-                  ) : (
-                    <div className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-slate-50 px-4 text-xs font-semibold text-slate-500" role="status">
-                      Скачивание станет доступно после проверки
-                    </div>
-                  )}
+                    {busy ? <span className="sr-only" role="status">Выполняется операция с файлом</span> : null}
+                  </div>
                 </article>
               );
             })}
