@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { buildProviderAwareStagingAiReadiness } from "@/scripts/staging-ai-readiness";
+import { buildStagingEnvironmentInventory } from "@/scripts/staging-environment-inventory";
 import { buildProviderAwareStagingStorageReadiness } from "@/scripts/staging-storage-readiness";
 import {
   VERCEL_STAGING_BRANCH,
@@ -43,6 +44,7 @@ export async function GET() {
     );
   }
 
+  const inventory = buildStagingEnvironmentInventory(env);
   const providerAwareStorage = buildProviderAwareStagingStorageReadiness(env);
   const providerAwareAi = buildProviderAwareStagingAiReadiness(env);
 
@@ -54,8 +56,8 @@ export async function GET() {
       branch: VERCEL_STAGING_BRANCH,
       commitSha: exactPreviewCommitSha(env),
       runtimeTarget: "staging",
-      networkAccessed: false,
-      valuesPrinted: false,
+      networkAccessed: inventory.networkAccessed,
+      valuesPrinted: inventory.valuesPrinted,
       phases: {
         storage: providerAwareStorage.storage,
         scanner: providerAwareStorage.scanner,
