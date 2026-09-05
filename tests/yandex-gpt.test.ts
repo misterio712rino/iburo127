@@ -10,11 +10,12 @@ import { YandexGptGateway } from "@/server/ai/yandex-gpt-core";
 
 assert.equal(readAiProviderName({} as NodeJS.ProcessEnv), "openai");
 assert.equal(
-  readAiProviderName({ IB_AI_PROVIDER: " YANDEX " } as NodeJS.ProcessEnv),
+  readAiProviderName({ IB_AI_PROVIDER: " YANDEX " } as unknown as NodeJS.ProcessEnv),
   "yandex",
 );
 assert.throws(
-  () => readAiProviderName({ IB_AI_PROVIDER: "unknown" } as NodeJS.ProcessEnv),
+  () =>
+    readAiProviderName({ IB_AI_PROVIDER: "unknown" } as unknown as NodeJS.ProcessEnv),
   new RegExp(`${AI_PROVIDER_CONFIG_ERROR}:IB_AI_PROVIDER`),
 );
 
@@ -24,7 +25,7 @@ const env = {
   IB_AI_YANDEX_MODEL: "yandexgpt/latest",
   IB_AI_YANDEX_REQUEST_TIMEOUT_MS: "2500",
   IB_AI_YANDEX_MAX_OUTPUT_TOKENS: "900",
-} as NodeJS.ProcessEnv;
+} as unknown as NodeJS.ProcessEnv;
 const config = readYandexGptRuntimeConfig(env);
 assert.deepEqual(config, {
   apiKey: env.YANDEX_AI_API_KEY,
