@@ -5,8 +5,8 @@ locals {
     repository  = "iburo127"
   }
 
-  resolved_image_id = var.image_id != "" ? var.image_id : data.yandex_compute_image.ubuntu_2404[0].id
-  ssh_enabled       = var.allow_operator_ssh && var.operator_ssh_cidr != "" && var.ssh_public_key != ""
+  resolved_image_id   = var.image_id != "" ? var.image_id : data.yandex_compute_image.ubuntu_2404[0].id
+  ssh_enabled         = var.allow_operator_ssh && var.operator_ssh_cidr != "" && var.ssh_public_key != ""
   scanner_compose_b64 = filebase64("${path.module}/../../services/file-scanner/deploy/docker-compose.staging.yml")
 }
 
