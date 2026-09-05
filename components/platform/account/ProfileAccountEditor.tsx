@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import { Camera, Check, Pencil, UserRound, X } from "lucide-react";
 
+import { formatProfileDisplayName, formatProfileNameForStorage } from "@/lib/platform/profile-display-name";
+
 type AvatarProps = {
   avatarUrl: string | null;
 };
@@ -10,20 +12,6 @@ type AvatarProps = {
 type NameProps = {
   displayName: string;
 };
-
-function swapFirstAndLastName(value: string) {
-  const parts = value.trim().replace(/\s+/g, " ").split(" ");
-  if (parts.length !== 3) return parts.join(" ");
-  return [parts[1], parts[0], parts[2]].join(" ");
-}
-
-export function formatProfileDisplayName(value: string) {
-  return swapFirstAndLastName(value);
-}
-
-function formatProfileNameForStorage(value: string) {
-  return swapFirstAndLastName(value);
-}
 
 export function ProfileAvatarEditor({ avatarUrl }: AvatarProps) {
   const [pending, setPending] = useState(false);
