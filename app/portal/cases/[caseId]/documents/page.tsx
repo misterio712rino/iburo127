@@ -9,6 +9,7 @@ import { IBuroClientShellV2 } from "@/components/portal/IBuroClientShellV2";
 import { getPlanDisplayLabel } from "@/lib/platform/case-progress";
 import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
 import { resolveCasePortalAudience } from "@/lib/platform/case-portal-audience";
+import { formatProfileDisplayName } from "@/lib/platform/profile-display-name";
 import type { PlanCode } from "@/lib/platform/types";
 import { getCurrentAccountProfile } from "@/server/account/operations";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
@@ -86,7 +87,8 @@ export default async function PortalDocumentsPage({ params }: { params: Promise<
     clientCaseService.listCases(actor),
     listNotifications(sessionProvider, 100),
   ]);
-  const displayName = profile.displayName?.trim() || "Клиент iБюро";
+  const storedDisplayName = profile.displayName?.trim() || "Клиент iБюро";
+  const displayName = formatProfileDisplayName(storedDisplayName);
   const cases = allCases.filter((item) => item.clientId === actor.userId).map((item) => ({
     id: item.id,
     displayNumber: getClientCaseDisplayNumber(item.caseNumber),
