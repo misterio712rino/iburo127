@@ -1,0 +1,30 @@
+cloud_id  = "<REVIEWED_STAGING_CLOUD_ID>"
+folder_id = "<REVIEWED_STAGING_FOLDER_ID>"
+zone      = "ru-central1-d"
+
+network_id = "<EXISTING_STAGING_NETWORK_ID>"
+subnet_name = "iburo127-file-scanner-staging-d"
+subnet_cidr = "10.132.0.0/28"
+
+runtime_service_account_id = "<STAGING_SCANNER_RUNTIME_SERVICE_ACCOUNT_ID>"
+
+vm_name            = "iburo-file-scanner-staging"
+platform_id         = "standard-v3"
+cores               = 2
+core_fraction       = 100
+memory_gb           = 8
+boot_disk_size_gb   = 32
+boot_disk_type      = "network-ssd"
+public_ip_name      = "iburo-file-scanner-staging-ip"
+security_group_name = "iburo-file-scanner-staging-sg"
+
+allow_operator_ssh = false
+operator_ssh_cidr  = ""
+ssh_public_key     = ""
+
+scanner_image        = "cr.yandex/<STAGING_REGISTRY_ID>/iburo-file-scanner"
+scanner_image_digest = "sha256:<REPLACE_WITH_64_HEX_REGISTRY_DIGEST>"
+
+scanner_hostname       = ""
+tls_activation_enabled = false
+environment            = "staging"

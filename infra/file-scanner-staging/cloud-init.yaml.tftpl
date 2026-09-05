@@ -1,0 +1,61 @@
+#cloud-config
+package_update: true
+package_upgrade: false
+
+packages:
+  - ca-certificates
+  - caddy
+  - curl
+  - docker.io
+  - docker-compose-v2
+  - jq
+
+write_files:
+  - path: /etc/docker/daemon.json
+    owner: root:root
+    permissions: "0644"
+    content: |
+      {
+        "log-driver": "local",
+        "log-opts": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      }
+  - path: /etc/systemd/system/caddy.service.d/iburo-file-scanner-staging.conf
+    owner: root:root
+    permissions: "0644"
+    content: |
+      [Service]
+      Environment=XDG_DATA_HOME=/srv/iburo-file-scanner/caddy/data
+      Environment=XDG_CONFIG_HOME=/srv/iburo-file-scanner/caddy/config
+  - path: /etc/iburo-file-scanner/image.env
+    owner: root:root
+    permissions: "0644"
+    content: |
+      SCANNER_IMAGE=${scanner_image}
+      SCANNER_IMAGE_DIGEST=${scanner_image_digest}
+  - path: /opt/iburo/file-scanner/docker-compose.staging.yml
+    owner: root:root
+    permissions: "0644"
+    encoding: b64
+    content: ${scanner_compose_b64}
+  - path: /usr/local/sbin/iburo-file-scanner-activate
+    owner: root:root
+    permissions: "0750"
+    encoding: b64
+    content: ${scanner_activate_b64}
+
+runcmd:
+  - [install, -d, -m, "0700", -o, root, -g, root, /etc/iburo-file-scanner]
+  - [install, -d, -m, "0750", -o, root, -g, root, /srv/iburo-file-scanner]
+  - [install, -d, -m, "0750", -o, root, -g, root, /srv/iburo-file-scanner/clamav]
+  - [install, -d, -m, "0750", -o, root, -g, root, /opt/iburo/file-scanner]
+  - [install, -d, -m, "0750", -o, caddy, -g, caddy, /srv/iburo-file-scanner/caddy]
+  - [install, -d, -m, "0750", -o, caddy, -g, caddy, /srv/iburo-file-scanner/caddy/data]
+  - [install, -d, -m, "0750", -o, caddy, -g, caddy, /srv/iburo-file-scanner/caddy/config]
+  - [systemctl, daemon-reload]
+  - [systemctl, enable, --now, docker]
+  - [systemctl, disable, --now, caddy]
+
+final_message: "Staging scanner host prerequisites prepared; scanner, secret, DNS, and TLS remain intentionally unconfigured."

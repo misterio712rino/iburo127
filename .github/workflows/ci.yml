@@ -1,0 +1,217 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - demo/investor-preview
+      - audit/production-readiness
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Exact candidate checkout
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$EXPECTED_SHA" ]; then
+            echo "EXACT_CANDIDATE_CHECKOUT_FAIL: expected=$EXPECTED_SHA actual=$actual_sha" >&2
+            exit 1
+          fi
+          echo "EXACT_CANDIDATE_CHECKOUT_PASS: $actual_sha"
+
+      - name: GitHub Actions pin policy
+        run: npm run check:ci-action-pins
+
+      - name: GitHub workflow security policy
+        run: npm run check:ci-workflow-security
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Toolchain policy
+        run: node scripts/check-toolchain.mjs
+
+      - name: Secret exposure policy
+        run: node scripts/check-secret-exposure.mjs
+
+      - name: Secret exposure policy regression
+        run: node tests/secret-exposure-policy.test.mjs
+
+      - name: Install-script policy
+        run: node scripts/check-install-scripts-policy.mjs
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Vercel Preview identity verifier contract
+        run: npx tsx tests/vercel-preview-identity-verifier-contract.test.ts
+
+      - name: Dependency audit policy
+        shell: bash
+        run: |
+          node scripts/fetch-npm-audit.mjs "$RUNNER_TEMP/npm-audit.json"
+          node scripts/report-npm-audit.mjs "$RUNNER_TEMP/npm-audit.json"
+          node scripts/check-npm-audit-policy.mjs "$RUNNER_TEMP/npm-audit.json" package-lock.json
+
+      - name: Prisma CLI production isolation policy
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from "node:fs";
+          import { join } from "node:path";
+
+          const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
+          const config = readFileSync("prisma.config.ts", "utf8");
+          const legacy =
+            packageJson.devDependencies?.prisma === "7.9.1" &&
+            packageJson.devDependencies?.["prisma-cli"] === undefined &&
+            config.includes('from "prisma/config"');
+          const aliased =
+            packageJson.devDependencies?.prisma === undefined &&
+            packageJson.devDependencies?.["prisma-cli"] === "npm:prisma@7.9.1" &&
+            config.includes('from "prisma-cli/config"');
+
+          if (!legacy && !aliased) {
+            console.error("PRISMA_ISOLATION_FAIL: unsupported Prisma dependency/config state");
+            process.exit(1);
+          }
+
+          const state = legacy ? "legacy" : "aliased";
+          writeFileSync(join(process.env.RUNNER_TEMP, "prisma-isolation-state"), state);
+
+          if (legacy) {
+            delete packageJson.devDependencies.prisma;
+            packageJson.devDependencies["prisma-cli"] = "npm:prisma@7.9.1";
+            writeFileSync("package.json", `${JSON.stringify(packageJson, null, 2)}\n`);
+            writeFileSync(
+              "prisma.config.ts",
+              config.replace('from "prisma/config"', 'from "prisma-cli/config"'),
+            );
+          }
+
+          console.log(`PRISMA_ISOLATION_STATE: ${state}`);
+          NODE
+
+          state="$(cat "$RUNNER_TEMP/prisma-isolation-state")"
+          if [ "$state" = "legacy" ]; then
+            npm install --package-lock-only --ignore-scripts --audit=false --fund=false
+            npm ci
+          fi
+
+          test -x node_modules/.bin/prisma
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const aliased = JSON.parse(readFileSync("node_modules/prisma-cli/package.json", "utf8"));
+          if (aliased.name !== "prisma" || aliased.version !== "7.9.1") {
+            console.error("PRISMA_ISOLATION_FAIL: alias did not install pinned Prisma CLI");
+            process.exit(1);
+          }
+          console.log("PRISMA_ISOLATION_CLI_PASS");
+          NODE
+
+          node scripts/fetch-npm-audit.mjs "$RUNNER_TEMP/npm-audit-prisma-isolation.json"
+          node scripts/report-npm-audit.mjs "$RUNNER_TEMP/npm-audit-prisma-isolation.json"
+          node scripts/check-npm-audit-policy.mjs "$RUNNER_TEMP/npm-audit-prisma-isolation.json" package-lock.json
+
+          production_root="$RUNNER_TEMP/iburo-production-install"
+          rm -rf "$production_root"
+          mkdir -p "$production_root"
+          cp package.json package-lock.json "$production_root/"
+          (
+            cd "$production_root"
+            npm ci --omit=dev --ignore-scripts --audit=false --fund=false
+          )
+          node scripts/check-production-install.mjs "$production_root"
+
+          if [ "$state" = "legacy" ]; then
+            echo "PRISMA_ISOLATION_PREVIEW_DIFF:"
+            git diff --numstat -- package.json package-lock.json prisma.config.ts
+          else
+            git diff --exit-code -- package.json package-lock.json prisma.config.ts
+            echo "PRISMA_ISOLATION_COMMITTED_STATE_PASS"
+          fi
+
+      - name: Runtime PII logging gate
+        run: npm run check:runtime-logging
+
+      - name: Validate Prisma schema
+        run: npm run db:validate
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: File scanner service tests
+        run: node --test services/file-scanner/tests/*.test.mjs
+
+      - name: File scanner Docker build
+        shell: bash
+        run: |
+          image="iburo-file-scanner-ci:${GITHUB_SHA}"
+          docker build --pull=false --tag "$image" services/file-scanner
+
+          entrypoint="$(docker image inspect "$image" --format '{{json .Config.Entrypoint}}')"
+          exposed_ports="$(docker image inspect "$image" --format '{{json .Config.ExposedPorts}}')"
+          runtime_user="$(docker image inspect "$image" --format '{{.Config.User}}')"
+          test "$entrypoint" = '["/usr/bin/tini","--","/usr/local/bin/file-scanner-entrypoint"]'
+          test "$exposed_ports" = '{"8080/tcp":{}}'
+          # Root is limited to the entrypoint's initialization; clamd, freshclam and Node use gosu clamav.
+          test -z "$runtime_user"
+
+          docker run --rm --network none --entrypoint /bin/sh "$image" -ceu '
+            command -v node >/dev/null
+            command -v clamd >/dev/null
+            command -v freshclam >/dev/null
+            command -v tini >/dev/null
+            command -v gosu >/dev/null
+            test -f /etc/clamav/clamd.conf
+            test -f /etc/clamav/freshclam.conf
+            test -x /usr/local/bin/file-scanner-entrypoint
+          '
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.1
+          terraform_wrapper: false
+
+      - name: Staging scanner Terraform format
+        run: terraform -chdir=infra/file-scanner-staging fmt -check
+
+      - name: Staging scanner Terraform validate
+        shell: bash
+        env:
+          TF_IN_AUTOMATION: "true"
+        run: |
+          terraform -chdir=infra/file-scanner-staging init -backend=false -input=false
+          terraform -chdir=infra/file-scanner-staging validate
+
+      - name: Production foundation tests
+        run: npm run test:foundation
+
+      - name: TypeScript
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build

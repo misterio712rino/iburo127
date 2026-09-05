@@ -1,0 +1,236 @@
+name: Staging Application E2E
+# Every candidate push gets an exact-SHA E2E run; identity/backend guards block staging mutation until activation.
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Exact 40-character candidate SHA to verify
+        required: true
+        type: string
+      confirmation:
+        description: Type RUN_STAGING_APPLICATION_E2E
+        required: true
+        type: string
+  push:
+    branches:
+      - audit/production-readiness
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.ref_name == 'audit/production-readiness'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      IB_RUNTIME_TARGET: staging
+      IB_STAGING_BASE_URL: https://iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
+      IB_STAGING_DATABASE_NAME: neondb
+      IB_STAGING_AUTH_FLOW_TARGET: staging
+      IB_STAGING_AUTH_FLOW_CONFIRM: AUTH-FLOW:iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
+      IB_STAGING_AUTH_REQUEST_TIMEOUT_MS: "15000"
+      IB_STAGING_CLIENT_EMAIL: client.individual@example.test
+      IB_STAGING_LAWYER_EMAIL: lawyer.demo@example.test
+      IB_STAGING_MANAGER_EMAIL: manager.demo@example.test
+      IB_STAGING_CLIENT_CASE_NUMBER: IBR-2026-000103
+      IB_STAGING_CLIENT_UNASSIGNED_CASE_NUMBER: IBR-2026-000104
+      IB_STAGING_LAWYER_CASE_NUMBER: IBR-2026-000102
+      IB_STAGING_CLIENT_AI_CASE_NUMBER: IBR-2026-000103
+      IB_STAGING_CLIENT_SECOND_AI_CASE_NUMBER: IBR-2026-000104
+      IB_STAGING_MUTATION_TARGET: staging
+      IB_STAGING_MUTATION_CONFIRM: MUTATE:iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
+      IB_STAGING_MUTATION_CASE_NUMBER: IBR-2026-009901
+      IB_STAGING_MUTATION_TASK_ID: 12700000-9901-4000-8000-000000000001
+      IB_STAGING_FILES_E2E: "1"
+      IB_STAGING_FILE_SCAN_E2E: "0"
+      IB_STAGING_PRIVATE_BUCKET_CONFIRM: PRIVATE_STAGING_BUCKET:iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Exact staging gate
+        shell: bash
+        env:
+          REQUESTED_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.sha }}
+          CONFIRMATION: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmation || 'RUN_STAGING_APPLICATION_E2E' }}
+        run: |
+          if [ "$CONFIRMATION" != "RUN_STAGING_APPLICATION_E2E" ]; then
+            echo "STAGING_APPLICATION_E2E_GATE_FAIL: confirmation mismatch" >&2
+            exit 1
+          fi
+          if ! printf '%s' "$REQUESTED_SHA" | grep -Eq '^[a-f0-9]{40}$'; then
+            echo "STAGING_APPLICATION_E2E_GATE_FAIL: candidate SHA must be 40 lowercase hex characters" >&2
+            exit 1
+          fi
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$GITHUB_SHA" ] || [ "$actual_sha" != "$REQUESTED_SHA" ]; then
+            echo "STAGING_APPLICATION_E2E_GATE_FAIL: exact candidate mismatch" >&2
+            exit 1
+          fi
+          echo "STAGING_APPLICATION_E2E_GATE_PASS: $actual_sha"
+
+      - name: GitHub Actions pin policy
+        run: npm run check:ci-action-pins
+
+      - name: GitHub workflow security policy
+        run: npm run check:ci-workflow-security
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify exact protected Preview identity
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          identity_file="$RUNNER_TEMP/staging-application-e2e-identity.json"
+          max_attempts=18
+          delay_seconds=5
+          rm -f "$identity_file"
+          trap 'rm -f "$identity_file"' EXIT
+
+          for attempt in $(seq 1 "$max_attempts"); do
+            http_status="$(
+              curl --silent --show-error \
+                --output "$identity_file" \
+                --write-out '%{http_code}' \
+                -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+                "$IB_STAGING_BASE_URL/_iburo/staging-identity" \
+                || true
+            )"
+
+            if [ "$http_status" = "200" ] && IDENTITY_FILE="$identity_file" node --input-type=module -e '
+              import { readFileSync } from "node:fs";
+              try {
+                const body = JSON.parse(readFileSync(process.env.IDENTITY_FILE, "utf8"));
+                if (
+                  body.service === "iburo127" &&
+                  body.environment === "preview" &&
+                  body.branch === "audit/production-readiness" &&
+                  body.commitSha === process.env.GITHUB_SHA &&
+                  body.runtimeTarget === "staging" &&
+                  body.backendEnabled === true
+                ) process.exit(0);
+              } catch {}
+              process.exit(1);
+            '; then
+              echo "STAGING_APPLICATION_E2E_IDENTITY_PASS"
+              exit 0
+            fi
+
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              echo "STAGING_APPLICATION_E2E_IDENTITY_WAIT: attempt=$attempt/$max_attempts"
+              sleep "$delay_seconds"
+            fi
+          done
+
+          echo "STAGING_APPLICATION_E2E_IDENTITY_FAIL" >&2
+          exit 1
+
+      - name: Ensure LITE and PRO client auth fixtures
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          curl --silent --show-error --fail-with-body \
+            -X POST \
+            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+            -H "Origin: $IB_STAGING_BASE_URL" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            --data-urlencode "confirm=BOOTSTRAP_CLIENT_PLAN_AUTH:${IB_STAGING_DATABASE_NAME}:public:${GITHUB_SHA}" \
+            "$IB_STAGING_BASE_URL/_iburo/staging-client-plan-auth-fixtures" \
+          | node --input-type=module -e '
+              let input = "";
+              for await (const chunk of process.stdin) input += chunk;
+              const body = JSON.parse(input);
+              const labels = Array.isArray(body.fixtures) ? body.fixtures.map((fixture) => fixture.label).sort() : [];
+              if (
+                body.pass !== true ||
+                body.commitSha !== process.env.GITHUB_SHA ||
+                body.runtimeTarget !== "staging" ||
+                body.database !== process.env.IB_STAGING_DATABASE_NAME ||
+                body.schema !== "public" ||
+                JSON.stringify(labels) !== JSON.stringify(["CLIENT_LITE", "CLIENT_PRO"])
+              ) {
+                console.error("STAGING_CLIENT_PLAN_AUTH_FIXTURE_FAIL");
+                process.exit(1);
+              }
+              console.log("STAGING_CLIENT_PLAN_AUTH_FIXTURE_PASS");
+            '
+
+      - name: Reset dedicated application E2E fixtures
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          curl --silent --show-error --fail-with-body \
+            -X POST \
+            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+            -H "Origin: $IB_STAGING_BASE_URL" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            --data-urlencode "confirm=RESET_APPLICATION_E2E:${IB_STAGING_DATABASE_NAME}:public:${GITHUB_SHA}" \
+            "$IB_STAGING_BASE_URL/_iburo/staging-application-e2e-fixtures" \
+          | node --input-type=module -e '
+              let input = "";
+              for await (const chunk of process.stdin) input += chunk;
+              const body = JSON.parse(input);
+              if (
+                body.pass !== true ||
+                body.commitSha !== process.env.GITHUB_SHA ||
+                body.runtimeTarget !== "staging" ||
+                body.database !== process.env.IB_STAGING_DATABASE_NAME ||
+                body.schema !== "public" ||
+                body.mutationCaseNumber !== process.env.IB_STAGING_MUTATION_CASE_NUMBER ||
+                body.mutationTaskId !== process.env.IB_STAGING_MUTATION_TASK_ID ||
+                body.taskStatus !== "NEW" ||
+                body.taskVersion !== 1
+              ) {
+                console.error("STAGING_APPLICATION_E2E_FIXTURE_RESET_FAIL");
+                process.exit(1);
+              }
+              console.log("STAGING_APPLICATION_E2E_FIXTURE_RESET_PASS");
+            '
+
+      - name: Verify LITE and PRO client sign-in matrix
+        env:
+          IB_STAGING_VERCEL_AUTOMATION_BYPASS: "1"
+          NODE_OPTIONS: --import=./scripts/staging-vercel-protection-bypass.mjs
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          IB_STAGING_CLIENT_PASSWORD: ${{ secrets.IB_STAGING_CLIENT_PASSWORD }}
+        run: node --import tsx scripts/verify-staging-client-plan-logins.ts
+
+      # Better Auth 1.7.2 protects /sign-in/email with a 3-request / 10-second
+      # per-IP endpoint rule. The plan-login matrix and full role matrix are
+      # independent assertions, so keep them in separate limiter windows.
+      - name: Respect Better Auth sign-in rate-limit window
+        shell: bash
+        run: sleep 11
+
+      - name: Fresh-session authentication and application E2E
+        env:
+          IB_STAGING_VERCEL_AUTOMATION_BYPASS: "1"
+          NODE_OPTIONS: --import=./scripts/staging-vercel-protection-bypass.mjs
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          IB_STAGING_CLIENT_PASSWORD: ${{ secrets.IB_STAGING_CLIENT_PASSWORD }}
+          IB_STAGING_OTHER_CLIENT_EMAIL: client.lite@example.test
+          IB_STAGING_OTHER_CLIENT_PASSWORD: ${{ secrets.IB_STAGING_CLIENT_PASSWORD }}
+          IB_STAGING_LAWYER_PASSWORD: ${{ secrets.IB_STAGING_LAWYER_PASSWORD }}
+          IB_STAGING_LAWYER_TOTP_SECRET: ${{ secrets.IB_STAGING_LAWYER_TOTP_SECRET }}
+          IB_STAGING_MANAGER_PASSWORD: ${{ secrets.IB_STAGING_MANAGER_PASSWORD }}
+          IB_STAGING_MANAGER_TOTP_SECRET: ${{ secrets.IB_STAGING_MANAGER_TOTP_SECRET }}
+        run: npm run check:staging:application-e2e

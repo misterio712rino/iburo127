@@ -1,0 +1,251 @@
+import "server-only";
+
+import { getPrismaClient } from "@/server/database/prisma";
+import {
+  DOCUMENT_NOT_FOUND,
+  DOCUMENT_VERSION_CONFLICT,
+  type CaseDocumentRecord,
+  type CaseDocumentRepository,
+  type CaseDocumentStatus,
+} from "@/server/domain/documents/contracts";
+import { buildCaseActivityWrite } from "@/server/repositories/prisma/case-activity-write";
+import { createCaseNotificationInTransaction } from "@/server/repositories/prisma/case-notification-write";
+import { isPrismaUniqueConstraintError } from "@/server/repositories/prisma/errors";
+
+function toRecord(row: {
+  id: string;
+  clientCaseId: string;
+  documentCode: string;
+  status: CaseDocumentStatus;
+  regeneratedAt: Date | null;
+  sentForReviewAt: Date | null;
+  reviewedAt: Date | null;
+  version: number;
+  createdAt: Date;
+  updatedAt: Date;
+}): CaseDocumentRecord {
+  return row;
+}
+
+function assertExpectedVersion(currentVersion: number, expectedVersion: number) {
+  if (currentVersion !== expectedVersion) {
+    throw new Error(DOCUMENT_VERSION_CONFLICT);
+  }
+}
+
+export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
+  async getByCaseAndCode(clientCaseId: string, documentCode: string) {
+    const prisma = getPrismaClient();
+    const row = await prisma.caseDocument.findUnique({
+      where: { clientCaseId_documentCode: { clientCaseId, documentCode } },
+    });
+    return row ? toRecord(row) : null;
+  }
+
+  async listByCase(clientCaseId: string) {
+    const prisma = getPrismaClient();
+    const rows = await prisma.caseDocument.findMany({
+      where: { clientCaseId },
+      orderBy: { createdAt: "asc" },
+    });
+    return rows.map(toRecord);
+  }
+
+  async createForCase(input: {
+    clientCaseId: string;
+    documentCode: string;
+    status: CaseDocumentStatus;
+  }) {
+    const prisma = getPrismaClient();
+    try {
+      const row = await prisma.caseDocument.create({ data: input });
+      return toRecord(row);
+    } catch (error) {
+      if (!isPrismaUniqueConstraintError(error)) throw error;
+      const existing = await prisma.caseDocument.findUnique({
+        where: {
+          clientCaseId_documentCode: {
+            clientCaseId: input.clientCaseId,
+            documentCode: input.documentCode,
+          },
+        },
+      });
+      if (!existing) throw error;
+      return toRecord(existing);
+    }
+  }
+
+  async regenerate(input: {
+    clientCaseId: string;
+    documentCode: string;
+    status: CaseDocumentStatus;
+    expectedVersion: number;
+    auditActorUserId: string;
+  }) {
+    const prisma = getPrismaClient();
+    return prisma.$transaction(async (tx) => {
+      const current = await tx.caseDocument.findUnique({
+        where: {
+          clientCaseId_documentCode: {
+            clientCaseId: input.clientCaseId,
+            documentCode: input.documentCode,
+          },
+        },
+      });
+      if (!current) throw new Error(DOCUMENT_NOT_FOUND);
+      assertExpectedVersion(current.version, input.expectedVersion);
+
+      const updated = await tx.caseDocument.updateMany({
+        where: { id: current.id, version: input.expectedVersion },
+        data: {
+          status: input.status,
+          regeneratedAt: new Date(),
+          sentForReviewAt: null,
+          reviewedAt: null,
+          version: { increment: 1 },
+        },
+      });
+      if (updated.count !== 1) throw new Error(DOCUMENT_VERSION_CONFLICT);
+
+      await tx.caseActivityEvent.create({
+        data: buildCaseActivityWrite({
+          clientCaseId: input.clientCaseId,
+          actorUserId: input.auditActorUserId,
+          type: "document.regenerated",
+          metadata: {
+            documentCode: input.documentCode,
+            documentStatus: input.status,
+          },
+        }),
+      });
+
+      const row = await tx.caseDocument.findUnique({ where: { id: current.id } });
+      if (!row) throw new Error(DOCUMENT_NOT_FOUND);
+      return toRecord(row);
+    });
+  }
+
+  async sendForReview(input: {
+    clientCaseId: string;
+    documentCode: string;
+    expectedVersion: number;
+    auditActorUserId: string;
+  }) {
+    const prisma = getPrismaClient();
+    return prisma.$transaction(async (tx) => {
+      const current = await tx.caseDocument.findUnique({
+        where: {
+          clientCaseId_documentCode: {
+            clientCaseId: input.clientCaseId,
+            documentCode: input.documentCode,
+          },
+        },
+      });
+      if (!current) throw new Error(DOCUMENT_NOT_FOUND);
+      assertExpectedVersion(current.version, input.expectedVersion);
+
+      const updated = await tx.caseDocument.updateMany({
+        where: { id: current.id, version: input.expectedVersion },
+        data: {
+          status: "SENT_FOR_REVIEW",
+          sentForReviewAt: new Date(),
+          version: { increment: 1 },
+        },
+      });
+      if (updated.count !== 1) throw new Error(DOCUMENT_VERSION_CONFLICT);
+
+      await tx.caseActivityEvent.create({
+        data: buildCaseActivityWrite({
+          clientCaseId: input.clientCaseId,
+          actorUserId: input.auditActorUserId,
+          type: "document.sent_for_review",
+          metadata: {
+            documentCode: input.documentCode,
+            documentStatus: "SENT_FOR_REVIEW",
+          },
+        }),
+      });
+
+      const clientCase = await tx.clientCase.findUnique({
+        where: { id: input.clientCaseId },
+        select: { caseNumber: true, assignedLawyerId: true },
+      });
+      if (clientCase?.assignedLawyerId) {
+        await createCaseNotificationInTransaction(tx, {
+          userId: clientCase.assignedLawyerId,
+          clientCaseId: input.clientCaseId,
+          dedupeKey: `document.ready_for_review:${current.id}:${input.expectedVersion + 1}`,
+          type: "document.ready_for_review",
+          title: "Документ ожидает проверки",
+          body: `По делу ${clientCase.caseNumber} появился документ, ожидающий вашей проверки.`,
+        });
+      }
+
+      const row = await tx.caseDocument.findUnique({ where: { id: current.id } });
+      if (!row) throw new Error(DOCUMENT_NOT_FOUND);
+      return toRecord(row);
+    });
+  }
+
+  async markReviewed(input: {
+    clientCaseId: string;
+    documentCode: string;
+    expectedVersion: number;
+    auditActorUserId: string;
+  }) {
+    const prisma = getPrismaClient();
+    return prisma.$transaction(async (tx) => {
+      const current = await tx.caseDocument.findUnique({
+        where: {
+          clientCaseId_documentCode: {
+            clientCaseId: input.clientCaseId,
+            documentCode: input.documentCode,
+          },
+        },
+      });
+      if (!current) throw new Error(DOCUMENT_NOT_FOUND);
+      assertExpectedVersion(current.version, input.expectedVersion);
+
+      const updated = await tx.caseDocument.updateMany({
+        where: { id: current.id, version: input.expectedVersion },
+        data: {
+          status: "REVIEWED",
+          reviewedAt: new Date(),
+          version: { increment: 1 },
+        },
+      });
+      if (updated.count !== 1) throw new Error(DOCUMENT_VERSION_CONFLICT);
+
+      await tx.caseActivityEvent.create({
+        data: buildCaseActivityWrite({
+          clientCaseId: input.clientCaseId,
+          actorUserId: input.auditActorUserId,
+          type: "document.reviewed",
+          metadata: {
+            documentCode: input.documentCode,
+            documentStatus: "REVIEWED",
+          },
+        }),
+      });
+
+      const clientCase = await tx.clientCase.findUnique({
+        where: { id: input.clientCaseId },
+        select: { caseNumber: true, clientId: true },
+      });
+      if (clientCase) {
+        await createCaseNotificationInTransaction(tx, {
+          userId: clientCase.clientId,
+          clientCaseId: input.clientCaseId,
+          dedupeKey: `document.reviewed:${current.id}:${input.expectedVersion + 1}`,
+          type: "document.reviewed",
+          title: "Документ проверен",
+          body: `Документ по делу ${clientCase.caseNumber} прошёл проверку. Откройте раздел документов, чтобы увидеть актуальный статус.`,
+        });
+      }
+
+      const row = await tx.caseDocument.findUnique({ where: { id: current.id } });
+      if (!row) throw new Error(DOCUMENT_NOT_FOUND);
+      return toRecord(row);
+    });
+  }
+}
