@@ -80,13 +80,17 @@ export class StoredFileService {
 
   async takeOwnedForDeletion(actor: AuthenticatedActor, fileId: string) {
     await this.getOwnedForDeletion(actor, fileId);
-    const deleted = await this.repository.takeOwnedForDeletion(fileId, actor.userId);
+    const takeOwnedForDeletion = this.repository.takeOwnedForDeletion;
+    if (!takeOwnedForDeletion) throw new Error(FILE_DELETE_CONFLICT);
+    const deleted = await takeOwnedForDeletion.call(this.repository, fileId, actor.userId);
     if (!deleted) throw new Error(FILE_DELETE_CONFLICT);
     return deleted;
   }
 
   async restoreDeleted(file: StoredFileRecord) {
-    return this.repository.restoreDeleted(file);
+    const restoreDeleted = this.repository.restoreDeleted;
+    if (!restoreDeleted) return false;
+    return restoreDeleted.call(this.repository, file);
   }
 
   async registerPendingUpload(
