@@ -13,3 +13,8 @@ export async function GET(_request: Request, context: RouteContext) {
   const { fileId } = await context.params;
   return adapter().get(fileId);
 }
+
+export async function DELETE(_request: Request, context: RouteContext) {
+  const { fileId } = await context.params;
+  return adapter().delete(fileId);
+}
