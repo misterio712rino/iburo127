@@ -5,9 +5,10 @@ locals {
     repository  = "iburo127"
   }
 
-  resolved_image_id   = var.image_id != "" ? var.image_id : data.yandex_compute_image.ubuntu_2404[0].id
-  ssh_enabled         = var.allow_operator_ssh && var.operator_ssh_cidr != "" && var.ssh_public_key != ""
-  scanner_compose_b64 = filebase64("${path.module}/../../services/file-scanner/deploy/docker-compose.staging.yml")
+  resolved_image_id    = var.image_id != "" ? var.image_id : data.yandex_compute_image.ubuntu_2404[0].id
+  ssh_enabled          = var.allow_operator_ssh && var.operator_ssh_cidr != "" && var.ssh_public_key != ""
+  scanner_compose_b64  = filebase64("${path.module}/../../services/file-scanner/deploy/docker-compose.staging.yml")
+  scanner_activate_b64 = filebase64("${path.module}/../../services/file-scanner/deploy/activate-staging.sh")
 }
 
 data "yandex_compute_image" "ubuntu_2404" {
@@ -153,6 +154,7 @@ resource "yandex_compute_instance" "scanner" {
         scanner_image        = var.scanner_image
         scanner_image_digest = var.scanner_image_digest
         scanner_compose_b64  = local.scanner_compose_b64
+        scanner_activate_b64 = local.scanner_activate_b64
       })
     },
     local.ssh_enabled ? {
