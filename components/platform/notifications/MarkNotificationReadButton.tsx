@@ -35,14 +35,14 @@ export function MarkNotificationReadButton({ notificationId }: { notificationId:
   }
 
   return (
-    <div className="mt-4 flex min-w-0 flex-wrap items-center gap-3" aria-busy={pending}>
+    <div className="mt-3 flex min-w-0 flex-wrap items-center gap-3" aria-busy={pending}>
       <button
         type="button"
         onClick={markRead}
         disabled={pending}
-        className="inline-flex min-h-11 w-full max-w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+        className="inline-flex min-h-9 max-w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200/90 bg-white/70 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <Check className="size-4 shrink-0" aria-hidden="true" />
+        <Check className="size-3.5 shrink-0" aria-hidden="true" />
         {pending ? "Сохраняем…" : "Отметить прочитанным"}
       </button>
       {error ? <span role="alert" className="min-w-0 break-words text-xs font-semibold text-red-700">Не удалось обновить уведомление.</span> : null}
