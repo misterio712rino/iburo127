@@ -12,9 +12,10 @@ const profileRouteSource = await readFile(resolve("app/api/platform/account/prof
 assert.match(profilePageSource, /getCurrentAccountProfile\(sessionProvider\)/);
 assert.match(profilePageSource, /getCurrentAccountAvatarUrl\(sessionProvider\)/);
 assert.match(profilePageSource, /listAccessibleClientCases\(sessionProvider\)/);
+assert.match(profilePageSource, /formatProfileDisplayName\(storedDisplayName\)/);
 assert.match(profilePageSource, /<ProfileAvatarEditor avatarUrl=\{avatarUrl\} \/>/);
-assert.match(profilePageSource, /<ProfileDisplayNameEditor displayName=\{displayName\} \/>/);
-assert.match(profilePageSource, /<IBuroClientShellV2[\s\S]*caseId=\{selectedClientCase\.id\}[\s\S]*cases=\{caseOptions\}/);
+assert.match(profilePageSource, /<ProfileDisplayNameEditor displayName=\{storedDisplayName\} \/>/);
+assert.match(profilePageSource, /<IBuroClientShellV2[\s\S]*caseId=\{selectedClientCase\.id\}[\s\S]*displayName=\{displayName\}[\s\S]*cases=\{caseOptions\}/);
 assert.match(profilePageSource, /<PortalFrame sectionLabel="Профиль" showStaffTasks=\{isStaff\}>/);
 assert.doesNotMatch(profilePageSource, /ClientPlanVisualStyles|<ClientCaseFrame/);
 assert.match(profilePageSource, /grid min-w-0 gap-5/);
@@ -31,7 +32,14 @@ assert.match(editorSource, /focus-visible:opacity-100/);
 assert.match(editorSource, /sm:flex/);
 assert.match(editorSource, /sm:hidden/);
 assert.match(editorSource, /aria-label=\{avatarUrl \? "Изменить фотографию профиля" : "Добавить фотографию профиля"\}/);
+assert.match(editorSource, /aria-label="Изменить ФИО"/);
+assert.match(editorSource, /title="Изменить ФИО"/);
+assert.match(editorSource, /formatProfileDisplayName/);
+assert.match(editorSource, /formatProfileNameForStorage/);
+assert.match(editorSource, /\[parts\[1\], parts\[0\], parts\[2\]\]/);
+assert.match(editorSource, /Фамилия Имя Отчество/);
 assert.match(editorSource, /aria-busy=\{pending\}/);
+assert.doesNotMatch(editorSource, />\s*Изменить имя\s*</);
 assert.doesNotMatch(editorSource, /localStorage|lib\/platform\/demo|DEMO_/i);
 
 assert.match(accountOperationsSource, /requireServerActor\(sessionProvider\)/);
