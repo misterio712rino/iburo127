@@ -80,6 +80,7 @@ export default async function PortalCaseProgressPage({ params }: { params: Promi
       displayName={displayName}
       caseDisplayNumber={getClientCaseDisplayNumber(clientCase.caseNumber)}
       planLabel={getClientPlanLabel(planCode)}
+      planCode={planCode}
       unreadCount={notifications.filter((item) => !item.readAt).length}
       cases={cases}
     >

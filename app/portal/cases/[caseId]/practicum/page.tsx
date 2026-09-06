@@ -105,6 +105,7 @@ export default async function PortalPracticumPage({ params }: { params: Promise<
       displayName={displayName}
       caseDisplayNumber={caseDisplayNumber}
       planLabel={getClientPlanLabel(planCode)}
+      planCode={planCode}
       unreadCount={unreadCount}
       cases={cases}
     >

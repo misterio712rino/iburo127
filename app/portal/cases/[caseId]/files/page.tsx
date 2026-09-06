@@ -106,6 +106,7 @@ export default async function PortalFilesPage({ params }: { params: Promise<{ ca
       displayName={displayName}
       caseDisplayNumber={getClientCaseDisplayNumber(clientCase.caseNumber)}
       planLabel={getClientPlanLabel(planCode)}
+      planCode={planCode}
       unreadCount={unreadCount}
       cases={cases}
     >

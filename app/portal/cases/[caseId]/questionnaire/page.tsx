@@ -97,6 +97,7 @@ export default async function PortalQuestionnairePage({ params }: { params: Prom
       displayName={displayName}
       caseDisplayNumber={getClientCaseDisplayNumber(clientCase.caseNumber)}
       planLabel={getClientPlanLabel(planCode)}
+      planCode={planCode}
       unreadCount={unreadCount}
       cases={cases}
     >

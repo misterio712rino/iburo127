@@ -108,6 +108,7 @@ export default async function PortalDocumentsPage({ params }: { params: Promise<
       displayName={displayName}
       caseDisplayNumber={getClientCaseDisplayNumber(clientCase.caseNumber)}
       planLabel={getClientPlanLabel(planCode)}
+      planCode={planCode}
       unreadCount={notifications.filter((item) => !item.readAt).length}
       cases={cases}
     >

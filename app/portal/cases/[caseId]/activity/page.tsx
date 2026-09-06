@@ -92,6 +92,7 @@ export default async function PortalCaseActivityPage({ params }: { params: Promi
       displayName={displayName}
       caseDisplayNumber={getClientCaseDisplayNumber(clientCase.caseNumber)}
       planLabel={getClientPlanLabel(planCode)}
+      planCode={planCode}
       unreadCount={unreadCount}
       cases={caseOptions}
     >

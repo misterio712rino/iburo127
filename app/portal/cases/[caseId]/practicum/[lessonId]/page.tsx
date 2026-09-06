@@ -91,6 +91,7 @@ export default async function PortalPracticumLessonPage({
       displayName={displayName}
       caseDisplayNumber={caseDisplayNumber}
       planLabel={getClientPlanLabel(planCode)}
+      planCode={planCode}
       unreadCount={unreadCount}
       cases={cases}
     >
