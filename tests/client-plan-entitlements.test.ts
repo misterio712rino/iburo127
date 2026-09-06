@@ -24,6 +24,10 @@ import {
 import type { QuestionnaireService } from "@/server/domain/questionnaire/service";
 import { STAGING_PLAN_FEATURE_CODES } from "@/server/staging/domain-fixtures";
 
+function hasFeature(codes: readonly string[], featureCode: string) {
+  return codes.includes(featureCode);
+}
+
 assert.equal(clientPlanHasHumanSupport("LITE"), false);
 assert.equal(clientPlanHasHumanSupport("PRO"), true);
 assert.equal(clientPlanHasHumanSupport("INDIVIDUAL"), true);
@@ -31,17 +35,17 @@ assert.equal(clientPlanHasHumanSupport("UNKNOWN"), false, "unknown plans must fa
 
 for (const planCode of ["LITE", "PRO", "INDIVIDUAL"] as const) {
   assert.ok(
-    STAGING_PLAN_FEATURE_CODES[planCode].includes("AI_ASSISTANT"),
+    hasFeature(STAGING_PLAN_FEATURE_CODES[planCode], "AI_ASSISTANT"),
     `${planCode} must retain AI_ASSISTANT`,
   );
 }
 assert.equal(
-  STAGING_PLAN_FEATURE_CODES.LITE.includes("MORTGAGE_ANALYSIS"),
+  hasFeature(STAGING_PLAN_FEATURE_CODES.LITE, "MORTGAGE_ANALYSIS"),
   false,
   "LITE must not gain the mortgage entitlement",
 );
-assert.ok(STAGING_PLAN_FEATURE_CODES.PRO.includes("MORTGAGE_ANALYSIS"));
-assert.ok(STAGING_PLAN_FEATURE_CODES.INDIVIDUAL.includes("MORTGAGE_ANALYSIS"));
+assert.ok(hasFeature(STAGING_PLAN_FEATURE_CODES.PRO, "MORTGAGE_ANALYSIS"));
+assert.ok(hasFeature(STAGING_PLAN_FEATURE_CODES.INDIVIDUAL, "MORTGAGE_ANALYSIS"));
 
 const client: AuthenticatedActor = { userId: "client-1", roles: ["CLIENT"] };
 const assignedLawyer: AuthenticatedActor = { userId: "lawyer-1", roles: ["LAWYER"] };
@@ -56,7 +60,12 @@ const liteCase: ClientCaseRecord = {
   assignedLawyerId: assignedLawyer.userId,
   status: "ACTIVE",
 };
-const proCase: ClientCaseRecord = { ...liteCase, id: "case-pro", caseNumber: "IBR-PRO", planCode: "PRO" };
+const proCase: ClientCaseRecord = {
+  ...liteCase,
+  id: "case-pro",
+  caseNumber: "IBR-PRO",
+  planCode: "PRO",
+};
 const individualCase: ClientCaseRecord = {
   ...liteCase,
   id: "case-individual",
@@ -71,7 +80,11 @@ assert.equal(
   "an accidental LITE lawyer assignment must not create human-support access",
 );
 assert.equal(canAccessClientCaseAsStaff(assignedLawyer, liteCase), false);
-assert.equal(canAccessClientCase(manager, liteCase), true, "MANAGER oversight must remain read-only and plan-agnostic");
+assert.equal(
+  canAccessClientCase(manager, liteCase),
+  true,
+  "MANAGER oversight must remain read-only and plan-agnostic",
+);
 assert.equal(canAccessClientCaseAsStaff(manager, liteCase), true);
 assert.equal(canAccessClientCase(assignedLawyer, proCase), true);
 assert.equal(canAccessClientCaseAsStaff(assignedLawyer, proCase), true);
