@@ -29,6 +29,10 @@ const PLACEHOLDER_PATTERNS = [
   /example\.net/i,
   /postgresql:\/\/USER:PASSWORD@HOST/i,
 ];
+const SCANNER_STAGING_HOSTNAME_PATTERN =
+  /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+const VERCEL_PRIVATE_BLOB_HOST_PATTERN =
+  /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.private\.blob\.vercel-storage\.com$/;
 
 const SCANNER_CORE_REQUIREMENTS = [
   "IB_RUNTIME_TARGET",
@@ -99,6 +103,21 @@ function isProductionHostname(url: URL | null): boolean {
   if (!url) return false;
   const hostname = url.hostname.toLowerCase().replace(/\.+$/, "");
   return hostname === "iburo127.ru" || hostname.endsWith(".iburo127.ru");
+}
+
+function safeStagingScannerOrigin(value: string | undefined): URL | null {
+  const parsed = safeOrigin(value, false);
+  if (!parsed || parsed.port) return null;
+  const hostname = parsed.hostname.toLowerCase().replace(/\.+$/, "");
+  if (
+    !SCANNER_STAGING_HOSTNAME_PATTERN.test(hostname) ||
+    !hostname.includes("staging") ||
+    hostname.includes("prod") ||
+    isProductionHostname(parsed)
+  ) {
+    return null;
+  }
+  return parsed;
 }
 
 function unique(names: readonly string[]) {
@@ -230,8 +249,8 @@ function scannerCoreInvalid(
     invalid.add("IB_STORAGE_TARGET");
   }
 
-  const scannerOrigin = safeOrigin(env.IB_FILE_SCANNER_ORIGIN, false);
-  const expectedOrigin = safeOrigin(env.IB_STAGING_FILE_SCANNER_ORIGIN, false);
+  const scannerOrigin = safeStagingScannerOrigin(env.IB_FILE_SCANNER_ORIGIN);
+  const expectedOrigin = safeStagingScannerOrigin(env.IB_STAGING_FILE_SCANNER_ORIGIN);
   if (isConfigured(env.IB_FILE_SCANNER_ORIGIN) && !scannerOrigin) invalid.add("IB_FILE_SCANNER_ORIGIN");
   if (isConfigured(env.IB_STAGING_FILE_SCANNER_ORIGIN) && !expectedOrigin) {
     invalid.add("IB_STAGING_FILE_SCANNER_ORIGIN");
@@ -239,6 +258,13 @@ function scannerCoreInvalid(
   if (scannerOrigin && expectedOrigin && scannerOrigin.origin !== expectedOrigin.origin) {
     invalid.add("IB_FILE_SCANNER_ORIGIN");
     invalid.add("IB_STAGING_FILE_SCANNER_ORIGIN");
+  }
+
+  if (provider === VERCEL_BLOB_STORAGE_PROVIDER && isConfigured(env.IB_STAGING_VERCEL_BLOB_PRIVATE_HOST)) {
+    const privateBlobHost = env.IB_STAGING_VERCEL_BLOB_PRIVATE_HOST!.trim().toLowerCase();
+    if (!VERCEL_PRIVATE_BLOB_HOST_PATTERN.test(privateBlobHost)) {
+      invalid.add("IB_STAGING_VERCEL_BLOB_PRIVATE_HOST");
+    }
   }
 
   const scannerSecret = env.IB_FILE_SCANNER_SECRET?.trim();
@@ -355,6 +381,7 @@ export function buildProviderAwareStagingStorageReadiness(
   const scannerRequirements = [
     ...SCANNER_CORE_REQUIREMENTS,
     "IB_STORAGE_TARGET",
+    "IB_STAGING_VERCEL_BLOB_PRIVATE_HOST",
     ...authRequirements,
   ];
   const authInvalid = vercelInvalid(env);
