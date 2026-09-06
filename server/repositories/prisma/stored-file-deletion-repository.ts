@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { getPrismaClient } from "@/server/database/prisma";
 import type {
   ClaimedStoredFileDeletion,
+  StoredFileDeletionIntent,
   StoredFileDeletionRecord,
   StoredFileDeletionRepository,
 } from "@/server/domain/files/deletion-contracts";
@@ -18,6 +19,52 @@ export class PrismaStoredFileDeletionRepository implements StoredFileDeletionRep
     const prisma = getPrismaClient();
     const row = await prisma.storedFileDeletion.findUnique({ where: { fileId } });
     return row ? toRecord(row) : null;
+  }
+
+  async enqueueDeletion(input: StoredFileDeletionIntent & { requestedAt: Date }) {
+    if (
+      input.originalFileStatus === "PENDING_UPLOAD" ||
+      input.originalFileStatus === "SCANNING"
+    ) {
+      return null;
+    }
+
+    const prisma = getPrismaClient();
+    return prisma.$transaction(async (tx) => {
+      const removed = await tx.storedFile.deleteMany({
+        where: {
+          id: input.fileId,
+          clientCaseId: input.clientCaseId,
+          uploadedById: input.requestedByUserId,
+          storageProvider: input.storageProvider,
+          objectKey: input.objectKey,
+          status: input.originalFileStatus,
+        },
+      });
+      if (removed.count !== 1) return null;
+
+      const deletion = await tx.storedFileDeletion.create({
+        data: {
+          fileId: input.fileId,
+          clientCaseId: input.clientCaseId,
+          requestedByUserId: input.requestedByUserId,
+          storageProvider: input.storageProvider,
+          objectKey: input.objectKey,
+          originalFileStatus: input.originalFileStatus,
+          status: "PENDING",
+          attemptCount: 0,
+          nextAttemptAt: input.requestedAt,
+          leaseUntil: null,
+          leaseToken: null,
+          lastErrorCode: null,
+          requestedAt: input.requestedAt,
+          storageConfirmedAt: null,
+          completedAt: null,
+          completionActivityEventId: null,
+        },
+      });
+      return toRecord(deletion);
+    });
   }
 
   async claimDueDeletion(input: { now: Date; leaseUntil: Date }) {

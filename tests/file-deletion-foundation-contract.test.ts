@@ -20,6 +20,7 @@ assert.match(contractsSource, /"PENDING"/);
 assert.match(contractsSource, /"PROCESSING"/);
 assert.match(contractsSource, /"COMPLETED"/);
 assert.match(contractsSource, /"REQUIRES_ATTENTION"/);
+assert.match(contractsSource, /enqueueDeletion/);
 assert.doesNotMatch(contractsSource, /fileName|mimeType|checksumSha256|signedUrl|email/i);
 
 assert.match(workerSource, /storage\.deleteObject\(deletion\.objectKey\)/);
@@ -46,6 +47,17 @@ assert.match(migrationSource, /StoredFileDeletion_storageProvider_objectKey_key/
 assert.doesNotMatch(migrationSource, /FOREIGN KEY|REFERENCES/i);
 
 assert.match(repositorySource, /class PrismaStoredFileDeletionRepository/);
+assert.match(repositorySource, /async enqueueDeletion/);
+assert.match(repositorySource, /input\.originalFileStatus === "PENDING_UPLOAD"/);
+assert.match(repositorySource, /input\.originalFileStatus === "SCANNING"/);
+assert.match(repositorySource, /tx\.storedFile\.deleteMany/);
+assert.match(repositorySource, /uploadedById: input\.requestedByUserId/);
+assert.match(repositorySource, /storageProvider: input\.storageProvider/);
+assert.match(repositorySource, /objectKey: input\.objectKey/);
+assert.match(repositorySource, /status: input\.originalFileStatus/);
+assert.match(repositorySource, /tx\.storedFileDeletion\.create/);
+assert.match(repositorySource, /nextAttemptAt: input\.requestedAt/);
+assert.match(repositorySource, /requestedAt: input\.requestedAt/);
 assert.match(repositorySource, /storedFileDeletion\.findFirst/);
 assert.match(repositorySource, /attemptCount:\s*\{ increment: 1 \}/);
 assert.match(repositorySource, /storedFileDeletion\.updateMany/);
