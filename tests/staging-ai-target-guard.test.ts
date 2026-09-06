@@ -1,6 +1,8 @@
 import "./ai-plan-entitlement-contract.test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import {
   assertStagingAiTarget,
   STAGING_AI_TARGET_GUARD,
@@ -44,5 +46,30 @@ for (const [name, overrides, code] of [
     name,
   );
 }
+
+const stagingAiVerifyRoute = await readFile(
+  resolve("app/%5Fiburo/staging-ai-verify/route.ts"),
+  "utf8",
+);
+assert.match(stagingAiVerifyRoute, /x-iburo-staging-ai-confirm/);
+assert.match(stagingAiVerifyRoute, /RUN_STAGING_AI_VERIFY/);
+assert.match(stagingAiVerifyRoute, /isExactStagingPreview/);
+assert.match(stagingAiVerifyRoute, /assertStagingYandexAiTarget/);
+assert.match(stagingAiVerifyRoute, /new YandexGptGateway/);
+assert.match(stagingAiVerifyRoute, /IB_AI_STAGING_OK/);
+assert.match(stagingAiVerifyRoute, /clientCaseDataIncluded: false/);
+assert.match(stagingAiVerifyRoute, /providerResponseLogged: false/);
+assert.match(stagingAiVerifyRoute, /providerRequestDataLogging: "disabled"/);
+assert.doesNotMatch(stagingAiVerifyRoute, /console\.(?:log|error)\(/);
+
+const yandexSmokeWorkflow = await readFile(
+  resolve(".github/workflows/staging-yandex-ai-smoke.yml"),
+  "utf8",
+);
+assert.match(yandexSmokeWorkflow, /x-iburo-staging-ai-confirm: RUN_STAGING_AI_VERIFY/);
+assert.match(yandexSmokeWorkflow, /\/_iburo\/staging-ai-verify/);
+assert.match(yandexSmokeWorkflow, /body\.provider !== "yandex"/);
+assert.match(yandexSmokeWorkflow, /body\.markerMatched !== true/);
+assert.match(yandexSmokeWorkflow, /STAGING_YANDEX_AI_VERIFY_PASS/);
 
 console.log("STAGING_AI_TARGET_GUARD_TEST_PASS");
