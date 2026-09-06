@@ -5,6 +5,9 @@ export const AI_PROVIDER_ERROR = "AI_PROVIDER_ERROR";
 type YandexBadRequestCategory =
   | "SCOPE"
   | "MODEL"
+  | "FOLDER_NOT_FOUND"
+  | "FOLDER_ACCESS"
+  | "FOLDER_ID"
   | "FOLDER"
   | "MAX_TOKENS"
   | "TEMPERATURE"
@@ -79,7 +82,24 @@ function classifyYandexBadRequestDiagnostic(raw: string): YandexBadRequestCatego
   if (/modeluri|model_uri|model uri|model id|model name|unknown model|invalid model/.test(diagnostic)) {
     return "MODEL";
   }
-  if (/folderid|folder_id|folder id|folder/.test(diagnostic)) {
+  if (
+    /folder[^\r\n]{0,120}(not found|does not exist|doesn't exist|unknown)|(?:not found|does not exist|doesn't exist|unknown)[^\r\n]{0,120}folder/.test(
+      diagnostic,
+    )
+  ) {
+    return "FOLDER_NOT_FOUND";
+  }
+  if (
+    /folder[^\r\n]{0,120}(permission|access|authorized|authorised|allowed|forbidden)|(?:permission|access|authorized|authorised|allowed|forbidden)[^\r\n]{0,120}folder/.test(
+      diagnostic,
+    )
+  ) {
+    return "FOLDER_ACCESS";
+  }
+  if (/folderid|folder_id|folder id/.test(diagnostic)) {
+    return "FOLDER_ID";
+  }
+  if (/\bfolder\b/.test(diagnostic)) {
     return "FOLDER";
   }
   if (/maxtokens|max_tokens|max tokens/.test(diagnostic)) {
