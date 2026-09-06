@@ -24,14 +24,39 @@ assert.match(source, /createPrivateUploadUrl/);
 assert.match(source, /createPrivateDownloadUrl/);
 assert.match(source, /statPrivateBlob/);
 assert.match(source, /deletePrivateBlob/);
+assert.match(source, /verifyVercelBlobTargetBeforeMutation/);
+assert.match(source, /parsed\.hostname\.toLowerCase\(\) !== target\.expectedPrivateBlobHost/);
+assert.match(source, /VERCEL_BLOB_PRIVATE_HOST_MISMATCH/);
 assert.match(source, /await verifyVercelFixture\([\s\S]*target\.cleanObjectKey,[\s\S]*"CLEAN"/);
 assert.match(source, /await verifyVercelFixture\([\s\S]*target\.maliciousObjectKey,[\s\S]*"MALICIOUS"/);
 assert.match(source, /finally\s*\{\s*await cleanupVercelFixtures\(storage, target\)/);
 assert.match(source, /VERCEL_BLOB_FIXTURE_CLEANUP_FAILED/);
 assert.match(source, /FIXTURE_URL_TTL_SECONDS = 300/);
 assert.match(source, /MAX_FIXTURE_BYTES = 1024 \* 1024/);
+assert.match(source, /Vercel Blob staging host verified before fixture mutation/);
 assert.match(source, /Fixture object keys or signed URLs logged: 0/);
 assert.match(source, /STAGING_FILE_SCANNER_VERIFY_PASS/);
+
+const vercelFixtureFunction = source.match(
+  /async function verifyVercelBlobFixtures[\s\S]*?(?=\nasync function verifyYandexFixtures)/,
+)?.[0];
+assert.ok(vercelFixtureFunction, "Vercel Blob scanner fixture function must exist");
+const preflightIndex = vercelFixtureFunction.indexOf(
+  "await verifyVercelBlobTargetBeforeMutation(target, storage);",
+);
+const mutationTryIndex = vercelFixtureFunction.indexOf("try {", preflightIndex);
+const firstCleanupIndex = vercelFixtureFunction.indexOf(
+  "await cleanupVercelFixtures(storage, target);",
+);
+assert.ok(preflightIndex >= 0, "private Blob target preflight must execute");
+assert.ok(
+  mutationTryIndex > preflightIndex,
+  "private Blob target preflight must execute before the mutation/cleanup try-finally block",
+);
+assert.ok(
+  firstCleanupIndex > preflightIndex,
+  "private Blob target preflight must execute before any fixture cleanup mutation",
+);
 
 for (const forbidden of [
   "PutObjectCommand",
