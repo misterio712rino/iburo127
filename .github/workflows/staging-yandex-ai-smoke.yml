@@ -16,6 +16,8 @@ on:
       - audit/production-readiness
     paths:
       - "app/%5Fiburo/staging-ai-verify/route.ts"
+      - "server/ai/yandex-gpt-core.ts"
+      - "scripts/staging-yandex-ai-target-guard.ts"
       - ".github/workflows/staging-yandex-ai-smoke.yml"
 
 permissions:
@@ -174,6 +176,3 @@ jobs:
             console.log("STAGING_YANDEX_AI_PROVIDER_REQUEST_DATA_LOGGING: disabled");
             console.log("STAGING_YANDEX_AI_VERIFY_PASS");
           '
-
-# This workflow change intentionally retriggers an exact-SHA Preview after staging Yandex credential fingerprint rotation.
-# This second retrigger validates the synchronized Preview API key against the same staging-only fingerprint gate.

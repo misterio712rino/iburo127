@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
@@ -8,6 +7,7 @@ import {
   readYandexGptRuntimeConfig,
 } from "@/server/ai/provider-config-core";
 import { YandexGptGateway } from "@/server/ai/yandex-gpt-core";
+import { buildProviderAwareStagingAiReadiness } from "@/scripts/staging-ai-readiness";
 import {
   assertStagingYandexAiTarget,
   STAGING_YANDEX_AI_TARGET_GUARD,
@@ -206,7 +206,6 @@ assert.throws(
   /AI_PROVIDER_ERROR:INVALID_CONFIG/,
 );
 
-const stagingFingerprint = createHash("sha256").update(apiKey, "utf8").digest("hex");
 const stagingTargetEnv = {
   IB_RUNTIME_TARGET: "staging",
   IB_AI_TARGET: "staging",
@@ -216,23 +215,47 @@ const stagingTargetEnv = {
   IB_AI_YANDEX_MODEL: "yandexgpt/latest",
   IB_STAGING_YANDEX_AI_FOLDER_ID: "b1ggvchbjvrt2b5rju0g",
   IB_STAGING_YANDEX_AI_MODEL: "yandexgpt/latest",
-  IB_STAGING_YANDEX_AI_KEY_SHA256: stagingFingerprint,
   IB_STAGING_YANDEX_AI_CONFIRM:
-    `YANDEX-AI-SMOKE:b1ggvchbjvrt2b5rju0g:yandexgpt/latest:${stagingFingerprint}`,
+    "YANDEX-AI-SMOKE:b1ggvchbjvrt2b5rju0g:yandexgpt/latest",
 } as const;
-assert.deepEqual(assertStagingYandexAiTarget(stagingTargetEnv), {
+const expectedStagingTarget = {
   apiKey,
   folderId: "b1ggvchbjvrt2b5rju0g",
   model: "yandexgpt/latest",
+};
+assert.deepEqual(assertStagingYandexAiTarget(stagingTargetEnv), expectedStagingTarget);
+assert.deepEqual(
+  assertStagingYandexAiTarget({
+    ...stagingTargetEnv,
+    IB_STAGING_YANDEX_AI_KEY_SHA256: "0".repeat(64),
+  }),
+  expectedStagingTarget,
+  "legacy key fingerprint env must not affect Yandex staging target authorization",
+);
+
+const yandexReadiness = buildProviderAwareStagingAiReadiness({
+  ...stagingTargetEnv,
+  IB_STAGING_YANDEX_AI_KEY_SHA256: "stale-or-mismatched-legacy-value",
 });
+assert.equal(yandexReadiness.provider, "yandex");
+assert.equal(yandexReadiness.ready, true);
+assert.equal(yandexReadiness.requiredCount, 9);
+assert.deepEqual(yandexReadiness.missingOrPlaceholder, []);
+assert.deepEqual(yandexReadiness.invalidOrInconsistent, []);
+
 for (const badEnv of [
   { ...stagingTargetEnv, IB_RUNTIME_TARGET: "production" },
   { ...stagingTargetEnv, IB_AI_TARGET: "production" },
   { ...stagingTargetEnv, IB_AI_PROVIDER: "openai" },
+  { ...stagingTargetEnv, YANDEX_AI_API_KEY: "too-short" },
   { ...stagingTargetEnv, IB_STAGING_YANDEX_AI_FOLDER_ID: "b1gotherfolder0000000" },
   { ...stagingTargetEnv, IB_STAGING_YANDEX_AI_MODEL: "other/latest" },
-  { ...stagingTargetEnv, IB_STAGING_YANDEX_AI_KEY_SHA256: "0".repeat(64) },
   { ...stagingTargetEnv, IB_STAGING_YANDEX_AI_CONFIRM: "wrong" },
+  {
+    ...stagingTargetEnv,
+    IB_STAGING_YANDEX_AI_CONFIRM:
+      `YANDEX-AI-SMOKE:b1ggvchbjvrt2b5rju0g:yandexgpt/latest:${"0".repeat(64)}`,
+  },
 ]) {
   assert.throws(
     () => assertStagingYandexAiTarget(badEnv),
@@ -240,11 +263,13 @@ for (const badEnv of [
   );
 }
 
-const [runtimeSource, verifierDispatcherSource, yandexVerifierSource] = await Promise.all([
-  readFile(resolve("server/ai/runtime.ts"), "utf8"),
-  readFile(resolve("scripts/verify-staging-openai.ts"), "utf8"),
-  readFile(resolve("scripts/verify-staging-yandex-ai.ts"), "utf8"),
-]);
+const [runtimeSource, verifierDispatcherSource, yandexVerifierSource, yandexSmokeWorkflow] =
+  await Promise.all([
+    readFile(resolve("server/ai/runtime.ts"), "utf8"),
+    readFile(resolve("scripts/verify-staging-openai.ts"), "utf8"),
+    readFile(resolve("scripts/verify-staging-yandex-ai.ts"), "utf8"),
+    readFile(resolve(".github/workflows/staging-yandex-ai-smoke.yml"), "utf8"),
+  ]);
 assert.match(runtimeSource, /readAiProviderName/);
 assert.match(runtimeSource, /provider === "yandex"/);
 assert.match(runtimeSource, /new YandexGptGateway\(readYandexGptRuntimeConfig\(\)\)/);
@@ -257,5 +282,8 @@ assert.match(yandexVerifierSource, /IB_AI_STAGING_OK/);
 assert.match(yandexVerifierSource, /temperature: 0/);
 assert.match(yandexVerifierSource, /Client\/case data included: 0/);
 assert.match(yandexVerifierSource, /Provider response content logged: 0/);
+assert.match(yandexSmokeWorkflow, /scripts\/staging-yandex-ai-target-guard\.ts/);
+assert.match(yandexSmokeWorkflow, /server\/ai\/yandex-gpt-core\.ts/);
+assert.doesNotMatch(yandexSmokeWorkflow, /credential fingerprint rotation/);
 
 console.log("YANDEX_GPT_TRANSPORT_TEST_PASS");

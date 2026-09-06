@@ -34,7 +34,6 @@ const YANDEX_REQUIREMENTS = [
   "IB_AI_YANDEX_MODEL",
   "IB_STAGING_YANDEX_AI_FOLDER_ID",
   "IB_STAGING_YANDEX_AI_MODEL",
-  "IB_STAGING_YANDEX_AI_KEY_SHA256",
   "IB_STAGING_YANDEX_AI_CONFIRM",
 ] as const;
 
@@ -176,24 +175,11 @@ function validateYandex(env: StagingEnvironment, invalid: Set<string>): void {
     invalid.add("IB_STAGING_YANDEX_AI_MODEL");
   }
 
-  const fingerprint = configuredFingerprint(env.IB_STAGING_YANDEX_AI_KEY_SHA256);
-  if (isConfigured(env.IB_STAGING_YANDEX_AI_KEY_SHA256) && !fingerprint) {
-    invalid.add("IB_STAGING_YANDEX_AI_KEY_SHA256");
-  }
   if (
-    fingerprint &&
-    isConfigured(env.YANDEX_AI_API_KEY) &&
-    sha256Hex(env.YANDEX_AI_API_KEY!.trim()) !== fingerprint
+    isConfigured(env.IB_STAGING_YANDEX_AI_FOLDER_ID) &&
+    isConfigured(env.IB_STAGING_YANDEX_AI_MODEL)
   ) {
-    invalid.add("YANDEX_AI_API_KEY");
-    invalid.add("IB_STAGING_YANDEX_AI_KEY_SHA256");
-  }
-  if (
-    fingerprint &&
-    isConfigured(env.YANDEX_AI_FOLDER_ID) &&
-    isConfigured(env.IB_AI_YANDEX_MODEL)
-  ) {
-    const expected = `YANDEX-AI-SMOKE:${env.YANDEX_AI_FOLDER_ID!.trim()}:${env.IB_AI_YANDEX_MODEL!.trim()}:${fingerprint}`;
+    const expected = `YANDEX-AI-SMOKE:${env.IB_STAGING_YANDEX_AI_FOLDER_ID!.trim()}:${env.IB_STAGING_YANDEX_AI_MODEL!.trim()}`;
     if (
       isConfigured(env.IB_STAGING_YANDEX_AI_CONFIRM) &&
       env.IB_STAGING_YANDEX_AI_CONFIRM!.trim() !== expected

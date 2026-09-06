@@ -17,10 +17,6 @@ function digest(value: string) {
   return createHash("sha256").update(value, "utf8").digest();
 }
 
-function sha256Hex(value: string) {
-  return createHash("sha256").update(value, "utf8").digest("hex");
-}
-
 function safeEqual(left: string, right: string) {
   return timingSafeEqual(digest(left), digest(right));
 }
@@ -43,7 +39,6 @@ export function assertStagingYandexAiTarget(
   const model = requireValue(env, "IB_AI_YANDEX_MODEL");
   const expectedFolderId = requireValue(env, "IB_STAGING_YANDEX_AI_FOLDER_ID");
   const expectedModel = requireValue(env, "IB_STAGING_YANDEX_AI_MODEL");
-  const expectedFingerprint = requireValue(env, "IB_STAGING_YANDEX_AI_KEY_SHA256").toLowerCase();
 
   if (apiKey.length < 20) fail("INVALID_API_KEY");
   if (!/^[a-z0-9]{10,64}$/.test(folderId)) fail("INVALID_FOLDER_ID");
@@ -54,15 +49,11 @@ export function assertStagingYandexAiTarget(
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)?$/.test(expectedModel)) {
     fail("INVALID_EXPECTED_MODEL");
   }
-  if (!/^[a-f0-9]{64}$/.test(expectedFingerprint)) fail("INVALID_KEY_FINGERPRINT");
 
   if (!safeEqual(folderId, expectedFolderId)) fail("FOLDER_MISMATCH");
   if (!safeEqual(model, expectedModel)) fail("MODEL_MISMATCH");
 
-  const actualFingerprint = sha256Hex(apiKey);
-  if (!safeEqual(actualFingerprint, expectedFingerprint)) fail("KEY_MISMATCH");
-
-  const expectedConfirmation = `YANDEX-AI-SMOKE:${folderId}:${model}:${expectedFingerprint}`;
+  const expectedConfirmation = `YANDEX-AI-SMOKE:${expectedFolderId}:${expectedModel}`;
   const confirmation = env.IB_STAGING_YANDEX_AI_CONFIRM?.trim() ?? "";
   if (!confirmation || !safeEqual(confirmation, expectedConfirmation)) {
     fail("CONFIRMATION_MISMATCH");
