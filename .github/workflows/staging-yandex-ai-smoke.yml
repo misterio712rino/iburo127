@@ -174,3 +174,5 @@ jobs:
             console.log("STAGING_YANDEX_AI_PROVIDER_REQUEST_DATA_LOGGING: disabled");
             console.log("STAGING_YANDEX_AI_VERIFY_PASS");
           '
+
+# This workflow change intentionally retriggers an exact-SHA Preview after staging Yandex credential fingerprint rotation.
