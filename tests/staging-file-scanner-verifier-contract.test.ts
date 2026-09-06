@@ -11,6 +11,10 @@ const compose = await readFile(
   resolve("services/file-scanner/deploy/docker-compose.staging.yml"),
   "utf8",
 );
+const smokeWorkflow = await readFile(
+  resolve(".github/workflows/staging-file-scanner-smoke.yml"),
+  "utf8",
+);
 
 assert.match(source, /assertStagingFileScannerTarget\(process\.env\)/);
 assert.match(source, /HeadObjectCommand/);
@@ -91,5 +95,36 @@ assert.match(compose, /127\.0\.0\.1:8080:8080/);
 assert.doesNotMatch(compose, /privileged:\s*true/);
 assert.doesNotMatch(compose, /network_mode:\s*host/);
 assert.doesNotMatch(compose, /docker\.sock/);
+
+assert.match(smokeWorkflow, /^on:\s*\n\s{2}workflow_dispatch:/m);
+assert.doesNotMatch(smokeWorkflow, /^\s{2}(push|pull_request|schedule|workflow_run):/m);
+for (const input of [
+  "candidate_sha",
+  "scanner_origin",
+  "blob_private_host",
+  "scanner_secret_sha256",
+  "confirmation",
+]) {
+  assert.match(smokeWorkflow, new RegExp(`^\\s{6}${input}:`, "m"));
+}
+assert.match(smokeWorkflow, /permissions:\s*\n\s{2}contents: read/);
+assert.match(smokeWorkflow, /runs-on: ubuntu-24\.04/);
+assert.match(smokeWorkflow, /persist-credentials: false/);
+assert.match(smokeWorkflow, /ref: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/);
+assert.match(smokeWorkflow, /RUN_STAGING_FILE_SCANNER_SMOKE/);
+assert.match(smokeWorkflow, /refs\/heads\/audit\/production-readiness/);
+assert.match(smokeWorkflow, /test -n "\$BLOB_READ_WRITE_TOKEN"/);
+assert.match(smokeWorkflow, /test -n "\$IB_FILE_SCANNER_SECRET"/);
+assert.match(smokeWorkflow, /secrets\.IB_STAGING_BLOB_READ_WRITE_TOKEN/);
+assert.match(smokeWorkflow, /secrets\.IB_STAGING_FILE_SCANNER_SECRET/);
+assert.match(smokeWorkflow, /IB_STAGING_VERCEL_BLOB_PRIVATE_HOST: \$\{\{ inputs\.blob_private_host \}\}/);
+assert.match(smokeWorkflow, /security-fixtures\/file-scanner\/\$GITHUB_SHA\/clean\.txt/);
+assert.match(smokeWorkflow, /security-fixtures\/file-scanner\/\$GITHUB_SHA\/eicar\.txt/);
+assert.match(smokeWorkflow, /npm run check:staging:file-scanner/);
+assert.match(smokeWorkflow, /_iburo\/staging-identity/);
+assert.doesNotMatch(smokeWorkflow, /secrets\.BLOB_READ_WRITE_TOKEN/);
+assert.doesNotMatch(smokeWorkflow, /secrets\.IB_FILE_SCANNER_SECRET(?![A-Z_])/);
+assert.doesNotMatch(smokeWorkflow, /terraform\s+(apply|destroy)|\byc\s|kubectl|vercel\s+(deploy|promote)|target:\s*production/i);
+assert.doesNotMatch(smokeWorkflow, /(^|\.)iburo127\.ru(?:\s|\/|$)/i);
 
 console.log("STAGING_FILE_SCANNER_VERIFIER_CONTRACT_PASS");
