@@ -9,6 +9,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { readYandexObjectStorageConfig } from "@/server/config/production";
+import { isAwsS3NotFoundError } from "@/server/files/aws-s3-object-storage-errors";
 import type { YandexObjectStorageSigner } from "@/server/files/yandex-object-storage";
 
 function contentDisposition(fileName?: string) {
@@ -45,13 +46,21 @@ export class AwsSdkYandexObjectStorageSigner implements YandexObjectStorageSigne
         mimeType: result.ContentType ?? null,
       };
     } catch (error) {
-      const status = (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
-      if (status === 404) return null;
+      if (isAwsS3NotFoundError(error)) return null;
       throw error;
     }
   }
 
   async deleteObject(input: { bucket: string; objectKey: string }) {
-    await this.client.send(new DeleteObjectCommand({ Bucket: input.bucket, Key: input.objectKey }));
+    try {
+      await this.client.send(new DeleteObjectCommand({ Bucket: input.bucket, Key: input.objectKey }));
+    } catch (error) {
+      // S3-compatible DELETE is idempotent for an absent key. Some compatible
+      // providers may surface NOT_FOUND instead of a successful empty delete,
+      // so normalize that outcome to success. Unknown/network failures still
+      // propagate and are retried by the durable deletion processor.
+      if (isAwsS3NotFoundError(error)) return;
+      throw error;
+    }
   }
 }

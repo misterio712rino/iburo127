@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { signAwsV4Request } from "@/server/email/aws-sigv4";
+import { isAwsS3NotFoundError } from "@/server/files/aws-s3-object-storage-errors";
 
 const result = signAwsV4Request({
   method: "GET",
@@ -24,5 +25,10 @@ assert.equal(
   result.authorization,
   "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-east-1/iam/aws4_request, SignedHeaders=content-type;host;x-amz-date, Signature=5d672d79c15b13162d9279b0855cfba6789a8edb4c82c400e06b5924a6f2b5d7",
 );
+
+assert.equal(isAwsS3NotFoundError({ $metadata: { httpStatusCode: 404 } }), true);
+assert.equal(isAwsS3NotFoundError({ $metadata: { httpStatusCode: 403 } }), false);
+assert.equal(isAwsS3NotFoundError(new Error("not found")), false);
+assert.equal(isAwsS3NotFoundError(null), false);
 
 console.log("AWS_SIGV4_TEST_PASS");
