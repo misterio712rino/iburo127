@@ -8,6 +8,8 @@ import { inferStagingVercelBlobProvider } from "@/server/files/vercel-preview-st
 export const STAGING_FILE_SCANNER_TARGET_GUARD = "STAGING_FILE_SCANNER_TARGET_GUARD";
 const FIXTURE_PREFIX = "security-fixtures/file-scanner/";
 const STAGING_HOSTNAME_PATTERN = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+const VERCEL_PRIVATE_BLOB_HOST_PATTERN =
+  /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.private\.blob\.vercel-storage\.com$/;
 
 function fail(code: string): never {
   throw new Error(`${STAGING_FILE_SCANNER_TARGET_GUARD}:${code}`);
@@ -58,6 +60,16 @@ function normalizeStagingHttpsOrigin(value: string, code: string) {
   return parsed.origin;
 }
 
+function requireVercelPrivateBlobHost(
+  env: Readonly<Record<string, string | undefined>>,
+) {
+  const host = requireValue(env, "IB_STAGING_VERCEL_BLOB_PRIVATE_HOST").toLowerCase();
+  if (!VERCEL_PRIVATE_BLOB_HOST_PATTERN.test(host)) {
+    fail("INVALID_IB_STAGING_VERCEL_BLOB_PRIVATE_HOST");
+  }
+  return host;
+}
+
 function requireFixtureKey(
   env: Readonly<Record<string, string | undefined>>,
   name: string,
@@ -91,6 +103,7 @@ export type StagingFileScannerTarget =
     })
   | (StagingFileScannerTargetBase & {
       providerCode: typeof VERCEL_BLOB_STORAGE_PROVIDER;
+      expectedPrivateBlobHost: string;
     });
 
 export function assertStagingFileScannerTarget(
@@ -144,6 +157,7 @@ export function assertStagingFileScannerTarget(
   }
 
   if (providerCode === VERCEL_BLOB_STORAGE_PROVIDER) {
+    const expectedPrivateBlobHost = requireVercelPrivateBlobHost(env);
     const expectedConfirmation = `FILE-SCANNER-SMOKE:${new URL(expectedScannerOrigin).hostname}:${VERCEL_BLOB_STORAGE_PROVIDER}:${expectedSecretFingerprint}`;
     const confirmation = env.IB_STAGING_FILE_SCANNER_CONFIRM?.trim() ?? "";
     if (!confirmation || !safeEqual(confirmation, expectedConfirmation)) {
@@ -156,6 +170,7 @@ export function assertStagingFileScannerTarget(
       scannerSecret,
       cleanObjectKey,
       maliciousObjectKey,
+      expectedPrivateBlobHost,
     };
   }
 
