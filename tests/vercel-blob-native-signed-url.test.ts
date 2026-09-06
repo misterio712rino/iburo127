@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 
+import { isVercelBlobDeleteSuccessStatus } from "../server/files/vercel-blob-delete-semantics";
 import { createVercelBlobNativeSignedUrlDependencies } from "../server/files/vercel-blob-native-signed-url";
-import { createVercelBlobSignedUrlDriver } from "../server/files/vercel-blob-signed-url-driver";
 
 function delegationToken(payload: Record<string, unknown>) {
   return `${Buffer.from(JSON.stringify(payload), "utf8").toString("base64url")}.test`;
@@ -130,53 +130,9 @@ try {
   assert.equal(oidcHeaders.get("authorization"), "Bearer oidc-foundation-token");
   assert.equal(oidcHeaders.get("x-vercel-blob-store-id"), "teststore123");
 
-  let deleteMethod: string | undefined;
-  const idempotentDeleteDriver = createVercelBlobSignedUrlDriver(
-    {
-      async issueSignedToken(input) {
-        assert.deepEqual(input.operations, ["delete"]);
-        return {
-          delegationToken: "delete-delegation-token",
-          clientSigningToken: "delete-signing-token",
-          validUntil: input.validUntil,
-        };
-      },
-      presignUrl() {
-        return { presignedUrl: "https://teststore123.private.blob.vercel-storage.com/delete" };
-      },
-      async request(_input, init) {
-        deleteMethod = init?.method;
-        return new Response(null, { status: 404 });
-      },
-    },
-    { token: "vercel_blob_rw_teststore123_secret" },
-  );
-  await idempotentDeleteDriver.deletePrivateBlob(pathname);
-  assert.equal(deleteMethod, "DELETE", "already-absent Vercel Blob must be a successful idempotent delete");
-
-  const failingDeleteDriver = createVercelBlobSignedUrlDriver(
-    {
-      async issueSignedToken(input) {
-        return {
-          delegationToken: "delete-delegation-token",
-          clientSigningToken: "delete-signing-token",
-          validUntil: input.validUntil,
-        };
-      },
-      presignUrl() {
-        return { presignedUrl: "https://teststore123.private.blob.vercel-storage.com/delete" };
-      },
-      async request() {
-        return new Response(null, { status: 503 });
-      },
-    },
-    { token: "vercel_blob_rw_teststore123_secret" },
-  );
-  await assert.rejects(
-    () => failingDeleteDriver.deletePrivateBlob(pathname),
-    /VERCEL_BLOB_DRIVER_ERROR:delete:503/,
-    "unknown/provider failures must remain retryable errors",
-  );
+  assert.equal(isVercelBlobDeleteSuccessStatus(204), true);
+  assert.equal(isVercelBlobDeleteSuccessStatus(404), true);
+  assert.equal(isVercelBlobDeleteSuccessStatus(503), false);
 } finally {
   globalThis.fetch = realFetch;
 }

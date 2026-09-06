@@ -2,6 +2,7 @@ import "server-only";
 
 import type { StoredObjectMetadata } from "@/server/files/object-storage-contract";
 import type { VercelBlobSdkCredentialOptions } from "@/server/files/vercel-blob-driver-auth";
+import { isVercelBlobDeleteSuccessStatus } from "@/server/files/vercel-blob-delete-semantics";
 import type { VercelBlobStorageDriver } from "@/server/files/vercel-blob-object-storage";
 
 export const VERCEL_BLOB_DRIVER_ERROR = "VERCEL_BLOB_DRIVER_ERROR";
@@ -160,7 +161,7 @@ export function createVercelBlobSignedUrlDriver(
         expiresInSeconds: INTERNAL_OPERATION_TTL_SECONDS,
       });
       const response = await dependencies.request(url, { method: "DELETE" });
-      if (response.status === 404) return;
+      if (isVercelBlobDeleteSuccessStatus(response.status)) return;
       await requireSuccessfulResponse(response, "delete");
     },
   };
