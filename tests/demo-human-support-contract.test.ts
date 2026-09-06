@@ -17,6 +17,7 @@ const selfServiceCard = await readFile(resolve("components/platform/dashboard/Se
 const lawyerCases = await readFile(resolve("components/platform/lawyer/useLawyerCases.ts"), "utf8");
 const lawyerTasks = await readFile(resolve("components/platform/lawyer/LawyerTasks.tsx"), "utf8");
 const lawyerActivity = await readFile(resolve("components/platform/lawyer/LawyerActivity.tsx"), "utf8");
+const lawyerCaseRoute = await readFile(resolve("app/(platform)/app/lawyer/cases/[caseNumber]/page.tsx"), "utf8");
 
 assert.match(clientPage, /clientPlanHasHumanSupport\(clientCase\.plan\)/);
 assert.match(clientPage, /humanSupportAvailable \? <LawyerCard[\s\S]*: <SelfServiceCard/);
@@ -37,5 +38,9 @@ assert.match(lawyerTasks, /SUPPORTED_LAWYER_CLIENT_IDS\.has\(task\.clientId\)/);
 assert.doesNotMatch(lawyerTasks, /DEMO_IDENTITIES\.filter\(\(identity\) => identity\.role === "CLIENT"\)/);
 assert.match(lawyerActivity, /supportedCaseNumbers = new Set\(cases\.map/);
 assert.match(lawyerActivity, /baseEvents\.filter\(\(event\) => supportedCaseNumbers\.has\(event\.caseNumber\)\)/);
+assert.match(lawyerCaseRoute, /DEMO_CASES/);
+assert.match(lawyerCaseRoute, /clientPlanHasHumanSupport\(clientCase\.plan\)/);
+assert.match(lawyerCaseRoute, /if \(!LAWYER_CASE_NUMBERS\.includes\(caseNumber\)\) notFound\(\)/);
+assert.doesNotMatch(lawyerCaseRoute, /DEMO_IDENTITIES\.filter\(\(identity\) => identity\.role === "CLIENT"\)/);
 
 console.log("DEMO_HUMAN_SUPPORT_CONTRACT_TEST_PASS");
