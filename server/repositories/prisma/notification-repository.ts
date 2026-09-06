@@ -62,6 +62,15 @@ export class PrismaNotificationRepository implements NotificationRepository {
     return toRecord(row);
   }
 
+  async markAllRead(userId: string) {
+    const prisma = getPrismaClient();
+    const updated = await prisma.notification.updateMany({
+      where: { userId, readAt: null },
+      data: { readAt: new Date() },
+    });
+    return updated.count;
+  }
+
   async create(input: CreateNotificationInput) {
     const prisma = getPrismaClient();
     const deliveryChannels = normalizedChannels(input);

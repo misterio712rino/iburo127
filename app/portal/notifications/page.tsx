@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Bell, BellRing, CheckCircle2, Clock3 } from "lucide-react";
 
+import { MarkAllNotificationsReadButton } from "@/components/platform/notifications/MarkAllNotificationsReadButton";
 import { MarkNotificationReadButton } from "@/components/platform/notifications/MarkNotificationReadButton";
 import { IBuroClientShellV2 } from "@/components/portal/IBuroClientShellV2";
 import { PortalFrame } from "@/components/portal/PortalFrame";
@@ -70,11 +71,12 @@ export default async function PortalNotificationsPage({ searchParams }: { search
 
       {notifications.length ? (
         <section aria-labelledby="notifications-inbox-heading">
-          <div className="flex items-end justify-between gap-4 border-b border-border pb-4">
+          <div className="flex flex-col gap-4 border-b border-border pb-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 id="notifications-inbox-heading" className="text-2xl font-semibold tracking-[-.04em]">Входящие</h2>
               <p className="mt-1 text-sm text-muted-foreground">Всего событий: {notifications.length}</p>
             </div>
+            {unreadCount ? <MarkAllNotificationsReadButton /> : null}
           </div>
 
           <div className="mt-4 space-y-3">

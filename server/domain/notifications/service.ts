@@ -48,6 +48,11 @@ export class NotificationService {
     return this.repository.markRead(actor.userId, requireText(notificationId, 100));
   }
 
+  async markAllRead(actor: AuthenticatedActor) {
+    const updatedCount = await this.repository.markAllRead(actor.userId);
+    return { updatedCount };
+  }
+
   createSystem(input: {
     userId: string;
     clientCaseId?: string | null;

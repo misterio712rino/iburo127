@@ -39,6 +39,7 @@ export type ClaimedEmailDelivery = {
 export interface NotificationRepository {
   listForUser(userId: string, limit: number): Promise<readonly NotificationRecord[]>;
   markRead(userId: string, notificationId: string): Promise<NotificationRecord>;
+  markAllRead(userId: string): Promise<number>;
   create(input: CreateNotificationInput): Promise<NotificationRecord>;
   claimDueEmailDelivery(input: {
     now: Date;

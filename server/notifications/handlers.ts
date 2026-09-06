@@ -1,7 +1,11 @@
 import "server-only";
 
 import type { SessionProvider } from "@/server/auth/contracts";
-import { listNotifications, markNotificationRead } from "@/server/notifications/operations";
+import {
+  listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from "@/server/notifications/operations";
 import { parseNotificationId, parseNotificationLimit } from "@/server/notifications/input";
 import { executeNotificationOperation } from "@/server/notifications/transport";
 
@@ -18,4 +22,8 @@ export function handleMarkNotificationRead(
   return executeNotificationOperation(() =>
     markNotificationRead(sessionProvider, parseNotificationId(notificationId)),
   );
+}
+
+export function handleMarkAllNotificationsRead(sessionProvider: SessionProvider) {
+  return executeNotificationOperation(() => markAllNotificationsRead(sessionProvider));
 }

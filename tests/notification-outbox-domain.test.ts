@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
 import type {
   ClaimedEmailDelivery,
   CreateNotificationInput,
@@ -38,6 +39,9 @@ function createRepository(
     },
     async markRead() {
       return baseRecord;
+    },
+    async markAllRead() {
+      return 0;
     },
     async create() {
       return baseRecord;
@@ -97,6 +101,21 @@ assert.deepEqual(capturedCreate, {
   body: "A new task is available.",
   deliveryChannels: ["EMAIL"],
 });
+
+{
+  let capturedUserId = "";
+  const readService = new NotificationService(
+    createRepository({
+      async markAllRead(userId) {
+        capturedUserId = userId;
+        return 7;
+      },
+    }),
+  );
+  const result = await readService.markAllRead({ userId: baseRecord.userId } as AuthenticatedActor);
+  assert.equal(capturedUserId, baseRecord.userId);
+  assert.deepEqual(result, { updatedCount: 7 });
+}
 
 assert.equal(notificationDeliveryRetryDelayMs(1), 60_000);
 assert.equal(notificationDeliveryRetryDelayMs(2), 5 * 60_000);

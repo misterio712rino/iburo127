@@ -19,3 +19,8 @@ export async function markNotificationRead(
   const actor = await requireServerActor(sessionProvider);
   return notificationService.markRead(actor, notificationId);
 }
+
+export async function markAllNotificationsRead(sessionProvider: SessionProvider) {
+  const actor = await requireServerActor(sessionProvider);
+  return notificationService.markAllRead(actor);
+}
