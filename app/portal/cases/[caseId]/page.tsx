@@ -21,6 +21,7 @@ import {
 } from "@/lib/platform/case-progress";
 import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
 import { resolveCasePortalAudience } from "@/lib/platform/case-portal-audience";
+import { clientPlanHasHumanSupport } from "@/lib/platform/client-plan-entitlements";
 import type { PlanCode } from "@/lib/platform/types";
 import { getCurrentAccountProfile } from "@/server/account/operations";
 import { buildCaseActivityView } from "@/server/activity/presentation";
@@ -110,6 +111,7 @@ async function renderClientDashboard(
   ]);
 
   const planCode = requirePlanCode(clientCase.planCode);
+  const humanSupportAvailable = clientPlanHasHumanSupport(planCode);
   const ownedCases = allCases.filter((item) => item.clientId === actor.userId);
   const caseOptions = ownedCases.map((item) => ({
     id: item.id,
@@ -142,6 +144,7 @@ async function renderClientDashboard(
       progress={stageProgress(summary)}
       openedDate={formatCaseOpenedDate(openedAt)}
       specialistName={specialistName}
+      humanSupportAvailable={humanSupportAvailable}
       mortgageAvailable={mortgageAvailable}
       practicum={{ completed: summary.practicum.completed, total: summary.practicum.total, percent: summary.practicum.percent }}
       questionnaire={{ completed: summary.questionnaire.completed, total: summary.questionnaire.total, percent: summary.questionnaire.percent }}

@@ -9,6 +9,7 @@ import { IBuroClientShellV2 } from "@/components/portal/IBuroClientShellV2";
 import { getPlanDisplayLabel } from "@/lib/platform/case-progress";
 import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
 import { resolveCasePortalAudience } from "@/lib/platform/case-portal-audience";
+import { clientPlanHasHumanSupport } from "@/lib/platform/client-plan-entitlements";
 import { formatProfileDisplayName } from "@/lib/platform/profile-display-name";
 import type { PlanCode } from "@/lib/platform/types";
 import { getCurrentAccountProfile } from "@/server/account/operations";
@@ -46,6 +47,7 @@ export default async function PortalDocumentsPage({ params }: { params: Promise<
   const clientCase = await clientCaseService.getCase(actor, { caseId });
   if (!clientCase) notFound();
   const audience = resolveCasePortalAudience(actor, clientCase);
+  const humanSupportAvailable = clientPlanHasHumanSupport(clientCase.planCode);
   const [documents, summary] = await Promise.all([
     listCaseDocuments(sessionProvider, caseId),
     getCaseProgressSummaryForActor(actor, clientCase, audience),
@@ -63,6 +65,7 @@ export default async function PortalDocumentsPage({ params }: { params: Promise<
 
   if (audience === "STAFF") {
     const canReview =
+      humanSupportAvailable &&
       !actor.roles.includes("MANAGER") &&
       actor.roles.includes("LAWYER") &&
       clientCase.clientId !== actor.userId &&
@@ -108,7 +111,12 @@ export default async function PortalDocumentsPage({ params }: { params: Promise<
       unreadCount={notifications.filter((item) => !item.readAt).length}
       cases={cases}
     >
-      <IBuroDocumentsV2 caseId={clientCase.id} questionnaire={questionnaire} initialDocuments={documentState} />
+      <IBuroDocumentsV2
+        caseId={clientCase.id}
+        humanSupportAvailable={humanSupportAvailable}
+        questionnaire={questionnaire}
+        initialDocuments={documentState}
+      />
     </IBuroClientShellV2>
   );
 }

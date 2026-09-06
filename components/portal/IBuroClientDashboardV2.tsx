@@ -36,6 +36,7 @@ type DashboardProps = {
   progress: number;
   openedDate: string;
   specialistName: string;
+  humanSupportAvailable: boolean;
   mortgageAvailable: boolean;
   practicum: { completed: number; total: number; percent: number };
   questionnaire: { completed: number; total: number; percent: number };
@@ -174,7 +175,11 @@ export function IBuroClientDashboardV2(props: DashboardProps) {
             </div>
             <div className={styles.statusFooter}>
               <div><span>Дело открыто</span><strong>{props.openedDate}</strong></div>
-              <div><span>Специалист</span><strong>{props.specialistName}</strong></div>
+              {props.humanSupportAvailable ? (
+                <div><span>Специалист</span><strong>{props.specialistName}</strong></div>
+              ) : (
+                <div><span>Формат</span><strong>Самостоятельно + AI</strong></div>
+              )}
             </div>
           </article>
         </section>
@@ -256,8 +261,12 @@ export function IBuroClientDashboardV2(props: DashboardProps) {
             </div>
             <div className={styles.metricList}>
               <div className={styles.metricRow}><span>Всего сформировано</span><strong>{props.documents.total}</strong></div>
-              <div className={styles.metricRow}><span>На проверке у специалиста</span><strong>{props.documents.sentForReview}</strong></div>
-              <div className={styles.metricRow}><span>Проверено</span><strong>{props.documents.reviewed}</strong></div>
+              {props.humanSupportAvailable ? (
+                <>
+                  <div className={styles.metricRow}><span>На проверке у специалиста</span><strong>{props.documents.sentForReview}</strong></div>
+                  <div className={styles.metricRow}><span>Проверено</span><strong>{props.documents.reviewed}</strong></div>
+                </>
+              ) : null}
               <div className={styles.metricRow}><span>Готовых файлов</span><strong>{props.readyFileCount}</strong></div>
             </div>
           </article>
@@ -286,15 +295,17 @@ export function IBuroClientDashboardV2(props: DashboardProps) {
           </article>
         </section>
 
-        <section className={`${styles.card} ${styles.specialistCard}`} aria-label="Ваш специалист">
-          <span className={styles.specialistAvatar}>{specialistInitials(props.specialistName)}</span>
-          <div className={styles.specialistCopy}>
-            <span>Ваш специалист</span>
-            <strong>{props.specialistName}</strong>
-            <p>Сопровождение и проверка материалов дела.</p>
-          </div>
-          <Link href={`${base}/activity`}>История сопровождения</Link>
-        </section>
+        {props.humanSupportAvailable ? (
+          <section className={`${styles.card} ${styles.specialistCard}`} aria-label="Ваш специалист">
+            <span className={styles.specialistAvatar}>{specialistInitials(props.specialistName)}</span>
+            <div className={styles.specialistCopy}>
+              <span>Ваш специалист</span>
+              <strong>{props.specialistName}</strong>
+              <p>Сопровождение и проверка материалов дела.</p>
+            </div>
+            <Link href={`${base}/activity`}>История сопровождения</Link>
+          </section>
+        ) : null}
       </div>
     </IBuroClientShellV2>
   );
