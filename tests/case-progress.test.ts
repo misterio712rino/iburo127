@@ -1,3 +1,5 @@
+import "./client-plan-theme.test";
+
 import assert from "node:assert/strict";
 import {
   buildCaseProgressSummary,
