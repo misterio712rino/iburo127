@@ -113,7 +113,10 @@ export function IBuroClientShellV2({
     closeButtonRef.current?.focus();
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setDrawerOpen(false);
+      if (event.key === "Escape") {
+        setDrawerOpen(false);
+        requestAnimationFrame(() => menuButtonRef.current?.focus());
+      }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => {
@@ -170,6 +173,37 @@ export function IBuroClientShellV2({
     </nav>
   );
 
+  const accountCard = () => (
+    <div className={styles.singleCaseCard}>
+      <AccountAvatar className={`${styles.singleCaseAvatar} ${styles.userAvatar}`} initialsValue={userInitials} />
+      <div className={styles.singleCaseCopy}><strong>{displayName}</strong><span>{caseDisplayNumber}</span></div>
+    </div>
+  );
+
+  const caseSwitcher = (mobile = false) =>
+    cases.length > 1 ? (
+      <details className={styles.caseSwitcher}>
+        <summary aria-label={`Сменить дело. Текущее дело: ${caseDisplayNumber}`}>
+          <span className={styles.caseMeta}>{planLabel}</span>
+          <strong>{caseDisplayNumber}</strong>
+          <span className={styles.caseSwitchLabel}>Сменить дело</span>
+        </summary>
+        <div className={styles.caseSwitchList}>
+          {cases.map((item) => (
+            <Link
+              key={item.id}
+              href={`/portal/cases/${item.id}`}
+              aria-current={item.id === caseId ? "page" : undefined}
+              onClick={mobile ? () => closeDrawer() : undefined}
+            >
+              <span>{item.planLabel}</span>
+              <strong>{item.displayNumber}</strong>
+            </Link>
+          ))}
+        </div>
+      </details>
+    ) : null;
+
   return (
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
@@ -178,28 +212,8 @@ export function IBuroClientShellV2({
         </Link>
         {nav()}
         <div className={styles.sidebarFooter}>
-          {cases.length > 1 ? (
-            <details className={styles.caseSwitcher}>
-              <summary>
-                <span className={styles.caseMeta}>{planLabel}</span>
-                <strong>{caseDisplayNumber}</strong>
-                <span className={styles.caseSwitchLabel}>Сменить дело</span>
-              </summary>
-              <div className={styles.caseSwitchList}>
-                {cases.map((item) => (
-                  <Link key={item.id} href={`/portal/cases/${item.id}`} aria-current={item.id === caseId ? "page" : undefined}>
-                    <span>{item.planLabel}</span>
-                    <strong>{item.displayNumber}</strong>
-                  </Link>
-                ))}
-              </div>
-            </details>
-          ) : (
-            <div className={styles.singleCaseCard}>
-              <AccountAvatar className={`${styles.singleCaseAvatar} ${styles.userAvatar}`} initialsValue={userInitials} />
-              <div><strong>{displayName}</strong><span>{caseDisplayNumber}</span></div>
-            </div>
-          )}
+          {caseSwitcher()}
+          {accountCard()}
         </div>
       </aside>
 
@@ -246,8 +260,8 @@ export function IBuroClientShellV2({
       </div>
 
       {drawerOpen ? (
-        <div className={styles.drawerOverlay} onMouseDown={() => closeDrawer(true)}>
-          <aside id="iburo-client-mobile-drawer" className={styles.drawer} aria-label="Меню iБюро" onMouseDown={(event) => event.stopPropagation()}>
+        <div className={styles.drawerOverlay} onPointerDown={() => closeDrawer(true)}>
+          <aside id="iburo-client-mobile-drawer" className={styles.drawer} aria-label="Меню iБюро" onPointerDown={(event) => event.stopPropagation()}>
             <div className={styles.drawerHeader}>
               <IBuroBrand dot />
               <button ref={closeButtonRef} type="button" aria-label="Закрыть меню" onClick={() => closeDrawer(true)}>
@@ -256,11 +270,11 @@ export function IBuroClientShellV2({
             </div>
             {nav(true)}
             <div className={styles.drawerAccount}>
-              <div className={styles.singleCaseCard}>
-                <AccountAvatar className={`${styles.singleCaseAvatar} ${styles.userAvatar}`} initialsValue={userInitials} />
-                <div><strong>{displayName}</strong><span>{caseDisplayNumber}</span></div>
-              </div>
-              <Link href={`/portal/notifications?caseId=${caseId}`} onClick={() => closeDrawer()}>Уведомления{unreadCount ? ` · ${unreadCount}` : ""}</Link>
+              {accountCard()}
+              {caseSwitcher(true)}
+              <Link className={styles.drawerNotificationLink} href={`/portal/notifications?caseId=${caseId}`} onClick={() => closeDrawer()}>
+                Уведомления{unreadCount ? ` · ${unreadCount}` : ""}
+              </Link>
             </div>
           </aside>
         </div>

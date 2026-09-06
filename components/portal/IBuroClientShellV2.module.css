@@ -90,6 +90,8 @@
 }
 
 .sidebarFooter {
+  display: grid;
+  gap: 10px;
   margin-top: auto;
 }
 
@@ -108,10 +110,12 @@
 }
 
 .singleCaseAvatar {
+  position: relative;
   display: grid;
   width: 38px;
   height: 38px;
   flex: 0 0 auto;
+  overflow: hidden;
   place-items: center;
   border-radius: 14px;
   background: var(--ib2-red);
@@ -120,23 +124,26 @@
   font-weight: 800;
 }
 
-.singleCaseCard strong,
-.singleCaseCard span {
+.singleCaseCopy {
+  min-width: 0;
+}
+
+.singleCaseCopy strong,
+.singleCaseCopy span {
   display: block;
   min-width: 0;
+  max-width: 150px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.singleCaseCard strong {
-  max-width: 150px;
+.singleCaseCopy strong {
   font-size: 12px;
   font-weight: 700;
 }
 
-.singleCaseCard span {
-  max-width: 150px;
+.singleCaseCopy span {
   margin-top: 3px;
   color: var(--ib2-muted);
   font-size: 10px;
@@ -148,6 +155,7 @@
 
 .caseSwitcher summary {
   position: relative;
+  min-height: 44px;
   cursor: pointer;
   list-style: none;
   padding: 3px 2px 22px;
@@ -160,7 +168,7 @@
 .caseMeta { color: var(--ib2-muted); font-size: 10px; font-weight: 600; }
 .caseSwitchLabel { position: absolute; bottom: 0; left: 2px; color: var(--ib2-red); font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
 .caseSwitchList { display: grid; gap: 4px; margin-top: 8px; border-top: 1px solid var(--ib2-border); padding-top: 8px; }
-.caseSwitchList a { display: block; border-radius: 12px; padding: 8px; color: var(--ib2-text); text-decoration: none; }
+.caseSwitchList a { display: flex; min-height: 44px; flex-direction: column; justify-content: center; border-radius: 12px; padding: 8px; color: var(--ib2-text); text-decoration: none; }
 .caseSwitchList a:hover { background: white; }
 .caseSwitchList span { display: block; color: var(--ib2-muted); font-size: 9px; }
 .caseSwitchList strong { display: block; margin-top: 2px; font-size: 10px; }
@@ -243,6 +251,7 @@
 .userChip {
   display: flex;
   min-width: 210px;
+  min-height: 44px;
   align-items: center;
   gap: 10px;
   cursor: pointer;
@@ -307,6 +316,9 @@
 }
 
 .userPopover > a {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
   border-radius: 12px;
   padding: 10px 11px;
   color: var(--ib2-text);
@@ -316,7 +328,7 @@
 }
 .userPopover > a:hover { background: var(--ib2-surface-soft); }
 .signOutWrap { border-top: 1px solid var(--ib2-border); margin-top: 4px; padding-top: 6px; }
-.signOutWrap button { width: 100%; min-height: 40px; border: 0; background: transparent; box-shadow: none; text-align: left; }
+.signOutWrap button { width: 100%; min-height: 44px; border: 0; background: transparent; box-shadow: none; text-align: left; }
 
 .main {
   width: min(100%, 1240px);
@@ -372,8 +384,8 @@
 
   .drawerHeader button {
     display: grid;
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
     place-items: center;
     border: 1px solid var(--ib2-border);
     border-radius: 14px;
@@ -382,14 +394,27 @@
 
   .drawerAccount {
     display: grid;
-    gap: 4px;
+    gap: 10px;
     margin-top: auto;
     border-top: 1px solid var(--ib2-border);
     padding: 16px 8px 2px;
   }
-  .drawerAccount strong { font-size: 13px; }
-  .drawerAccount span { color: var(--ib2-muted); font-size: 10px; }
-  .drawerAccount a { margin-top: 8px; color: var(--ib2-red); font-size: 12px; font-weight: 700; text-decoration: none; }
+
+  .drawerAccount .singleCaseCopy strong { font-size: 13px; }
+
+  .drawerNotificationLink {
+    display: flex;
+    min-height: 44px;
+    align-items: center;
+    border-radius: 12px;
+    padding: 0 10px;
+    color: var(--ib2-red);
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .drawerNotificationLink:hover { background: var(--ib2-red-softer); }
 }
 
 @media (max-width: 560px) {
