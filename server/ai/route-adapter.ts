@@ -4,6 +4,7 @@ import type { SessionProvider } from "@/server/auth/contracts";
 import { requireServerActor, UNAUTHENTICATED } from "@/server/auth/runtime";
 import { AI_PROVIDER_ERROR } from "@/server/ai/openai-responses-core";
 import { AI_PROVIDER_CONFIG_ERROR } from "@/server/ai/provider-config-core";
+import { stagingAiOperationalDiagnostic } from "@/server/ai/route-error-diagnostic";
 import { getAiAssistantService } from "@/server/ai/runtime";
 import { AI_USAGE_CONFIG_ERROR } from "@/server/ai/usage-config";
 import {
@@ -21,6 +22,11 @@ import { privateJsonResponse } from "@/server/http/private-json";
 
 function errorCode(error: unknown): string {
   return error instanceof Error ? error.message : "";
+}
+
+function stagingDiagnosticHeaders(error: unknown): HeadersInit | undefined {
+  const diagnostic = stagingAiOperationalDiagnostic(error, process.env.IB_RUNTIME_TARGET);
+  return diagnostic ? { "x-iburo-ai-diagnostic": diagnostic } : undefined;
 }
 
 function toAiErrorResponse(error: unknown): Response {
@@ -57,6 +63,7 @@ function toAiErrorResponse(error: unknown): Response {
     return privateJsonResponse(
       { ok: false, error: { code: "AI_TEMPORARILY_UNAVAILABLE" } },
       503,
+      stagingDiagnosticHeaders(error),
     );
   }
   return privateJsonResponse({ ok: false, error: { code: "INTERNAL_ERROR" } }, 500);

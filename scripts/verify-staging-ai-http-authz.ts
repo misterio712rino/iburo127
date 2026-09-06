@@ -6,6 +6,7 @@ import {
 } from "./staging-http-target-guard";
 
 const FAIL = "STAGING_AI_HTTP_AUTHZ_FAIL";
+const SAFE_DIAGNOSTIC = /^[A-Z0-9_]+$/;
 
 type JsonEnvelope<T> = {
   ok: boolean;
@@ -21,6 +22,11 @@ type CaseData = {
 type AiCaseState = {
   caseId: string;
   enabled: boolean;
+};
+
+type AiReply = {
+  content: string;
+  restrictedAction: boolean;
 };
 
 function fail(message: string): never {
@@ -66,6 +72,7 @@ async function request(
     method,
     headers: {
       accept: "application/json",
+      origin: baseUrl.origin,
       ...(cookie ? { cookie } : {}),
       ...(body === undefined ? {} : { "content-type": "application/json" }),
     },
@@ -139,6 +146,41 @@ async function expectAiState(
   }
 }
 
+async function expectLiveAiReply(clientCase: CaseData): Promise<void> {
+  const response = await request(
+    "POST",
+    `/api/platform/cases/${encodeURIComponent(clientCase.id)}/ai`,
+    clientCookie,
+    {
+      message: "Какой следующий шаг по текущему этапу?",
+      history: [],
+    },
+  );
+  requirePrivateNoStore(response, "CLIENT live AI reply");
+
+  if (response.status !== 200) {
+    const body = await readJson<never>(response);
+    const rawDiagnostic = response.headers.get("x-iburo-ai-diagnostic") ?? "MISSING";
+    const diagnostic = SAFE_DIAGNOSTIC.test(rawDiagnostic) ? rawDiagnostic : "INVALID";
+    const rawCode = body.error?.code ?? "UNKNOWN";
+    const code = SAFE_DIAGNOSTIC.test(rawCode) ? rawCode : "INVALID";
+    fail(
+      `CLIENT live AI reply expected 200, got ${response.status} code=${code} diagnostic=${diagnostic}`,
+    );
+  }
+
+  const body = await readJson<AiReply>(response);
+  if (
+    !body.ok ||
+    typeof body.data?.content !== "string" ||
+    !body.data.content.trim() ||
+    typeof body.data.restrictedAction !== "boolean"
+  ) {
+    fail("CLIENT live AI reply returned invalid safe response contract");
+  }
+  console.log("PROVIDER_REQUEST: full CLIENT AI route returned a valid reply");
+}
+
 const clientCases = await listCases("CLIENT", clientCookie);
 const managerCases = await listCases("MANAGER", managerCookie);
 
@@ -198,5 +240,5 @@ await expectAiState("CLIENT primary AI state", primaryAiCase);
 await expectAiState("CLIENT secondary AI state", secondaryAiCase);
 console.log("ENTITLEMENT_STATE: AI is enabled for both INDIVIDUAL and LITE client fixture cases");
 
-console.log("Provider requests intentionally executed by this verifier: 0");
+await expectLiveAiReply(primaryAiCase);
 console.log("STAGING_AI_HTTP_AUTHZ_PASS");
