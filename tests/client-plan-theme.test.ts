@@ -18,6 +18,9 @@ const dashboardSource = await readFile(resolve("components/portal/IBuroClientDas
 const brandSource = await readFile(resolve("components/platform/IBuroBrand.tsx"), "utf8");
 const casePageSource = await readFile(resolve("app/portal/cases/[caseId]/page.tsx"), "utf8");
 const aiPageSource = await readFile(resolve("app/portal/cases/[caseId]/ai/page.tsx"), "utf8");
+const profilePageSource = await readFile(resolve("app/portal/profile/page.tsx"), "utf8");
+const notificationsPageSource = await readFile(resolve("app/portal/notifications/page.tsx"), "utf8");
+const securityPageSource = await readFile(resolve("app/portal/security/page.tsx"), "utf8");
 
 assert.match(shellSource, /getClientPlanTheme\(planCode\)/);
 assert.match(shellSource, /data-plan=\{planCode \?\? "UNSPECIFIED"\}/);
@@ -52,6 +55,24 @@ for (const relativePath of [
   const source = await readFile(resolve(relativePath), "utf8");
   assert.match(source, /<IBuroClientShellV2[\s\S]*planCode=\{planCode\}/, `${relativePath} must pass the authoritative planCode into the client shell`);
 }
+
+for (const [label, source] of [
+  ["profile", profilePageSource],
+  ["notifications", notificationsPageSource],
+  ["security", securityPageSource],
+] as const) {
+  assert.match(
+    source,
+    /<IBuroClientShellV2[\s\S]*planCode=\{planCode\}/,
+    `${label} client account surface must preserve the selected case tariff theme`,
+  );
+}
+
+assert.match(profilePageSource, /clientPlanHasHumanSupport\(itemPlanCode\)/);
+assert.match(profilePageSource, /humanSupportAvailable \? "Сопровождение" : "Формат"/);
+assert.match(profilePageSource, /"Самостоятельно \+ AI"/);
+assert.doesNotMatch(profilePageSource, /const lawyerLabel = item\.assignedLawyerId/);
+assert.doesNotMatch(notificationsPageSource, /сопровождению дела/);
 
 assert.match(brandSource, /--iburo-brand-red/);
 assert.doesNotMatch(brandSource, /--ib2-red|getClientPlanTheme|CLIENT_PLAN_THEMES/);

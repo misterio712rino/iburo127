@@ -123,6 +123,7 @@ export default async function AccountSecurityPage({ searchParams }: { searchPara
         displayName={clientDisplayName}
         caseDisplayNumber={getClientCaseDisplayNumber(selectedClientCase.caseNumber)}
         planLabel={getClientPlanLabel(planCode)}
+        planCode={planCode}
         unreadCount={unreadCount}
         cases={caseOptions}
       >

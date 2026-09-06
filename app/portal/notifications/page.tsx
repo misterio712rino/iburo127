@@ -61,7 +61,7 @@ export default async function PortalNotificationsPage({ searchParams }: { search
         <div className="min-w-0">
           <p className="text-sm font-semibold text-primary">Центр событий</p>
           <h1 className="mt-2 break-words font-[var(--font-iburo-display)] text-3xl font-semibold tracking-[-.04em] text-foreground sm:text-5xl">Уведомления</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">Все важные обновления по вашей учётной записи и сопровождению дела.</p>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">Все важные обновления по вашей учётной записи и делу.</p>
         </div>
         <span className={`inline-flex min-h-8 w-fit items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold ${unreadCount ? "border-primary/15 bg-primary/6 text-primary" : "border-border bg-white text-muted-foreground"}`}>
           {unreadCount ? <BellRing className="size-3.5" aria-hidden="true" /> : <CheckCircle2 className="size-3.5" aria-hidden="true" />}
@@ -136,6 +136,7 @@ export default async function PortalNotificationsPage({ searchParams }: { search
         displayName={clientDisplayName}
         caseDisplayNumber={getClientCaseDisplayNumber(selectedClientCase.caseNumber)}
         planLabel={getClientPlanLabel(planCode)}
+        planCode={planCode}
         unreadCount={unreadCount}
         cases={caseOptions}
       >

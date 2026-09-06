@@ -7,6 +7,7 @@ import { IBuroClientShellV2 } from "@/components/portal/IBuroClientShellV2";
 import { PortalFrame } from "@/components/portal/PortalFrame";
 import { getCaseStageDisplayLabel, getCaseStatusLabel, getPlanDisplayLabel } from "@/lib/platform/case-progress";
 import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
+import { clientPlanHasHumanSupport } from "@/lib/platform/client-plan-entitlements";
 import { formatProfileDisplayName } from "@/lib/platform/profile-display-name";
 import type { PlanCode } from "@/lib/platform/types";
 import { getCurrentAccountAvatarUrl } from "@/server/account/avatar";
@@ -71,7 +72,7 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
   const profileHint = !profile.phone?.trim()
     ? "Добавьте телефон, чтобы у команды был дополнительный канал связи."
     : !avatarUrl
-      ? "Добавьте фотографию — так профиль проще отличать в сопровождении дела."
+      ? "Добавьте фотографию — так профиль проще отличать в материалах дела."
       : "Основные данные профиля заполнены.";
 
   const content = (
@@ -166,9 +167,13 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
             {cases.length ? (
               <div className="mt-5 space-y-3 border-t border-border pt-5">
                 {cases.slice(0, 3).map((item) => {
-                  const planLabel = getClientPlanLabel(requirePlanCode(item.planCode));
+                  const itemPlanCode = requirePlanCode(item.planCode);
+                  const planLabel = getClientPlanLabel(itemPlanCode);
                   const stageLabel = getCaseStageDisplayLabel(item.stageCode, isClientOnly ? "CLIENT" : "STAFF");
-                  const lawyerLabel = item.assignedLawyerId ? "Юрист назначен" : "Юрист ещё не назначен";
+                  const humanSupportAvailable = clientPlanHasHumanSupport(itemPlanCode);
+                  const supportLabel = humanSupportAvailable
+                    ? item.assignedLawyerId ? "Юрист назначен" : "Юрист ещё не назначен"
+                    : "Самостоятельно + AI";
 
                   return (
                     <Link
@@ -190,8 +195,8 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
                           <dd className="mt-1 break-words font-semibold leading-4 text-foreground">{stageLabel}</dd>
                         </div>
                         <div className="min-w-0 rounded-xl bg-muted/55 px-3 py-2.5">
-                          <dt className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Сопровождение</dt>
-                          <dd className="mt-1 break-words font-semibold leading-4 text-foreground">{lawyerLabel}</dd>
+                          <dt className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{humanSupportAvailable ? "Сопровождение" : "Формат"}</dt>
+                          <dd className="mt-1 break-words font-semibold leading-4 text-foreground">{supportLabel}</dd>
                         </div>
                       </dl>
 
@@ -230,6 +235,7 @@ export default async function PortalProfilePage({ searchParams }: { searchParams
         displayName={displayName}
         caseDisplayNumber={getClientCaseDisplayNumber(selectedClientCase.caseNumber)}
         planLabel={getClientPlanLabel(planCode)}
+        planCode={planCode}
         unreadCount={unreadCount}
         cases={caseOptions}
       >
