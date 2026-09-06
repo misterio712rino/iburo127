@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import {
+  FILE_DELETION_MODE_INVALID,
+  readStoredFileDeletionMode,
+} from "../server/files/deletion-mode";
 
 const [
   operationsSource,
+  deletionModeSource,
   contractsSource,
   workerSource,
   schemaSource,
@@ -15,6 +20,7 @@ const [
   workerRuntimeSource,
 ] = await Promise.all([
   readFile(resolve("server/files/operations.ts"), "utf8"),
+  readFile(resolve("server/files/deletion-mode.ts"), "utf8"),
   readFile(resolve("server/domain/files/deletion-contracts.ts"), "utf8"),
   readFile(resolve("server/domain/files/deletion-worker.ts"), "utf8"),
   readFile(resolve("prisma/schema.prisma"), "utf8"),
@@ -26,9 +32,34 @@ const [
   readFile(resolve("server/files/deletion-worker-runtime.ts"), "utf8"),
 ]);
 
-// Live DELETE remains intentionally on the old path until the additive staging
-// migration is explicitly approved and verified. The durable foundation must
-// therefore remain isolated from the current runtime operation for now.
+// Cutover remains fail-closed and backward-compatible until the additive staging
+// migration is explicitly approved and verified. Missing mode means legacy;
+// durable requires an explicit exact value and unknown values never fall through.
+assert.equal(readStoredFileDeletionMode({}), "legacy");
+assert.equal(readStoredFileDeletionMode({ IB_FILE_DELETION_MODE: "legacy" }), "legacy");
+assert.equal(readStoredFileDeletionMode({ IB_FILE_DELETION_MODE: "durable" }), "durable");
+assert.throws(
+  () => readStoredFileDeletionMode({ IB_FILE_DELETION_MODE: "enabled" }),
+  new RegExp(FILE_DELETION_MODE_INVALID),
+);
+assert.throws(
+  () => readStoredFileDeletionMode({ IB_FILE_DELETION_MODE: "DURABLE" }),
+  new RegExp(FILE_DELETION_MODE_INVALID),
+);
+assert.match(deletionModeSource, /export type StoredFileDeletionMode = "legacy" \| "durable"/);
+assert.match(deletionModeSource, /if \(!raw \|\| raw === "legacy"\) return "legacy"/);
+assert.match(deletionModeSource, /if \(raw === "durable"\) return "durable"/);
+assert.match(deletionModeSource, /throw new Error\(FILE_DELETION_MODE_INVALID\)/);
+
+// Live DELETE keeps the proven legacy path by default, while explicit durable
+// mode only enqueues the owner-scoped tombstone and preserves the existing
+// transport response shape. Physical deletion/finalization remains worker-only.
+assert.match(operationsSource, /readStoredFileDeletionMode\(\) === "durable"/);
+assert.match(
+  operationsSource,
+  /getStoredFileDeletionRequestService\(\)\.request\(actor, fileId\)/,
+);
+assert.match(operationsSource, /return \{ fileId: deletion\.fileId \};/);
 assert.match(operationsSource, /storedFileService\.takeOwnedForDeletion\(actor, fileId\)/);
 assert.match(operationsSource, /storedFileService\.restoreDeleted\(deleted\)/);
 assert.doesNotMatch(operationsSource, /claimDueDeletion|finalizeDeletion|StoredFileDeletion/);
