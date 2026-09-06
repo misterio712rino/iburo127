@@ -1,3 +1,5 @@
+import "./client-plan-entitlements.test";
+
 import assert from "node:assert/strict";
 
 import {
@@ -25,6 +27,12 @@ const otherCase: ClientCaseRecord = {
   clientId: "client-2",
   assignedLawyerId: "user-1",
 };
+const liteOtherCase: ClientCaseRecord = {
+  ...otherCase,
+  id: "case-lite-other",
+  caseNumber: "IBR-LITE-OTHER",
+  planCode: "LITE",
+};
 
 const client: AuthenticatedActor = { userId: "user-1", roles: ["CLIENT"] };
 const lawyer: AuthenticatedActor = { userId: "user-1", roles: ["LAWYER"] };
@@ -46,6 +54,16 @@ assert.equal(
   "a multi-role account must use STAFF context for another client's case",
 );
 assert.equal(resolveCasePortalAudience(clientLawyer, otherCase), "STAFF");
+assert.throws(
+  () => resolveCasePortalAudience(lawyer, liteOtherCase),
+  new RegExp(CASE_PORTAL_AUDIENCE_UNRESOLVED),
+  "LITE must not become a lawyer workspace merely because stale assignment data exists",
+);
+assert.equal(
+  resolveCasePortalAudience(manager, liteOtherCase),
+  "STAFF",
+  "MANAGER oversight must remain available for LITE without creating a human-support entitlement",
+);
 assert.throws(
   () => resolveCasePortalAudience(client, otherCase),
   new RegExp(CASE_PORTAL_AUDIENCE_UNRESOLVED),

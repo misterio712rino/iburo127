@@ -1,3 +1,4 @@
+import { clientPlanHasHumanSupport } from "@/lib/platform/client-plan-entitlements";
 import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
 import { ClientCaseService } from "@/server/domain/client-cases/service";
 import {
@@ -65,6 +66,7 @@ export class CaseDocumentService {
   private async requireReviewer(actor: AuthenticatedActor, clientCaseId: string) {
     const clientCase = await this.requireAccessibleCase(actor, clientCaseId);
     const assignedLawyer =
+      clientPlanHasHumanSupport(clientCase.planCode) &&
       !actor.roles.includes("MANAGER") &&
       actor.roles.includes("LAWYER") &&
       clientCase.clientId !== actor.userId &&
@@ -121,7 +123,10 @@ export class CaseDocumentService {
     actor: AuthenticatedActor,
     input: { clientCaseId: string; documentCode: string; expectedVersion: number },
   ) {
-    await this.requireClientEditor(actor, input.clientCaseId);
+    const clientCase = await this.requireClientEditor(actor, input.clientCaseId);
+    if (!clientPlanHasHumanSupport(clientCase.planCode)) {
+      throw new Error(DOCUMENT_FORBIDDEN);
+    }
     this.definition(input.documentCode);
     const current = await this.repository.getByCaseAndCode(
       input.clientCaseId,
