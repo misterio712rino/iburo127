@@ -3,6 +3,10 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const source = await readFile(resolve("scripts/verify-staging-file-scanner.ts"), "utf8");
+const cloudInit = await readFile(
+  resolve("infra/file-scanner-staging/cloud-init.yaml.tftpl"),
+  "utf8",
+);
 
 assert.match(source, /assertStagingFileScannerTarget\(process\.env\)/);
 assert.match(source, /HeadObjectCommand/);
@@ -42,5 +46,11 @@ assert.doesNotMatch(source, /console\.(?:log|error)\([^\n]*scannerSecret/);
 assert.doesNotMatch(source, /console\.error\(error\)/);
 assert.doesNotMatch(source, /String\(error\)/);
 assert.doesNotMatch(source, /prisma|ClientCase|DATABASE_URL/i);
+
+assert.match(cloudInit, /iburo-file-scanner-metadata-firewall\.service/);
+assert.match(cloudInit, /PartOf=docker\.service/);
+assert.match(cloudInit, /DOCKER-USER -d 169\.254\.169\.254\/32 -j REJECT/);
+assert.match(cloudInit, /systemctl, enable, --now, iburo-file-scanner-metadata-firewall\.service/);
+assert.doesNotMatch(cloudInit, /IB_FILE_SCANNER_SECRET=/);
 
 console.log("STAGING_FILE_SCANNER_VERIFIER_CONTRACT_PASS");
