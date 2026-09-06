@@ -35,10 +35,13 @@ export class PrismaAiUsageLedger implements AiUsageLedger {
 
     try {
       return await prisma.$transaction(async (tx) => {
-        // A transaction-scoped PostgreSQL advisory lock serializes rate-limit
-        // reservations for the same authenticated user + case across app instances.
-        await tx.$queryRaw<unknown[]>`
-          SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))
+        // Keep the transaction-scoped PostgreSQL advisory lock so rate-limit
+        // reservations remain serialized across app instances. The lock function
+        // returns PostgreSQL `void`; Prisma's pg adapter cannot deserialize that
+        // raw type, so cast it to a supported scalar before the result crosses
+        // the adapter boundary.
+        await tx.$queryRaw<Array<{ lockResult: string }>>`
+          SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))::text AS "lockResult"
         `;
 
         const dayCount = await tx.caseActivityEvent.count({
