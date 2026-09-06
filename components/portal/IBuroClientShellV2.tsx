@@ -227,7 +227,7 @@ export function IBuroClientShellV2({
             </Link>
 
             <details className={styles.userMenu}>
-              <summary className={styles.userChip}>
+              <summary className={styles.userChip} aria-label="Меню профиля">
                 <AccountAvatar className={styles.userAvatar} initialsValue={userInitials} />
                 <span className={styles.userCopy}><strong>{displayName}</strong><span>{planLabel}</span></span>
                 <ChevronDown aria-hidden="true" />
@@ -256,8 +256,10 @@ export function IBuroClientShellV2({
             </div>
             {nav(true)}
             <div className={styles.drawerAccount}>
-              <strong>{displayName}</strong>
-              <span>{caseDisplayNumber}</span>
+              <div className={styles.singleCaseCard}>
+                <AccountAvatar className={`${styles.singleCaseAvatar} ${styles.userAvatar}`} initialsValue={userInitials} />
+                <div><strong>{displayName}</strong><span>{caseDisplayNumber}</span></div>
+              </div>
               <Link href={`/portal/notifications?caseId=${caseId}`} onClick={() => closeDrawer()}>Уведомления{unreadCount ? ` · ${unreadCount}` : ""}</Link>
             </div>
           </aside>
