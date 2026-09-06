@@ -2,7 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 
 export const STAGING_YANDEX_AI_TARGET_GUARD = "STAGING_YANDEX_AI_TARGET_GUARD";
 
-// This guard is also a safe smoke-trigger surface after Preview target rotations.
+// Safe smoke-trigger surface after confirmed Preview credential or Folder ID rotations.
 const YANDEX_IAM_RESOURCE_ID_PATTERN = /^aje[a-z0-9]{17}$/;
 const YANDEX_STATIC_ACCESS_KEY_PATTERN = /^YC(?:[A-Za-z0-9_-]{23}|[A-Za-z0-9_-]{38})$/;
 const YANDEX_AUTHORIZED_KEY_PREFIX = "PLEASE DO NOT REMOVE THIS LINE! Yandex.Cloud SA Key ID";
