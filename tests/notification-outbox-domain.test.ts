@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
 import type {
   ClaimedEmailDelivery,
@@ -256,6 +258,48 @@ const claimedBase: ClaimedEmailDelivery = {
   assert.equal(result.dead, 1);
   assert.equal(sendCount, 0);
   assert.equal(deadError, NOTIFICATION_DELIVERY_RECIPIENT_UNAVAILABLE);
+}
+
+{
+  const buttonSource = await readFile(
+    resolve("components/platform/notifications/MarkAllNotificationsReadButton.tsx"),
+    "utf8",
+  );
+  const pageSource = await readFile(resolve("app/portal/notifications/page.tsx"), "utf8");
+  const routeSource = await readFile(
+    resolve("app/api/platform/notifications/read-all/route.ts"),
+    "utf8",
+  );
+  const repositorySource = await readFile(
+    resolve("server/repositories/prisma/notification-repository.ts"),
+    "utf8",
+  );
+  const serviceSource = await readFile(resolve("server/domain/notifications/service.ts"), "utf8");
+
+  assert.match(buttonSource, /Отметить все прочитанными/);
+  assert.match(
+    buttonSource,
+    /fetch\("\/api\/platform\/notifications\/read-all",\s*\{[\s\S]*?method: "POST"/,
+  );
+  assert.match(buttonSource, /min-h-11/);
+  assert.doesNotMatch(buttonSource, /userId/);
+  assert.match(
+    pageSource,
+    /\{unreadCount \? <MarkAllNotificationsReadButton \/> : null\}/,
+  );
+  assert.match(
+    routeSource,
+    /export async function POST\(\) \{\s*return adapter\(\)\.markAllRead\(\);\s*\}/,
+  );
+  assert.match(
+    serviceSource,
+    /markAllRead\(actor: AuthenticatedActor\)[\s\S]*?repository\.markAllRead\(actor\.userId\)/,
+  );
+  assert.match(
+    repositorySource,
+    /async markAllRead\(userId: string\)[\s\S]*?where: \{ userId, readAt: null \}[\s\S]*?data: \{ readAt: new Date\(\) \}/,
+  );
+  console.log("NOTIFICATION_BULK_READ_CONTRACT_PASS");
 }
 
 console.log("NOTIFICATION_OUTBOX_DOMAIN_TEST_PASS");
