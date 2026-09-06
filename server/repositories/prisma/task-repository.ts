@@ -37,18 +37,26 @@ function actorTaskWhere(actor: AuthenticatedActor) {
 }
 
 function actorCaseWhere(actor: AuthenticatedActor) {
-  if (actor.roles.includes("MANAGER")) {
-    return {
-      clientId: { not: actor.userId },
-    };
-  }
-  if (actor.roles.includes("LAWYER")) {
+  if (!actor.roles.includes("MANAGER") && actor.roles.includes("LAWYER")) {
     return {
       assignedLawyerId: actor.userId,
       clientId: { not: actor.userId },
     };
   }
   return null;
+}
+
+function actorMutationTaskWhere(actor: AuthenticatedActor) {
+  if (actor.roles.includes("MANAGER") || !actor.roles.includes("LAWYER")) return null;
+  return {
+    assigneeId: actor.userId,
+    clientCase: {
+      is: {
+        assignedLawyerId: actor.userId,
+        clientId: { not: actor.userId },
+      },
+    },
+  };
 }
 
 function toRecord(row: {
@@ -99,8 +107,8 @@ export class PrismaTaskRepository implements TaskRepository {
       const clientCase = await tx.clientCase.findFirst({
         where: {
           id: input.clientCaseId,
-          assignedLawyerId: input.assigneeId,
           ...caseScope,
+          assignedLawyerId: input.assigneeId,
         },
         select: { id: true, assignedLawyerId: true },
       });
@@ -138,7 +146,7 @@ export class PrismaTaskRepository implements TaskRepository {
     status: TaskStatus;
     expectedVersion: number;
   }) {
-    const scope = actorTaskWhere(input.actor);
+    const scope = actorMutationTaskWhere(input.actor);
     if (!scope) throw new Error(TASK_NOT_FOUND);
 
     const prisma = getPrismaClient();

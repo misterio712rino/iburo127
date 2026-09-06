@@ -169,17 +169,77 @@ await assert.rejects(
 );
 assert.equal(repository.reviewCalls, 0, "self-review must be rejected before repository mutation");
 
+const client: AuthenticatedActor = {
+  userId: clientCase.clientId,
+  roles: ["CLIENT"],
+};
+await assert.rejects(
+  service.markReviewed(client, {
+    clientCaseId: clientCase.id,
+    documentCode: "petition",
+    expectedVersion: repository.current.version,
+  }),
+  new RegExp(DOCUMENT_FORBIDDEN),
+  "CLIENT must not review documents",
+);
+assert.equal(repository.reviewCalls, 0, "CLIENT review denial must occur before repository mutation");
+
 const manager: AuthenticatedActor = {
   userId: "manager-2",
   roles: ["MANAGER"],
 };
-const reviewed = await service.markReviewed(manager, {
+await assert.rejects(
+  service.markReviewed(manager, {
+    clientCaseId: clientCase.id,
+    documentCode: "petition",
+    expectedVersion: repository.current.version,
+  }),
+  new RegExp(DOCUMENT_FORBIDDEN),
+  "MANAGER must remain read-only for document review",
+);
+assert.equal(repository.reviewCalls, 0, "MANAGER review denial must occur before repository mutation");
+
+const managerLawyer: AuthenticatedActor = {
+  userId: "lawyer-1",
+  roles: ["MANAGER", "LAWYER"],
+};
+await assert.rejects(
+  service.markReviewed(managerLawyer, {
+    clientCaseId: clientCase.id,
+    documentCode: "petition",
+    expectedVersion: repository.current.version,
+  }),
+  new RegExp(DOCUMENT_FORBIDDEN),
+  "a MANAGER role must fail closed even when the actor is also the assigned LAWYER",
+);
+assert.equal(repository.reviewCalls, 0, "multi-role MANAGER review denial must occur before repository mutation");
+
+const foreignLawyer: AuthenticatedActor = {
+  userId: "lawyer-2",
+  roles: ["LAWYER"],
+};
+await assert.rejects(
+  service.markReviewed(foreignLawyer, {
+    clientCaseId: clientCase.id,
+    documentCode: "petition",
+    expectedVersion: repository.current.version,
+  }),
+  /DOCUMENT_(?:CASE_NOT_FOUND|FORBIDDEN)/,
+  "an unassigned LAWYER must not review the document",
+);
+assert.equal(repository.reviewCalls, 0, "foreign LAWYER review denial must occur before repository mutation");
+
+const assignedLawyer: AuthenticatedActor = {
+  userId: "lawyer-1",
+  roles: ["LAWYER"],
+};
+const reviewed = await service.markReviewed(assignedLawyer, {
   clientCaseId: clientCase.id,
   documentCode: "petition",
   expectedVersion: repository.current.version,
 });
 assert.equal(reviewed.status, "REVIEWED");
-assert.equal(repository.reviewCalls, 1, "an independent manager must retain review capability");
+assert.equal(repository.reviewCalls, 1, "the assigned LAWYER must retain review capability");
 
 const documentsUiSource = await readFile(
   resolve("components/platform/documents/ProductionDocuments.tsx"),
@@ -205,5 +265,10 @@ const documentsPageSource = await readFile(
 );
 assert.match(documentsPageSource, /Документы, которые клиент передал на проверку, показаны первыми/);
 assert.match(documentsPageSource, /resolveCasePortalAudience/);
+assert.match(
+  documentsPageSource,
+  /!actor\.roles\.includes\("MANAGER"\)[\s\S]*actor\.roles\.includes\("LAWYER"\)[\s\S]*clientCase\.assignedLawyerId === actor\.userId/,
+  "only an assigned LAWYER without MANAGER authority may receive the review control",
+);
 
 console.log("DOCUMENT_REVIEW_SEPARATION_TEST_PASS");

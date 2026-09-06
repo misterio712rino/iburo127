@@ -422,40 +422,49 @@ async function documentsE2e(clientCaseId: string) {
   assertVersionAdvance(sent.version, lawyerReviewed.version, "LAWYER document review");
   if (lawyerReviewed.status !== "REVIEWED") fail("LAWYER review did not enter REVIEWED");
 
-  const regeneratedForManager = await expectOk<DocumentData>(
-    "document regenerate for manager review",
+  const regeneratedForManagerCheck = await expectOk<DocumentData>(
+    "document regenerate for manager read-only check",
     "POST",
     regeneratePath,
     clientCookie,
     { expectedVersion: lawyerReviewed.version },
   );
-  if (regeneratedForManager.status !== "READY_FOR_REVIEW") fail("document did not return to READY_FOR_REVIEW");
-  const sentForManager = await expectOk<DocumentData>(
-    "document send for manager review",
+  if (regeneratedForManagerCheck.status !== "READY_FOR_REVIEW") fail("document did not return to READY_FOR_REVIEW");
+  const sentForManagerCheck = await expectOk<DocumentData>(
+    "document send for manager read-only check",
     "POST",
     sendPath,
     clientCookie,
-    { expectedVersion: regeneratedForManager.version },
+    { expectedVersion: regeneratedForManagerCheck.version },
   );
-  const managerReviewed = await expectOk<DocumentData>(
+  await expectError(
     "MANAGER document review",
     "POST",
     reviewedPath,
     managerCookie,
-    { expectedVersion: sentForManager.version },
+    { expectedVersion: sentForManagerCheck.version },
+    403,
+    "FORBIDDEN",
   );
-  if (managerReviewed.status !== "REVIEWED") fail("MANAGER review did not enter REVIEWED");
+  const lawyerReviewedAfterManagerDenial = await expectOk<DocumentData>(
+    "LAWYER document review after manager denial",
+    "POST",
+    reviewedPath,
+    lawyerCookie,
+    { expectedVersion: sentForManagerCheck.version },
+  );
+  if (lawyerReviewedAfterManagerDenial.status !== "REVIEWED") fail("LAWYER review did not enter REVIEWED");
 
   const [clientRead, lawyerRead, managerRead] = await Promise.all([
     expectOk<DocumentData>("CLIENT document authoritative GET", "GET", basePath, clientCookie),
     expectOk<DocumentData>("LAWYER document authoritative GET", "GET", basePath, lawyerCookie),
     expectOk<DocumentData>("MANAGER document authoritative GET", "GET", basePath, managerCookie),
   ]);
-  if (clientRead.version !== managerReviewed.version || lawyerRead.version !== managerReviewed.version || managerRead.version !== managerReviewed.version) {
+  if (clientRead.version !== lawyerReviewedAfterManagerDenial.version || lawyerRead.version !== lawyerReviewedAfterManagerDenial.version || managerRead.version !== lawyerReviewedAfterManagerDenial.version) {
     fail("document authoritative reads disagree after review");
   }
 
-  console.log("DOCUMENTS: lifecycle, invalid transition, stale version, LAWYER/MANAGER review and CLIENT denial verified");
+  console.log("DOCUMENTS: lifecycle, invalid transition, stale version, assigned LAWYER review and CLIENT/MANAGER denial verified");
 }
 
 async function tasksE2e(clientCaseId: string) {
@@ -472,6 +481,16 @@ async function tasksE2e(clientCaseId: string) {
 
   const statusPath = `/api/platform/tasks/${encodeURIComponent(task.id)}/status`;
   const taskPath = `/api/platform/tasks/${encodeURIComponent(task.id)}`;
+  const createPath = `/api/platform/cases/${encodeURIComponent(clientCaseId)}/tasks`;
+  await expectError(
+    "MANAGER task create",
+    "POST",
+    createPath,
+    managerCookie,
+    { title: "Manager read-only probe", description: null, dueAt: null },
+    403,
+    "FORBIDDEN",
+  );
   const working = await expectOk<TaskData>(
     "LAWYER task NEW to WORKING",
     "PATCH",
@@ -501,15 +520,25 @@ async function tasksE2e(clientCaseId: string) {
     "FORBIDDEN",
   );
 
-  const done = await expectOk<TaskData>(
-    "MANAGER task WORKING to DONE",
+  await expectError(
+    "MANAGER task status mutation",
     "PATCH",
     statusPath,
     managerCookie,
     { status: "DONE", expectedVersion: working.version },
+    403,
+    "FORBIDDEN",
   );
-  assertVersionAdvance(working.version, done.version, "MANAGER task WORKING to DONE");
-  if (done.status !== "DONE") fail("MANAGER task mutation did not enter DONE");
+
+  const done = await expectOk<TaskData>(
+    "LAWYER task WORKING to DONE",
+    "PATCH",
+    statusPath,
+    lawyerCookie,
+    { status: "DONE", expectedVersion: working.version },
+  );
+  assertVersionAdvance(working.version, done.version, "LAWYER task WORKING to DONE");
+  if (done.status !== "DONE") fail("LAWYER task mutation did not enter DONE");
 
   const authoritative = await expectOk<TaskData>("LAWYER task authoritative GET", "GET", taskPath, lawyerCookie);
   if (authoritative.status !== "DONE" || authoritative.version !== done.version) {
@@ -517,15 +546,15 @@ async function tasksE2e(clientCaseId: string) {
   }
 
   const restored = await expectOk<TaskData>(
-    "MANAGER task fixture restore",
+    "LAWYER task fixture restore",
     "PATCH",
     statusPath,
-    managerCookie,
+    lawyerCookie,
     { status: "NEW", expectedVersion: done.version },
   );
   if (restored.status !== "NEW") fail("mutation task fixture could not be restored to NEW");
 
-  console.log("TASKS: LAWYER mutation, stale conflict, CLIENT denial, MANAGER mutation and fixture restore verified");
+  console.log("TASKS: LAWYER mutations, stale conflict, CLIENT/MANAGER denial and fixture restore verified");
 }
 
 function readBoundedPositiveInteger(name: string, fallback: number, max: number) {

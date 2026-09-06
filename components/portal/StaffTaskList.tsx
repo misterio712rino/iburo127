@@ -27,9 +27,11 @@ function dueLabel(dueAt: Date | null) {
 
 export function StaffTaskList({
   items,
+  canMutate,
   emptyMessage = "Доступных задач сейчас нет.",
 }: {
   items: readonly StaffTaskQueueItem[];
+  canMutate: boolean;
   emptyMessage?: string;
 }) {
   if (!items.length) {
@@ -103,7 +105,9 @@ export function StaffTaskList({
               </div>
             ) : null}
 
-            <TaskStatusControl taskId={task.id} status={task.status} version={task.version} />
+            {canMutate ? (
+              <TaskStatusControl taskId={task.id} status={task.status} version={task.version} />
+            ) : null}
 
             <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
               <Link

@@ -67,6 +67,7 @@ export default async function PortalTasksPage() {
   const summary = summarizeStaffTaskQueue(queue, now);
   const priorityItem = queue.find(({ task }) => task.status !== "DONE");
   const heading = actor.roles.includes("MANAGER") ? "Рабочая очередь команды" : "Моя рабочая очередь";
+  const canMutateTasks = !actor.roles.includes("MANAGER") && actor.roles.includes("LAWYER");
 
   return (
     <PortalFrame sectionLabel="Рабочая очередь" showStaffTasks>
@@ -128,7 +129,7 @@ export default async function PortalTasksPage() {
         ) : null}
 
         <section className="mt-4" aria-label="Рабочая очередь">
-          <StaffTaskWorkspace items={presentationItems} />
+          <StaffTaskWorkspace items={presentationItems} canMutate={canMutateTasks} />
         </section>
       </main>
     </PortalFrame>

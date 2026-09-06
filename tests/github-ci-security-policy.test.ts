@@ -30,7 +30,7 @@ assert.match(
   /- name: Staging scanner Terraform format\s+run: terraform -chdir=infra\/file-scanner-staging fmt -check/,
 );
 const terraformValidationStep = ciWorkflowSource.match(
-  /      - name: Staging scanner Terraform validate\n[\s\S]*?(?=\n      - name:|$)/,
+  /      - name: Staging scanner Terraform validate\r?\n[\s\S]*?(?=\r?\n      - name:|$)/,
 )?.[0];
 assert.ok(terraformValidationStep, "authoritative CI must validate the staging scanner Terraform module");
 assert.match(terraformValidationStep, /init -backend=false -input=false/);
@@ -43,7 +43,7 @@ assert.match(
 );
 
 const scannerDockerStep = ciWorkflowSource.match(
-  /      - name: File scanner Docker build\n        shell: bash\n        run: \|\n([\s\S]*?)(?=\n      - name:|$)/,
+  /      - name: File scanner Docker build\r?\n        shell: bash\r?\n        run: \|\r?\n([\s\S]*?)(?=\r?\n      - name:|$)/,
 )?.[0];
 assert.ok(scannerDockerStep, "Push and PR CI must build the isolated scanner image");
 assert.match(

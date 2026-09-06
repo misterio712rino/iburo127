@@ -39,7 +39,13 @@ function emptyMessage(query: string, filter: TaskFilter) {
   return "Доступных задач сейчас нет.";
 }
 
-export function StaffTaskWorkspace({ items }: { items: readonly StaffTaskPresentationItem[] }) {
+export function StaffTaskWorkspace({
+  items,
+  canMutate,
+}: {
+  items: readonly StaffTaskPresentationItem[];
+  canMutate: boolean;
+}) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<TaskFilter>("ALL");
   const normalizedQuery = normalizeSearchText(query);
@@ -61,7 +67,7 @@ export function StaffTaskWorkspace({ items }: { items: readonly StaffTaskPresent
     [filter, items, normalizedQuery],
   );
 
-  if (!items.length) return <StaffTaskCards items={items} />;
+  if (!items.length) return <StaffTaskCards items={items} canMutate={canMutate} />;
 
   return (
     <div className="grid gap-4">
@@ -103,7 +109,11 @@ export function StaffTaskWorkspace({ items }: { items: readonly StaffTaskPresent
       </section>
 
       <p className="text-xs font-semibold text-slate-400" role="status" aria-live="polite">Показано задач: {visibleItems.length}</p>
-      <StaffTaskCards items={visibleItems} emptyMessage={emptyMessage(normalizedQuery, filter)} />
+      <StaffTaskCards
+        items={visibleItems}
+        canMutate={canMutate}
+        emptyMessage={emptyMessage(normalizedQuery, filter)}
+      />
     </div>
   );
 }

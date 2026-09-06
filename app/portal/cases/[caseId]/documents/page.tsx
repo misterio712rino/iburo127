@@ -62,7 +62,11 @@ export default async function PortalDocumentsPage({ params }: { params: Promise<
   const questionnaire = { completed: summary.questionnaire.completed, total: summary.questionnaire.total, percent: summary.questionnaire.percent };
 
   if (audience === "STAFF") {
-    const canReview = clientCase.clientId !== actor.userId && (actor.roles.includes("MANAGER") || (actor.roles.includes("LAWYER") && clientCase.assignedLawyerId === actor.userId));
+    const canReview =
+      !actor.roles.includes("MANAGER") &&
+      actor.roles.includes("LAWYER") &&
+      clientCase.clientId !== actor.userId &&
+      clientCase.assignedLawyerId === actor.userId;
     return (
       <CasePortalFrame sessionProvider={sessionProvider} actor={actor} clientCase={clientCase} sectionLabel="Документы" showStaffTasks>
         <div className="py-10 sm:py-14">

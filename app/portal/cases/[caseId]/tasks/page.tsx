@@ -40,6 +40,11 @@ export default async function PortalCaseTasksPage({
   const queue = buildStaffTaskQueue(tasks, [clientCase]);
   const summary = summarizeStaffTaskQueue(queue);
   const caseHref = `/portal/cases/${encodeURIComponent(clientCase.id)}`;
+  const canMutateTasks =
+    !actor.roles.includes("MANAGER") &&
+    actor.roles.includes("LAWYER") &&
+    clientCase.clientId !== actor.userId &&
+    clientCase.assignedLawyerId === actor.userId;
 
   return (
     <PortalFrame sectionLabel={`Задачи · ${clientCase.caseNumber}`} accessLabel="Доступ сотрудника" showStaffTasks>
@@ -70,13 +75,14 @@ export default async function PortalCaseTasksPage({
           </div>
         </section>
 
-        <StaffTaskCreateForm
-          caseId={clientCase.id}
-          enabled={Boolean(clientCase.assignedLawyerId)}
-        />
+        {canMutateTasks ? <StaffTaskCreateForm caseId={clientCase.id} enabled /> : null}
 
         <section className="mt-6" aria-label={`Задачи по делу ${clientCase.caseNumber}`}>
-          <StaffTaskList items={queue} emptyMessage="По этому делу доступных задач сейчас нет." />
+          <StaffTaskList
+            items={queue}
+            canMutate={canMutateTasks}
+            emptyMessage="По этому делу доступных задач сейчас нет."
+          />
         </section>
       </main>
     </PortalFrame>

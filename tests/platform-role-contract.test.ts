@@ -200,13 +200,18 @@ assert.doesNotMatch(staffTaskWorkspaceSource, /lib\/platform\/demo|localStorage|
 assert.doesNotMatch(staffTaskWorkspaceSource, /overflow-x-auto/);
 assert.match(
   staffTaskCardsSource,
-  /<TaskStatusControl[\s\S]*taskId=\{item\.taskId\}[\s\S]*status=\{item\.status\}[\s\S]*version=\{item\.version\}/,
-  "production task controls must preserve the authoritative task id, status and version",
+  /canMutate && item\.status !== "DONE" \? \([\s\S]*<TaskStatusControl[\s\S]*taskId=\{item\.taskId\}[\s\S]*status=\{item\.status\}[\s\S]*version=\{item\.version\}/,
+  "production task controls must preserve authoritative data and render only for an authorized mutator",
 );
 assert.match(staffTaskCardsSource, /href=\{item\.caseHref\}/);
 assert.match(staffTaskCardsSource, /min-h-11/);
 assert.doesNotMatch(staffTaskCardsSource, /<table|min-w-\[/);
 assert.doesNotMatch(staffTaskCardsSource, /lib\/platform\/demo|localStorage|\/app\/manager/);
+assert.match(
+  staffTaskListSource,
+  /\{canMutate \? \([\s\S]*<TaskStatusControl/,
+  "case task controls must remain absent for read-only MANAGER views",
+);
 assert.match(
   taskStatusControlSource,
   /body: JSON\.stringify\(\{ status: nextStatus, expectedVersion: version \}\)/,
@@ -229,7 +234,8 @@ assert.match(
   /queue\.flatMap\(\(\{ task, clientCase \}\) => \[task\.assigneeId, clientCase\.clientId\]\)/,
   "task people enrichment must be limited to identities referenced by the authorized queue",
 );
-assert.match(staffTasksPageSource, /<StaffTaskWorkspace items=\{presentationItems\} \/>/);
+assert.match(staffTasksPageSource, /!actor\.roles\.includes\("MANAGER"\)/);
+assert.match(staffTasksPageSource, /<StaffTaskWorkspace items=\{presentationItems\} canMutate=\{canMutateTasks\} \/>/);
 
 const portalNavigationSource = await readFile(resolve("components/portal/PortalNavigation.tsx"), "utf8");
 assert.match(

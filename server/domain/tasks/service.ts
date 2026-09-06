@@ -88,18 +88,21 @@ export class TaskService {
     },
   ) {
     const clientCase = await this.cases.getCase(actor, { caseId: input.clientCaseId });
-    if (!clientCase || !canAccessClientCaseAsStaff(actor, clientCase)) {
+    const assignedLawyer =
+      clientCase &&
+      !actor.roles.includes("MANAGER") &&
+      actor.roles.includes("LAWYER") &&
+      clientCase.clientId !== actor.userId &&
+      clientCase.assignedLawyerId === actor.userId;
+    if (!assignedLawyer) {
       throw new Error(TASK_FORBIDDEN);
-    }
-    if (!clientCase.assignedLawyerId) {
-      throw new Error(TASK_CASE_UNASSIGNED);
     }
 
     const details = normalizeTaskDetails(input);
     return this.repository.create({
       actor,
       clientCaseId: clientCase.id,
-      assigneeId: clientCase.assignedLawyerId,
+      assigneeId: actor.userId,
       ...details,
     });
   }
@@ -109,6 +112,9 @@ export class TaskService {
     input: { taskId: string; status: TaskStatus; expectedVersion: number },
   ) {
     assertTaskStatus(input.status);
+    if (actor.roles.includes("MANAGER") || !actor.roles.includes("LAWYER")) {
+      throw new Error(TASK_FORBIDDEN);
+    }
     const task = await this.get(actor, input.taskId);
     if (!task) throw new Error(TASK_FORBIDDEN);
 

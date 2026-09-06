@@ -16,7 +16,6 @@ import type {
   TaskStatus,
 } from "@/server/domain/tasks/contracts";
 import {
-  TASK_CASE_UNASSIGNED,
   TASK_FORBIDDEN,
   TaskService,
 } from "@/server/domain/tasks/service";
@@ -174,6 +173,7 @@ const actors = {
   lawyer: { userId: "lawyer-1", roles: ["LAWYER"] },
   managerClient: { userId: "manager-client", roles: ["CLIENT", "MANAGER"] },
   manager: { userId: "manager-2", roles: ["MANAGER"] },
+  managerLawyer: { userId: "lawyer-1", roles: ["MANAGER", "LAWYER"] },
 } satisfies Record<string, AuthenticatedActor>;
 
 const repository = new WeakTaskRepository();
@@ -229,12 +229,29 @@ await assert.rejects(
 );
 assert.equal(repository.updates.includes("task-manager-own"), false);
 
-const managerUpdated = await service.updateStatus(actors.manager, {
-  taskId: "task-manager-other",
-  status: "WORKING",
-  expectedVersion: 1,
-});
-assert.equal(managerUpdated.status, "WORKING");
+assert.equal(
+  (await service.get(actors.manager, "task-manager-other"))?.id,
+  "task-manager-other",
+  "MANAGER must retain read-only task oversight",
+);
+await assert.rejects(
+  service.updateStatus(actors.manager, {
+    taskId: "task-manager-other",
+    status: "WORKING",
+    expectedVersion: 1,
+  }),
+  new RegExp(TASK_FORBIDDEN),
+);
+await assert.rejects(
+  service.updateStatus(actors.managerLawyer, {
+    taskId: "task-assigned",
+    status: "WORKING",
+    expectedVersion: lawyerUpdated.version,
+  }),
+  new RegExp(TASK_FORBIDDEN),
+  "a MANAGER role must fail closed even when the actor is also the assigned LAWYER",
+);
+assert.equal(repository.updates.includes("task-manager-other"), false);
 
 const lawyerCreated = await service.create(actors.lawyer, {
   clientCaseId: "case-assigned",
@@ -274,16 +291,14 @@ await assert.rejects(
   new RegExp(TASK_FORBIDDEN),
 );
 
-const managerCreated = await service.create(actors.manager, {
+await assert.rejects(
+  service.create(actors.manager, {
   clientCaseId: "case-manager-other",
   title: "Подготовить проверку",
   description: null,
   dueAt: null,
-});
-assert.equal(
-  managerCreated.assigneeId,
-  "lawyer-2",
-  "MANAGER task creation must derive assignee from current ClientCase assignment",
+  }),
+  new RegExp(TASK_FORBIDDEN),
 );
 
 await assert.rejects(
@@ -293,15 +308,24 @@ await assert.rejects(
     description: null,
     dueAt: null,
   }),
-  new RegExp(TASK_CASE_UNASSIGNED),
+  new RegExp(TASK_FORBIDDEN),
 );
-assert.equal(repository.creations.length, 2, "forbidden/unassigned creation attempts must not reach repository.create");
+await assert.rejects(
+  service.create(actors.managerLawyer, {
+    clientCaseId: "case-assigned",
+    title: "Restricted mutation",
+    description: null,
+    dueAt: null,
+  }),
+  new RegExp(TASK_FORBIDDEN),
+);
+assert.equal(repository.creations.length, 1, "all forbidden creation attempts must stop before repository.create");
 
 const taskServiceSource = await readFile(resolve("server/domain/tasks/service.ts"), "utf8");
 assert.match(taskServiceSource, /this\.cases\.getCase\(actor, \{ caseId: task\.clientCaseId \}\)/);
-assert.match(taskServiceSource, /canAccessClientCaseAsStaff/);
 assert.match(taskServiceSource, /this\.cases\.listCases\(actor\)/);
-assert.match(taskServiceSource, /assigneeId:\s*clientCase\.assignedLawyerId/);
+assert.match(taskServiceSource, /!actor\.roles\.includes\("MANAGER"\)/);
+assert.match(taskServiceSource, /assigneeId:\s*actor\.userId/);
 
 const prismaTaskRepositorySource = await readFile(
   resolve("server/repositories/prisma/task-repository.ts"),
@@ -319,7 +343,12 @@ assert.match(
 );
 assert.match(
   prismaTaskRepositorySource,
-  /clientCase\.findFirst\([\s\S]*assignedLawyerId:\s*input\.assigneeId[\s\S]*\.\.\.caseScope/,
+  /function actorMutationTaskWhere[\s\S]*actor\.roles\.includes\("MANAGER"\)[\s\S]*return null/,
+  "Prisma task mutation scope must fail closed for MANAGER actors",
+);
+assert.match(
+  prismaTaskRepositorySource,
+  /clientCase\.findFirst\([\s\S]*\.\.\.caseScope[\s\S]*assignedLawyerId:\s*input\.assigneeId/,
   "task creation must recheck current ClientCase assignment inside the transaction",
 );
 assert.match(prismaTaskRepositorySource, /caseTask\.create\(/);
@@ -353,5 +382,11 @@ assert.doesNotMatch(
 assert.match(taskCreateFormSource, /\/api\/platform\/cases\/\$\{encodeURIComponent\(caseId\)\}\/tasks/);
 assert.match(taskCreateFormSource, /maxLength=\{160\}/);
 assert.match(taskCreateFormSource, /maxLength=\{2000\}/);
+
+const caseTasksPageSource = await readFile(resolve("app/portal/cases/[caseId]/tasks/page.tsx"), "utf8");
+const staffTasksPageSource = await readFile(resolve("app/portal/tasks/page.tsx"), "utf8");
+assert.match(caseTasksPageSource, /canMutateTasks \? <StaffTaskCreateForm/);
+assert.match(caseTasksPageSource, /!actor\.roles\.includes\("MANAGER"\)/);
+assert.match(staffTasksPageSource, /<StaffTaskWorkspace items=\{presentationItems\} canMutate=\{canMutateTasks\}/);
 
 console.log("TASK_CASE_AUTHORIZATION_TEST_PASS");

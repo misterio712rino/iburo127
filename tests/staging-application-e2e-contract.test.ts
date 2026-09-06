@@ -274,6 +274,14 @@ const sessionSource = await readFile(resolve("scripts/staging-authenticated-sess
 const orchestratorSource = await readFile(resolve("scripts/verify-staging-application-e2e.ts"), "utf8");
 const httpAuthzSource = await readFile(resolve("scripts/verify-staging-http-authz.ts"), "utf8");
 const aiHttpAuthzSource = await readFile(resolve("scripts/verify-staging-ai-http-authz.ts"), "utf8");
+const httpMutationsSource = await readFile(resolve("scripts/verify-staging-http-mutations-impl.ts"), "utf8");
+
+assert.match(httpMutationsSource, /"MANAGER document review"[\s\S]*403,[\s\S]*"FORBIDDEN"/);
+assert.match(httpMutationsSource, /"LAWYER document review after manager denial"/);
+assert.match(httpMutationsSource, /"MANAGER task create"[\s\S]*403,[\s\S]*"FORBIDDEN"/);
+assert.match(httpMutationsSource, /"MANAGER task status mutation"[\s\S]*403,[\s\S]*"FORBIDDEN"/);
+assert.match(httpMutationsSource, /"LAWYER task NEW to WORKING"/);
+assert.match(httpMutationsSource, /"LAWYER task WORKING to DONE"/);
 
 assert.equal(
   packageJson.scripts?.["check:staging:auth-flow"],

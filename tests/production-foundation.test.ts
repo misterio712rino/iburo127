@@ -208,13 +208,14 @@ async function testTaskAuthorization() {
   assert.equal(working.status, "WORKING");
   assert.equal(working.version, 2);
 
-  const done = await service.updateStatus(actors.manager, {
-    taskId: task.id,
-    status: "DONE",
-    expectedVersion: 2,
-  });
-  assert.equal(done.status, "DONE");
-  assert.equal(done.version, 3);
+  await assert.rejects(
+    service.updateStatus(actors.manager, {
+      taskId: task.id,
+      status: "DONE",
+      expectedVersion: 2,
+    }),
+    /TASK_FORBIDDEN/,
+  );
 }
 
 class InMemoryCaseRepository implements ClientCaseRepository {

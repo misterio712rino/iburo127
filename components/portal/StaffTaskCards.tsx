@@ -29,9 +29,11 @@ function dueText(item: StaffTaskPresentationItem) {
 
 export function StaffTaskCards({
   items,
+  canMutate,
   emptyMessage = "Доступных задач сейчас нет.",
 }: {
   items: readonly StaffTaskPresentationItem[];
+  canMutate: boolean;
   emptyMessage?: string;
 }) {
   if (!items.length) {
@@ -90,7 +92,7 @@ export function StaffTaskCards({
             </dl>
 
             <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap xl:flex-nowrap xl:justify-end">
-              {item.status !== "DONE" ? (
+              {canMutate && item.status !== "DONE" ? (
                 <div className="min-w-0 flex-1 [&>div]:mt-0 [&_button]:w-full">
                   <TaskStatusControl taskId={item.taskId} status={item.status} version={item.version} />
                 </div>
