@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 
 const stagingRoot = resolve("app/%5Fiburo");
 const expectedRoutes = [
+  "staging-ai-verify",
   "staging-application-e2e-fixtures",
   "staging-auth-config",
   "staging-auth-fixtures",
