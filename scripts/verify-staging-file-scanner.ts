@@ -26,7 +26,7 @@ const STAGING_FILE_SCANNER_VERIFY_FAIL = "STAGING_FILE_SCANNER_VERIFY_FAIL";
 const FIXTURE_URL_TTL_SECONDS = 300;
 const MAX_FIXTURE_BYTES = 1024 * 1024;
 const FIXTURE_MIME_TYPE = "application/octet-stream";
-const CLEAN_FIXTURE = new TextEncoder().encode("iburo scanner smoke fixture: clean\\n");
+const CLEAN_FIXTURE = new TextEncoder().encode("iburo scanner smoke fixture: clean\n");
 // EICAR is the industry-standard inert antivirus test string, never executable malware.
 const MALICIOUS_TEST_FIXTURE = new TextEncoder().encode(
   "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*",
@@ -153,6 +153,33 @@ function createVercelBlobSmokeStorage() {
   );
 }
 
+async function verifyVercelBlobTargetBeforeMutation(
+  target: Extract<StagingFileScannerTarget, { providerCode: typeof VERCEL_BLOB_STORAGE_PROVIDER }>,
+  storage: ReturnType<typeof createVercelBlobSmokeStorage>,
+) {
+  const probeUrl = await storage.createPrivateDownloadUrl({
+    pathname: target.cleanObjectKey,
+    expiresInSeconds: FIXTURE_URL_TTL_SECONDS,
+  });
+
+  let parsed: URL;
+  try {
+    parsed = new URL(probeUrl);
+  } catch {
+    throw new Error("VERCEL_BLOB_PRIVATE_HOST_MISMATCH");
+  }
+
+  if (
+    parsed.protocol !== "https:" ||
+    parsed.hostname.toLowerCase() !== target.expectedPrivateBlobHost ||
+    parsed.port ||
+    parsed.username ||
+    parsed.password
+  ) {
+    throw new Error("VERCEL_BLOB_PRIVATE_HOST_MISMATCH");
+  }
+}
+
 async function uploadVercelFixture(
   storage: ReturnType<typeof createVercelBlobSmokeStorage>,
   objectKey: string,
@@ -226,6 +253,8 @@ async function verifyVercelBlobFixtures(
   scannerTimeoutMs: number,
 ) {
   const storage = createVercelBlobSmokeStorage();
+  await verifyVercelBlobTargetBeforeMutation(target, storage);
+
   try {
     await cleanupVercelFixtures(storage, target);
     await verifyVercelFixture(
@@ -279,6 +308,7 @@ const scannerTimeoutMs = readInteger(
 try {
   if (target.providerCode === VERCEL_BLOB_STORAGE_PROVIDER) {
     await verifyVercelBlobFixtures(target, scannerTimeoutMs);
+    console.log("Vercel Blob staging host verified before fixture mutation");
     console.log("Bounded private Vercel Blob scanner fixtures verified: 2");
     console.log("Fixture cleanup verified: 2");
   } else {
