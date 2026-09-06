@@ -1,9 +1,7 @@
 export const FILE_DELETION_MODE_INVALID = "FILE_DELETION_MODE_INVALID";
 
 export type StoredFileDeletionMode = "legacy" | "durable";
-type StoredFileDeletionModeEnv = {
-  IB_FILE_DELETION_MODE?: string;
-};
+type StoredFileDeletionModeEnv = Record<string, string | undefined>;
 
 export function readStoredFileDeletionMode(
   env: StoredFileDeletionModeEnv = process.env,
