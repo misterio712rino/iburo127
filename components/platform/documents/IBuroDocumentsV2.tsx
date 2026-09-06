@@ -130,6 +130,7 @@ export function IBuroDocumentsV2({ caseId, humanSupportAvailable, questionnaire,
             const status = document?.status;
             const completeness = status === "WAITING_DATA" ? Math.min(questionnaire.percent, 60) : document ? Math.max(questionnaire.percent, 75) : questionnaire.percent;
             const pending = pendingKey?.startsWith(`${definition.id}:`) ?? false;
+            const canRegenerate = Boolean(document) && (!humanSupportAvailable || (status !== "SENT_FOR_REVIEW" && status !== "REVIEWED"));
             return (
               <article className={styles.card} key={definition.id}>
                 <div className={styles.cardTop}><span className={styles.icon}><FileText aria-hidden="true" /></span><span className={`${styles.status} ${status ? styles[`status_${status}`] : ""}`}>{status ? statusLabels[status] : "Не создан"}</span></div>
@@ -138,12 +139,12 @@ export function IBuroDocumentsV2({ caseId, humanSupportAvailable, questionnaire,
                 <div className={styles.track} role="progressbar" aria-label={`Готовность данных: ${definition.title}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={completeness}><span style={{ width: `${completeness}%` }} /></div>
                 <div className={styles.actions}>
                   {!document ? <Action label="Создать черновик" pending={pendingKey === `${definition.id}:create`} disabled={Boolean(pendingKey)} onClick={() => mutate(definition.id, "create")} /> : null}
-                  {document && status !== "SENT_FOR_REVIEW" && status !== "REVIEWED" ? <Action label="Обновить по анкете" pending={pendingKey === `${definition.id}:regenerate`} disabled={Boolean(pendingKey)} onClick={() => mutate(definition.id, "regenerate")} icon="refresh" /> : null}
+                  {canRegenerate ? <Action label="Обновить по анкете" pending={pendingKey === `${definition.id}:regenerate`} disabled={Boolean(pendingKey)} onClick={() => mutate(definition.id, "regenerate")} icon="refresh" /> : null}
                   {humanSupportAvailable && status === "READY_FOR_REVIEW" ? <Action label="Передать на проверку" pending={pendingKey === `${definition.id}:send`} disabled={Boolean(pendingKey)} onClick={() => mutate(definition.id, "send")} icon="send" primary /> : null}
                 </div>
                 {status === "WAITING_DATA" ? <small className={styles.waiting}>Для подготовки пока недостаточно данных анкеты.</small> : null}
-                {status === "SENT_FOR_REVIEW" ? <small className={styles.reviewing}><ShieldCheck aria-hidden="true" />{humanSupportAvailable ? "Документ у специалиста на проверке." : "Состояние сохранено из истории документа."}</small> : null}
-                {status === "REVIEWED" ? <small className={styles.reviewed}><CheckCircle2 aria-hidden="true" />{humanSupportAvailable ? "Проверка специалистом завершена." : "Ранее зафиксирована проверка документа."}</small> : null}
+                {status === "SENT_FOR_REVIEW" ? <small className={styles.reviewing}><ShieldCheck aria-hidden="true" />{humanSupportAvailable ? "Документ у специалиста на проверке." : "Состояние сохранено из истории документа. Обновите документ по актуальным данным анкеты, чтобы продолжить самостоятельно."}</small> : null}
+                {status === "REVIEWED" ? <small className={styles.reviewed}><CheckCircle2 aria-hidden="true" />{humanSupportAvailable ? "Проверка специалистом завершена." : "Ранее зафиксирована проверка документа. При необходимости обновите документ по актуальным данным анкеты."}</small> : null}
                 {pending ? <span className="sr-only" role="status">Выполняется действие с документом</span> : null}
               </article>
             );

@@ -7,6 +7,7 @@ import { IBuroClientShellV2 } from "@/components/portal/IBuroClientShellV2";
 import { getPlanDisplayLabel } from "@/lib/platform/case-progress";
 import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
 import { resolveCasePortalAudience } from "@/lib/platform/case-portal-audience";
+import { clientPlanHasHumanSupport } from "@/lib/platform/client-plan-entitlements";
 import { formatProfileDisplayName } from "@/lib/platform/profile-display-name";
 import type { PlanCode } from "@/lib/platform/types";
 import { getCurrentAccountProfile } from "@/server/account/operations";
@@ -72,6 +73,7 @@ export default async function PortalCaseActivityPage({ params }: { params: Promi
     listNotifications(sessionProvider, 100),
   ]);
   const planCode = requirePlanCode(clientCase.planCode);
+  const humanSupportAvailable = clientPlanHasHumanSupport(planCode);
   const displayName = profile.displayName?.trim()
     ? formatProfileDisplayName(profile.displayName)
     : "Клиент iБюро";
@@ -96,7 +98,7 @@ export default async function PortalCaseActivityPage({ params }: { params: Promi
       <div className="flex min-w-0 flex-col gap-7 py-1 sm:gap-9 sm:py-2">
         <header>
           <p className="text-sm font-semibold text-primary">Хронология дела</p>
-          <h1 className="mt-2 break-words font-[var(--font-iburo-display)] text-3xl font-semibold tracking-[-.04em] text-foreground sm:text-5xl">История сопровождения</h1>
+          <h1 className="mt-2 break-words font-[var(--font-iburo-display)] text-3xl font-semibold tracking-[-.04em] text-foreground sm:text-5xl">{humanSupportAvailable ? "История сопровождения" : "История дела"}</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">Основные изменения и действия по вашему делу без содержимого документов, ответов анкеты и внутренних служебных данных.</p>
         </header>
         <ActivityList events={events} />
@@ -118,7 +120,7 @@ function ActivityList({
         ? "mt-8 rounded-[28px] border border-dashed border-slate-300 bg-white/70 p-8 text-sm text-slate-500"
         : "rounded-[28px] border border-dashed border-border bg-card/70 p-8 text-center text-sm text-muted-foreground"}
       >
-        {staff ? "История этого дела пока пуста." : "Событий по делу пока нет. Здесь появятся основные этапы сопровождения."}
+        {staff ? "История этого дела пока пуста." : "Событий по делу пока нет. Здесь появятся основные этапы дела."}
       </div>
     );
   }

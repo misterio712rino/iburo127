@@ -4,6 +4,7 @@ import {
   buildCaseProgressSummary,
   type CaseProgressAudience,
 } from "@/lib/platform/case-progress";
+import { clientPlanHasHumanSupport } from "@/lib/platform/client-plan-entitlements";
 import { PRACTICUM_LESSONS } from "@/lib/platform/practicum-content";
 import { QUESTIONNAIRE_SECTIONS } from "@/lib/platform/questionnaire-content";
 import type {
@@ -31,6 +32,7 @@ export async function getCaseProgressSummaryForActor(
     audience,
     caseStatus: clientCase.status,
     stageCode: clientCase.stageCode,
+    humanSupportAvailable: clientPlanHasHumanSupport(clientCase.planCode),
     questionnaire: questionnaire
       ? {
           status: questionnaire.status,

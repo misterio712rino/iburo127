@@ -16,6 +16,14 @@ const progressPageSource = await readFile(
   resolve("app/portal/cases/[caseId]/progress/page.tsx"),
   "utf8",
 );
+const activityPageSource = await readFile(
+  resolve("app/portal/cases/[caseId]/activity/page.tsx"),
+  "utf8",
+);
+const documentsUiSource = await readFile(
+  resolve("components/platform/documents/IBuroDocumentsV2.tsx"),
+  "utf8",
+);
 const operationSource = await readFile(
   resolve("server/case-progress/operations.ts"),
   "utf8",
@@ -163,10 +171,30 @@ assert.match(operationSource, /questionnaireService\.get\(actor, clientCase\.id\
 assert.match(operationSource, /practicumService\.get\(actor, clientCase\.id\)/);
 assert.match(operationSource, /caseDocumentService\.list\(actor, clientCase\.id\)/);
 assert.match(operationSource, /storedFileService\.list\(actor, clientCase\.id\)/);
+assert.match(
+  operationSource,
+  /humanSupportAvailable: clientPlanHasHumanSupport\(clientCase\.planCode\)/,
+  "production progress copy must use the authoritative case plan entitlement",
+);
 assert.doesNotMatch(
   operationSource,
   /userId:\s*string/,
   "progress aggregation must use the authenticated actor rather than a browser-supplied user id",
 );
+
+assert.match(activityPageSource, /const humanSupportAvailable = clientPlanHasHumanSupport\(planCode\)/);
+assert.match(
+  activityPageSource,
+  /humanSupportAvailable \? "История сопровождения" : "История дела"/,
+  "LITE history must not imply included human support while paid plans retain support-specific copy",
+);
+assert.match(activityPageSource, /Событий по делу пока нет\. Здесь появятся основные этапы дела\./);
+
+assert.match(
+  documentsUiSource,
+  /const canRegenerate = Boolean\(document\) && \(!humanSupportAvailable \|\| \(status !== "SENT_FOR_REVIEW" && status !== "REVIEWED"\)\)/,
+  "LITE must be able to recover stale historical review states by regenerating from current questionnaire data",
+);
+assert.match(documentsUiSource, /Обновите документ по актуальным данным анкеты, чтобы продолжить самостоятельно/);
 
 console.log("PORTAL_NEXT_ACTION_CONTRACT_TEST_PASS");

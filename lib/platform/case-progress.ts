@@ -40,6 +40,7 @@ export type CaseProgressInput = {
   audience: CaseProgressAudience;
   caseStatus: CaseStatus;
   stageCode: string;
+  humanSupportAvailable?: boolean;
   questionnaire: {
     status: QuestionnaireStatus;
     completedSectionCount: number;
@@ -92,6 +93,7 @@ function percentage(completed: number, total: number, forceComplete: boolean) {
 
 export function buildCaseProgressSummary(input: CaseProgressInput) {
   const stageIndex = CASE_STAGE_FLOW.findIndex((stage) => stage.code === input.stageCode);
+  const humanSupportAvailable = input.humanSupportAvailable !== false;
 
   const questionnairePercent = percentage(
     input.questionnaire?.completedSectionCount ?? 0,
@@ -147,18 +149,32 @@ export function buildCaseProgressSummary(input: CaseProgressInput) {
   } else if (documents.waitingData + documents.draft + documents.readyForReview > 0) {
     nextAction = {
       title: input.audience === "CLIENT" ? "Продолжить подготовку документов" : "Проверить документы в работе",
-      description: "Часть документов ещё готовится или ожидает передачи на проверку.",
+      description:
+        input.audience === "CLIENT" && !humanSupportAvailable
+          ? "Часть документов ещё готовится. Проверьте исходные данные и продолжите самостоятельную подготовку."
+          : "Часть документов ещё готовится или ожидает передачи на проверку.",
       segment: "documents",
     };
   } else if (documents.sentForReview > 0) {
-    nextAction = {
-      title: input.audience === "STAFF" ? "Проверить документы клиента" : "Ожидать проверку документов",
-      description:
-        input.audience === "STAFF"
-          ? "Есть документы, переданные на проверку и требующие внимания сотрудника."
-          : "Документы переданы юристу. Здесь появится обновлённый статус после проверки.",
-      segment: "documents",
-    };
+    if (input.audience === "STAFF") {
+      nextAction = {
+        title: "Проверить документы клиента",
+        description: "Есть документы, переданные на проверку и требующие внимания сотрудника.",
+        segment: "documents",
+      };
+    } else if (!humanSupportAvailable) {
+      nextAction = {
+        title: "Проверить подготовленные документы",
+        description: "В истории документа сохранён прежний статус проверки. Проверьте актуальные материалы и продолжите самостоятельную работу.",
+        segment: "documents",
+      };
+    } else {
+      nextAction = {
+        title: "Ожидать проверку документов",
+        description: "Документы переданы юристу. Здесь появится обновлённый статус после проверки.",
+        segment: "documents",
+      };
+    }
   } else {
     nextAction = {
       title: "Следить за текущим этапом",
@@ -167,10 +183,15 @@ export function buildCaseProgressSummary(input: CaseProgressInput) {
     };
   }
 
+  const stageLabel =
+    input.audience === "CLIENT" && !humanSupportAvailable && input.stageCode === "LAWYER_REVIEW"
+      ? "Проверка документов"
+      : getCaseStageDisplayLabel(input.stageCode, input.audience);
+
   return {
     stage: {
       code: input.stageCode,
-      label: getCaseStageDisplayLabel(input.stageCode, input.audience),
+      label: stageLabel,
       position: stageIndex >= 0 ? stageIndex + 1 : null,
       total: CASE_STAGE_FLOW.length,
     },

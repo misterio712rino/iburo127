@@ -51,6 +51,7 @@ const clientReviewWait = buildCaseProgressSummary({
   audience: "CLIENT",
   caseStatus: "ACTIVE",
   stageCode: "LAWYER_REVIEW",
+  humanSupportAvailable: true,
   questionnaire: { status: "COMPLETED", completedSectionCount: 4, totalSectionCount: 4 },
   practicum: { status: "COMPLETED", completedLessonCount: 6, totalLessonCount: 6 },
   documents: [{ status: "SENT_FOR_REVIEW" }, { status: "REVIEWED" }],
@@ -59,11 +60,42 @@ const clientReviewWait = buildCaseProgressSummary({
 assert.equal(clientReviewWait.documents.sentForReview, 1);
 assert.equal(clientReviewWait.documents.reviewed, 1);
 assert.equal(clientReviewWait.nextAction.title, "Ожидать проверку документов");
+assert.equal(clientReviewWait.stage.label, "Проверка юристом");
+
+const liteHistoricalReview = buildCaseProgressSummary({
+  audience: "CLIENT",
+  caseStatus: "ACTIVE",
+  stageCode: "LAWYER_REVIEW",
+  humanSupportAvailable: false,
+  questionnaire: { status: "COMPLETED", completedSectionCount: 4, totalSectionCount: 4 },
+  practicum: { status: "COMPLETED", completedLessonCount: 6, totalLessonCount: 6 },
+  documents: [{ status: "SENT_FOR_REVIEW" }],
+  readyFileCount: 1,
+});
+assert.equal(liteHistoricalReview.stage.label, "Проверка документов");
+assert.equal(liteHistoricalReview.nextAction.title, "Проверить подготовленные документы");
+assert.doesNotMatch(liteHistoricalReview.nextAction.description, /юрист|специалист|сопровожд/i);
+assert.match(liteHistoricalReview.nextAction.description, /самостоятельн/i);
+
+const litePreparedDocument = buildCaseProgressSummary({
+  audience: "CLIENT",
+  caseStatus: "ACTIVE",
+  stageCode: "DOCUMENT_PREPARATION",
+  humanSupportAvailable: false,
+  questionnaire: { status: "COMPLETED", completedSectionCount: 4, totalSectionCount: 4 },
+  practicum: { status: "COMPLETED", completedLessonCount: 6, totalLessonCount: 6 },
+  documents: [{ status: "READY_FOR_REVIEW" }],
+  readyFileCount: 0,
+});
+assert.equal(litePreparedDocument.nextAction.title, "Продолжить подготовку документов");
+assert.doesNotMatch(litePreparedDocument.nextAction.description, /передач[аи] на проверк/i);
+assert.match(litePreparedDocument.nextAction.description, /самостоятельн/i);
 
 const staffReview = buildCaseProgressSummary({
   audience: "STAFF",
   caseStatus: "ACTIVE",
   stageCode: "LAWYER_REVIEW",
+  humanSupportAvailable: true,
   questionnaire: { status: "COMPLETED", completedSectionCount: 4, totalSectionCount: 4 },
   practicum: { status: "COMPLETED", completedLessonCount: 6, totalLessonCount: 6 },
   documents: [{ status: "SENT_FOR_REVIEW" }],
