@@ -134,16 +134,42 @@ async function verifyHiddenSurface(
   path: string,
 ): Promise<void> {
   const response = await request(cookie, path, "text/html,application/xhtml+xml");
-  if (response.status !== 404) {
-    const location = response.headers.get("location");
-    fail(
-      `${role} ${label} expected hidden HTTP 404, got ${response.status}${location ? ` -> ${location}` : ""}`,
-    );
-  }
-  if (response.headers.get("location")) {
+  const location = response.headers.get("location");
+  if (location) {
     fail(`${role} ${label} must fail closed as NOT_FOUND without redirect`);
   }
-  console.log(`PORTAL_HIDDEN_SURFACE_PASS: ${role} ${label} ${path}`);
+
+  if (response.status === 404) {
+    console.log(`PORTAL_HIDDEN_SURFACE_PASS: ${role} ${label} ${path} transport=404`);
+    return;
+  }
+
+  // Next.js App Router can commit HTTP 200 before a Server Component calls
+  // notFound() when the route is streamed. In that case the framework sends
+  // the not-found UI and a robots=noindex marker in the streamed HTML. Treat
+  // that as hidden only when the custom 404 UI is present and case content is
+  // absent; any ordinary 200 case page still fails closed here.
+  if (response.status !== 200) {
+    fail(`${role} ${label} expected NOT_FOUND semantics, got HTTP ${response.status}`);
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().includes("text/html")) {
+    fail(`${role} ${label} streamed NOT_FOUND response did not return HTML`);
+  }
+
+  const html = await response.text();
+  const hasCustomNotFoundUi = html.includes("Ошибка 404") && html.includes("Страница не найдена");
+  const hasNoIndex =
+    html.includes('name="robots" content="noindex"') ||
+    html.includes('content="noindex" name="robots"');
+  const leaksCaseSurface = html.includes("Дело клиента") || html.includes("Разделы дела");
+
+  if (!hasCustomNotFoundUi || !hasNoIndex || leaksCaseSurface) {
+    fail(`${role} ${label} returned HTTP 200 without verified streamed NOT_FOUND semantics`);
+  }
+
+  console.log(`PORTAL_HIDDEN_SURFACE_PASS: ${role} ${label} ${path} transport=streamed-404`);
 }
 
 async function verifySurfaces(
