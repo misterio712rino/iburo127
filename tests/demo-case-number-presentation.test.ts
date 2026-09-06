@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const sources = await Promise.all([
+  "components/platform/PlatformShell.tsx",
   "components/platform/lawyer/LawyerDashboard.tsx",
   "components/platform/lawyer/LawyerCasesList.tsx",
   "components/platform/lawyer/LawyerCaseDetail.tsx",
@@ -16,6 +17,8 @@ for (const [path, source] of sources) {
 }
 
 const sourceByPath = Object.fromEntries(sources);
+assert.match(sourceByPath["components/platform/PlatformShell.tsx"], /getClientCaseDisplayNumber\(identity\.caseNumber\)/);
+assert.doesNotMatch(sourceByPath["components/platform/PlatformShell.tsx"], /`Дело \$\{identity\.caseNumber\}`/);
 assert.doesNotMatch(sourceByPath["components/platform/lawyer/LawyerDashboard.tsx"], /Дело № \{item\.clientCase\.caseNumber\}/);
 assert.doesNotMatch(sourceByPath["components/platform/lawyer/LawyerCasesList.tsx"], />\{item\.clientCase\.caseNumber\}<\/p>/);
 assert.match(sourceByPath["components/platform/lawyer/LawyerCasesList.tsx"], /code: "INDIVIDUAL", label: "ЭКСКЛЮЗИВ"/);
