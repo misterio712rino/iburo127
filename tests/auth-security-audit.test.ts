@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import {
   AUTH_SECURITY_EVENT_TYPES,
   classifyBetterAuthSecurityEvents,
@@ -139,6 +141,27 @@ assert.doesNotThrow(() =>
     subject: "subject",
     type: AUTH_SECURITY_EVENT_TYPES.MFA_TOTP_VERIFIED,
   }),
+);
+
+const signOutSource = await readFile(
+  resolve("components/platform/auth/SignOutButton.tsx"),
+  "utf8",
+);
+assert.match(signOutSource, /const result = await authClient\.signOut\(\)/);
+assert.match(signOutSource, /if \(result\.error\)/);
+assert.match(signOutSource, /Не удалось завершить сеанс\. Попробуйте ещё раз\./);
+assert.match(signOutSource, /role="alert"/);
+assert.match(signOutSource, /aria-busy=\{pending\}/);
+assert.match(signOutSource, /min-h-11/);
+assert.doesNotMatch(
+  signOutSource,
+  /finally\s*\{[\s\S]*router\.replace\("\/auth\/sign-in"\)/,
+  "sign-out must not redirect from finally because a failed revocation can leave the server session active",
+);
+assert.match(
+  signOutSource,
+  /if \(result\.error\)[\s\S]*return;[\s\S]*router\.replace\("\/auth\/sign-in"\)/,
+  "sign-out must redirect only after Better Auth reports success",
 );
 
 console.log("AUTH_SECURITY_AUDIT_TEST_PASS");
