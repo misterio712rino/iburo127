@@ -7,6 +7,10 @@ const cloudInit = await readFile(
   resolve("infra/file-scanner-staging/cloud-init.yaml.tftpl"),
   "utf8",
 );
+const compose = await readFile(
+  resolve("services/file-scanner/deploy/docker-compose.staging.yml"),
+  "utf8",
+);
 
 assert.match(source, /assertStagingFileScannerTarget\(process\.env\)/);
 assert.match(source, /HeadObjectCommand/);
@@ -52,5 +56,15 @@ assert.match(cloudInit, /PartOf=docker\.service/);
 assert.match(cloudInit, /DOCKER-USER -d 169\.254\.169\.254\/32 -j REJECT/);
 assert.match(cloudInit, /systemctl, enable, --now, iburo-file-scanner-metadata-firewall\.service/);
 assert.doesNotMatch(cloudInit, /IB_FILE_SCANNER_SECRET=/);
+
+assert.match(compose, /read_only:\s*true/);
+assert.match(compose, /cap_drop:\s*\n\s*- ALL/);
+assert.match(compose, /cap_add:\s*\n\s*- CHOWN\s*\n\s*- SETGID\s*\n\s*- SETUID/);
+assert.match(compose, /\/run\/clamav:rw,nosuid,nodev,noexec,size=16m/);
+assert.match(compose, /\/tmp:rw,nosuid,nodev,noexec,size=64m/);
+assert.match(compose, /127\.0\.0\.1:8080:8080/);
+assert.doesNotMatch(compose, /privileged:\s*true/);
+assert.doesNotMatch(compose, /network_mode:\s*host/);
+assert.doesNotMatch(compose, /docker\.sock/);
 
 console.log("STAGING_FILE_SCANNER_VERIFIER_CONTRACT_PASS");
