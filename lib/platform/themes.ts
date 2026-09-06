@@ -1,6 +1,6 @@
-import type { PlanCode, ThemeCode } from "./types";
+import type { DemoIdentity, PlatformTheme, PlanCode } from "./types";
 
-export const PLAN_THEME: Record<PlanCode, ThemeCode> = {
+export const PLAN_THEME: Record<PlanCode, PlatformTheme> = {
   LITE: "light",
   PRO: "pro",
   INDIVIDUAL: "premium",
@@ -12,8 +12,6 @@ export const PLAN_LABEL: Record<PlanCode, string> = {
   INDIVIDUAL: "Эксклюзив",
 };
 
-export const ROLE_LABEL = {
-  CLIENT: "Клиент",
-  LAWYER: "Юрист",
-  MANAGER: "Руководитель",
-} as const;
+export function getPlatformTheme(identity: DemoIdentity): PlatformTheme {
+  return identity.role === "LAWYER" || identity.role === "MANAGER" ? "staff" : PLAN_THEME[identity.plan ?? "LITE"];
+}
