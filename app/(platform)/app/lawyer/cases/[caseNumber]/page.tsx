@@ -4,7 +4,7 @@ import { clientPlanHasHumanSupport } from "@/lib/platform/client-plan-entitlemen
 import { DEMO_CASES } from "@/lib/platform/demo";
 
 export const dynamicParams = false;
-const LAWYER_CASE_NUMBERS = DEMO_CASES
+const LAWYER_CASE_NUMBERS: readonly string[] = DEMO_CASES
   .filter((clientCase) => clientPlanHasHumanSupport(clientCase.plan))
   .map((clientCase) => clientCase.caseNumber);
 
