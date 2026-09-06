@@ -1,6 +1,7 @@
 name: Staging Yandex AI Smoke
 
 on:
+  # Use workflow_dispatch after rotating Preview credentials so the live provider check can be rerun without runtime changes.
   workflow_dispatch:
     inputs:
       candidate_sha:
