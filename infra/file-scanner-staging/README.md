@@ -45,7 +45,7 @@ Cloud-init installs signed Ubuntu repository packages (`docker.io`, `docker-comp
 - `/etc/iburo-file-scanner` for root-owned deployment configuration;
 - bounded Docker local logs (10 MiB × 3 files).
 
-Docker is enabled. Caddy is deliberately disabled until an approved hostname and rendered configuration exist. Cloud-init does not pull or run the scanner image and contains no credentials.
+Docker is enabled. A dedicated systemd firewall unit inserts a `DOCKER-USER` rule that rejects container traffic to the Yandex instance-metadata address `169.254.169.254/32`; the host itself keeps metadata access so the explicit activation helper can obtain a short-lived IAM token for private-registry pull. Caddy is deliberately disabled until an approved hostname and rendered configuration exist. Cloud-init does not pull or run the scanner image and contains no credentials.
 
 ## Immutable image identity
 
@@ -65,7 +65,8 @@ The compose definition:
 - publishes `127.0.0.1:8080:8080` only;
 - uses the default isolated bridge network, never host networking;
 - mounts no Docker socket;
-- is not privileged and adds no capabilities;
+- is not privileged, drops every default Linux capability, then restores only `CHOWN`, `SETGID`, and `SETUID` for the bounded root initialization step;
+- uses a read-only container root filesystem, with writable tmpfs limited to `/run/clamav` and `/tmp` plus the dedicated persistent ClamAV signature bind mount;
 - retains the certified root initialization model inside the image, then the entrypoint starts ClamAV and Node as `clamav`;
 - persists `/var/lib/clamav` on the host;
 - limits the container to 2 vCPU, 6 GiB RAM, and 128 processes.
@@ -132,14 +133,22 @@ Publication requires separately provisioned staging prerequisites: a scanner reg
 
 The scanner image is deployed only by immutable repository digest; never use `latest` or another mutable tag. A successful publication ends at `STAGING_FILE_SCANNER_IMAGE_PUBLISHED_NOT_DEPLOYED`.
 
+## Controlled live-smoke workflow
+
+`.github/workflows/staging-file-scanner-smoke.yml` is also `workflow_dispatch`-only. It performs no deployment, Terraform, DNS, Yandex resource mutation, or production action. It requires the exact candidate SHA, the reviewed staging scanner HTTPS origin, the exact private Vercel Blob hostname, the scanner-secret SHA-256 fingerprint, and the explicit confirmation `RUN_STAGING_FILE_SCANNER_SMOKE`.
+
+Before any Blob cleanup or upload, the verifier creates only a signed private download capability and checks that its resolved hostname exactly matches the separately reviewed `<store>.private.blob.vercel-storage.com` value. A mismatch fails before fixture mutation. The workflow then uses SHA-scoped inert CLEAN and EICAR fixtures, verifies the expected `CLEAN` and `MALICIOUS` verdicts, and verifies fixture cleanup. Scanner and Blob credentials are staging-only GitHub secrets and are never accepted as workflow inputs or logged.
+
+Do not dispatch this workflow until the scanner host, DNS/TLS, branch-scoped Preview values, staging-only GitHub secrets, and ClamAV signature freshness have all been reviewed.
+
 ## Activation boundary
 
 Infrastructure readiness does not prove scanner readiness. Keep application scanner E2E disabled until all of the following pass:
 
 1. Private image publication and digest verification.
 2. Authenticated scanner `/health` with fresh ClamAV signatures.
-3. Provider-aware CLEAN/MALICIOUS smoke and exact fixture cleanup.
-4. Branch-scoped Preview origin, secret, fingerprint, and confirmation review.
+3. Provider-aware CLEAN/MALICIOUS smoke, exact private-store host preflight, and exact fixture cleanup.
+4. Branch-scoped Preview origin, secret, fingerprint, private Blob host, and confirmation review.
 5. Explicit approval to enable the scanner E2E flag.
 
 Phase 2 private-file E2E remains enabled; `IB_STAGING_FILE_SCAN_E2E=0` remains unchanged until the live scanner smoke passes.
