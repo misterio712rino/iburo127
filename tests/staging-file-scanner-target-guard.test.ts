@@ -118,6 +118,8 @@ const vercelBase = {
   IB_STAGING_FILE_SCANNER_ORIGIN: "https://scanner-staging.example.com",
   IB_FILE_SCANNER_SECRET: scannerSecret,
   IB_STAGING_FILE_SCANNER_SECRET_SHA256: scannerSecretFingerprint,
+  IB_STAGING_VERCEL_BLOB_PRIVATE_HOST:
+    "stagingstore123.private.blob.vercel-storage.com",
   IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY:
     "security-fixtures/file-scanner/clean.txt",
   IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY:
@@ -128,6 +130,10 @@ const vercelBase = {
 const vercelTarget = assertStagingFileScannerTarget(vercelBase);
 assert.equal(vercelTarget.providerCode, "vercel-blob");
 assert.equal("storageBucket" in vercelTarget, false);
+assert.equal(
+  vercelTarget.expectedPrivateBlobHost,
+  "stagingstore123.private.blob.vercel-storage.com",
+);
 
 function expectVercelGuardFailure(
   overrides: Partial<Record<string, string | undefined>>,
@@ -141,6 +147,18 @@ function expectVercelGuardFailure(
 }
 
 expectVercelGuardFailure({ VERCEL_ENV: "production" }, "VERCEL_ENV_NOT_PREVIEW");
+expectVercelGuardFailure(
+  { IB_STAGING_VERCEL_BLOB_PRIVATE_HOST: undefined },
+  "MISSING_IB_STAGING_VERCEL_BLOB_PRIVATE_HOST",
+);
+expectVercelGuardFailure(
+  { IB_STAGING_VERCEL_BLOB_PRIVATE_HOST: "https://stagingstore123.private.blob.vercel-storage.com" },
+  "INVALID_IB_STAGING_VERCEL_BLOB_PRIVATE_HOST",
+);
+expectVercelGuardFailure(
+  { IB_STAGING_VERCEL_BLOB_PRIVATE_HOST: "production.example.com" },
+  "INVALID_IB_STAGING_VERCEL_BLOB_PRIVATE_HOST",
+);
 expectVercelGuardFailure({ IB_STAGING_FILE_SCANNER_CONFIRM: "wrong" }, "CONFIRMATION_MISMATCH");
 expectVercelGuardFailure(
   { IB_OBJECT_STORAGE_PROVIDER: "vercel-blob" },
