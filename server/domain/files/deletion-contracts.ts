@@ -43,9 +43,6 @@ export type StoredFileDeletionIntent = {
 
 export interface StoredFileDeletionRepository {
   getByFileId(fileId: string): Promise<StoredFileDeletionRecord | null>;
-  enqueueDeletion(
-    input: StoredFileDeletionIntent & { requestedAt: Date },
-  ): Promise<StoredFileDeletionRecord | null>;
   claimDueDeletion(input: {
     now: Date;
     leaseUntil: Date;
@@ -67,4 +64,10 @@ export interface StoredFileDeletionRepository {
     storageConfirmedAt: Date;
     completedAt: Date;
   }): Promise<boolean>;
+}
+
+export interface StoredFileDeletionEnqueueRepository extends StoredFileDeletionRepository {
+  enqueueDeletion(
+    input: StoredFileDeletionIntent & { requestedAt: Date },
+  ): Promise<StoredFileDeletionRecord | null>;
 }
