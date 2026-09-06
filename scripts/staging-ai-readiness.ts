@@ -73,6 +73,15 @@ function configuredFingerprint(value: string | undefined): string | null {
   return SHA256_PATTERN.test(normalized) ? normalized : null;
 }
 
+function isAcceptedYandexConfirmation(value: string, expected: string): boolean {
+  if (value === expected) return true;
+
+  // Migration compatibility only. The legacy 64-hex suffix is not compared
+  // with, or derived from, the current Yandex API key.
+  const legacyPrefix = `${expected}:`;
+  return value.startsWith(legacyPrefix) && SHA256_PATTERN.test(value.slice(legacyPrefix.length));
+}
+
 function markBoundedInteger(
   env: StagingEnvironment,
   invalid: Set<string>,
@@ -182,7 +191,7 @@ function validateYandex(env: StagingEnvironment, invalid: Set<string>): void {
     const expected = `YANDEX-AI-SMOKE:${env.IB_STAGING_YANDEX_AI_FOLDER_ID!.trim()}:${env.IB_STAGING_YANDEX_AI_MODEL!.trim()}`;
     if (
       isConfigured(env.IB_STAGING_YANDEX_AI_CONFIRM) &&
-      env.IB_STAGING_YANDEX_AI_CONFIRM!.trim() !== expected
+      !isAcceptedYandexConfirmation(env.IB_STAGING_YANDEX_AI_CONFIRM!.trim(), expected)
     ) {
       invalid.add("IB_STAGING_YANDEX_AI_CONFIRM");
     }

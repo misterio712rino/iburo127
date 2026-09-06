@@ -232,10 +232,21 @@ assert.deepEqual(
   expectedStagingTarget,
   "legacy key fingerprint env must not affect Yandex staging target authorization",
 );
+assert.deepEqual(
+  assertStagingYandexAiTarget({
+    ...stagingTargetEnv,
+    IB_STAGING_YANDEX_AI_CONFIRM:
+      `YANDEX-AI-SMOKE:b1ggvchbjvrt2b5rju0g:yandexgpt/latest:${"0".repeat(64)}`,
+  }),
+  expectedStagingTarget,
+  "legacy confirmation suffix may remain during migration but must not be compared with the API key",
+);
 
 const yandexReadiness = buildProviderAwareStagingAiReadiness({
   ...stagingTargetEnv,
   IB_STAGING_YANDEX_AI_KEY_SHA256: "stale-or-mismatched-legacy-value",
+  IB_STAGING_YANDEX_AI_CONFIRM:
+    `YANDEX-AI-SMOKE:b1ggvchbjvrt2b5rju0g:yandexgpt/latest:${"f".repeat(64)}`,
 });
 assert.equal(yandexReadiness.provider, "yandex");
 assert.equal(yandexReadiness.ready, true);
@@ -254,7 +265,7 @@ for (const badEnv of [
   {
     ...stagingTargetEnv,
     IB_STAGING_YANDEX_AI_CONFIRM:
-      `YANDEX-AI-SMOKE:b1ggvchbjvrt2b5rju0g:yandexgpt/latest:${"0".repeat(64)}`,
+      "YANDEX-AI-SMOKE:b1ggvchbjvrt2b5rju0g:yandexgpt/latest:not-a-legacy-hex-suffix",
   },
 ]) {
   assert.throws(

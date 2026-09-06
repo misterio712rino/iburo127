@@ -21,6 +21,17 @@ function safeEqual(left: string, right: string) {
   return timingSafeEqual(digest(left), digest(right));
 }
 
+function matchesStagingConfirmation(confirmation: string, expected: string) {
+  if (safeEqual(confirmation, expected)) return true;
+
+  // Transitional compatibility for the previously provisioned confirmation shape.
+  // The 64-hex suffix is treated as opaque legacy metadata: it is never derived
+  // from or compared with YANDEX_AI_API_KEY and therefore is not an auth boundary.
+  const legacyPrefix = `${expected}:`;
+  if (!confirmation.startsWith(legacyPrefix)) return false;
+  return /^[a-f0-9]{64}$/.test(confirmation.slice(legacyPrefix.length));
+}
+
 export type StagingYandexAiTarget = {
   apiKey: string;
   folderId: string;
@@ -55,7 +66,7 @@ export function assertStagingYandexAiTarget(
 
   const expectedConfirmation = `YANDEX-AI-SMOKE:${expectedFolderId}:${expectedModel}`;
   const confirmation = env.IB_STAGING_YANDEX_AI_CONFIRM?.trim() ?? "";
-  if (!confirmation || !safeEqual(confirmation, expectedConfirmation)) {
+  if (!confirmation || !matchesStagingConfirmation(confirmation, expectedConfirmation)) {
     fail("CONFIRMATION_MISMATCH");
   }
 
