@@ -8,6 +8,7 @@ packages:
   - curl
   - docker.io
   - docker-compose-v2
+  - iptables
   - jq
 
 write_files:
@@ -22,6 +23,24 @@ write_files:
           "max-file": "3"
         }
       }
+  - path: /etc/systemd/system/iburo-file-scanner-metadata-firewall.service
+    owner: root:root
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Block staging scanner containers from Yandex instance metadata
+      Requires=docker.service
+      After=docker.service
+      PartOf=docker.service
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStart=/bin/sh -ec '/usr/sbin/iptables -C DOCKER-USER -d 169.254.169.254/32 -j REJECT 2>/dev/null || /usr/sbin/iptables -I DOCKER-USER 1 -d 169.254.169.254/32 -j REJECT'
+      ExecStop=/bin/sh -c '/usr/sbin/iptables -D DOCKER-USER -d 169.254.169.254/32 -j REJECT 2>/dev/null || true'
+
+      [Install]
+      WantedBy=multi-user.target
   - path: /etc/systemd/system/caddy.service.d/iburo-file-scanner-staging.conf
     owner: root:root
     permissions: "0644"
@@ -56,6 +75,7 @@ runcmd:
   - [install, -d, -m, "0750", -o, caddy, -g, caddy, /srv/iburo-file-scanner/caddy/config]
   - [systemctl, daemon-reload]
   - [systemctl, enable, --now, docker]
+  - [systemctl, enable, --now, iburo-file-scanner-metadata-firewall.service]
   - [systemctl, disable, --now, caddy]
 
 final_message: "Staging scanner host prerequisites prepared; scanner, secret, DNS, and TLS remain intentionally unconfigured."
