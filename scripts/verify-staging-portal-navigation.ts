@@ -18,6 +18,14 @@ type CasesEnvelope = {
   data?: CaseTransport[];
 };
 
+type RoleLabel = "CLIENT" | "LAWYER" | "MANAGER";
+
+type SurfaceSpec = readonly [
+  label: string,
+  path: string,
+  requiredMarker?: string,
+];
+
 function fail(message: string): never {
   throw new Error(message);
 }
@@ -38,33 +46,40 @@ try {
 }
 
 const clientCookie = required("IB_STAGING_CLIENT_COOKIE");
-const expectedCaseNumber = required("IB_STAGING_CLIENT_CASE_NUMBER");
+const lawyerCookie = required("IB_STAGING_LAWYER_COOKIE");
+const managerCookie = required("IB_STAGING_MANAGER_COOKIE");
+const expectedClientCaseNumber = required("IB_STAGING_CLIENT_CASE_NUMBER");
+const expectedLawyerCaseNumber = required("IB_STAGING_LAWYER_CASE_NUMBER");
 
-async function request(path: string, accept: string) {
+async function request(cookie: string, path: string, accept: string) {
   return fetch(new URL(path, target), {
     method: "GET",
     headers: {
       accept,
-      cookie: clientCookie,
+      cookie,
     },
     redirect: "manual",
   });
 }
 
-async function resolveClientCaseId(): Promise<string> {
-  const response = await request("/api/platform/cases", "application/json");
+async function resolveCaseId(
+  role: RoleLabel,
+  cookie: string,
+  expectedCaseNumber: string,
+): Promise<string> {
+  const response = await request(cookie, "/api/platform/cases", "application/json");
   if (response.status !== 200) {
-    fail(`case discovery returned HTTP ${response.status}`);
+    fail(`${role} case discovery returned HTTP ${response.status}`);
   }
 
   const body = (await response.json()) as CasesEnvelope;
   if (!body.ok || !Array.isArray(body.data)) {
-    fail("case discovery returned an invalid private response");
+    fail(`${role} case discovery returned an invalid private response`);
   }
 
   const selected = body.data.find((item) => item.caseNumber === expectedCaseNumber);
   if (!selected?.id) {
-    fail("CLIENT fixture case is not available to the authenticated CLIENT session");
+    fail(`${role} fixture case ${expectedCaseNumber} is not available to the authenticated session`);
   }
   return selected.id;
 }
@@ -75,52 +90,108 @@ const serverErrorMarkers = [
   "This page could not be found",
 ] as const;
 
-async function verifySurface(label: string, path: string): Promise<void> {
-  const response = await request(path, "text/html,application/xhtml+xml");
+async function verifySurface(
+  role: RoleLabel,
+  cookie: string,
+  label: string,
+  path: string,
+  requiredMarker?: string,
+): Promise<void> {
+  const response = await request(cookie, path, "text/html,application/xhtml+xml");
   if (response.status !== 200) {
     const location = response.headers.get("location");
-    fail(`${label} returned HTTP ${response.status}${location ? ` -> ${location}` : ""}`);
+    fail(
+      `${role} ${label} returned HTTP ${response.status}${location ? ` -> ${location}` : ""}`,
+    );
   }
 
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.toLowerCase().includes("text/html")) {
-    fail(`${label} did not return HTML`);
+    fail(`${role} ${label} did not return HTML`);
   }
 
   const html = await response.text();
   if (html.length < 500) {
-    fail(`${label} returned an unexpectedly small HTML document`);
+    fail(`${role} ${label} returned an unexpectedly small HTML document`);
   }
   for (const marker of serverErrorMarkers) {
     if (html.includes(marker)) {
-      fail(`${label} rendered a framework/server error marker`);
+      fail(`${role} ${label} rendered a framework/server error marker`);
     }
   }
+  if (requiredMarker && !html.includes(requiredMarker)) {
+    fail(`${role} ${label} did not render the expected role marker`);
+  }
 
-  console.log(`PORTAL_SURFACE_PASS: ${label} ${path}`);
+  console.log(`PORTAL_SURFACE_PASS: ${role} ${label} ${path}`);
+}
+
+async function verifySurfaces(
+  role: RoleLabel,
+  cookie: string,
+  surfaces: readonly SurfaceSpec[],
+): Promise<void> {
+  for (const [label, path, marker] of surfaces) {
+    await verifySurface(role, cookie, label, path, marker);
+  }
+  console.log(`STAGING_PORTAL_ROLE_SURFACES_PASS: ${role}`);
 }
 
 try {
-  const caseId = await resolveClientCaseId();
-  const base = `/portal/cases/${encodeURIComponent(caseId)}`;
-  const surfaces = [
-    ["Главная", base],
-    ["Практикум", `${base}/practicum`],
-    ["Урок Практикума", `${base}/practicum/lesson-1`],
-    ["Анкета", `${base}/questionnaire`],
-    ["Документы", `${base}/documents`],
-    ["Файлы", `${base}/files`],
-    ["AI-помощник", `${base}/ai`],
-    ["Прогресс", `${base}/progress`],
-    ["История сопровождения", `${base}/activity`],
-    ["Профиль", `/portal/profile?caseId=${encodeURIComponent(caseId)}`],
-    ["Уведомления", `/portal/notifications?caseId=${encodeURIComponent(caseId)}`],
-    ["Безопасность", `/portal/security?caseId=${encodeURIComponent(caseId)}`],
-  ] as const;
+  const [clientCaseId, lawyerCaseId, managerCaseId] = await Promise.all([
+    resolveCaseId("CLIENT", clientCookie, expectedClientCaseNumber),
+    resolveCaseId("LAWYER", lawyerCookie, expectedLawyerCaseNumber),
+    resolveCaseId("MANAGER", managerCookie, expectedLawyerCaseNumber),
+  ]);
 
-  for (const [label, path] of surfaces) {
-    await verifySurface(label, path);
-  }
+  const clientBase = `/portal/cases/${encodeURIComponent(clientCaseId)}`;
+  await verifySurfaces("CLIENT", clientCookie, [
+    ["Главная", clientBase],
+    ["Практикум", `${clientBase}/practicum`],
+    ["Урок Практикума", `${clientBase}/practicum/lesson-1`],
+    ["Анкета", `${clientBase}/questionnaire`],
+    ["Документы", `${clientBase}/documents`],
+    ["Файлы", `${clientBase}/files`],
+    ["AI-помощник", `${clientBase}/ai`],
+    ["Прогресс", `${clientBase}/progress`],
+    ["История сопровождения", `${clientBase}/activity`],
+    ["Профиль", `/portal/profile?caseId=${encodeURIComponent(clientCaseId)}`],
+    ["Уведомления", `/portal/notifications?caseId=${encodeURIComponent(clientCaseId)}`],
+    ["Безопасность", `/portal/security?caseId=${encodeURIComponent(clientCaseId)}`],
+  ]);
+
+  const lawyerBase = `/portal/cases/${encodeURIComponent(lawyerCaseId)}`;
+  await verifySurfaces("LAWYER", lawyerCookie, [
+    ["Рабочий стол", "/portal", "Рабочий стол юриста"],
+    ["Назначенное дело", lawyerBase],
+    ["Практикум", `${lawyerBase}/practicum`, "Режим просмотра"],
+    ["Документы", `${lawyerBase}/documents`],
+    ["Файлы", `${lawyerBase}/files`],
+    ["Прогресс", `${lawyerBase}/progress`],
+    ["История сопровождения", `${lawyerBase}/activity`],
+    ["Задачи дела", `${lawyerBase}/tasks`],
+    ["Общая очередь задач", "/portal/tasks"],
+    ["Профиль", "/portal/profile"],
+    ["Уведомления", "/portal/notifications"],
+    ["Безопасность", "/portal/security"],
+  ]);
+
+  const managerBase = `/portal/cases/${encodeURIComponent(managerCaseId)}`;
+  await verifySurfaces("MANAGER", managerCookie, [
+    ["Рабочий стол", "/portal", "Панель руководителя"],
+    ["Дело под контролем", managerBase],
+    ["Практикум", `${managerBase}/practicum`, "Режим просмотра"],
+    ["Документы", `${managerBase}/documents`],
+    ["Файлы", `${managerBase}/files`],
+    ["Прогресс", `${managerBase}/progress`],
+    ["История сопровождения", `${managerBase}/activity`],
+    ["Задачи дела", `${managerBase}/tasks`],
+    ["Общая очередь задач", "/portal/tasks"],
+    ["Потенциальные клиенты", "/portal/leads"],
+    ["Профиль", "/portal/profile"],
+    ["Уведомления", "/portal/notifications"],
+    ["Безопасность", "/portal/security"],
+  ]);
 
   console.log(PASS);
 } catch (error) {
