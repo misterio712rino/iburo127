@@ -1,5 +1,6 @@
 import { BriefcaseBusiness, ClipboardCheck, FileText, Paperclip, Scale } from "lucide-react";
 import { PlatformCard } from "@/components/platform/PlatformPrimitives";
+import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
 import type { AiCaseState } from "./production-api";
 
 const STAGE_LABELS: Record<string, string> = {
@@ -19,7 +20,7 @@ export function AiContextPanel({ context }: { context: AiCaseState }) {
     (document) => document.status === "READY_FOR_REVIEW",
   ).length;
   const rows = [
-    [BriefcaseBusiness, "Дело", context.caseNumber],
+    [BriefcaseBusiness, "Дело", getClientCaseDisplayNumber(context.caseNumber)],
     [Scale, "Этап", STAGE_LABELS[context.stageCode] ?? "Этап уточняется"],
     [ClipboardCheck, "Анкета", `${context.questionnaireCompletedSections} разделов завершено`],
     [FileText, "Документы", `${readyDocuments} готовы к проверке`],
