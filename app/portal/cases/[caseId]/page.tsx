@@ -135,6 +135,7 @@ async function renderClientDashboard(
       displayName={displayName}
       caseDisplayNumber={getClientCaseDisplayNumber(clientCase.caseNumber)}
       planLabel={getClientPlanLabel(planCode)}
+      planCode={planCode}
       unreadCount={unreadCount}
       cases={caseOptions}
       statusLabel={getCaseStatusLabel(clientCase.status)}

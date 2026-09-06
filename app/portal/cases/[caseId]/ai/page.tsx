@@ -66,12 +66,13 @@ export default async function PortalCaseAiPage({ params }: { params: Promise<{ c
       displayName={displayName}
       caseDisplayNumber={getClientCaseDisplayNumber(clientCase.caseNumber)}
       planLabel={getClientPlanLabel(planCode)}
+      planCode={planCode}
       unreadCount={unreadCount}
       cases={cases}
     >
       <section className="flex min-w-0 flex-col gap-6 py-1 sm:gap-8 sm:py-2">
         <header>
-          <p className="text-sm font-semibold text-[#b9202b]">Умный помощник</p>
+          <p className="text-sm font-semibold text-primary">Умный помощник</p>
           <h1 className="mt-2 font-[var(--font-iburo-display)] text-3xl font-semibold tracking-[-.04em] text-slate-950 sm:text-5xl">AI-помощник</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">Задавайте вопросы по материалам своего дела. Помощник учитывает доступный контекст, но не заменяет финальное юридическое заключение специалиста.</p>
         </header>
