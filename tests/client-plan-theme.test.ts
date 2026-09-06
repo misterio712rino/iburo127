@@ -15,6 +15,7 @@ assert.equal(getClientPlanTheme("INDIVIDUAL"), CLIENT_PLAN_THEMES.INDIVIDUAL);
 
 const shellSource = await readFile(resolve("components/portal/IBuroClientShellV2.tsx"), "utf8");
 const dashboardSource = await readFile(resolve("components/portal/IBuroClientDashboardV2.tsx"), "utf8");
+const dashboardCssSource = await readFile(resolve("components/portal/IBuroClientDashboardV2.module.css"), "utf8");
 const brandSource = await readFile(resolve("components/platform/IBuroBrand.tsx"), "utf8");
 const casePageSource = await readFile(resolve("app/portal/cases/[caseId]/page.tsx"), "utf8");
 const aiPageSource = await readFile(resolve("app/portal/cases/[caseId]/ai/page.tsx"), "utf8");
@@ -37,6 +38,18 @@ assert.match(dashboardSource, /planCode=\{props\.planCode\}/);
 assert.match(dashboardSource, /var\(--ib2-theme-hero-start\)/);
 assert.match(dashboardSource, /var\(--ib2-theme-hero-mid\)/);
 assert.match(dashboardSource, /var\(--ib2-theme-hero-end\)/);
+
+assert.match(dashboardCssSource, /var\(--ib2-theme-hero-start\)/);
+assert.match(dashboardCssSource, /var\(--ib2-theme-hero-mid\)/);
+assert.match(dashboardCssSource, /var\(--ib2-theme-hero-end\)/);
+assert.match(dashboardCssSource, /rgba\(var\(--ib2-theme-accent-rgb\), \.22\)/);
+assert.match(dashboardCssSource, /color: var\(--ib2-red\);/);
+assert.match(dashboardCssSource, /\.serviceHint[\s\S]*color: var\(--ib2-text\);/);
+assert.doesNotMatch(
+  dashboardCssSource,
+  /#(?:c12a38|a91927|8e1420|8f1721|c42a38)\b|rgba\((?:71\s*,\s*7\s*,\s*15|180\s*,\s*31\s*,\s*43)\s*,/i,
+  "dashboard tariff presentation must not fall back to legacy burgundy literals",
+);
 
 assert.match(casePageSource, /planCode=\{planCode\}/);
 assert.match(aiPageSource, /planCode=\{planCode\}/);
