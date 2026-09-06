@@ -27,7 +27,6 @@ assert.equal(moduleState("maria-pro", "AI_ASSISTANT").state, "active");
 assert.equal(moduleState("maria-pro", "MORTGAGE").state, "active");
 assert.doesNotMatch(pro.supportDescription, /не входит в тариф/i);
 
-const exclusive = dashboard("dmitry-individual");
 assert.equal(moduleState("dmitry-individual", "AI_ASSISTANT").state, "active");
 assert.equal(moduleState("dmitry-individual", "MORTGAGE").state, "active");
 
