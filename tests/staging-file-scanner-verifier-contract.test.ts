@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { buildProviderAwareStagingStorageReadiness } from "../scripts/staging-storage-readiness";
 
 const source = await readFile(resolve("scripts/verify-staging-file-scanner.ts"), "utf8");
 const cloudInit = await readFile(
@@ -126,5 +127,88 @@ assert.doesNotMatch(smokeWorkflow, /secrets\.BLOB_READ_WRITE_TOKEN/);
 assert.doesNotMatch(smokeWorkflow, /secrets\.IB_FILE_SCANNER_SECRET(?![A-Z_])/);
 assert.doesNotMatch(smokeWorkflow, /terraform\s+(apply|destroy)|\byc\s|kubectl|vercel\s+(deploy|promote)|target:\s*production/i);
 assert.doesNotMatch(smokeWorkflow, /(^|\.)iburo127\.ru(?:\s|\/|$)/i);
+
+const readinessFingerprint = "a".repeat(64);
+const readinessSecret = "scanner-readiness-secret-" + "x".repeat(24);
+const scannerReadinessCore = {
+  IB_RUNTIME_TARGET: "staging",
+  IB_FILE_SCANNER_TARGET: "staging",
+  IB_STORAGE_TARGET: "staging",
+  IB_FILE_SCANNER_ORIGIN: "https://scanner-staging.iburo.test",
+  IB_STAGING_FILE_SCANNER_ORIGIN: "https://scanner-staging.iburo.test",
+  IB_FILE_SCANNER_SECRET: readinessSecret,
+  IB_STAGING_FILE_SCANNER_SECRET_SHA256: readinessFingerprint,
+  IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY: "security-fixtures/file-scanner/clean.txt",
+  IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY: "security-fixtures/file-scanner/eicar.txt",
+} as const;
+
+const vercelReadinessEnv = {
+  ...scannerReadinessCore,
+  VERCEL_ENV: "preview",
+  VERCEL_GIT_COMMIT_REF: "audit/production-readiness",
+  BLOB_READ_WRITE_TOKEN: "vercel_blob_rw_stagingstore123_secret",
+  IB_STAGING_VERCEL_BLOB_PRIVATE_HOST: "stagingstore123.private.blob.vercel-storage.com",
+  IB_STAGING_FILE_SCANNER_CONFIRM: `FILE-SCANNER-SMOKE:scanner-staging.iburo.test:vercel-blob:${readinessFingerprint}`,
+} as const;
+
+const vercelReadiness = buildProviderAwareStagingStorageReadiness(vercelReadinessEnv).scanner;
+assert.equal(vercelReadiness.ready, true);
+assert.equal(vercelReadiness.provider, "vercel-blob");
+assert.deepEqual(vercelReadiness.missingOrPlaceholder, []);
+assert.deepEqual(vercelReadiness.invalidOrInconsistent, []);
+
+const missingPrivateHost = buildProviderAwareStagingStorageReadiness({
+  ...vercelReadinessEnv,
+  IB_STAGING_VERCEL_BLOB_PRIVATE_HOST: undefined,
+}).scanner;
+assert.equal(missingPrivateHost.ready, false);
+assert.ok(
+  missingPrivateHost.missingOrPlaceholder.includes("IB_STAGING_VERCEL_BLOB_PRIVATE_HOST"),
+);
+
+const invalidPrivateHost = buildProviderAwareStagingStorageReadiness({
+  ...vercelReadinessEnv,
+  IB_STAGING_VERCEL_BLOB_PRIVATE_HOST: "https://stagingstore123.private.blob.vercel-storage.com",
+}).scanner;
+assert.equal(invalidPrivateHost.ready, false);
+assert.ok(
+  invalidPrivateHost.invalidOrInconsistent.includes("IB_STAGING_VERCEL_BLOB_PRIVATE_HOST"),
+);
+
+for (const invalidOrigin of [
+  "https://scanner-stage.iburo.test",
+  "https://scanner-prod-staging.iburo.test",
+  "https://scanner-staging.iburo127.ru",
+  "https://scanner-staging.iburo.test:8443",
+]) {
+  const invalidOriginReadiness = buildProviderAwareStagingStorageReadiness({
+    ...vercelReadinessEnv,
+    IB_FILE_SCANNER_ORIGIN: invalidOrigin,
+    IB_STAGING_FILE_SCANNER_ORIGIN: invalidOrigin,
+  }).scanner;
+  assert.equal(invalidOriginReadiness.ready, false, `${invalidOrigin} must not be scanner-ready`);
+  assert.ok(invalidOriginReadiness.invalidOrInconsistent.includes("IB_FILE_SCANNER_ORIGIN"));
+  assert.ok(
+    invalidOriginReadiness.invalidOrInconsistent.includes("IB_STAGING_FILE_SCANNER_ORIGIN"),
+  );
+}
+
+const yandexReadiness = buildProviderAwareStagingStorageReadiness({
+  ...scannerReadinessCore,
+  IB_OBJECT_STORAGE_PROVIDER: "yandex-object-storage",
+  YANDEX_STORAGE_BUCKET: "iburo-staging-scanner-fixtures",
+  IB_STAGING_STORAGE_BUCKET: "iburo-staging-scanner-fixtures",
+  YANDEX_STORAGE_ACCESS_KEY_ID: "staging-storage-key-id",
+  IB_STAGING_STORAGE_ACCESS_KEY_ID: "staging-storage-key-id",
+  YANDEX_STORAGE_SECRET_ACCESS_KEY: "staging-storage-secret-that-must-not-print",
+  IB_STAGING_FILE_SCANNER_CONFIRM: `FILE-SCANNER-SMOKE:scanner-staging.iburo.test:iburo-staging-scanner-fixtures:${readinessFingerprint}`,
+}).scanner;
+assert.equal(yandexReadiness.ready, true);
+assert.equal(yandexReadiness.provider, "yandex-object-storage");
+assert.equal(
+  yandexReadiness.missingOrPlaceholder.includes("IB_STAGING_VERCEL_BLOB_PRIVATE_HOST"),
+  false,
+  "Yandex scanner readiness must not require the Vercel-only private Blob host",
+);
 
 console.log("STAGING_FILE_SCANNER_VERIFIER_CONTRACT_PASS");
