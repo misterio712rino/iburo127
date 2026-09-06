@@ -39,9 +39,10 @@ function ActivityContent() {
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const cases = useLawyerCases().map((item) => item.summary);
+  const supportedCaseNumbers = new Set(cases.map((item) => item.clientCase.caseNumber));
   const persistedEvents: ActivityEvent[] = cases.flatMap((item, caseIndex) => item.documents.filter((document) => document.status === "sent_for_review" || document.status === "reviewed").map((document, documentIndex) => ({ id: `state-${item.identity.id}-${document.definition.id}-${document.status}`, category: "documents", period: "today", title: document.status === "reviewed" ? `Документ «${document.definition.title}» проверен юристом` : `${item.identity.displayName} передал документ «${document.definition.title}» на проверку`, client: item.identity.displayName, caseNumber: item.clientCase.caseNumber, timestamp: document.status === "reviewed" ? "Сегодня, обновлено" : "Сегодня, передано на проверку", order: -10 + caseIndex + documentIndex })));
   const normalized = query.trim().toLocaleLowerCase("ru-RU");
-  const visible = [...persistedEvents, ...baseEvents].filter((event) => (filter === "all" || event.category === filter) && (!normalized || `${event.client} ${event.caseNumber} ${event.title}`.toLocaleLowerCase("ru-RU").includes(normalized))).sort((a, b) => a.order - b.order);
+  const visible = [...persistedEvents, ...baseEvents.filter((event) => supportedCaseNumbers.has(event.caseNumber))].filter((event) => (filter === "all" || event.category === filter) && (!normalized || `${event.client} ${event.caseNumber} ${event.title}`.toLocaleLowerCase("ru-RU").includes(normalized))).sort((a, b) => a.order - b.order);
   const emptyText = normalized ? "По вашему запросу ничего не найдено" : "Событий по выбранному фильтру нет";
 
   return <div className="flex min-w-0 flex-col gap-5 sm:gap-6">

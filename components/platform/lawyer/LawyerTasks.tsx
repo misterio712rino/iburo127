@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { LawyerRouteGuard } from "./LawyerRouteGuard";
 import { PlatformShell } from "@/components/platform/PlatformShell";
 import { PlatformCard, SectionHeader } from "@/components/platform/PlatformPrimitives";
+import { clientPlanHasHumanSupport } from "@/lib/platform/client-plan-entitlements";
 import { DEMO_CASES } from "@/lib/platform/demo/cases";
 import { DEMO_IDENTITIES, LAWYER_IDENTITY } from "@/lib/platform/demo/identities";
 import { DEMO_TASKS, type DemoTask, type DemoTaskGroup, type DemoTaskStatus } from "@/lib/platform/demo/tasks";
@@ -17,10 +18,12 @@ type TaskGroup = DemoTaskGroup;
 export type LawyerTaskStatus = DemoTaskStatus;
 type Filter = "all" | "urgent" | "today" | "week" | "working" | "done";
 export type LawyerTaskState = TaskState;
-export type LawyerTask = DemoTask & { client: string; caseNumber: string; plan: "LITE" | "PRO" | "ИНДИВИДУАЛЬНЫЙ" };
+export type LawyerTask = DemoTask & { client: string; caseNumber: string; plan: "LITE" | "PRO" | "ЭКСКЛЮЗИВ" };
 
-const SUPPORTED_LAWYER_CLIENT_IDS = new Set(DEMO_IDENTITIES.filter((identity) => identity.role === "CLIENT").map((identity) => identity.id));
-function lawyerPlanLabel(plan: PlanCode): LawyerTask["plan"] { return plan === "INDIVIDUAL" ? "ИНДИВИДУАЛЬНЫЙ" : plan; }
+const SUPPORTED_LAWYER_CLIENT_IDS = new Set(
+  DEMO_CASES.filter((clientCase) => clientPlanHasHumanSupport(clientCase.plan)).map((clientCase) => clientCase.clientId),
+);
+function lawyerPlanLabel(plan: PlanCode): LawyerTask["plan"] { return plan === "INDIVIDUAL" ? "ЭКСКЛЮЗИВ" : plan; }
 
 export const LAWYER_TASKS: readonly LawyerTask[] = DEMO_TASKS
   .filter((task) => task.assignedEmployeeId === LAWYER_IDENTITY.id && SUPPORTED_LAWYER_CLIENT_IDS.has(task.clientId))
