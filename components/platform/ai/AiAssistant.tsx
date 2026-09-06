@@ -6,6 +6,7 @@ import { PlatformCard, SectionHeader } from "@/components/platform/PlatformPrimi
 import { PlatformShell } from "@/components/platform/PlatformShell";
 import { Button } from "@/components/ui/button";
 import { IBuroBrand } from "@/components/platform/IBuroBrand";
+import { clientPlanHasHumanSupport } from "@/lib/platform/client-plan-entitlements";
 import { AiComposer } from "./AiComposer";
 import { AiContextPanel } from "./AiContextPanel";
 import { AiLockedState } from "./AiLockedState";
@@ -20,7 +21,15 @@ import {
 } from "./production-api";
 import { useAiConversation } from "./useAiConversation";
 
-const AI_SUGGESTIONS = [
+const SELF_SERVICE_AI_SUGGESTIONS = [
+  "Что мне делать дальше?",
+  "Какие документы уже готовы?",
+  "Как самостоятельно проверить документы перед подачей?",
+  "Что означает мой текущий этап?",
+  "Что будет после подготовки документов?",
+] as const;
+
+const HUMAN_SUPPORT_AI_SUGGESTIONS = [
   "Что мне делать дальше?",
   "Какие документы уже готовы?",
   "Зачем нужна проверка юриста?",
@@ -148,6 +157,9 @@ function AiChat({
   const [typing, setTyping] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const suggestions = clientPlanHasHumanSupport(caseState.planCode)
+    ? HUMAN_SUPPORT_AI_SUGGESTIONS
+    : SELF_SERVICE_AI_SUGGESTIONS;
 
   useEffect(() => {
     const log = endRef.current?.parentElement;
@@ -243,7 +255,7 @@ function AiChat({
           <div className="border-t border-border px-3 py-4 sm:px-5">
             <p className="mb-3 text-xs font-semibold uppercase tracking-[.12em] text-muted-foreground">Можно спросить</p>
             <div className="flex flex-wrap gap-2">
-              {AI_SUGGESTIONS.map((suggestion) => (
+              {suggestions.map((suggestion) => (
                 <button
                   type="button"
                   key={suggestion}

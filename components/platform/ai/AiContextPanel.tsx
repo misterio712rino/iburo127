@@ -1,6 +1,7 @@
 import { BriefcaseBusiness, ClipboardCheck, FileText, Paperclip, Scale } from "lucide-react";
 import { PlatformCard } from "@/components/platform/PlatformPrimitives";
 import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
+import { clientPlanHasHumanSupport } from "@/lib/platform/client-plan-entitlements";
 import type { AiCaseState } from "./production-api";
 
 const STAGE_LABELS: Record<string, string> = {
@@ -8,22 +9,35 @@ const STAGE_LABELS: Record<string, string> = {
   EDUCATION: "Обучение",
   QUESTIONNAIRE: "Анкетирование",
   DOCUMENT_PREPARATION: "Подготовка документов",
-  LAWYER_REVIEW: "Проверка юристом",
   FILING: "Подача документов",
   COURT: "Суд",
   PROCEDURE: "Процедура банкротства",
   COMPLETED: "Завершено",
 };
 
+function getStageLabel(stageCode: string, humanSupportAvailable: boolean) {
+  if (stageCode === "LAWYER_REVIEW") {
+    return humanSupportAvailable ? "Проверка юристом" : "Самостоятельная проверка документов";
+  }
+  return STAGE_LABELS[stageCode] ?? "Этап уточняется";
+}
+
 export function AiContextPanel({ context }: { context: AiCaseState }) {
+  const humanSupportAvailable = clientPlanHasHumanSupport(context.planCode);
   const readyDocuments = context.documents.filter(
     (document) => document.status === "READY_FOR_REVIEW",
   ).length;
   const rows = [
     [BriefcaseBusiness, "Дело", getClientCaseDisplayNumber(context.caseNumber)],
-    [Scale, "Этап", STAGE_LABELS[context.stageCode] ?? "Этап уточняется"],
+    [Scale, "Этап", getStageLabel(context.stageCode, humanSupportAvailable)],
     [ClipboardCheck, "Анкета", `${context.questionnaireCompletedSections} разделов завершено`],
-    [FileText, "Документы", `${readyDocuments} готовы к проверке`],
+    [
+      FileText,
+      "Документы",
+      humanSupportAvailable
+        ? `${readyDocuments} готовы к проверке`
+        : `${readyDocuments} готовы к самостоятельной проверке`,
+    ],
     [Paperclip, "Загруженные файлы", String(context.readyFileCount)],
   ] as const;
 
@@ -47,9 +61,15 @@ export function AiContextPanel({ context }: { context: AiCaseState }) {
       </PlatformCard>
       <PlatformCard className="p-5 sm:p-6">
         <p className="text-xs font-bold uppercase tracking-[.16em] text-primary">Границы помощника</p>
-        <h2 className="mt-3 text-lg font-semibold">Юридически значимые решения — со специалистом</h2>
+        <h2 className="mt-3 text-lg font-semibold">
+          {humanSupportAvailable
+            ? "Юридически значимые решения — со специалистом"
+            : "AI помогает, но не принимает юридические решения"}
+        </h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          AI объясняет этапы и помогает подготовить вопросы, но не подписывает и не отправляет документы от вашего имени и не заменяет окончательную оценку юриста.
+          {humanSupportAvailable
+            ? "AI объясняет этапы и помогает подготовить вопросы, но не подписывает и не отправляет документы от вашего имени и не заменяет окончательную оценку юриста."
+            : "AI объясняет этапы и помогает подготовить материалы, но не подписывает и не отправляет документы от вашего имени и не даёт окончательное юридическое заключение. Сопровождение специалистом не входит в тариф Лайт."}
         </p>
       </PlatformCard>
     </div>

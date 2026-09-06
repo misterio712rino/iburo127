@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { CircleAlert, Sparkles } from "lucide-react";
+import { IBuroBrand } from "@/components/platform/IBuroBrand";
 import { PlatformCard, SectionHeader } from "@/components/platform/PlatformPrimitives";
 import { Button } from "@/components/ui/button";
 
 function planLabel(planCode: string) {
-  if (planCode === "LITE") return "ЛАЙТ";
-  if (planCode === "PRO") return "ПРО";
-  if (planCode === "INDIVIDUAL") return "ИНДИВИДУАЛЬНЫЙ";
+  if (planCode === "LITE") return "Лайт";
+  if (planCode === "PRO") return "Про";
+  if (planCode === "INDIVIDUAL") return "Эксклюзив";
   return "не определён";
 }
 
@@ -29,7 +30,7 @@ export function AiLockedState({ planCode }: { planCode: string }) {
           Доступ к AI-помощнику не подтверждён для этого дела
         </h2>
         <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground">
-          AI-помощник предусмотрен на всех тарифах iБюро. Если этот экран появился, причина техническая или связана с настройкой конкретного дела — это не тарифное ограничение.
+          AI-помощник предусмотрен на всех тарифах <IBuroBrand />. Если этот экран появился, причина техническая или связана с настройкой конкретного дела — это не тарифное ограничение.
         </p>
         <Button
           render={<Link href="/portal" />}

@@ -16,6 +16,8 @@ const CLIENT_FACING_SOURCES = [
   "app/portal/cases/[caseId]/progress/page.tsx",
   "app/portal/cases/[caseId]/ai/page.tsx",
   "components/platform/ai/AiAssistant.tsx",
+  "components/platform/ai/AiContextPanel.tsx",
+  "components/platform/ai/AiLockedState.tsx",
   "app/portal/notifications/page.tsx",
   "app/portal/profile/page.tsx",
 ] as const;
@@ -52,5 +54,34 @@ const clientDashboardSource = await readFile(
 );
 assert.match(clientDashboardSource, /Положение этапа в маршруте/u);
 assert.match(clientDashboardSource, /Это не прогноз срока или результата процедуры\./u);
+
+const aiAssistantSource = await readFile(
+  resolve("components/platform/ai/AiAssistant.tsx"),
+  "utf8",
+);
+assert.match(aiAssistantSource, /clientPlanHasHumanSupport\(caseState\.planCode\)/);
+assert.match(aiAssistantSource, /SELF_SERVICE_AI_SUGGESTIONS/);
+assert.match(aiAssistantSource, /HUMAN_SUPPORT_AI_SUGGESTIONS/);
+assert.match(aiAssistantSource, /Как самостоятельно проверить документы перед подачей\?/u);
+assert.match(aiAssistantSource, /Зачем нужна проверка юриста\?/u);
+
+const aiContextSource = await readFile(
+  resolve("components/platform/ai/AiContextPanel.tsx"),
+  "utf8",
+);
+assert.match(aiContextSource, /clientPlanHasHumanSupport\(context\.planCode\)/);
+assert.match(aiContextSource, /Самостоятельная проверка документов/u);
+assert.match(aiContextSource, /готовы к самостоятельной проверке/u);
+assert.match(aiContextSource, /Сопровождение специалистом не входит в тариф Лайт\./u);
+assert.match(aiContextSource, /не даёт окончательное юридическое заключение/u);
+
+const aiLockedSource = await readFile(
+  resolve("components/platform/ai/AiLockedState.tsx"),
+  "utf8",
+);
+assert.match(aiLockedSource, /if \(planCode === "INDIVIDUAL"\) return "Эксклюзив";/);
+assert.match(aiLockedSource, /<IBuroBrand \/>/);
+assert.doesNotMatch(aiLockedSource, /ИНДИВИДУАЛЬНЫЙ/u);
+assert.doesNotMatch(aiLockedSource, /тарифах iБюро/u);
 
 console.log("CLIENT_FACING_COPY_CONTRACT_TEST_PASS");
