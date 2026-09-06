@@ -7,6 +7,7 @@ import { LawyerRouteGuard } from "./LawyerRouteGuard";
 import { useLawyerCases } from "./useLawyerCases";
 import { PlatformShell } from "@/components/platform/PlatformShell";
 import { PlatformCard, SectionHeader } from "@/components/platform/PlatformPrimitives";
+import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
 
 type Category = "clients" | "documents" | "tasks" | "system";
 type Period = "today" | "yesterday" | "week";
@@ -57,7 +58,7 @@ function EventRow({ event }: { event: ActivityEvent }) {
   const Icon = event.category === "documents" ? FileText : event.category === "clients" ? UserRound : event.category === "tasks" ? ClipboardCheck : Settings2;
   return <article className="grid min-w-0 gap-3 px-4 py-3.5 sm:grid-cols-[2.25rem_minmax(0,1fr)_auto] sm:items-center sm:gap-4 sm:px-5 sm:py-3">
     <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${categoryStyle[event.category]}`}><Icon className="size-4" aria-hidden="true" /></span>
-    <div className="min-w-0"><h3 className="text-sm font-semibold leading-5">{event.title}</h3><div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"><Link href={href} className="font-medium text-foreground hover:text-primary">{event.client}</Link><span aria-hidden="true">·</span><Link href={href} className="font-mono hover:text-primary">{event.caseNumber}</Link><span aria-hidden="true">·</span><span className={`rounded-full px-2 py-0.5 font-semibold ${categoryStyle[event.category]}`}>{categoryLabel[event.category]}</span></div></div>
+    <div className="min-w-0"><h3 className="text-sm font-semibold leading-5">{event.title}</h3><div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"><Link href={href} className="font-medium text-foreground hover:text-primary">{event.client}</Link><span aria-hidden="true">·</span><Link href={href} className="hover:text-primary">{getClientCaseDisplayNumber(event.caseNumber)}</Link><span aria-hidden="true">·</span><span className={`rounded-full px-2 py-0.5 font-semibold ${categoryStyle[event.category]}`}>{categoryLabel[event.category]}</span></div></div>
     <time className="pl-[3.25rem] text-xs text-muted-foreground sm:pl-0 sm:text-right">{event.timestamp}</time>
   </article>;
 }
