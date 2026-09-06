@@ -15,21 +15,19 @@ const STAGE_LABELS: Record<string, string> = {
   COMPLETED: "Завершено",
 };
 
-function getStageLabel(stageCode: string, humanSupportAvailable: boolean) {
-  if (stageCode === "LAWYER_REVIEW") {
-    return humanSupportAvailable ? "Проверка юристом" : "Самостоятельная проверка документов";
-  }
-  return STAGE_LABELS[stageCode] ?? "Этап уточняется";
-}
-
 export function AiContextPanel({ context }: { context: AiCaseState }) {
   const humanSupportAvailable = clientPlanHasHumanSupport(context.planCode);
+  const stageLabel = context.stageCode === "LAWYER_REVIEW"
+    ? humanSupportAvailable
+      ? "Проверка юристом"
+      : "Самостоятельная проверка документов"
+    : STAGE_LABELS[context.stageCode] ?? "Этап уточняется";
   const readyDocuments = context.documents.filter(
     (document) => document.status === "READY_FOR_REVIEW",
   ).length;
   const rows = [
     [BriefcaseBusiness, "Дело", getClientCaseDisplayNumber(context.caseNumber)],
-    [Scale, "Этап", getStageLabel(context.stageCode, humanSupportAvailable)],
+    [Scale, "Этап", stageLabel],
     [ClipboardCheck, "Анкета", `${context.questionnaireCompletedSections} разделов завершено`],
     [
       FileText,
