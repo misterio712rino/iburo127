@@ -2,6 +2,17 @@ import type { AiModelGateway, AiModelInput } from "@/server/domain/ai/contracts"
 
 export const AI_PROVIDER_ERROR = "AI_PROVIDER_ERROR";
 
+type YandexBadRequestCategory =
+  | "SCOPE"
+  | "MODEL"
+  | "FOLDER"
+  | "MAX_TOKENS"
+  | "TEMPERATURE"
+  | "MESSAGES"
+  | "OPTIONS"
+  | "REQUEST"
+  | "OTHER";
+
 export type YandexGptConfig = {
   apiKey: string;
   folderId: string;
@@ -56,6 +67,47 @@ function assertConfig(config: YandexGptConfig): YandexGptConfig {
 function assertSafetyIdentifier(value: string): void {
   if (!/^[a-f0-9]{64}$/.test(value.trim())) {
     throw new Error(`${AI_PROVIDER_ERROR}:INVALID_SAFETY_IDENTIFIER`);
+  }
+}
+
+function classifyYandexBadRequestDiagnostic(raw: string): YandexBadRequestCategory {
+  const diagnostic = raw.toLowerCase();
+
+  if (/\bscope\b|scopes|foundationmodels\.execute|languagemodels\.execute/.test(diagnostic)) {
+    return "SCOPE";
+  }
+  if (/modeluri|model_uri|model uri|model id|model name|unknown model|invalid model/.test(diagnostic)) {
+    return "MODEL";
+  }
+  if (/folderid|folder_id|folder id|folder/.test(diagnostic)) {
+    return "FOLDER";
+  }
+  if (/maxtokens|max_tokens|max tokens/.test(diagnostic)) {
+    return "MAX_TOKENS";
+  }
+  if (/temperature/.test(diagnostic)) {
+    return "TEMPERATURE";
+  }
+  if (/messages?|message\[|message\./.test(diagnostic)) {
+    return "MESSAGES";
+  }
+  if (/completionoptions|completion_options|completion options|reasoningoptions|reasoning_options/.test(diagnostic)) {
+    return "OPTIONS";
+  }
+  if (/request validation|request format|invalid argument|invalid_argument|bad request/.test(diagnostic)) {
+    return "REQUEST";
+  }
+  return "OTHER";
+}
+
+async function classifyYandexBadRequest(response: Response): Promise<YandexBadRequestCategory> {
+  try {
+    // Provider diagnostics may contain dynamic identifiers or request details. They are
+    // consumed only in-memory and reduced to a fixed enum; raw content never escapes.
+    const raw = await response.text();
+    return classifyYandexBadRequestDiagnostic(raw);
+  } catch {
+    return "OTHER";
   }
 }
 
@@ -164,6 +216,10 @@ export class YandexGptGateway implements AiModelGateway {
     }
 
     if (!response.ok) {
+      if (response.status === 400) {
+        const category = await classifyYandexBadRequest(response);
+        throw new Error(`${AI_PROVIDER_ERROR}:HTTP_400:${category}`);
+      }
       throw new Error(`${AI_PROVIDER_ERROR}:HTTP_${response.status}`);
     }
 
