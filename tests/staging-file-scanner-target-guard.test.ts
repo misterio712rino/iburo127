@@ -50,7 +50,29 @@ expectGuardFailure({ IB_RUNTIME_TARGET: "production" }, "RUNTIME_TARGET_NOT_STAG
 expectGuardFailure({ IB_FILE_SCANNER_TARGET: "production" }, "SCANNER_TARGET_NOT_STAGING");
 expectGuardFailure({ IB_STORAGE_TARGET: "production" }, "STORAGE_TARGET_NOT_STAGING");
 expectGuardFailure({ IB_FILE_SCANNER_ORIGIN: "http://scanner-staging.example.com" }, "INVALID_SCANNER_ORIGIN");
-expectGuardFailure({ IB_FILE_SCANNER_ORIGIN: "https://scanner-other.example.com" }, "SCANNER_ORIGIN_MISMATCH");
+expectGuardFailure({ IB_FILE_SCANNER_ORIGIN: "https://scanner-other.example.com" }, "INVALID_SCANNER_ORIGIN");
+expectGuardFailure({ IB_FILE_SCANNER_ORIGIN: "https://scanner-staging-other.example.com" }, "SCANNER_ORIGIN_MISMATCH");
+expectGuardFailure(
+  {
+    IB_FILE_SCANNER_ORIGIN: "https://scanner-prod-staging.example.com",
+    IB_STAGING_FILE_SCANNER_ORIGIN: "https://scanner-prod-staging.example.com",
+  },
+  "INVALID_SCANNER_ORIGIN",
+);
+expectGuardFailure(
+  {
+    IB_FILE_SCANNER_ORIGIN: "https://scanner-staging.iburo127.ru",
+    IB_STAGING_FILE_SCANNER_ORIGIN: "https://scanner-staging.iburo127.ru",
+  },
+  "INVALID_SCANNER_ORIGIN",
+);
+expectGuardFailure(
+  {
+    IB_FILE_SCANNER_ORIGIN: "https://scanner-staging.example.com:8443",
+    IB_STAGING_FILE_SCANNER_ORIGIN: "https://scanner-staging.example.com:8443",
+  },
+  "INVALID_SCANNER_ORIGIN",
+);
 expectGuardFailure({ IB_FILE_SCANNER_SECRET: "short" }, "INVALID_SCANNER_SECRET");
 expectGuardFailure(
   { IB_STAGING_FILE_SCANNER_SECRET_SHA256: "not-a-fingerprint" },
