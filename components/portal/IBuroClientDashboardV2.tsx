@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { formatProfileDisplayName } from "@/lib/platform/profile-display-name";
+import type { PlanCode } from "@/lib/platform/types";
 import { IBuroClientShellV2, type IBuroClientCaseOptionV2 } from "./IBuroClientShellV2";
 import styles from "./IBuroClientDashboardV2.module.css";
 
@@ -27,6 +28,7 @@ type DashboardProps = {
   displayName: string;
   caseDisplayNumber: string;
   planLabel: string;
+  planCode: PlanCode;
   unreadCount: number;
   cases: readonly IBuroClientCaseOptionV2[];
   statusLabel: string;
@@ -115,7 +117,12 @@ function MiniProgressCard({
       </div>
       <p>{detail}</p>
       <div className={styles.progressTrack} aria-label={`Прогресс ${Math.round(percent)}%`}>
-        <span style={{ width: `${Math.max(0, Math.min(100, percent))}%` }} />
+        <span
+          style={{
+            width: `${Math.max(0, Math.min(100, percent))}%`,
+            background: "linear-gradient(90deg, var(--ib2-theme-hero-start), var(--ib2-red))",
+          }}
+        />
       </div>
       <Link href={href}>Открыть →</Link>
     </article>
@@ -137,6 +144,7 @@ export function IBuroClientDashboardV2(props: DashboardProps) {
       displayName={shellDisplayName}
       caseDisplayNumber={props.caseDisplayNumber}
       planLabel={props.planLabel}
+      planCode={props.planCode}
       unreadCount={props.unreadCount}
       cases={props.cases}
     >
@@ -151,11 +159,17 @@ export function IBuroClientDashboardV2(props: DashboardProps) {
         </section>
 
         <section className={styles.primaryGrid} aria-label="Главное по делу">
-          <article className={styles.nextCard}>
+          <article
+            className={styles.nextCard}
+            style={{
+              background:
+                "radial-gradient(circle at 92% 12%, rgba(255,255,255,.18), transparent 28%), linear-gradient(145deg, var(--ib2-theme-hero-start) 0%, var(--ib2-theme-hero-mid) 57%, var(--ib2-theme-hero-end) 100%)",
+            }}
+          >
             <p className={styles.nextLabel}>Следующий шаг</p>
             <h2>{props.nextAction.title}</h2>
             <p className={styles.nextDescription}>{props.nextAction.description}</p>
-            <Link className={styles.nextCta} href={`${base}/${props.nextAction.segment}`}>
+            <Link className={styles.nextCta} style={{ color: "var(--ib2-red)" }} href={`${base}/${props.nextAction.segment}`}>
               {nextActionLabel(props.nextAction.segment)} <ArrowRight aria-hidden="true" />
             </Link>
           </article>
@@ -171,7 +185,12 @@ export function IBuroClientDashboardV2(props: DashboardProps) {
               <strong>{boundedProgress}%</strong>
             </div>
             <div className={styles.progressTrack} aria-label={`Прогресс дела ${boundedProgress}%`}>
-              <span style={{ width: `${boundedProgress}%` }} />
+              <span
+                style={{
+                  width: `${boundedProgress}%`,
+                  background: "linear-gradient(90deg, var(--ib2-theme-hero-start), var(--ib2-red))",
+                }}
+              />
             </div>
             <div className={styles.statusFooter}>
               <div><span>Дело открыто</span><strong>{props.openedDate}</strong></div>

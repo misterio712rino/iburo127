@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -22,6 +22,8 @@ import {
 
 import { IBuroBrand } from "@/components/platform/IBuroBrand";
 import { SignOutButton } from "@/components/platform/auth/SignOutButton";
+import { getClientPlanTheme } from "@/lib/platform/client-plan-theme";
+import type { PlanCode } from "@/lib/platform/types";
 import styles from "./IBuroClientShellV2.module.css";
 
 export type IBuroClientCaseOptionV2 = {
@@ -36,6 +38,7 @@ type ShellProps = {
   displayName: string;
   caseDisplayNumber: string;
   planLabel: string;
+  planCode?: PlanCode;
   unreadCount: number;
   cases: readonly IBuroClientCaseOptionV2[];
 };
@@ -95,6 +98,7 @@ export function IBuroClientShellV2({
   displayName,
   caseDisplayNumber,
   planLabel,
+  planCode,
   unreadCount,
   cases,
 }: ShellProps) {
@@ -105,6 +109,24 @@ export function IBuroClientShellV2({
   const previousPathnameRef = useRef(pathname);
   const base = `/portal/cases/${caseId}`;
   const userInitials = initials(displayName);
+  const planTheme = getClientPlanTheme(planCode);
+  const shellStyle = {
+    "--ib2-red": planTheme.accent,
+    "--ib2-red-hover": planTheme.accentHover,
+    "--ib2-red-soft": planTheme.accentSoft,
+    "--ib2-red-softer": planTheme.accentSofter,
+    "--ib2-theme-hero-start": planTheme.heroStart,
+    "--ib2-theme-hero-mid": planTheme.heroMid,
+    "--ib2-theme-hero-end": planTheme.heroEnd,
+    "--ib2-theme-accent-rgb": planTheme.accentRgb,
+    "--primary": planTheme.accent,
+    "--ring": planTheme.accent,
+    "--accent": planTheme.accent,
+    "--sidebar-primary": planTheme.accent,
+    "--sidebar-ring": planTheme.accent,
+    "--chart-1": planTheme.accent,
+    background: `radial-gradient(circle at 86% 4%, ${planTheme.glow}, transparent 25rem), var(--ib2-bg)`,
+  } as CSSProperties;
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -205,7 +227,11 @@ export function IBuroClientShellV2({
     ) : null;
 
   return (
-    <div className={styles.shell}>
+    <div
+      className={styles.shell}
+      data-plan={planCode ?? "UNSPECIFIED"}
+      style={shellStyle}
+    >
       <aside className={styles.sidebar}>
         <Link href="/portal" className={styles.brand} aria-label="iБюро — личный кабинет">
           <IBuroBrand dot />
