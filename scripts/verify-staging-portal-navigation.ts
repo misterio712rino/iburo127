@@ -164,7 +164,7 @@ try {
   await verifySurfaces("LAWYER", lawyerCookie, [
     ["Рабочий стол", "/portal", "Рабочий стол юриста"],
     ["Назначенное дело", lawyerBase],
-    ["Практикум", `${lawyerBase}/practicum`, "Режим просмотра"],
+    ["Практикум", `${lawyerBase}/practicum`, "Учебный прогресс клиента"],
     ["Документы", `${lawyerBase}/documents`],
     ["Файлы", `${lawyerBase}/files`],
     ["Прогресс", `${lawyerBase}/progress`],
@@ -180,7 +180,7 @@ try {
   await verifySurfaces("MANAGER", managerCookie, [
     ["Рабочий стол", "/portal", "Панель руководителя"],
     ["Дело под контролем", managerBase],
-    ["Практикум", `${managerBase}/practicum`, "Режим просмотра"],
+    ["Практикум", `${managerBase}/practicum`, "Учебный прогресс клиента"],
     ["Документы", `${managerBase}/documents`],
     ["Файлы", `${managerBase}/files`],
     ["Прогресс", `${managerBase}/progress`],
