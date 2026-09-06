@@ -11,6 +11,7 @@ assert.equal(isDemoPortalEnabled({ IB_DEMO_PORTAL_MODE: "true" }), false);
 assert.equal(isDemoPortalEnabled({ IB_DEMO_PORTAL_MODE: " enabled " }), true);
 assert.equal(isDemoPortalEnabled({ IB_DEMO_PORTAL_MODE: "ENABLED" }), false);
 
+await import("./demo-plan-entitlements.test");
 await import("./portal-ui-foundation.test");
 
 console.log("DEMO_PORTAL_ACCESS_TEST_PASS");

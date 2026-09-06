@@ -27,14 +27,14 @@ export const CLIENT_DASHBOARDS = [
       { code: "DOCUMENTS", title: "Документы", summary: "Пока не сформированы", detail: "Появятся после заполнения анкеты", state: "upcoming" },
       { code: "CASE_PROGRESS", title: "Прогресс дела", summary: "Текущий этап: Обучение", detail: "Общий прогресс — 24%", progress: 24, state: "active" },
       { code: "MORTGAGE", title: "Анализ ипотечного жилья", summary: "Расширенная возможность", detail: "Индивидуальный разбор ситуации", state: "locked", lockLabel: "Доступно в тарифе ПРО" },
-      { code: "AI_ASSISTANT", title: "AI-помощник", summary: "Персональная поддержка", detail: "Ответы с учётом материалов дела", state: "locked", lockLabel: "Доступно в тарифе ИНДИВИДУАЛЬНЫЙ" },
+      { code: "AI_ASSISTANT", title: "AI-помощник", summary: "Готов помочь", detail: "Ответы с учётом материалов дела", state: "active" },
     ],
     activity: [
       { id: "lite-1", text: "Завершён урок «Первые шаги в процедуре»", dateLabel: "Сегодня, 10:20", type: "lesson" },
       { id: "lite-2", text: "Добавлены материалы к разделу «Финансовая ситуация»", dateLabel: "Вчера", type: "document" },
-      { id: "lite-3", text: "Дело принято в работу", dateLabel: "15 января", type: "lawyer" },
+      { id: "lite-3", text: "Доступ к материалам дела активирован", dateLabel: "15 января", type: "document" },
     ],
-    supportDescription: "Поможет с организационными вопросами по вашему делу.",
+    supportDescription: "Самостоятельный формат: AI-помощник доступен, сопровождение специалистом не входит в тариф.",
   },
   {
     identityId: "maria-pro",
@@ -50,7 +50,7 @@ export const CLIENT_DASHBOARDS = [
       { code: "DOCUMENTS", title: "Документы", summary: "Подготовка ещё не начата", detail: "Доступны после заполнения анкеты", state: "upcoming" },
       { code: "CASE_PROGRESS", title: "Прогресс дела", summary: "Текущий этап: Анкета", detail: "Общий прогресс — 46%", progress: 46, state: "active" },
       { code: "MORTGAGE", title: "Анализ ипотечного жилья", summary: "Индивидуальная оценка", detail: "Обстоятельства ипотечного жилья оценивает специалист", state: "active" },
-      { code: "AI_ASSISTANT", title: "AI-помощник", summary: "Персональная поддержка", detail: "Ответы с учётом материалов дела", state: "locked", lockLabel: "Доступно в тарифе ИНДИВИДУАЛЬНЫЙ" },
+      { code: "AI_ASSISTANT", title: "AI-помощник", summary: "Готов помочь", detail: "Ответы с учётом материалов дела", state: "active" },
     ],
     activity: [
       { id: "pro-1", text: "Заполнен раздел «Доходы»", dateLabel: "Сегодня, 12:45", type: "questionnaire" },
