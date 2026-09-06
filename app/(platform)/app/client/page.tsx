@@ -1,20 +1,21 @@
 "use client";
 
-import { CaseOverview } from "@/components/platform/dashboard/CaseOverview";
 import { ActivityFeed } from "@/components/platform/dashboard/ActivityFeed";
+import { CaseOverview } from "@/components/platform/dashboard/CaseOverview";
 import { LawyerCard } from "@/components/platform/dashboard/LawyerCard";
 import { ModuleCard } from "@/components/platform/dashboard/ModuleCard";
 import { NextStepCard } from "@/components/platform/dashboard/NextStepCard";
 import { ProcedureProgress } from "@/components/platform/dashboard/ProcedureProgress";
+import { SelfServiceCard } from "@/components/platform/dashboard/SelfServiceCard";
 import { useDemoIdentity } from "@/components/platform/DemoIdentityProvider";
-import { PlanBadge, SectionHeader } from "@/components/platform/PlatformPrimitives";
-import { PlatformShell } from "@/components/platform/PlatformShell";
-import { getCaseForIdentity, getDashboardForIdentity } from "@/lib/platform/demo";
+import { ClientRouteGuard } from "@/components/platform/practicum/ClientRouteGuard";
 import { usePracticumProgress } from "@/components/platform/practicum/usePracticumProgress";
+import { PlatformShell } from "@/components/platform/PlatformShell";
+import { PlanBadge, SectionHeader } from "@/components/platform/PlatformPrimitives";
 import { useQuestionnaireState } from "@/components/platform/questionnaire/useQuestionnaireState";
 import { useDocumentState } from "@/components/platform/documents/useDocumentState";
-import { generateDocuments, getQuestionnaireSummary } from "@/lib/platform/demo";
-import { ClientRouteGuard } from "@/components/platform/practicum/ClientRouteGuard";
+import { clientPlanHasHumanSupport } from "@/lib/platform/client-plan-entitlements";
+import { generateDocuments, getCaseForIdentity, getDashboardForIdentity, getQuestionnaireSummary } from "@/lib/platform/demo";
 
 export default function ClientPage() {
   return <ClientRouteGuard><ClientDashboard /></ClientRouteGuard>;
@@ -31,6 +32,7 @@ function ClientDashboard() {
   }
 
   const firstName = identity.displayName.split(" ")[0];
+  const humanSupportAvailable = clientPlanHasHumanSupport(clientCase.plan);
   const practicum = usePracticumProgress(identityId);
   const questionnaire = useQuestionnaireState(identityId);
   const documentState = useDocumentState(identityId);
@@ -72,9 +74,9 @@ function ClientDashboard() {
           </div>
         </section>
 
-        <section aria-label="Активность и специалист" className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(20rem,.75fr)]">
+        <section aria-label={humanSupportAvailable ? "Активность и специалист" : "Активность и формат работы"} className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(20rem,.75fr)]">
           <ActivityFeed activity={dashboard.activity} />
-          <LawyerCard description={dashboard.supportDescription} />
+          {humanSupportAvailable ? <LawyerCard description={dashboard.supportDescription} /> : <SelfServiceCard description={dashboard.supportDescription} />}
         </section>
 
       </div>

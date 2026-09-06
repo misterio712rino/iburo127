@@ -16,8 +16,7 @@ function useOperationalCase(identityId: string) {
 }
 
 export function useLawyerCases() {
-  const alexander = useOperationalCase("alexander-lite");
   const maria = useOperationalCase("maria-pro");
   const dmitry = useOperationalCase("dmitry-individual");
-  return [alexander, maria, dmitry] as const;
+  return [maria, dmitry] as const;
 }

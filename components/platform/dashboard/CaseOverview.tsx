@@ -1,9 +1,12 @@
-import { CalendarDays, Scale, UserRound } from "lucide-react";
+import { Bot, CalendarDays, Scale, UserRound } from "lucide-react";
 
 import { PlatformCard, ProgressBar } from "@/components/platform/PlatformPrimitives";
+import { clientPlanHasHumanSupport } from "@/lib/platform/client-plan-entitlements";
 import type { DemoClientCase } from "@/lib/platform/types";
 
 export function CaseOverview({ clientCase }: { clientCase: DemoClientCase }) {
+  const humanSupportAvailable = clientPlanHasHumanSupport(clientCase.plan);
+
   return (
     <PlatformCard className="h-full p-6 sm:p-8">
       <div className="flex items-center justify-between gap-4">
@@ -24,7 +27,11 @@ export function CaseOverview({ clientCase }: { clientCase: DemoClientCase }) {
       </div>
       <dl className="mt-8 grid gap-4 border-t border-border pt-6 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
         <div className="flex items-start gap-3"><CalendarDays className="mt-0.5 size-4 text-muted-foreground" aria-hidden="true" /><div><dt className="text-xs text-muted-foreground">Дело открыто</dt><dd className="mt-1 text-sm font-semibold">{clientCase.openedDate}</dd></div></div>
-        <div className="flex items-start gap-3"><UserRound className="mt-0.5 size-4 text-muted-foreground" aria-hidden="true" /><div><dt className="text-xs text-muted-foreground">Назначенный юрист</dt><dd className="mt-1 text-sm font-semibold">{clientCase.assignedLawyer}</dd></div></div>
+        {humanSupportAvailable ? (
+          <div className="flex items-start gap-3"><UserRound className="mt-0.5 size-4 text-muted-foreground" aria-hidden="true" /><div><dt className="text-xs text-muted-foreground">Назначенный юрист</dt><dd className="mt-1 text-sm font-semibold">{clientCase.assignedLawyer}</dd></div></div>
+        ) : (
+          <div className="flex items-start gap-3"><Bot className="mt-0.5 size-4 text-muted-foreground" aria-hidden="true" /><div><dt className="text-xs text-muted-foreground">Формат работы</dt><dd className="mt-1 text-sm font-semibold">Самостоятельно + AI</dd></div></div>
+        )}
       </dl>
       <Scale className="mt-7 size-5 text-primary opacity-70" aria-hidden="true" />
     </PlatformCard>
