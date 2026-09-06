@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import { caseActivityService } from "@/server/activity/runtime";
 import type { SessionProvider } from "@/server/auth/contracts";
 import { requireServerActor } from "@/server/auth/runtime";
+import { readStoredFileDeletionMode } from "@/server/files/deletion-mode";
+import { getStoredFileDeletionRequestService } from "@/server/files/deletion-request-runtime";
 import { createStoredFileObjectKey } from "@/server/files/object-key";
 import { getPrivateObjectStorage } from "@/server/files/object-storage-runtime";
 import { storedFileService } from "@/server/files/runtime";
@@ -95,6 +97,12 @@ export async function completeStoredFileUpload(sessionProvider: SessionProvider,
 
 export async function deleteStoredFile(sessionProvider: SessionProvider, fileId: string) {
   const actor = await requireServerActor(sessionProvider);
+
+  if (readStoredFileDeletionMode() === "durable") {
+    const deletion = await getStoredFileDeletionRequestService().request(actor, fileId);
+    return { fileId: deletion.fileId };
+  }
+
   const candidate = await storedFileService.getOwnedForDeletion(actor, fileId);
   const storage = getPrivateObjectStorage();
 
