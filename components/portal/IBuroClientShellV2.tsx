@@ -146,7 +146,7 @@ export function IBuroClientShellV2({
       { label: "Файлы", href: `${base}/files`, icon: FolderOpen },
       { label: "AI-помощник", href: `${base}/ai`, icon: Sparkles },
       { label: "Прогресс", href: `${base}/progress`, icon: ChartNoAxesColumnIncreasing },
-      { label: "История сопровождения", href: `${base}/activity`, icon: History },
+      { label: "История дела", href: `${base}/activity`, icon: History },
       { label: "Профиль", href: `/portal/profile?caseId=${caseId}`, icon: UserRound },
     ],
     [base, caseId],
@@ -231,7 +231,7 @@ export function IBuroClientShellV2({
             >
               <Menu aria-hidden="true" />
             </button>
-            <span className={styles.desktopProductLabel}>Цифровое сопровождение дела</span>
+            <span className={styles.desktopProductLabel}>Цифровой кабинет по делу</span>
           </div>
 
           <div className={styles.topbarActions}>
