@@ -49,6 +49,7 @@ const clientCookie = required("IB_STAGING_CLIENT_COOKIE");
 const lawyerCookie = required("IB_STAGING_LAWYER_COOKIE");
 const managerCookie = required("IB_STAGING_MANAGER_COOKIE");
 const expectedClientCaseNumber = required("IB_STAGING_CLIENT_CASE_NUMBER");
+const expectedClientUnassignedCaseNumber = required("IB_STAGING_CLIENT_UNASSIGNED_CASE_NUMBER");
 const expectedLawyerCaseNumber = required("IB_STAGING_LAWYER_CASE_NUMBER");
 
 async function request(cookie: string, path: string, accept: string) {
@@ -126,6 +127,25 @@ async function verifySurface(
   console.log(`PORTAL_SURFACE_PASS: ${role} ${label} ${path}`);
 }
 
+async function verifyHiddenSurface(
+  role: RoleLabel,
+  cookie: string,
+  label: string,
+  path: string,
+): Promise<void> {
+  const response = await request(cookie, path, "text/html,application/xhtml+xml");
+  if (response.status !== 404) {
+    const location = response.headers.get("location");
+    fail(
+      `${role} ${label} expected hidden HTTP 404, got ${response.status}${location ? ` -> ${location}` : ""}`,
+    );
+  }
+  if (response.headers.get("location")) {
+    fail(`${role} ${label} must fail closed as NOT_FOUND without redirect`);
+  }
+  console.log(`PORTAL_HIDDEN_SURFACE_PASS: ${role} ${label} ${path}`);
+}
+
 async function verifySurfaces(
   role: RoleLabel,
   cookie: string,
@@ -138,8 +158,9 @@ async function verifySurfaces(
 }
 
 try {
-  const [clientCaseId, lawyerCaseId, managerCaseId] = await Promise.all([
+  const [clientCaseId, clientUnassignedCaseId, lawyerCaseId, managerCaseId] = await Promise.all([
     resolveCaseId("CLIENT", clientCookie, expectedClientCaseNumber),
+    resolveCaseId("CLIENT", clientCookie, expectedClientUnassignedCaseNumber),
     resolveCaseId("LAWYER", lawyerCookie, expectedLawyerCaseNumber),
     resolveCaseId("MANAGER", managerCookie, expectedLawyerCaseNumber),
   ]);
@@ -192,6 +213,20 @@ try {
     ["Уведомления", "/portal/notifications"],
     ["Безопасность", "/portal/security"],
   ]);
+
+  await verifyHiddenSurface(
+    "LAWYER",
+    lawyerCookie,
+    "Неназначенное клиентское дело",
+    `/portal/cases/${encodeURIComponent(clientUnassignedCaseId)}`,
+  );
+  await verifyHiddenSurface(
+    "CLIENT",
+    clientCookie,
+    "Чужое назначенное дело",
+    `/portal/cases/${encodeURIComponent(lawyerCaseId)}`,
+  );
+  console.log("STAGING_PORTAL_DIRECT_CASE_ISOLATION_PASS");
 
   console.log(PASS);
 } catch (error) {
