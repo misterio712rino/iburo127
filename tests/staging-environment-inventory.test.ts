@@ -55,13 +55,13 @@ const secretValues = {
   YANDEX_STORAGE_ACCESS_KEY_ID: "stage-storage-access-key",
   YANDEX_STORAGE_SECRET_ACCESS_KEY: "storage-secret-that-must-never-print",
   IB_FILE_SCANNER_TARGET: "staging",
-  IB_FILE_SCANNER_ORIGIN: "https://scanner.stage.iburo.test",
+  IB_FILE_SCANNER_ORIGIN: "https://scanner-staging.iburo.test",
   IB_FILE_SCANNER_SECRET: "scanner-secret-that-must-never-print-123456",
-  IB_STAGING_FILE_SCANNER_ORIGIN: "https://scanner.stage.iburo.test",
+  IB_STAGING_FILE_SCANNER_ORIGIN: "https://scanner-staging.iburo.test",
   IB_STAGING_FILE_SCANNER_SECRET_SHA256: scannerFingerprint,
   IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY: "security-fixtures/file-scanner/clean.txt",
   IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY: "security-fixtures/file-scanner/malicious.txt",
-  IB_STAGING_FILE_SCANNER_CONFIRM: `FILE-SCANNER-SMOKE:scanner.stage.iburo.test:iburo-stage-private:${scannerFingerprint}`,
+  IB_STAGING_FILE_SCANNER_CONFIRM: `FILE-SCANNER-SMOKE:scanner-staging.iburo.test:iburo-stage-private:${scannerFingerprint}`,
   IB_EMAIL_TARGET: "staging",
   YANDEX_POSTBOX_FROM_EMAIL: "stage@iburo.test",
   YANDEX_POSTBOX_ACCESS_KEY_ID: "stage-postbox-access-key",
@@ -148,13 +148,14 @@ const vercelScannerInventory = buildStagingEnvironmentInventory({
   VERCEL_ENV: "preview",
   VERCEL_GIT_COMMIT_REF: "audit/production-readiness",
   BLOB_READ_WRITE_TOKEN: "vercel_blob_rw_stagingstore123_secret",
+  IB_STAGING_VERCEL_BLOB_PRIVATE_HOST: "stagingstore123.private.blob.vercel-storage.com",
   IB_STAGING_STORAGE_BUCKET: undefined,
   IB_STAGING_STORAGE_ALLOWED_ORIGIN: undefined,
   IB_STAGING_STORAGE_ACCESS_KEY_ID: undefined,
   YANDEX_STORAGE_BUCKET: undefined,
   YANDEX_STORAGE_ACCESS_KEY_ID: undefined,
   YANDEX_STORAGE_SECRET_ACCESS_KEY: undefined,
-  IB_STAGING_FILE_SCANNER_CONFIRM: `FILE-SCANNER-SMOKE:scanner.stage.iburo.test:vercel-blob:${scannerFingerprint}`,
+  IB_STAGING_FILE_SCANNER_CONFIRM: `FILE-SCANNER-SMOKE:scanner-staging.iburo.test:vercel-blob:${scannerFingerprint}`,
 });
 assert.equal(vercelScannerInventory.phases.scanner.ready, true);
 assert.equal(vercelScannerInventory.phases.storage.ready, true);
@@ -177,7 +178,6 @@ for (const cookieName of [
     false,
     `${cookieName} must not be a static application E2E requirement because core sessions are created dynamically`,
   );
-
   const preSuppliedCookieInventory = buildStagingEnvironmentInventory({
     ...secretValues,
     [cookieName]: "example.com",
@@ -262,7 +262,7 @@ for (const invalidBucket of [
       ...secretValues,
       YANDEX_STORAGE_BUCKET: invalidBucket,
       IB_STAGING_STORAGE_BUCKET: invalidBucket,
-      IB_STAGING_FILE_SCANNER_CONFIRM: `FILE-SCANNER-SMOKE:scanner.stage.iburo.test:${invalidBucket}:${scannerFingerprint}`,
+      IB_STAGING_FILE_SCANNER_CONFIRM: `FILE-SCANNER-SMOKE:scanner-staging.iburo.test:${invalidBucket}:${scannerFingerprint}`,
     }).phases[phase];
     assert.equal(invalidBucketInventory.ready, false, `${phase} must reject ${invalidBucket}`);
     assert.ok(invalidBucketInventory.invalidOrInconsistent.includes("YANDEX_STORAGE_BUCKET"));
