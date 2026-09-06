@@ -70,6 +70,13 @@ enum StoredFileStatus {
   SCAN_FAILED
 }
 
+enum StoredFileDeletionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  REQUIRES_ATTENTION
+}
+
 enum NotificationDeliveryChannel {
   EMAIL
 }
@@ -494,6 +501,33 @@ model StoredFile {
   @@index([status, scanNextAttemptAt])
   @@index([status, scanLeaseUntil])
   @@index([uploadedById])
+}
+
+model StoredFileDeletion {
+  fileId                    String                   @id @db.Uuid
+  clientCaseId              String                   @db.Uuid
+  requestedByUserId         String                   @db.Uuid
+  storageProvider           String
+  objectKey                 String
+  originalFileStatus        StoredFileStatus
+  status                    StoredFileDeletionStatus @default(PENDING)
+  attemptCount              Int                      @default(0)
+  nextAttemptAt             DateTime?
+  leaseUntil                DateTime?
+  leaseToken                String?                  @db.Uuid
+  lastErrorCode             String?
+  requestedAt               DateTime                 @default(now())
+  storageConfirmedAt        DateTime?
+  completedAt               DateTime?
+  completionActivityEventId String?                  @unique @db.Uuid
+  createdAt                 DateTime                 @default(now())
+  updatedAt                 DateTime                 @updatedAt
+
+  @@unique([storageProvider, objectKey])
+  @@index([status, nextAttemptAt])
+  @@index([status, leaseUntil])
+  @@index([clientCaseId, requestedAt])
+  @@index([requestedByUserId, requestedAt])
 }
 
 model PotentialClientLead {
