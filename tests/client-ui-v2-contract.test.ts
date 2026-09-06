@@ -36,6 +36,9 @@ assert.match(shellSource, /\/portal\/notifications\?caseId=\$\{caseId\}/);
 assert.match(shellSource, /\/portal\/profile\?caseId=\$\{caseId\}/);
 assert.doesNotMatch(shellSource, /\/app\/client/);
 assert.match(shellSource, /Мобильная навигация iБюро/);
+assert.match(shellSource, /src="\/api\/platform\/account\/avatar"/);
+assert.match(shellSource, /<AccountAvatar className=\{`\$\{styles\.singleCaseAvatar\} \$\{styles\.userAvatar\}`\} initialsValue=\{userInitials\} \/>/);
+assert.match(shellSource, /<AccountAvatar className=\{styles\.userAvatar\} initialsValue=\{userInitials\} \/>/);
 
 assert.match(shellStyleSource, /--ib2-red:\s*#b41f2b/);
 assert.match(shellStyleSource, /prefers-reduced-motion/);

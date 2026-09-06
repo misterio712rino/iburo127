@@ -57,6 +57,31 @@ function initials(displayName: string) {
   );
 }
 
+function AccountAvatar({ className, initialsValue }: { className: string; initialsValue: string }) {
+  const [avatarLoaded, setAvatarLoaded] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
+
+  return (
+    <span className={className}>
+      {!avatarLoaded ? initialsValue : null}
+      {!avatarFailed ? (
+        // Authenticated same-origin avatar proxy; initials remain the graceful fallback.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src="/api/platform/account/avatar"
+          alt=""
+          className={`${styles.userAvatarImage} ${avatarLoaded ? styles.userAvatarImageLoaded : ""}`}
+          onLoad={() => setAvatarLoaded(true)}
+          onError={() => {
+            setAvatarFailed(true);
+            setAvatarLoaded(false);
+          }}
+        />
+      ) : null}
+    </span>
+  );
+}
+
 function isActive(pathname: string, href: string, homeHref: string) {
   if (href === homeHref) return pathname === homeHref;
   const route = href.split("?", 1)[0];
@@ -75,8 +100,6 @@ export function IBuroClientShellV2({
 }: ShellProps) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [topbarAvatarLoaded, setTopbarAvatarLoaded] = useState(false);
-  const [topbarAvatarFailed, setTopbarAvatarFailed] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previousPathnameRef = useRef(pathname);
@@ -173,7 +196,7 @@ export function IBuroClientShellV2({
             </details>
           ) : (
             <div className={styles.singleCaseCard}>
-              <div className={styles.singleCaseAvatar}>{userInitials}</div>
+              <AccountAvatar className={`${styles.singleCaseAvatar} ${styles.userAvatar}`} initialsValue={userInitials} />
               <div><strong>{displayName}</strong><span>{caseDisplayNumber}</span></div>
             </div>
           )}
@@ -205,23 +228,7 @@ export function IBuroClientShellV2({
 
             <details className={styles.userMenu}>
               <summary className={styles.userChip}>
-                <span className={styles.userAvatar}>
-                  {!topbarAvatarLoaded ? userInitials : null}
-                  {!topbarAvatarFailed ? (
-                    // Authenticated same-origin avatar proxy; initials remain the graceful fallback.
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src="/api/platform/account/avatar"
-                      alt=""
-                      className={`${styles.userAvatarImage} ${topbarAvatarLoaded ? styles.userAvatarImageLoaded : ""}`}
-                      onLoad={() => setTopbarAvatarLoaded(true)}
-                      onError={() => {
-                        setTopbarAvatarFailed(true);
-                        setTopbarAvatarLoaded(false);
-                      }}
-                    />
-                  ) : null}
-                </span>
+                <AccountAvatar className={styles.userAvatar} initialsValue={userInitials} />
                 <span className={styles.userCopy}><strong>{displayName}</strong><span>{planLabel}</span></span>
                 <ChevronDown aria-hidden="true" />
               </summary>
