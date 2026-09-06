@@ -89,7 +89,7 @@ export function ProfileAvatarEditor({ avatarUrl }: AvatarProps) {
           disabled={pending}
           aria-busy={pending}
           aria-label={avatarUrl ? "Изменить фотографию профиля" : "Добавить фотографию профиля"}
-          className="absolute -bottom-1 -right-1 grid size-9 place-items-center rounded-full border-2 border-white bg-white text-slate-600 shadow-[0_5px_16px_rgba(23,32,42,0.14)] transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330]/35 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 sm:hidden"
+          className="absolute -bottom-1 -right-1 grid size-11 place-items-center rounded-full border-2 border-white bg-white text-slate-600 shadow-[0_5px_16px_rgba(23,32,42,0.14)] transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330]/35 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 sm:hidden"
         >
           <Camera className="size-4" aria-hidden="true" />
         </button>
@@ -159,9 +159,9 @@ export function ProfileDisplayNameEditor({ displayName }: NameProps) {
           }}
           aria-label="Изменить ФИО"
           title="Изменить ФИО"
-          className="mt-1 grid size-8 shrink-0 place-items-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330]/30 sm:mt-1.5"
+          className="grid size-11 shrink-0 place-items-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330]/30"
         >
-          <Pencil className="size-3.5" aria-hidden="true" />
+          <Pencil className="size-4" aria-hidden="true" />
         </button>
       </div>
     );
@@ -254,7 +254,7 @@ export function ProfileContactEditor({ field, value }: ContactProps) {
 
   if (!editing) {
     return (
-      <div className="relative min-w-0 rounded-2xl border border-border bg-muted/60 p-4 pr-12">
+      <div className="relative min-w-0 rounded-2xl border border-border bg-muted/60 p-4 pr-16">
         <dt className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
           <Icon className="size-4 shrink-0" aria-hidden="true" />
           {label}
@@ -269,9 +269,9 @@ export function ProfileContactEditor({ field, value }: ContactProps) {
           }}
           aria-label={`Изменить ${label.toLowerCase()}`}
           title={`Изменить ${label.toLowerCase()}`}
-          className="absolute right-3 top-3 grid size-8 place-items-center rounded-full text-slate-400 transition-colors hover:bg-white/80 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330]/30"
+          className="absolute right-3 top-3 grid size-11 place-items-center rounded-full text-slate-400 transition-colors hover:bg-white/80 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7B2330]/30"
         >
-          <Pencil className="size-3.5" aria-hidden="true" />
+          <Pencil className="size-4" aria-hidden="true" />
         </button>
       </div>
     );
