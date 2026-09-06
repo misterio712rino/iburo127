@@ -62,7 +62,10 @@ assert.match(
 assert.match(operationsSource, /return \{ fileId: deletion\.fileId \};/);
 assert.match(operationsSource, /storedFileService\.takeOwnedForDeletion\(actor, fileId\)/);
 assert.match(operationsSource, /storedFileService\.restoreDeleted\(deleted\)/);
-assert.doesNotMatch(operationsSource, /claimDueDeletion|finalizeDeletion|StoredFileDeletion/);
+assert.doesNotMatch(
+  operationsSource,
+  /claimDueDeletion|finalizeDeletion|rescheduleDeletion|markDeletionRequiresAttention/,
+);
 
 assert.match(contractsSource, /"PENDING"/);
 assert.match(contractsSource, /"PROCESSING"/);
