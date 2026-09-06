@@ -134,7 +134,18 @@ assert.match(compose, /target: \/var\/lib\/clamav/);
 assert.match(compose, /\/etc\/iburo-file-scanner\/scanner\.env/);
 assert.match(compose, /no-new-privileges:true/);
 assert.match(compose, /restart: unless-stopped/);
-assert.doesNotMatch(compose, /privileged:\s*true|network_mode:\s*host|docker\.sock|cap_add:|:latest/i);
+assert.match(compose, /read_only:\s*true/);
+assert.match(compose, /cap_drop:\s*\n\s*- ALL/);
+assert.match(compose, /cap_add:\s*\n\s*- CHOWN\s*\n\s*- SETGID\s*\n\s*- SETUID/);
+assert.match(compose, /\/run\/clamav:rw,nosuid,nodev,noexec,size=16m/);
+assert.match(compose, /\/tmp:rw,nosuid,nodev,noexec,size=64m/);
+const capAddBlock = compose.match(/cap_add:\s*\n((?:\s*- [A-Z0-9_]+\s*\n?)+)/)?.[1];
+assert.ok(capAddBlock, "scanner must declare the reviewed startup capability set");
+assert.deepEqual(
+  [...capAddBlock.matchAll(/- ([A-Z0-9_]+)/g)].map((match) => match[1]),
+  ["CHOWN", "SETGID", "SETUID"],
+);
+assert.doesNotMatch(compose, /privileged:\s*true|network_mode:\s*host|docker\.sock|:latest/i);
 
 assert.match(caddy, /<STAGING_SCANNER_HOSTNAME>/);
 assert.match(caddy, /reverse_proxy 127\.0\.0\.1:8080/);
