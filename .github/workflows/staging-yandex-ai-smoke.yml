@@ -176,3 +176,4 @@ jobs:
           '
 
 # This workflow change intentionally retriggers an exact-SHA Preview after staging Yandex credential fingerprint rotation.
+# This second retrigger validates the synchronized Preview API key against the same staging-only fingerprint gate.
