@@ -35,7 +35,11 @@ for (const item of CLIENT_DASHBOARDS) {
   const ai = item.modules.find((module) => module.code === "AI_ASSISTANT");
   assert.ok(ai);
   assert.notEqual(ai.state, "locked", `${item.identityId} must include AI assistant access`);
-  assert.equal(ai.lockLabel, undefined, `${item.identityId} AI module must not carry a stale tariff lock label`);
+  assert.equal(
+    "lockLabel" in ai ? ai.lockLabel : undefined,
+    undefined,
+    `${item.identityId} AI module must not carry a stale tariff lock label`,
+  );
 }
 
 console.log("DEMO_PLAN_ENTITLEMENTS_TEST_PASS");
