@@ -62,6 +62,8 @@ export async function GET() {
         storage: providerAwareStorage.storage,
         scanner: providerAwareStorage.scanner,
         ai: providerAwareAi,
+        postbox: inventory.phases.postbox,
+        bitrix24: inventory.phases.bitrix24,
       },
     },
     { headers: NO_STORE_HEADERS },
