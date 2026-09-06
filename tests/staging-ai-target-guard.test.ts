@@ -3,10 +3,15 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { buildProviderAwareStagingAiReadiness } from "@/scripts/staging-ai-readiness";
 import {
   assertStagingAiTarget,
   STAGING_AI_TARGET_GUARD,
 } from "@/scripts/staging-ai-target-guard";
+import {
+  assertStagingYandexAiTarget,
+  STAGING_YANDEX_AI_TARGET_GUARD,
+} from "@/scripts/staging-yandex-ai-target-guard";
 
 const apiKey = "fixture-openai-key-material-that-is-long-enough";
 const model = "gpt-5.6-terra";
@@ -45,6 +50,35 @@ for (const [name, overrides, code] of [
     new RegExp(`${STAGING_AI_TARGET_GUARD}:${code}`),
     name,
   );
+}
+
+const yandexBaseEnv = {
+  IB_RUNTIME_TARGET: "staging",
+  IB_AI_TARGET: "staging",
+  IB_AI_PROVIDER: "yandex",
+  YANDEX_AI_FOLDER_ID: "b1ggvchbjvrt2b5rju0g",
+  IB_AI_YANDEX_MODEL: "yandexgpt/latest",
+  IB_STAGING_YANDEX_AI_FOLDER_ID: "b1ggvchbjvrt2b5rju0g",
+  IB_STAGING_YANDEX_AI_MODEL: "yandexgpt/latest",
+  IB_STAGING_YANDEX_AI_CONFIRM:
+    "YANDEX-AI-SMOKE:b1ggvchbjvrt2b5rju0g:yandexgpt/latest",
+} as const;
+
+for (const wrongCredential of [
+  `aje${"a".repeat(17)}`,
+  `YC${"A".repeat(38)}`,
+  "PLEASE DO NOT REMOVE THIS LINE! Yandex.Cloud SA Key ID fixture",
+  `t1.${"a".repeat(20)}.${"b".repeat(86)}`,
+]) {
+  const wrongEnv = { ...yandexBaseEnv, YANDEX_AI_API_KEY: wrongCredential };
+  assert.throws(
+    () => assertStagingYandexAiTarget(wrongEnv),
+    new RegExp(`${STAGING_YANDEX_AI_TARGET_GUARD}:INVALID_API_KEY_TYPE`),
+  );
+  const readiness = buildProviderAwareStagingAiReadiness(wrongEnv);
+  assert.equal(readiness.ready, false);
+  assert.deepEqual(readiness.missingOrPlaceholder, []);
+  assert.deepEqual(readiness.invalidOrInconsistent, ["YANDEX_AI_API_KEY"]);
 }
 
 const stagingAiVerifyRoute = await readFile(

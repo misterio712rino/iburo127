@@ -47,6 +47,9 @@ const OPENAI_MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
 const YANDEX_MODEL_PATTERN =
   /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)?$/;
 const YANDEX_FOLDER_PATTERN = /^[a-z0-9]{10,64}$/;
+const YANDEX_IAM_RESOURCE_ID_PATTERN = /^aje[a-z0-9]{17}$/;
+const YANDEX_STATIC_ACCESS_KEY_PATTERN = /^YC(?:[A-Za-z0-9_-]{23}|[A-Za-z0-9_-]{38})$/;
+const YANDEX_AUTHORIZED_KEY_PREFIX = "PLEASE DO NOT REMOVE THIS LINE! Yandex.Cloud SA Key ID";
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 
 function isConfigured(value: string | undefined): boolean {
@@ -54,6 +57,16 @@ function isConfigured(value: string | undefined): boolean {
   const trimmed = value.trim();
   if (!trimmed) return false;
   return !PLACEHOLDER_PATTERNS.some((pattern) => pattern.test(trimmed));
+}
+
+function isObviouslyWrongYandexApiKeyType(value: string): boolean {
+  const trimmed = value.trim();
+  return (
+    YANDEX_IAM_RESOURCE_ID_PATTERN.test(trimmed) ||
+    YANDEX_STATIC_ACCESS_KEY_PATTERN.test(trimmed) ||
+    trimmed.startsWith(YANDEX_AUTHORIZED_KEY_PREFIX) ||
+    trimmed.startsWith("t1.")
+  );
 }
 
 function sha256Hex(value: string): string {
@@ -157,7 +170,13 @@ function validateYandex(env: StagingEnvironment, invalid: Set<string>): void {
 
   if (isConfigured(env.YANDEX_AI_API_KEY)) {
     const apiKey = env.YANDEX_AI_API_KEY!.trim();
-    if (apiKey.length < 20 || /[\r\n\0]/.test(apiKey)) invalid.add("YANDEX_AI_API_KEY");
+    if (
+      apiKey.length < 20 ||
+      /[\r\n\0]/.test(apiKey) ||
+      isObviouslyWrongYandexApiKeyType(apiKey)
+    ) {
+      invalid.add("YANDEX_AI_API_KEY");
+    }
   }
 
   for (const name of ["YANDEX_AI_FOLDER_ID", "IB_STAGING_YANDEX_AI_FOLDER_ID"] as const) {
