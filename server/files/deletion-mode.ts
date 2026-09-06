@@ -1,9 +1,10 @@
 export const FILE_DELETION_MODE_INVALID = "FILE_DELETION_MODE_INVALID";
 
 export type StoredFileDeletionMode = "legacy" | "durable";
+type StoredFileDeletionModeEnv = Pick<NodeJS.ProcessEnv, "IB_FILE_DELETION_MODE">;
 
 export function readStoredFileDeletionMode(
-  env: NodeJS.ProcessEnv = process.env,
+  env: StoredFileDeletionModeEnv = process.env,
 ): StoredFileDeletionMode {
   const raw = env.IB_FILE_DELETION_MODE?.trim();
   if (!raw || raw === "legacy") return "legacy";
