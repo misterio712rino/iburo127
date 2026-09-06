@@ -16,6 +16,15 @@ type YandexBadRequestCategory =
   | "REQUEST"
   | "OTHER";
 
+type YandexForbiddenCategory =
+  | "BILLING_SUSPENDED"
+  | "BILLING"
+  | "SERVICE_ACCOUNT_SUSPENDED"
+  | "ACCESS_POLICY"
+  | "SCOPE"
+  | "IAM"
+  | "OTHER";
+
 export type YandexGptConfig = {
   apiKey: string;
   folderId: string;
@@ -120,12 +129,64 @@ function classifyYandexBadRequestDiagnostic(raw: string): YandexBadRequestCatego
   return "OTHER";
 }
 
+function classifyYandexForbiddenDiagnostic(raw: string): YandexForbiddenCategory {
+  const diagnostic = raw.toLowerCase();
+
+  if (/\bscope\b|scopes|foundationmodels\.execute|languagemodels\.execute/.test(diagnostic)) {
+    return "SCOPE";
+  }
+  if (
+    /service account[^\r\n]{0,160}(suspend|disabled|blocked)|(?:suspend|disabled|blocked)[^\r\n]{0,160}service account/.test(
+      diagnostic,
+    )
+  ) {
+    return "SERVICE_ACCOUNT_SUSPENDED";
+  }
+  if (
+    /(?:billing|payment|balance|arrears|debt)[^\r\n]{0,160}(?:suspend|blocked|disabled|overdue|payment required)|(?:suspend|blocked|disabled|overdue|payment required)[^\r\n]{0,160}(?:billing|payment|balance|arrears|debt)/.test(
+      diagnostic,
+    )
+  ) {
+    return "BILLING_SUSPENDED";
+  }
+  if (/billing account|\bbilling\b|payment required|insufficient funds|\bbalance\b|arrears|\bdebt\b/.test(diagnostic)) {
+    return "BILLING";
+  }
+  if (
+    /access polic|organization polic|organisation polic|policy[^\r\n]{0,120}(prohibit|deny|denied|block)|(?:prohibit|deny|denied|block)[^\r\n]{0,120}policy/.test(
+      diagnostic,
+    )
+  ) {
+    return "ACCESS_POLICY";
+  }
+  if (
+    /permission denied|access denied|forbidden|not authorized|not authorised|not allowed|insufficient permission|\bpermission\b|\brole\b|ai\.languagemodels\.user/.test(
+      diagnostic,
+    )
+  ) {
+    return "IAM";
+  }
+  return "OTHER";
+}
+
 async function classifyYandexBadRequest(response: Response): Promise<YandexBadRequestCategory> {
   try {
     // Provider diagnostics may contain dynamic identifiers or request details. They are
     // consumed only in-memory and reduced to a fixed enum; raw content never escapes.
     const raw = await response.text();
     return classifyYandexBadRequestDiagnostic(raw);
+  } catch {
+    return "OTHER";
+  }
+}
+
+async function classifyYandexForbidden(response: Response): Promise<YandexForbiddenCategory> {
+  try {
+    // As with 400 diagnostics, never expose or log the provider response. Reduce it
+    // in-memory to a fixed operational category so staging can distinguish billing,
+    // policy and IAM failures without leaking provider-controlled detail.
+    const raw = await response.text();
+    return classifyYandexForbiddenDiagnostic(raw);
   } catch {
     return "OTHER";
   }
@@ -239,6 +300,10 @@ export class YandexGptGateway implements AiModelGateway {
       if (response.status === 400) {
         const category = await classifyYandexBadRequest(response);
         throw new Error(`${AI_PROVIDER_ERROR}:HTTP_400:${category}`);
+      }
+      if (response.status === 403) {
+        const category = await classifyYandexForbidden(response);
+        throw new Error(`${AI_PROVIDER_ERROR}:HTTP_403:${category}`);
       }
       throw new Error(`${AI_PROVIDER_ERROR}:HTTP_${response.status}`);
     }
