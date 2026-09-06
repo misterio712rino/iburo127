@@ -7,6 +7,7 @@ import { inferStagingVercelBlobProvider } from "@/server/files/vercel-preview-st
 
 export const STAGING_FILE_SCANNER_TARGET_GUARD = "STAGING_FILE_SCANNER_TARGET_GUARD";
 const FIXTURE_PREFIX = "security-fixtures/file-scanner/";
+const STAGING_HOSTNAME_PATTERN = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
 function fail(code: string): never {
   throw new Error(`${STAGING_FILE_SCANNER_TARGET_GUARD}:${code}`);
@@ -30,7 +31,7 @@ function safeEqual(left: string, right: string) {
   return timingSafeEqual(digest(left), digest(right));
 }
 
-function normalizeHttpsOrigin(value: string, code: string) {
+function normalizeStagingHttpsOrigin(value: string, code: string) {
   let parsed: URL;
   try {
     parsed = new URL(value);
@@ -38,14 +39,22 @@ function normalizeHttpsOrigin(value: string, code: string) {
     fail(code);
   }
 
+  const hostname = parsed.hostname.toLowerCase();
   const originOnly =
     parsed.protocol === "https:" &&
+    !parsed.port &&
     (parsed.pathname === "/" || parsed.pathname === "") &&
     !parsed.search &&
     !parsed.hash &&
     !parsed.username &&
     !parsed.password;
-  if (!originOnly) fail(code);
+  const stagingHostname =
+    STAGING_HOSTNAME_PATTERN.test(hostname) &&
+    hostname.includes("staging") &&
+    !hostname.includes("prod") &&
+    hostname !== "iburo127.ru" &&
+    !hostname.endsWith(".iburo127.ru");
+  if (!originOnly || !stagingHostname) fail(code);
   return parsed.origin;
 }
 
@@ -91,11 +100,11 @@ export function assertStagingFileScannerTarget(
   if (env.IB_FILE_SCANNER_TARGET?.trim() !== "staging") fail("SCANNER_TARGET_NOT_STAGING");
   if (env.IB_STORAGE_TARGET?.trim() !== "staging") fail("STORAGE_TARGET_NOT_STAGING");
 
-  const scannerOrigin = normalizeHttpsOrigin(
+  const scannerOrigin = normalizeStagingHttpsOrigin(
     requireValue(env, "IB_FILE_SCANNER_ORIGIN"),
     "INVALID_SCANNER_ORIGIN",
   );
-  const expectedScannerOrigin = normalizeHttpsOrigin(
+  const expectedScannerOrigin = normalizeStagingHttpsOrigin(
     requireValue(env, "IB_STAGING_FILE_SCANNER_ORIGIN"),
     "INVALID_EXPECTED_SCANNER_ORIGIN",
   );
