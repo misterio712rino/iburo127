@@ -14,6 +14,7 @@ import { PlatformShell } from "@/components/platform/PlatformShell";
 import { PlanBadge, SectionHeader } from "@/components/platform/PlatformPrimitives";
 import { useQuestionnaireState } from "@/components/platform/questionnaire/useQuestionnaireState";
 import { useDocumentState } from "@/components/platform/documents/useDocumentState";
+import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
 import { clientPlanHasHumanSupport } from "@/lib/platform/client-plan-entitlements";
 import { generateDocuments, getCaseForIdentity, getDashboardForIdentity, getQuestionnaireSummary } from "@/lib/platform/demo";
 
@@ -52,7 +53,7 @@ function ClientDashboard() {
           action={
             <div className="flex flex-wrap items-center gap-3">
               <PlanBadge plan={clientCase.plan} />
-              <span className="text-xs font-medium text-muted-foreground sm:text-sm">Дело № {clientCase.caseNumber}</span>
+              <span className="text-xs font-medium text-muted-foreground sm:text-sm">{getClientCaseDisplayNumber(clientCase.caseNumber)}</span>
             </div>
           }
         />

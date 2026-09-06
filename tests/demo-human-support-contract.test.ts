@@ -2,11 +2,14 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
+import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
 import { clientPlanHasHumanSupport } from "@/lib/platform/client-plan-entitlements";
 
 assert.equal(clientPlanHasHumanSupport("LITE"), false);
 assert.equal(clientPlanHasHumanSupport("PRO"), true);
 assert.equal(clientPlanHasHumanSupport("INDIVIDUAL"), true);
+assert.equal(getClientCaseDisplayNumber("IBR-2026-000101"), "Номер дела ещё не присвоен");
+assert.equal(getClientCaseDisplayNumber("А40-12345/2026"), "Дело № А40-12345/2026");
 
 const clientPage = await readFile(resolve("app/(platform)/app/client/page.tsx"), "utf8");
 const caseOverview = await readFile(resolve("components/platform/dashboard/CaseOverview.tsx"), "utf8");
@@ -15,6 +18,8 @@ const lawyerCases = await readFile(resolve("components/platform/lawyer/useLawyer
 
 assert.match(clientPage, /clientPlanHasHumanSupport\(clientCase\.plan\)/);
 assert.match(clientPage, /humanSupportAvailable \? <LawyerCard[\s\S]*: <SelfServiceCard/);
+assert.match(clientPage, /getClientCaseDisplayNumber\(clientCase\.caseNumber\)/);
+assert.doesNotMatch(clientPage, /Дело № \{clientCase\.caseNumber\}/);
 assert.match(caseOverview, /humanSupportAvailable \? \(/);
 assert.match(caseOverview, /Формат работы/);
 assert.match(caseOverview, /Самостоятельно \+ AI/);
