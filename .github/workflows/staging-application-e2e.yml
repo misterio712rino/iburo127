@@ -97,8 +97,10 @@ jobs:
         run: |
           test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
           identity_file="$RUNNER_TEMP/staging-application-e2e-identity.json"
-          max_attempts=18
-          delay_seconds=5
+          max_attempts=24
+          delay_seconds=3
+          required_consecutive_passes=3
+          consecutive_passes=0
           rm -f "$identity_file"
           trap 'rm -f "$identity_file"' EXIT
 
@@ -127,8 +129,14 @@ jobs:
               } catch {}
               process.exit(1);
             '; then
-              echo "STAGING_APPLICATION_E2E_IDENTITY_PASS"
-              exit 0
+              consecutive_passes=$((consecutive_passes + 1))
+              echo "STAGING_APPLICATION_E2E_IDENTITY_STABLE_PROGRESS: consecutive=$consecutive_passes/$required_consecutive_passes"
+              if [ "$consecutive_passes" -ge "$required_consecutive_passes" ]; then
+                echo "STAGING_APPLICATION_E2E_IDENTITY_PASS"
+                exit 0
+              fi
+            else
+              consecutive_passes=0
             fi
 
             if [ "$attempt" -lt "$max_attempts" ]; then
@@ -146,17 +154,29 @@ jobs:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
-          curl --silent --show-error --fail-with-body \
-            -X POST \
-            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
-            -H "Origin: $IB_STAGING_BASE_URL" \
-            -H "Content-Type: application/x-www-form-urlencoded" \
-            --data-urlencode "confirm=BOOTSTRAP_CLIENT_PLAN_AUTH:${IB_STAGING_DATABASE_NAME}:public:${GITHUB_SHA}" \
-            "$IB_STAGING_BASE_URL/_iburo/staging-client-plan-auth-fixtures" \
-          | node --input-type=module -e '
-              let input = "";
-              for await (const chunk of process.stdin) input += chunk;
-              const body = JSON.parse(input);
+          response_file="$RUNNER_TEMP/staging-client-plan-auth-fixtures.json"
+          max_attempts=6
+          delay_seconds=2
+          rm -f "$response_file"
+          trap 'rm -f "$response_file"' EXIT
+
+          for attempt in $(seq 1 "$max_attempts"); do
+            http_status="$(
+              curl --silent --show-error \
+                --output "$response_file" \
+                --write-out '%{http_code}' \
+                -X POST \
+                -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+                -H "Origin: $IB_STAGING_BASE_URL" \
+                -H "Content-Type: application/x-www-form-urlencoded" \
+                --data-urlencode "confirm=BOOTSTRAP_CLIENT_PLAN_AUTH:${IB_STAGING_DATABASE_NAME}:public:${GITHUB_SHA}" \
+                "$IB_STAGING_BASE_URL/_iburo/staging-client-plan-auth-fixtures" \
+                || true
+            )"
+
+            if [ "$http_status" = "200" ] && RESPONSE_FILE="$response_file" node --input-type=module -e '
+              import { readFileSync } from "node:fs";
+              const body = JSON.parse(readFileSync(process.env.RESPONSE_FILE, "utf8"));
               const labels = Array.isArray(body.fixtures) ? body.fixtures.map((fixture) => fixture.label).sort() : [];
               if (
                 body.pass !== true ||
@@ -165,12 +185,49 @@ jobs:
                 body.database !== process.env.IB_STAGING_DATABASE_NAME ||
                 body.schema !== "public" ||
                 JSON.stringify(labels) !== JSON.stringify(["CLIENT_E2E", "CLIENT_LITE", "CLIENT_PRO"])
-              ) {
-                console.error("STAGING_CLIENT_PLAN_AUTH_FIXTURE_FAIL");
-                process.exit(1);
+              ) process.exit(1);
+            '; then
+              echo "STAGING_CLIENT_PLAN_AUTH_FIXTURE_PASS"
+              exit 0
+            fi
+
+            if [ "$http_status" = "403" ] && RESPONSE_FILE="$response_file" node --input-type=module -e '
+              import { readFileSync } from "node:fs";
+              try {
+                const body = JSON.parse(readFileSync(process.env.RESPONSE_FILE, "utf8"));
+                if (
+                  body.operation === "staging-client-plan-auth-fixtures" &&
+                  body.pass === false &&
+                  body.failureStage === "confirmation"
+                ) process.exit(0);
+              } catch {}
+              process.exit(1);
+            '; then
+              if [ "$attempt" -lt "$max_attempts" ]; then
+                echo "STAGING_PREVIEW_ALIAS_SKEW_WAIT: operation=client-plan-auth attempt=$attempt/$max_attempts"
+                sleep "$delay_seconds"
+                continue
+              fi
+            fi
+
+            failure_stage="$(RESPONSE_FILE="$response_file" node --input-type=module -e '
+              import { readFileSync } from "node:fs";
+              try {
+                const body = JSON.parse(readFileSync(process.env.RESPONSE_FILE, "utf8"));
+                const stage = typeof body.failureStage === "string" && /^[a-z-]+$/.test(body.failureStage)
+                  ? body.failureStage
+                  : "unavailable";
+                process.stdout.write(stage);
+              } catch {
+                process.stdout.write("unavailable");
               }
-              console.log("STAGING_CLIENT_PLAN_AUTH_FIXTURE_PASS");
-            '
+            ')"
+            echo "STAGING_CLIENT_PLAN_AUTH_FIXTURE_FAIL: http_status=$http_status failure_stage=$failure_stage" >&2
+            exit 1
+          done
+
+          echo "STAGING_CLIENT_PLAN_AUTH_FIXTURE_FAIL: retry budget exhausted" >&2
+          exit 1
 
       - name: Reset dedicated application E2E fixtures
         shell: bash
@@ -178,17 +235,29 @@ jobs:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
-          curl --silent --show-error --fail-with-body \
-            -X POST \
-            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
-            -H "Origin: $IB_STAGING_BASE_URL" \
-            -H "Content-Type: application/x-www-form-urlencoded" \
-            --data-urlencode "confirm=RESET_APPLICATION_E2E:${IB_STAGING_DATABASE_NAME}:public:${GITHUB_SHA}" \
-            "$IB_STAGING_BASE_URL/_iburo/staging-application-e2e-fixtures" \
-          | node --input-type=module -e '
-              let input = "";
-              for await (const chunk of process.stdin) input += chunk;
-              const body = JSON.parse(input);
+          response_file="$RUNNER_TEMP/staging-application-e2e-fixtures.json"
+          max_attempts=6
+          delay_seconds=2
+          rm -f "$response_file"
+          trap 'rm -f "$response_file"' EXIT
+
+          for attempt in $(seq 1 "$max_attempts"); do
+            http_status="$(
+              curl --silent --show-error \
+                --output "$response_file" \
+                --write-out '%{http_code}' \
+                -X POST \
+                -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+                -H "Origin: $IB_STAGING_BASE_URL" \
+                -H "Content-Type: application/x-www-form-urlencoded" \
+                --data-urlencode "confirm=RESET_APPLICATION_E2E:${IB_STAGING_DATABASE_NAME}:public:${GITHUB_SHA}" \
+                "$IB_STAGING_BASE_URL/_iburo/staging-application-e2e-fixtures" \
+                || true
+            )"
+
+            if [ "$http_status" = "200" ] && RESPONSE_FILE="$response_file" node --input-type=module -e '
+              import { readFileSync } from "node:fs";
+              const body = JSON.parse(readFileSync(process.env.RESPONSE_FILE, "utf8"));
               if (
                 body.pass !== true ||
                 body.commitSha !== process.env.GITHUB_SHA ||
@@ -199,12 +268,49 @@ jobs:
                 body.mutationTaskId !== process.env.IB_STAGING_MUTATION_TASK_ID ||
                 body.taskStatus !== "NEW" ||
                 body.taskVersion !== 1
-              ) {
-                console.error("STAGING_APPLICATION_E2E_FIXTURE_RESET_FAIL");
-                process.exit(1);
+              ) process.exit(1);
+            '; then
+              echo "STAGING_APPLICATION_E2E_FIXTURE_RESET_PASS"
+              exit 0
+            fi
+
+            if [ "$http_status" = "403" ] && RESPONSE_FILE="$response_file" node --input-type=module -e '
+              import { readFileSync } from "node:fs";
+              try {
+                const body = JSON.parse(readFileSync(process.env.RESPONSE_FILE, "utf8"));
+                if (
+                  body.operation === "staging-application-e2e-fixtures" &&
+                  body.pass === false &&
+                  body.failureStage === "confirmation"
+                ) process.exit(0);
+              } catch {}
+              process.exit(1);
+            '; then
+              if [ "$attempt" -lt "$max_attempts" ]; then
+                echo "STAGING_PREVIEW_ALIAS_SKEW_WAIT: operation=application-fixture-reset attempt=$attempt/$max_attempts"
+                sleep "$delay_seconds"
+                continue
+              fi
+            fi
+
+            failure_stage="$(RESPONSE_FILE="$response_file" node --input-type=module -e '
+              import { readFileSync } from "node:fs";
+              try {
+                const body = JSON.parse(readFileSync(process.env.RESPONSE_FILE, "utf8"));
+                const stage = typeof body.failureStage === "string" && /^[a-z-]+$/.test(body.failureStage)
+                  ? body.failureStage
+                  : "unavailable";
+                process.stdout.write(stage);
+              } catch {
+                process.stdout.write("unavailable");
               }
-              console.log("STAGING_APPLICATION_E2E_FIXTURE_RESET_PASS");
-            '
+            ')"
+            echo "STAGING_APPLICATION_E2E_FIXTURE_RESET_FAIL: http_status=$http_status failure_stage=$failure_stage" >&2
+            exit 1
+          done
+
+          echo "STAGING_APPLICATION_E2E_FIXTURE_RESET_FAIL: retry budget exhausted" >&2
+          exit 1
 
       - name: Verify LITE and PRO client sign-in matrix
         env:
