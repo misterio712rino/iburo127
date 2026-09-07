@@ -16,6 +16,8 @@ import {
 import { buildCaseActivityWrite } from "@/server/repositories/prisma/case-activity-write";
 import { createCaseNotificationInTransaction } from "@/server/repositories/prisma/case-notification-write";
 
+const HUMAN_SUPPORT_PLAN_CODES = ["PRO", "INDIVIDUAL"] as const;
+
 function toHomeworkRecord(row: PracticumHomeworkRecord): PracticumHomeworkRecord {
   return row;
 }
@@ -83,12 +85,17 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
     const prisma = getPrismaClient();
 
     return prisma.$transaction(async (tx) => {
-      const current = await tx.casePracticumHomework.findUnique({
+      const ownedCase = await tx.clientCase.findFirst({
+        where: { id: input.clientCaseId, clientId: input.actorUserId },
+        select: { id: true },
+      });
+      if (!ownedCase) throw new Error(PRACTICUM_WORKSPACE_NOT_FOUND);
+
+      const current = await tx.casePracticumHomework.findFirst({
         where: {
-          clientCaseId_lessonId: {
-            clientCaseId: input.clientCaseId,
-            lessonId: input.lessonId,
-          },
+          clientCaseId: input.clientCaseId,
+          lessonId: input.lessonId,
+          clientCase: { clientId: input.actorUserId },
         },
       });
 
@@ -108,15 +115,27 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
         return toHomeworkRecord(created);
       }
 
-      const updated = await tx.casePracticumHomework.update({
-        where: { id: current.id },
+      const updated = await tx.casePracticumHomework.updateMany({
+        where: {
+          id: current.id,
+          clientCase: { clientId: input.actorUserId },
+        },
         data: {
           status: "DRAFT",
           draftText: input.answerText,
           version: { increment: 1 },
         },
       });
-      return toHomeworkRecord(updated);
+      if (updated.count !== 1) throw new Error(PRACTICUM_WORKSPACE_NOT_FOUND);
+
+      const row = await tx.casePracticumHomework.findFirst({
+        where: {
+          id: current.id,
+          clientCase: { clientId: input.actorUserId },
+        },
+      });
+      if (!row) throw new Error(PRACTICUM_WORKSPACE_NOT_FOUND);
+      return toHomeworkRecord(row);
     });
   }
 
@@ -129,12 +148,17 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
     const prisma = getPrismaClient();
 
     return prisma.$transaction(async (tx) => {
-      let homework = await tx.casePracticumHomework.findUnique({
+      const ownedCase = await tx.clientCase.findFirst({
+        where: { id: input.clientCaseId, clientId: input.actorUserId },
+        select: { id: true },
+      });
+      if (!ownedCase) throw new Error(PRACTICUM_WORKSPACE_NOT_FOUND);
+
+      let homework = await tx.casePracticumHomework.findFirst({
         where: {
-          clientCaseId_lessonId: {
-            clientCaseId: input.clientCaseId,
-            lessonId: input.lessonId,
-          },
+          clientCaseId: input.clientCaseId,
+          lessonId: input.lessonId,
+          clientCase: { clientId: input.actorUserId },
         },
       });
 
@@ -170,8 +194,11 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
         },
       });
 
-      await tx.casePracticumHomework.update({
-        where: { id: homework.id },
+      const updated = await tx.casePracticumHomework.updateMany({
+        where: {
+          id: homework.id,
+          clientCase: { clientId: input.actorUserId },
+        },
         data: {
           status: "SUBMITTED",
           draftText: input.answerText,
@@ -180,6 +207,7 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
           version: { increment: 1 },
         },
       });
+      if (updated.count !== 1) throw new Error(PRACTICUM_WORKSPACE_NOT_FOUND);
 
       await tx.caseActivityEvent.create({
         data: buildCaseActivityWrite({
@@ -193,13 +221,17 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
         }),
       });
 
-      const clientCase = await tx.clientCase.findUnique({
-        where: { id: input.clientCaseId },
+      const clientCase = await tx.clientCase.findFirst({
+        where: {
+          id: input.clientCaseId,
+          clientId: input.actorUserId,
+          assignedLawyerId: { not: null },
+          plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
+        },
         select: { caseNumber: true, assignedLawyerId: true },
       });
-      if (!clientCase) throw new Error(PRACTICUM_WORKSPACE_NOT_FOUND);
 
-      if (clientCase.assignedLawyerId) {
+      if (clientCase?.assignedLawyerId) {
         await createCaseNotificationInTransaction(tx, {
           userId: clientCase.assignedLawyerId,
           clientCaseId: input.clientCaseId,
@@ -224,11 +256,13 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
     const prisma = getPrismaClient();
 
     return prisma.$transaction(async (tx) => {
-      const homework = await tx.casePracticumHomework.findUnique({
+      const homework = await tx.casePracticumHomework.findFirst({
         where: {
-          clientCaseId_lessonId: {
-            clientCaseId: input.clientCaseId,
-            lessonId: input.lessonId,
+          clientCaseId: input.clientCaseId,
+          lessonId: input.lessonId,
+          clientCase: {
+            assignedLawyerId: input.actorUserId,
+            plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
           },
         },
         include: {
@@ -250,6 +284,22 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
       }
 
       const now = new Date();
+      const updatedHomework = await tx.casePracticumHomework.updateMany({
+        where: {
+          id: homework.id,
+          clientCase: {
+            assignedLawyerId: input.actorUserId,
+            plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
+          },
+        },
+        data: {
+          status: input.decision,
+          reviewedAt: now,
+          version: { increment: 1 },
+        },
+      });
+      if (updatedHomework.count !== 1) throw new Error(PRACTICUM_WORKSPACE_NOT_FOUND);
+
       await tx.casePracticumHomeworkRevision.update({
         where: { id: revision.id },
         data: {
@@ -257,15 +307,6 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
           reviewDecision: input.decision,
           reviewComment: input.comment || null,
           reviewedAt: now,
-        },
-      });
-
-      await tx.casePracticumHomework.update({
-        where: { id: homework.id },
-        data: {
-          status: input.decision,
-          reviewedAt: now,
-          version: { increment: 1 },
         },
       });
 
@@ -282,8 +323,12 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
         }),
       });
 
-      const clientCase = await tx.clientCase.findUnique({
-        where: { id: input.clientCaseId },
+      const clientCase = await tx.clientCase.findFirst({
+        where: {
+          id: input.clientCaseId,
+          assignedLawyerId: input.actorUserId,
+          plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
+        },
         select: { clientId: true, caseNumber: true },
       });
       if (!clientCase) throw new Error(PRACTICUM_WORKSPACE_NOT_FOUND);
@@ -310,15 +355,22 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
     const prisma = getPrismaClient();
 
     return prisma.$transaction(async (tx) => {
-      const clientCase = await tx.clientCase.findUnique({
-        where: { id: input.clientCaseId },
+      const clientCase = await tx.clientCase.findFirst({
+        where: {
+          id: input.clientCaseId,
+          plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
+          OR: [
+            { clientId: input.actorUserId },
+            { assignedLawyerId: input.actorUserId },
+          ],
+        },
         select: {
           clientId: true,
           assignedLawyerId: true,
           caseNumber: true,
         },
       });
-      if (!clientCase) throw new Error(PRACTICUM_WORKSPACE_NOT_FOUND);
+      if (!clientCase) throw new Error(PRACTICUM_WORKSPACE_FORBIDDEN);
 
       let recipientUserId: string;
       if (input.actorUserId === clientCase.clientId) {
