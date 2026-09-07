@@ -15,6 +15,7 @@ const expectedRoutes = [
   "staging-domain-fixtures",
   "staging-external-readiness",
   "staging-file-deletion-worker",
+  "staging-file-scan-backlog-classifier",
   "staging-file-scan-fixture-cleanup",
   "staging-identity",
   "staging-maintenance-health",
