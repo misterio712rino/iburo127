@@ -12,6 +12,8 @@ import {
 } from "@/server/domain/tasks/contracts";
 import { buildCaseActivityWrite } from "@/server/repositories/prisma/case-activity-write";
 
+const HUMAN_SUPPORT_PLAN_CODES = ["PRO", "INDIVIDUAL"] as const;
+
 function actorTaskWhere(actor: AuthenticatedActor) {
   if (actor.roles.includes("MANAGER")) {
     return {
@@ -29,6 +31,7 @@ function actorTaskWhere(actor: AuthenticatedActor) {
         is: {
           assignedLawyerId: actor.userId,
           clientId: { not: actor.userId },
+          plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
         },
       },
     };
@@ -41,6 +44,7 @@ function actorCaseWhere(actor: AuthenticatedActor) {
     return {
       assignedLawyerId: actor.userId,
       clientId: { not: actor.userId },
+      plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
     };
   }
   return null;
@@ -54,6 +58,7 @@ function actorMutationTaskWhere(actor: AuthenticatedActor) {
       is: {
         assignedLawyerId: actor.userId,
         clientId: { not: actor.userId },
+        plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
       },
     },
   };
