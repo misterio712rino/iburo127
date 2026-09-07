@@ -67,102 +67,130 @@ export async function GET() {
   const cutoff7d = new Date(now.getTime() - 7 * 24 * 60 * 60_000);
 
   try {
-    const [technicalClient, technicalCase] = await Promise.all([
-      prisma.user.findUnique({
-        where: { email: TECHNICAL_E2E_CLIENT.email },
-        select: { id: true },
-      }),
-      prisma.clientCase.findUnique({
-        where: { caseNumber: TECHNICAL_E2E_MUTATION_CASE_NUMBER },
-        select: { id: true, clientId: true },
-      }),
-    ]);
+    const aggregate = await prisma.$transaction(
+      async (tx) => {
+        const [technicalClient, technicalCase] = await Promise.all([
+          tx.user.findUnique({
+            where: { email: TECHNICAL_E2E_CLIENT.email },
+            select: { id: true },
+          }),
+          tx.clientCase.findUnique({
+            where: { caseNumber: TECHNICAL_E2E_MUTATION_CASE_NUMBER },
+            select: { id: true, clientId: true },
+          }),
+        ]);
 
-    const technicalIdentityValid = Boolean(
-      technicalClient && technicalCase && technicalCase.clientId === technicalClient.id,
+        const technicalIdentityValid = Boolean(
+          technicalClient && technicalCase && technicalCase.clientId === technicalClient.id,
+        );
+
+        const strictTechnicalWhere =
+          technicalIdentityValid && technicalClient && technicalCase
+            ? {
+                clientCaseId: technicalCase.id,
+                uploadedById: technicalClient.id,
+                status: "PENDING_SCAN" as const,
+                fileName: { in: [...KNOWN_FIXTURE_NAMES] },
+                mimeType: FIXTURE_MIME_TYPE,
+                storageProvider: EXPECTED_STORAGE_PROVIDER,
+                objectKey: { startsWith: `cases/${technicalCase.id}/` },
+              }
+            : null;
+
+        const [
+          pendingScan,
+          scanning,
+          scanFailed,
+          quarantined,
+          pendingRecent,
+          pending30mTo6h,
+          pending6hTo24h,
+          pending1dTo7d,
+          pendingOlderThan7d,
+          pendingDue,
+          pendingScheduledFuture,
+          pendingUnscheduled,
+          pendingAttemptZero,
+          pendingAttemptOneToTwo,
+          pendingAttemptThreePlus,
+          strictTechnicalFixtures,
+        ] = await Promise.all([
+          tx.storedFile.count({ where: { status: "PENDING_SCAN" } }),
+          tx.storedFile.count({ where: { status: "SCANNING" } }),
+          tx.storedFile.count({ where: { status: "SCAN_FAILED" } }),
+          tx.storedFile.count({ where: { status: "QUARANTINED" } }),
+          tx.storedFile.count({
+            where: { status: "PENDING_SCAN", createdAt: { gt: cutoff30m } },
+          }),
+          tx.storedFile.count({
+            where: {
+              status: "PENDING_SCAN",
+              createdAt: { gt: cutoff6h, lte: cutoff30m },
+            },
+          }),
+          tx.storedFile.count({
+            where: {
+              status: "PENDING_SCAN",
+              createdAt: { gt: cutoff24h, lte: cutoff6h },
+            },
+          }),
+          tx.storedFile.count({
+            where: {
+              status: "PENDING_SCAN",
+              createdAt: { gt: cutoff7d, lte: cutoff24h },
+            },
+          }),
+          tx.storedFile.count({
+            where: { status: "PENDING_SCAN", createdAt: { lte: cutoff7d } },
+          }),
+          tx.storedFile.count({
+            where: { status: "PENDING_SCAN", scanNextAttemptAt: { lte: now } },
+          }),
+          tx.storedFile.count({
+            where: { status: "PENDING_SCAN", scanNextAttemptAt: { gt: now } },
+          }),
+          tx.storedFile.count({
+            where: { status: "PENDING_SCAN", scanNextAttemptAt: null },
+          }),
+          tx.storedFile.count({
+            where: { status: "PENDING_SCAN", scanAttemptCount: 0 },
+          }),
+          tx.storedFile.count({
+            where: { status: "PENDING_SCAN", scanAttemptCount: { gte: 1, lte: 2 } },
+          }),
+          tx.storedFile.count({
+            where: { status: "PENDING_SCAN", scanAttemptCount: { gte: 3 } },
+          }),
+          strictTechnicalWhere ? tx.storedFile.count({ where: strictTechnicalWhere }) : 0,
+        ]);
+
+        return {
+          technicalIdentityValid,
+          pendingScan,
+          scanning,
+          scanFailed,
+          quarantined,
+          pendingRecent,
+          pending30mTo6h,
+          pending6hTo24h,
+          pending1dTo7d,
+          pendingOlderThan7d,
+          pendingDue,
+          pendingScheduledFuture,
+          pendingUnscheduled,
+          pendingAttemptZero,
+          pendingAttemptOneToTwo,
+          pendingAttemptThreePlus,
+          strictTechnicalFixtures,
+        };
+      },
+      { isolationLevel: "RepeatableRead" },
     );
 
-    const strictTechnicalWhere =
-      technicalIdentityValid && technicalClient && technicalCase
-        ? {
-            clientCaseId: technicalCase.id,
-            uploadedById: technicalClient.id,
-            status: "PENDING_SCAN" as const,
-            fileName: { in: [...KNOWN_FIXTURE_NAMES] },
-            mimeType: FIXTURE_MIME_TYPE,
-            storageProvider: EXPECTED_STORAGE_PROVIDER,
-            objectKey: { startsWith: `cases/${technicalCase.id}/` },
-          }
-        : null;
-
-    const [
-      pendingScan,
-      scanning,
-      scanFailed,
-      quarantined,
-      pendingRecent,
-      pending30mTo6h,
-      pending6hTo24h,
-      pending1dTo7d,
-      pendingOlderThan7d,
-      pendingDue,
-      pendingScheduledFuture,
-      pendingUnscheduled,
-      pendingAttemptZero,
-      pendingAttemptOneToTwo,
-      pendingAttemptThreePlus,
-      strictTechnicalFixtures,
-    ] = await Promise.all([
-      prisma.storedFile.count({ where: { status: "PENDING_SCAN" } }),
-      prisma.storedFile.count({ where: { status: "SCANNING" } }),
-      prisma.storedFile.count({ where: { status: "SCAN_FAILED" } }),
-      prisma.storedFile.count({ where: { status: "QUARANTINED" } }),
-      prisma.storedFile.count({
-        where: { status: "PENDING_SCAN", createdAt: { gt: cutoff30m } },
-      }),
-      prisma.storedFile.count({
-        where: {
-          status: "PENDING_SCAN",
-          createdAt: { gt: cutoff6h, lte: cutoff30m },
-        },
-      }),
-      prisma.storedFile.count({
-        where: {
-          status: "PENDING_SCAN",
-          createdAt: { gt: cutoff24h, lte: cutoff6h },
-        },
-      }),
-      prisma.storedFile.count({
-        where: {
-          status: "PENDING_SCAN",
-          createdAt: { gt: cutoff7d, lte: cutoff24h },
-        },
-      }),
-      prisma.storedFile.count({
-        where: { status: "PENDING_SCAN", createdAt: { lte: cutoff7d } },
-      }),
-      prisma.storedFile.count({
-        where: { status: "PENDING_SCAN", scanNextAttemptAt: { lte: now } },
-      }),
-      prisma.storedFile.count({
-        where: { status: "PENDING_SCAN", scanNextAttemptAt: { gt: now } },
-      }),
-      prisma.storedFile.count({
-        where: { status: "PENDING_SCAN", scanNextAttemptAt: null },
-      }),
-      prisma.storedFile.count({
-        where: { status: "PENDING_SCAN", scanAttemptCount: 0 },
-      }),
-      prisma.storedFile.count({
-        where: { status: "PENDING_SCAN", scanAttemptCount: { gte: 1, lte: 2 } },
-      }),
-      prisma.storedFile.count({
-        where: { status: "PENDING_SCAN", scanAttemptCount: { gte: 3 } },
-      }),
-      strictTechnicalWhere ? prisma.storedFile.count({ where: strictTechnicalWhere }) : 0,
-    ]);
-
-    const unknownOrNonTechnical = Math.max(0, pendingScan - strictTechnicalFixtures);
+    const unknownOrNonTechnical = Math.max(
+      0,
+      aggregate.pendingScan - aggregate.strictTechnicalFixtures,
+    );
 
     return NextResponse.json(
       {
@@ -175,33 +203,34 @@ export async function GET() {
         pass: true,
         readOnly: true,
         aggregateOnly: true,
+        snapshotIsolation: "REPEATABLE_READ",
         valuesPrinted: false,
         statuses: {
-          pendingScan,
-          scanning,
-          scanFailed,
-          quarantined,
+          pendingScan: aggregate.pendingScan,
+          scanning: aggregate.scanning,
+          scanFailed: aggregate.scanFailed,
+          quarantined: aggregate.quarantined,
         },
         pendingAge: {
-          under30Minutes: pendingRecent,
-          from30MinutesTo6Hours: pending30mTo6h,
-          from6To24Hours: pending6hTo24h,
-          from1To7Days: pending1dTo7d,
-          olderThan7Days: pendingOlderThan7d,
+          under30Minutes: aggregate.pendingRecent,
+          from30MinutesTo6Hours: aggregate.pending30mTo6h,
+          from6To24Hours: aggregate.pending6hTo24h,
+          from1To7Days: aggregate.pending1dTo7d,
+          olderThan7Days: aggregate.pendingOlderThan7d,
         },
         pendingSchedule: {
-          dueOrOverdue: pendingDue,
-          scheduledFuture: pendingScheduledFuture,
-          unscheduled: pendingUnscheduled,
+          dueOrOverdue: aggregate.pendingDue,
+          scheduledFuture: aggregate.pendingScheduledFuture,
+          unscheduled: aggregate.pendingUnscheduled,
         },
         pendingAttempts: {
-          zero: pendingAttemptZero,
-          oneToTwo: pendingAttemptOneToTwo,
-          threeOrMore: pendingAttemptThreePlus,
+          zero: aggregate.pendingAttemptZero,
+          oneToTwo: aggregate.pendingAttemptOneToTwo,
+          threeOrMore: aggregate.pendingAttemptThreePlus,
         },
         provenance: {
-          technicalIdentityValid,
-          strictKnownTechnicalFixtures: strictTechnicalFixtures,
+          technicalIdentityValid: aggregate.technicalIdentityValid,
+          strictKnownTechnicalFixtures: aggregate.strictTechnicalFixtures,
           unknownOrNonTechnical,
         },
       },
