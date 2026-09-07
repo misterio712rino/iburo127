@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 const maintenanceRoot = resolve("app/api/internal/maintenance");
 const expectedJobs = [
   "ai-audit-health",
+  "file-deletion-health",
   "file-deletions",
   "file-scan-health",
   "file-scans",
