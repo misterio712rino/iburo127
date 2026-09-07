@@ -18,7 +18,7 @@ test("staging scanner host can obtain a runtime IAM token without exposing metad
   assert.match(activate, /--header 'Metadata-Flavor:Google'/);
 
   const metadataEgress = main.match(
-    /egress\s*\{[\s\S]*?description\s*=\s*"Yandex VM metadata for the runtime service-account IAM token"[\s\S]*?\n\s*\}/,
+    /egress\s*\{\s*description\s*=\s*"Yandex VM metadata for the runtime service-account IAM token"[\s\S]*?\n\s*\}/,
   )?.[0];
   assert.ok(metadataEgress, "scanner security group must declare dedicated metadata egress");
   assert.match(metadataEgress, /protocol\s*=\s*"TCP"/);
