@@ -103,7 +103,8 @@ assert.match(sink.inputs[0]?.dedupeKey ?? "", /^task:assigned:assigned:\d+$/);
 assert.match(sink.inputs[1]?.dedupeKey ?? "", /^task:due-soon:soon:\d+$/);
 assert.match(sink.inputs[2]?.dedupeKey ?? "", /^task:overdue:late:\d+$/);
 assert.ok(sink.inputs.every((item) => !item.body.includes("Sensitive task title")));
-assert.ok(sink.inputs.every((item) => item.body.includes("IB-")));
+assert.ok(sink.inputs.every((item) => !item.body.includes("IB-")));
+assert.ok(sink.inputs.every((item) => item.body.includes("Номер дела ещё не присвоен")));
 
 await assert.rejects(worker.processBatch({ now, limit: 0 }), /TASK_REMINDER_INVALID_LIMIT/);
 await assert.rejects(worker.processBatch({ now, limit: 101 }), /TASK_REMINDER_INVALID_LIMIT/);
