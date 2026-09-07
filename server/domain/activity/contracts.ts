@@ -1,3 +1,5 @@
+import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
+
 export type ActivityMetadataValue = string | number | boolean | null;
 export type ActivityMetadata = Record<string, ActivityMetadataValue>;
 
@@ -11,7 +13,11 @@ export type CaseActivityRecord = {
 };
 
 export interface CaseActivityRepository {
-  listByCase(clientCaseId: string, limit: number): Promise<readonly CaseActivityRecord[]>;
+  listByCase(
+    clientCaseId: string,
+    limit: number,
+    actor: AuthenticatedActor,
+  ): Promise<readonly CaseActivityRecord[]>;
   append(input: {
     clientCaseId: string;
     actorUserId: string | null;
