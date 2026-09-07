@@ -32,10 +32,23 @@ const [
   readFile(resolve("server/files/deletion-worker-runtime.ts"), "utf8"),
 ]);
 
-// Cutover remains fail-closed and backward-compatible until the additive staging
-// migration is explicitly approved and verified. Missing mode means legacy;
-// durable requires an explicit exact value and unknown values never fall through.
+// Production and ordinary runtimes remain fail-closed on legacy when the flag
+// is absent. Only the exact, explicitly confirmed audit Preview defaults to
+// durable so the isolated staging environment can prove the cutover path.
+const exactAuditPreview = {
+  VERCEL_ENV: "preview",
+  VERCEL_GIT_COMMIT_REF: "audit/production-readiness",
+  VERCEL_GIT_COMMIT_SHA: "a".repeat(40),
+  IB_RUNTIME_TARGET: "staging",
+  IB_VERCEL_PREVIEW_BACKEND_CONFIRM: "STAGING:audit/production-readiness",
+};
 assert.equal(readStoredFileDeletionMode({}), "legacy");
+assert.equal(readStoredFileDeletionMode({ IB_RUNTIME_TARGET: "staging" }), "legacy");
+assert.equal(readStoredFileDeletionMode(exactAuditPreview), "durable");
+assert.equal(
+  readStoredFileDeletionMode({ ...exactAuditPreview, IB_FILE_DELETION_MODE: "legacy" }),
+  "legacy",
+);
 assert.equal(readStoredFileDeletionMode({ IB_FILE_DELETION_MODE: "legacy" }), "legacy");
 assert.equal(readStoredFileDeletionMode({ IB_FILE_DELETION_MODE: "durable" }), "durable");
 assert.throws(
@@ -47,13 +60,15 @@ assert.throws(
   new RegExp(FILE_DELETION_MODE_INVALID),
 );
 assert.match(deletionModeSource, /export type StoredFileDeletionMode = "legacy" \| "durable"/);
-assert.match(deletionModeSource, /if \(!raw \|\| raw === "legacy"\) return "legacy"/);
+assert.match(deletionModeSource, /if \(raw === "legacy"\) return "legacy"/);
 assert.match(deletionModeSource, /if \(raw === "durable"\) return "durable"/);
+assert.match(deletionModeSource, /if \(isExactAuditStagingPreview\(env\)\) return "durable"/);
+assert.match(deletionModeSource, /return "legacy"/);
 assert.match(deletionModeSource, /throw new Error\(FILE_DELETION_MODE_INVALID\)/);
 
-// Live DELETE keeps the proven legacy path by default, while explicit durable
-// mode only enqueues the owner-scoped tombstone and preserves the existing
-// transport response shape. Physical deletion/finalization remains worker-only.
+// Live DELETE keeps the proven legacy path outside the isolated staging cutover,
+// while durable mode only enqueues the owner-scoped tombstone and preserves the
+// existing transport response shape. Physical deletion/finalization remains worker-only.
 assert.match(operationsSource, /readStoredFileDeletionMode\(\) === "durable"/);
 assert.match(
   operationsSource,
