@@ -6,6 +6,7 @@ const HEALTH_JOBS = Object.freeze([
   "notification-delivery-health",
   "stale-upload-health",
   "file-scan-health",
+  "file-deletion-health",
   "ai-audit-health",
 ]);
 
