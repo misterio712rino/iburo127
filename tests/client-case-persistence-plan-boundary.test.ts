@@ -9,42 +9,56 @@ const source = await readFile(
 
 assert.match(
   source,
-  /const LAWYER_PLAN_CODES = \["PRO", "INDIVIDUAL"\] as const;/,
+  /const HUMAN_SUPPORT_PLAN_CODES = \["PRO", "INDIVIDUAL"\] as const;/,
   "LAWYER case reads must define the human-support plan boundary explicitly",
 );
 
-const listStart = source.indexOf("  async listAccessible(");
-const getStart = source.indexOf("  async getAccessible(");
-assert.ok(listStart >= 0 && getStart > listStart, "case repository read paths must exist");
+const scopeStart = source.indexOf("function actorAccessWhere(");
+const recordStart = source.indexOf("function toRecord(");
+assert.ok(scopeStart >= 0 && recordStart > scopeStart, "shared case access scope must exist");
 
-const listSource = source.slice(listStart, getStart);
-const getSource = source.slice(getStart);
+const scopeSource = source.slice(scopeStart, recordStart);
+assert.match(
+  scopeSource,
+  /if \(actor\.roles\.includes\("MANAGER"\)\) return \{\};/,
+  "MANAGER oversight must remain a separate read audience",
+);
+assert.match(
+  scopeSource,
+  /if \(actor\.roles\.includes\("CLIENT"\)\) access\.push\(\{ clientId: actor\.userId \}\);/,
+  "CLIENT access must remain owner-scoped",
+);
+assert.match(
+  scopeSource,
+  /if \(actor\.roles\.includes\("LAWYER"\)\)[\s\S]*assignedLawyerId:\s*actor\.userId[\s\S]*plan:\s*\{\s*code:\s*\{\s*in:\s*\[\.\.\.HUMAN_SUPPORT_PLAN_CODES\]\s*\}\s*\}/,
+  "LAWYER access must require current assignment and a PRO or INDIVIDUAL plan",
+);
+assert.doesNotMatch(
+  scopeSource,
+  /HUMAN_SUPPORT_PLAN_CODES[^\n]*LITE|\["PRO",\s*"INDIVIDUAL",\s*"LITE"\]/,
+  "LITE must never enter the LAWYER case-read scope",
+);
 
+const findStart = source.indexOf("  async findAccessibleCase(");
+const listStart = source.indexOf("  async listAccessibleCases(");
+assert.ok(findStart >= 0 && listStart > findStart, "case repository read paths must exist");
+
+const findSource = source.slice(findStart, listStart);
+const listSource = source.slice(listStart);
 for (const [name, scopedSource] of [
-  ["LAWYER case list", listSource],
-  ["LAWYER case get", getSource],
+  ["case lookup", findSource],
+  ["case list", listSource],
 ] as const) {
   assert.match(
     scopedSource,
-    /assignedLawyerId:\s*actor\.userId/,
-    `${name} must remain assignment-scoped`,
+    /const accessWhere = actorAccessWhere\(/,
+    `${name} must use the shared actor access scope`,
   );
   assert.match(
     scopedSource,
-    /clientId:\s*\{\s*not:\s*actor\.userId\s*\}/,
-    `${name} must not turn an owned CLIENT case into a LAWYER workspace`,
-  );
-  assert.match(
-    scopedSource,
-    /plan:\s*\{\s*code:\s*\{\s*in:\s*\[\.\.\.LAWYER_PLAN_CODES\]\s*\}\s*\}/,
-    `${name} must require the current PRO or INDIVIDUAL plan at the Prisma boundary`,
+    /where:\s*(?:\{|accessWhere)/,
+    `${name} must apply the actor access scope in Prisma`,
   );
 }
-
-assert.match(
-  source,
-  /if \(actor\.roles\.includes\("MANAGER"\)\) \{[\s\S]*return rows\.map\(toRecord\);/,
-  "MANAGER oversight must remain a separate read-only audience and not reuse LAWYER entitlement",
-);
 
 console.log("CLIENT_CASE_PERSISTENCE_PLAN_BOUNDARY_PASS");
