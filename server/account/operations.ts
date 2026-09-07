@@ -9,8 +9,6 @@ export const ACCOUNT_PROFILE_INVALID_DISPLAY_NAME = "ACCOUNT_PROFILE_INVALID_DIS
 export const ACCOUNT_PROFILE_INVALID_EMAIL = "ACCOUNT_PROFILE_INVALID_EMAIL";
 export const ACCOUNT_PROFILE_INVALID_PHONE = "ACCOUNT_PROFILE_INVALID_PHONE";
 export const ACCOUNT_PROFILE_EMAIL_CONFLICT = "ACCOUNT_PROFILE_EMAIL_CONFLICT";
-export const ACCOUNT_PROFILE_EMAIL_CHANGE_REQUIRES_VERIFICATION =
-  "ACCOUNT_PROFILE_EMAIL_CHANGE_REQUIRES_VERIFICATION";
 
 export type CurrentAccountProfile = {
   displayName: string | null;
@@ -92,39 +90,31 @@ export async function updateCurrentAccountContacts(
   input: { email?: unknown; phone?: unknown },
 ): Promise<{ email: string | null; phone: string | null }> {
   const actor = await requireServerActor(sessionProvider);
-  const prisma = getPrismaClient();
-  const current = await prisma.user.findUnique({
-    where: { id: actor.userId },
-    select: { email: true, phone: true },
-  });
-  if (!current) throw new Error(ACCOUNT_PROFILE_NOT_FOUND);
-
-  const data: { phone?: string | null } = {};
+  const data: { email?: string; phone?: string | null } = {};
 
   if (Object.prototype.hasOwnProperty.call(input, "email")) {
-    const requestedEmail = normalizeContactEmail(input.email);
-    const currentEmail = current.email?.trim().toLowerCase() ?? null;
-    if (requestedEmail !== currentEmail) {
-      throw new Error(ACCOUNT_PROFILE_EMAIL_CHANGE_REQUIRES_VERIFICATION);
-    }
+    data.email = normalizeContactEmail(input.email);
   }
   if (Object.prototype.hasOwnProperty.call(input, "phone")) {
     data.phone = normalizeContactPhone(input.phone);
   }
-  if (
-    !Object.prototype.hasOwnProperty.call(input, "email") &&
-    !Object.prototype.hasOwnProperty.call(input, "phone")
-  ) {
-    throw new Error(ACCOUNT_PROFILE_INVALID_EMAIL);
-  }
+  if (!Object.keys(data).length) throw new Error(ACCOUNT_PROFILE_INVALID_EMAIL);
 
-  if (!Object.keys(data).length) {
-    return { email: current.email, phone: current.phone };
+  try {
+    return await getPrismaClient().user.update({
+      where: { id: actor.userId },
+      data,
+      select: { email: true, phone: true },
+    });
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "P2002"
+    ) {
+      throw new Error(ACCOUNT_PROFILE_EMAIL_CONFLICT);
+    }
+    throw error;
   }
-
-  return prisma.user.update({
-    where: { id: actor.userId },
-    data,
-    select: { email: true, phone: true },
-  });
 }
