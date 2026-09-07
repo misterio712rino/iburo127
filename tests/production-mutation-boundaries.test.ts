@@ -280,8 +280,42 @@ async function testDocumentPersistenceMutationBoundaries() {
   assert.match(source, /const HUMAN_SUPPORT_PLAN_CODES = \["PRO", "INDIVIDUAL"\] as const;/);
 }
 
+async function testQuestionnairePersistenceMutationBoundaries() {
+  const source = await readFile(
+    resolve("server/repositories/prisma/questionnaire-repository.ts"),
+    "utf8",
+  );
+  const createStart = source.indexOf("  async createForCase(");
+  const saveStart = source.indexOf("  async saveAnswer(");
+  const sectionStart = source.indexOf("  async completeSection(");
+  const completeStart = source.indexOf("  async markCompleted(");
+
+  assert.ok(
+    createStart >= 0 && saveStart > createStart && sectionStart > saveStart && completeStart > sectionStart,
+  );
+
+  const createSource = source.slice(createStart, saveStart);
+  const saveSource = source.slice(saveStart, sectionStart);
+  const sectionSource = source.slice(sectionStart, completeStart);
+  const completeSource = source.slice(completeStart);
+
+  assert.match(createSource, /clientCase\.findFirst\([\s\S]*clientId: auditActorUserId/);
+  assert.match(createSource, /caseQuestionnaire\.findFirst\([\s\S]*clientCase: \{ clientId: auditActorUserId \}/);
+
+  for (const mutationSource of [saveSource, sectionSource, completeSource]) {
+    assert.match(mutationSource, /caseQuestionnaire\.findFirst\([\s\S]*clientCase: \{ clientId: input\.auditActorUserId \}/);
+    assert.match(mutationSource, /updateMany\([\s\S]*clientCase: \{ clientId: input\.auditActorUserId \}/);
+  }
+
+  assert.match(completeSource, /clientCase\.findFirst\([\s\S]*clientId: input\.auditActorUserId/);
+  assert.match(completeSource, /assignedLawyerId: \{ not: null \}/);
+  assert.match(completeSource, /plan: \{ code: \{ in: \[\.\.\.HUMAN_SUPPORT_PLAN_CODES\] \} \}/);
+  assert.match(source, /const HUMAN_SUPPORT_PLAN_CODES = \["PRO", "INDIVIDUAL"\] as const;/);
+}
+
 await testQuestionnaireMutationBoundaries();
 await testPracticumMutationBoundaries();
 await testDocumentPersistenceMutationBoundaries();
+await testQuestionnairePersistenceMutationBoundaries();
 
 console.log("PRODUCTION_MUTATION_BOUNDARIES_PASS");
