@@ -1,4 +1,5 @@
 import type { QuestionnaireAnswer, QuestionnaireAnswers } from "@/lib/platform/types";
+import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
 
 export const QUESTIONNAIRE_NOT_FOUND = "QUESTIONNAIRE_NOT_FOUND";
 export const QUESTIONNAIRE_VERSION_CONFLICT = "QUESTIONNAIRE_VERSION_CONFLICT";
@@ -41,7 +42,10 @@ export type CompleteQuestionnaireInput = {
 };
 
 export interface QuestionnaireRepository {
-  getByClientCaseId(clientCaseId: string): Promise<QuestionnaireRecord | null>;
+  getByClientCaseId(
+    clientCaseId: string,
+    actor?: AuthenticatedActor,
+  ): Promise<QuestionnaireRecord | null>;
   createForCase(
     clientCaseId: string,
     schemaVersion: number,

@@ -115,21 +115,21 @@ export class QuestionnaireService {
     return clientCase;
   }
 
-  private async requireQuestionnaire(clientCaseId: string) {
-    const record = await this.repository.getByClientCaseId(clientCaseId);
+  private async requireQuestionnaire(actor: AuthenticatedActor, clientCaseId: string) {
+    const record = await this.repository.getByClientCaseId(clientCaseId, actor);
     if (!record) throw new Error(QUESTIONNAIRE_NOT_FOUND);
     return record;
   }
 
   async get(actor: AuthenticatedActor, clientCaseId: string): Promise<QuestionnaireRecord | null> {
     await this.requireAccessibleCase(actor, clientCaseId);
-    return this.repository.getByClientCaseId(clientCaseId);
+    return this.repository.getByClientCaseId(clientCaseId, actor);
   }
 
   async getOrCreateForClient(actor: AuthenticatedActor, clientCaseId: string): Promise<QuestionnaireRecord> {
     await this.requireClientEditor(actor, clientCaseId);
 
-    const existing = await this.repository.getByClientCaseId(clientCaseId);
+    const existing = await this.repository.getByClientCaseId(clientCaseId, actor);
     if (existing) return existing;
 
     return this.repository.createForCase(clientCaseId, this.definition.schemaVersion, actor.userId);
@@ -140,7 +140,7 @@ export class QuestionnaireService {
     input: { clientCaseId: string; fieldId: string; value: QuestionnaireAnswer; expectedVersion: number },
   ): Promise<QuestionnaireRecord> {
     await this.requireClientEditor(actor, input.clientCaseId);
-    const current = await this.requireQuestionnaire(input.clientCaseId);
+    const current = await this.requireQuestionnaire(actor, input.clientCaseId);
     assertMutable(current);
 
     const field = this.definition.fieldsById.get(input.fieldId);
@@ -160,7 +160,7 @@ export class QuestionnaireService {
     input: { clientCaseId: string; sectionId: string; expectedVersion: number },
   ): Promise<QuestionnaireRecord> {
     await this.requireClientEditor(actor, input.clientCaseId);
-    const current = await this.requireQuestionnaire(input.clientCaseId);
+    const current = await this.requireQuestionnaire(actor, input.clientCaseId);
     assertMutable(current);
 
     const section = this.definition.sectionsById.get(input.sectionId);
@@ -182,7 +182,7 @@ export class QuestionnaireService {
     input: { clientCaseId: string; expectedVersion: number },
   ): Promise<QuestionnaireRecord> {
     await this.requireClientEditor(actor, input.clientCaseId);
-    const current = await this.requireQuestionnaire(input.clientCaseId);
+    const current = await this.requireQuestionnaire(actor, input.clientCaseId);
     assertMutable(current);
 
     for (const section of this.definition.sections) {

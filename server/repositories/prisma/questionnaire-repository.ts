@@ -2,6 +2,7 @@ import "server-only";
 
 import type { QuestionnaireAnswers } from "@/lib/platform/types";
 import { getPrismaClient } from "@/server/database/prisma";
+import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
 import {
   QUESTIONNAIRE_NOT_FOUND,
   QUESTIONNAIRE_VERSION_CONFLICT,
@@ -16,6 +17,34 @@ import { createCaseNotificationInTransaction } from "@/server/repositories/prism
 import { isPrismaUniqueConstraintError } from "@/server/repositories/prisma/errors";
 
 const HUMAN_SUPPORT_PLAN_CODES = ["PRO", "INDIVIDUAL"] as const;
+
+type ActorCaseAccessClause =
+  | { clientId: string }
+  | {
+      assignedLawyerId: string;
+      plan: { code: { in: Array<(typeof HUMAN_SUPPORT_PLAN_CODES)[number]> } };
+    };
+
+function actorQuestionnaireWhere(actor: AuthenticatedActor) {
+  if (actor.roles.includes("MANAGER")) return {};
+
+  const access: ActorCaseAccessClause[] = [];
+  if (actor.roles.includes("CLIENT")) access.push({ clientId: actor.userId });
+  if (actor.roles.includes("LAWYER")) {
+    access.push({
+      assignedLawyerId: actor.userId,
+      plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
+    });
+  }
+
+  return access.length
+    ? {
+        clientCase: {
+          is: { OR: access },
+        },
+      }
+    : null;
+}
 
 function normalizeAnswers(value: unknown): QuestionnaireAnswers {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -56,9 +85,18 @@ function toRecord(row: {
 }
 
 export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
-  async getByClientCaseId(clientCaseId: string): Promise<QuestionnaireRecord | null> {
+  async getByClientCaseId(clientCaseId: string, actor?: AuthenticatedActor): Promise<QuestionnaireRecord | null> {
     const prisma = getPrismaClient();
-    const row = await prisma.caseQuestionnaire.findUnique({ where: { clientCaseId } });
+    if (!actor) {
+      const row = await prisma.caseQuestionnaire.findUnique({ where: { clientCaseId } });
+      return row ? toRecord(row) : null;
+    }
+
+    const accessWhere = actorQuestionnaireWhere(actor);
+    if (!accessWhere) return null;
+    const row = await prisma.caseQuestionnaire.findFirst({
+      where: { clientCaseId, ...accessWhere },
+    });
     return row ? toRecord(row) : null;
   }
 
