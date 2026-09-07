@@ -34,7 +34,7 @@ The module creates only:
 
 Defaults are `standard-v3`, 2 vCPU at 100%, 8 GiB RAM, and a 32 GiB replicated `network-ssd` boot disk. The VM uses the official `ubuntu-2404-lts` image family unless a reviewed immutable `image_id` is supplied.
 
-Subnet separation is not itself a security boundary. The VM explicitly attaches only the dedicated scanner custom SG; do not attach the permissive default network SG or `iburo127-postgres-sg`. The security group exposes only Caddy on TCP 80/443. Port 8080 is never present in the SG, and scanner egress never permits TCP 6432. SSH is absent by default and can only be enabled with both a public key and an explicit non-zero IPv4 `/32`. Egress is protocol/port bounded to DNS, HTTPS, and NTP. A Yandex SG cannot enforce hostname allowlists; independent URL validation, DNS-result rejection, and connection pinning remain authoritative inside the scanner service.
+Subnet separation is not itself a security boundary. The VM explicitly attaches only the dedicated scanner custom SG; do not attach the permissive default network SG or `iburo127-postgres-sg`. The security group exposes only Caddy on TCP 80/443. Port 8080 is never present in the SG, and scanner egress never permits TCP 6432. SSH is absent by default and can only be enabled with both a public key and an explicit non-zero IPv4 `/32`. Egress is protocol/port bounded to DNS, HTTPS, NTP, plus HTTP/TCP 80 only to the Yandex instance-metadata address `169.254.169.254/32` so the VM host can obtain a short-lived runtime service-account IAM token. A Yandex SG cannot enforce hostname allowlists; independent URL validation, DNS-result rejection, and connection pinning remain authoritative inside the scanner service.
 
 ## Host preparation
 

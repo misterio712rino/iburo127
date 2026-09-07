@@ -66,6 +66,13 @@ resource "yandex_vpc_security_group" "scanner" {
   }
 
   egress {
+    description    = "Yandex VM metadata for the runtime service-account IAM token"
+    protocol       = "TCP"
+    v4_cidr_blocks = ["169.254.169.254/32"]
+    port           = 80
+  }
+
+  egress {
     description    = "DNS over UDP; the guest OS remains configured for the reviewed VPC resolver"
     protocol       = "UDP"
     v4_cidr_blocks = ["0.0.0.0/0"]
