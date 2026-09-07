@@ -9,8 +9,8 @@ import { requireStagingDatabaseTarget } from "./staging-target-guard";
 
 const BETTER_AUTH_SCHEMA = "public";
 const REQUIRED_TABLES = ["user", "session", "account", "verification", "twoFactor", "rateLimit"] as const;
-const SQL_PATH = resolve("database/better-auth/1.7.2/schema.sql");
-const ADVISORY_LOCK_KEY = "iburo127:staging:better-auth:1.7.2";
+const SQL_PATH = resolve("database/better-auth/1.7.3/schema.sql");
+const ADVISORY_LOCK_KEY = "iburo127:staging:better-auth:1.7.3";
 
 function fail(message: string): never {
   console.error(`STAGING_BETTER_AUTH_MIGRATION_FAIL: ${message}`);
