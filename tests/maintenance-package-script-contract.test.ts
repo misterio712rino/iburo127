@@ -29,6 +29,11 @@ for (const [name, command] of Object.entries(expected)) {
 }
 
 const runner = await readFile(resolve("scripts/run-maintenance-job.mjs"), "utf8");
+assert.match(
+  runner,
+  /"file-deletions": "\/api\/internal\/maintenance\/file-deletions"/,
+  "file deletion package command must resolve to the guarded internal maintenance route",
+);
 const targetGuardIndex = runner.indexOf("assertMaintenanceEnvironmentTarget(env, target)");
 const secretIndex = runner.indexOf("const secret = requireSecret(env)");
 const fetchIndex = runner.indexOf("await fetchImpl(endpoint");
@@ -74,5 +79,27 @@ assert.ok(
   workerIndex > authorizationIndex,
   "maintenance authorization must occur before maintenance worker execution",
 );
+
+const deletionRoute = await readFile(
+  resolve("app/api/internal/maintenance/file-deletions/route.ts"),
+  "utf8",
+);
+const deletionConfigIndex = deletionRoute.indexOf("readMaintenanceRuntimeConfig()");
+const deletionAuthorizationIndex = deletionRoute.indexOf(
+  "isAuthorizedMaintenanceRequest(request, config.secret)",
+);
+const deletionWorkerIndex = deletionRoute.indexOf("getStoredFileDeletionWorker().runBatch");
+assert.ok(deletionConfigIndex >= 0, "file deletion maintenance route must validate config");
+assert.ok(
+  deletionAuthorizationIndex > deletionConfigIndex,
+  "file deletion maintenance route must authenticate after config validation",
+);
+assert.ok(
+  deletionWorkerIndex > deletionAuthorizationIndex,
+  "file deletion worker must never execute before maintenance authorization",
+);
+assert.match(deletionRoute, /const FILE_DELETION_BATCH_LIMIT = 1;/);
+assert.match(deletionRoute, /Cache-Control": "no-store"/);
+assert.match(deletionRoute, /FILE_DELETION_ATTENTION_REQUIRED/);
 
 console.log("MAINTENANCE_PACKAGE_SCRIPT_CONTRACT_PASS");
