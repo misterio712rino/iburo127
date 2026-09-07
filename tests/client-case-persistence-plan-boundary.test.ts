@@ -63,4 +63,4 @@ for (const [name, scopedSource] of [
 
 console.log("CLIENT_CASE_PERSISTENCE_PLAN_BOUNDARY_PASS");
 
-await import("./activity-persistence-plan-boundary.test.ts");
+await import("./activity-persistence-plan-boundary.test");
