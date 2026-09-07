@@ -30,7 +30,6 @@ const REQUIRED_COLUMNS = {
   account: [
     "id",
     "userId",
-    "issuer",
     "accountId",
     "providerId",
     "accessToken",
@@ -91,7 +90,6 @@ const STRING_COLUMNS = [
   ["session", "userAgent"],
   ["account", "id"],
   ["account", "userId"],
-  ["account", "issuer"],
   ["account", "accountId"],
   ["account", "providerId"],
   ["account", "accessToken"],
@@ -237,6 +235,16 @@ try {
     }
   }
 
+  const legacyIssuerColumn = columnsByTable.get("account")?.get("issuer");
+  if (legacyIssuerColumn) {
+    if (!legacyIssuerColumn.nullable) {
+      fail("account.issuer from Better Auth 1.7.0-1.7.2 must be nullable under 1.7.3");
+    }
+    if (!STRING_TYPES.has(legacyIssuerColumn.dataType)) {
+      fail(`account.issuer has unexpected type ${legacyIssuerColumn.dataType}`);
+    }
+  }
+
   function requireType(tableName: string, columnName: string, allowed: ReadonlySet<string>) {
     const column = columnsByTable.get(tableName)?.get(columnName);
     if (!column) fail(`missing ${tableName}.${columnName}`);
@@ -298,8 +306,8 @@ try {
 
   if (!hasIndex("user", ["email"], true)) fail("user.email unique index/constraint is missing");
   if (!hasIndex("session", ["token"], true)) fail("session.token unique index/constraint is missing");
-  if (!hasIndex("account", ["issuer", "accountId"], true)) {
-    fail("account unique index on (issuer, accountId) is missing");
+  if (hasIndex("account", ["issuer", "accountId"], true)) {
+    fail("legacy account unique index on (issuer, accountId) must be removed for Better Auth 1.7.3");
   }
   if (!hasIndex("rateLimit", ["key"], true)) {
     fail("rateLimit.key unique index/constraint is missing");
@@ -407,8 +415,8 @@ try {
 
   console.log(`Staging database identity verified: ${identityRow.database_name}`);
   console.log(`Better Auth schema/search_path verified: ${expectedSchema}`);
-  console.log(`Better Auth 1.7 core + 2FA + rate-limit tables verified: ${REQUIRED_TABLES.length}`);
-  console.log("Better Auth required columns, nullability, types, indexes and cascading user foreign keys verified");
+  console.log(`Better Auth 1.7.3 core + 2FA + rate-limit tables verified: ${REQUIRED_TABLES.length}`);
+  console.log("Better Auth required columns, optional legacy issuer compatibility, types, indexes and cascading user foreign keys verified");
   console.log(`Better Auth structural SHA-256: ${fingerprint}`);
   console.log("STAGING_BETTER_AUTH_SCHEMA_VERIFY_PASS");
 
