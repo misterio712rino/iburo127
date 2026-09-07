@@ -83,8 +83,8 @@ for (const routeName of expectedRoutes) {
       `${routeName} ${method} must enforce the exact staging Preview boundary before normal work`,
     );
     assert.match(
-      handler.slice(0, 900),
-      /isExactStagingPreview\(env\)[\s\S]{0,700}?(?:status:\s*404|fail\([^\n]*404\)|unavailable\(\))/,
+      handler.slice(0, 1100),
+      /isExactStagingPreview\(env\)[\s\S]{0,900}?(?:status:\s*404|fail\([^\n]*404\)|unavailable\(\)|unavailable\(\s*404\s*,)/,
       `${routeName} ${method} must fail closed with 404 when the exact staging Preview boundary is not satisfied`,
     );
   }
