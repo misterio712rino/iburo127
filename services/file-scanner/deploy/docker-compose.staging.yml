@@ -1,0 +1,35 @@
+name: iburo-file-scanner-staging
+
+services:
+  scanner:
+    image: "${SCANNER_IMAGE:?SCANNER_IMAGE is required}@${SCANNER_IMAGE_DIGEST:?SCANNER_IMAGE_DIGEST is required}"
+    container_name: iburo-file-scanner-staging
+    restart: unless-stopped
+    env_file:
+      - /etc/iburo-file-scanner/scanner.env
+    ports:
+      - "127.0.0.1:8080:8080"
+    read_only: true
+    tmpfs:
+      - /run/clamav:rw,nosuid,nodev,noexec,size=16m
+      - /tmp:rw,nosuid,nodev,noexec,size=64m
+    volumes:
+      - type: bind
+        source: /srv/iburo-file-scanner/clamav
+        target: /var/lib/clamav
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    pids_limit: 128
+    cpus: 2.0
+    mem_limit: 6g
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -1,0 +1,142 @@
+import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
+import { ClientCaseService } from "@/server/domain/client-cases/service";
+import type { StoredFileRecord, StoredFileRepository } from "@/server/domain/files/contracts";
+
+export const FILE_CASE_NOT_FOUND = "FILE_CASE_NOT_FOUND";
+export const FILE_NOT_FOUND = "FILE_NOT_FOUND";
+export const FILE_INVALID_METADATA = "FILE_INVALID_METADATA";
+export const FILE_UPLOAD_NOT_PENDING = "FILE_UPLOAD_NOT_PENDING";
+export const FILE_UPLOAD_FORBIDDEN = "FILE_UPLOAD_FORBIDDEN";
+export const FILE_DELETE_FORBIDDEN = "FILE_DELETE_FORBIDDEN";
+export const FILE_DELETE_CONFLICT = "FILE_DELETE_CONFLICT";
+
+function requireText(value: string, maxLength: number) {
+  const normalized = value.trim();
+  if (!normalized || normalized.length > maxLength) throw new Error(FILE_INVALID_METADATA);
+  return normalized;
+}
+
+function requireClientUploadActor(actor: AuthenticatedActor) {
+  const isClient = actor.roles.includes("CLIENT");
+  const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
+  if (!isClient || isStaff) throw new Error(FILE_UPLOAD_FORBIDDEN);
+}
+
+function requireClientDeleteActor(actor: AuthenticatedActor) {
+  const isClient = actor.roles.includes("CLIENT");
+  const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
+  if (!isClient || isStaff) throw new Error(FILE_DELETE_FORBIDDEN);
+}
+
+function isClientVisibleFile(file: StoredFileRecord, actorUserId: string) {
+  if (file.status === "READY") return true;
+  if (file.status === "PENDING_UPLOAD") return false;
+  return file.uploadedById === actorUserId;
+}
+
+export class StoredFileService {
+  constructor(
+    private readonly cases: ClientCaseService,
+    private readonly repository: StoredFileRepository,
+  ) {}
+
+  private async requireAccessibleCase(actor: AuthenticatedActor, clientCaseId: string) {
+    const clientCase = await this.cases.getCase(actor, { caseId: clientCaseId });
+    if (!clientCase) throw new Error(FILE_CASE_NOT_FOUND);
+    return clientCase;
+  }
+
+  async list(actor: AuthenticatedActor, clientCaseId: string) {
+    const clientCase = await this.requireAccessibleCase(actor, clientCaseId);
+    const files = await this.repository.listByCase(clientCaseId);
+
+    if (clientCase.clientId === actor.userId) {
+      return files.filter((file) => isClientVisibleFile(file, actor.userId));
+    }
+
+    return files.filter((file) => file.status === "READY");
+  }
+
+  async get(actor: AuthenticatedActor, fileId: string) {
+    const file = await this.repository.getById(fileId);
+    if (!file || file.status !== "READY") throw new Error(FILE_NOT_FOUND);
+    await this.requireAccessibleCase(actor, file.clientCaseId);
+    return file;
+  }
+
+  async getOwnedForDeletion(actor: AuthenticatedActor, fileId: string) {
+    requireClientDeleteActor(actor);
+    const file = await this.repository.getById(fileId);
+    if (!file) throw new Error(FILE_NOT_FOUND);
+    const clientCase = await this.requireAccessibleCase(actor, file.clientCaseId);
+    if (clientCase.clientId !== actor.userId || file.uploadedById !== actor.userId) {
+      throw new Error(FILE_DELETE_FORBIDDEN);
+    }
+    if (file.status === "PENDING_UPLOAD" || file.status === "SCANNING") {
+      throw new Error(FILE_DELETE_CONFLICT);
+    }
+    return file;
+  }
+
+  async takeOwnedForDeletion(actor: AuthenticatedActor, fileId: string) {
+    await this.getOwnedForDeletion(actor, fileId);
+    const takeOwnedForDeletion = this.repository.takeOwnedForDeletion;
+    if (!takeOwnedForDeletion) throw new Error(FILE_DELETE_CONFLICT);
+    const deleted = await takeOwnedForDeletion.call(this.repository, fileId, actor.userId);
+    if (!deleted) throw new Error(FILE_DELETE_CONFLICT);
+    return deleted;
+  }
+
+  async restoreDeleted(file: StoredFileRecord) {
+    const restoreDeleted = this.repository.restoreDeleted;
+    if (!restoreDeleted) return false;
+    return restoreDeleted.call(this.repository, file);
+  }
+
+  async registerPendingUpload(
+    actor: AuthenticatedActor,
+    input: {
+      id: string;
+      clientCaseId: string;
+      storageProvider: string;
+      objectKey: string;
+      fileName: string;
+      mimeType: string;
+      sizeBytes: bigint;
+      checksumSha256?: string | null;
+    },
+  ) {
+    requireClientUploadActor(actor);
+    await this.requireAccessibleCase(actor, input.clientCaseId);
+    if (input.sizeBytes <= BigInt(0)) throw new Error(FILE_INVALID_METADATA);
+
+    return this.repository.create({
+      id: input.id,
+      clientCaseId: input.clientCaseId,
+      uploadedById: actor.userId,
+      status: "PENDING_UPLOAD",
+      storageProvider: requireText(input.storageProvider, 100),
+      objectKey: requireText(input.objectKey, 1000),
+      fileName: requireText(input.fileName, 500),
+      mimeType: requireText(input.mimeType, 200),
+      sizeBytes: input.sizeBytes,
+      checksumSha256: input.checksumSha256?.trim() || null,
+    });
+  }
+
+  async getPendingUpload(actor: AuthenticatedActor, fileId: string) {
+    const file = await this.repository.getById(fileId);
+    if (!file) throw new Error(FILE_NOT_FOUND);
+    await this.requireAccessibleCase(actor, file.clientCaseId);
+    if (file.uploadedById !== actor.userId) throw new Error(FILE_UPLOAD_FORBIDDEN);
+    if (file.status !== "PENDING_UPLOAD") throw new Error(FILE_UPLOAD_NOT_PENDING);
+    return file;
+  }
+
+  async markUploadPendingScan(actor: AuthenticatedActor, fileId: string, now = new Date()) {
+    await this.getPendingUpload(actor, fileId);
+    const pendingScan = await this.repository.markPendingScan(fileId, now, actor.userId);
+    if (!pendingScan) throw new Error(FILE_UPLOAD_NOT_PENDING);
+    return pendingScan;
+  }
+}
