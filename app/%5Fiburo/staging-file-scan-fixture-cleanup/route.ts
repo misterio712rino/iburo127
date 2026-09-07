@@ -43,6 +43,18 @@ function isExactStagingPreview(env: NodeJS.ProcessEnv): boolean {
   );
 }
 
+function boundaryFailureCode(env: NodeJS.ProcessEnv, request: Request, commitSha: string | null) {
+  if (env.VERCEL_ENV?.trim() !== "preview") return "PREVIEW_ENV_MISMATCH";
+  if (env.VERCEL_GIT_COMMIT_REF?.trim() !== VERCEL_STAGING_BRANCH) return "PREVIEW_BRANCH_MISMATCH";
+  if (env.IB_RUNTIME_TARGET?.trim() !== "staging") return "RUNTIME_TARGET_MISMATCH";
+  if (!commitSha) return "PREVIEW_COMMIT_MISSING";
+  if (!isVercelPreviewBackendAllowed(env)) return "PREVIEW_BACKEND_DISABLED";
+  if (request.headers.get(CONFIRM_HEADER) !== `CLEAN_STAGING_FILE_SCAN_FIXTURES:${commitSha}`) {
+    return "CONFIRMATION_MISMATCH";
+  }
+  return null;
+}
+
 function unavailable(status = 404, errorCode?: string) {
   return NextResponse.json(
     {
@@ -58,12 +70,9 @@ function unavailable(status = 404, errorCode?: string) {
 export async function POST(request: Request) {
   const env = process.env;
   const commitSha = exactPreviewCommitSha(env);
-  if (
-    !isExactStagingPreview(env) ||
-    !commitSha ||
-    request.headers.get(CONFIRM_HEADER) !== `CLEAN_STAGING_FILE_SCAN_FIXTURES:${commitSha}`
-  ) {
-    return unavailable();
+  const boundaryError = boundaryFailureCode(env, request, commitSha);
+  if (!isExactStagingPreview(env) || !commitSha || boundaryError) {
+    return unavailable(404, boundaryError ?? "STAGING_BOUNDARY_MISMATCH");
   }
 
   const prisma = getPrismaClient();
