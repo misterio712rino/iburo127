@@ -7,6 +7,7 @@ import {
   VERCEL_STAGING_BRANCH,
   isVercelPreviewBackendAllowed,
 } from "@/server/config/vercel-preview-boundary";
+import { readStoredFileDeletionMode } from "@/server/files/deletion-mode";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -48,6 +49,13 @@ export async function GET() {
   const providerAwareStorage = buildProviderAwareStagingStorageReadiness(env);
   const providerAwareAi = buildProviderAwareStagingAiReadiness(env);
 
+  let fileDeletionMode: "legacy" | "durable" | "invalid";
+  try {
+    fileDeletionMode = readStoredFileDeletionMode(env);
+  } catch {
+    fileDeletionMode = "invalid";
+  }
+
   return NextResponse.json(
     {
       service: "iburo127",
@@ -64,6 +72,11 @@ export async function GET() {
         ai: providerAwareAi,
         postbox: inventory.phases.postbox,
         bitrix24: inventory.phases.bitrix24,
+        maintenance: inventory.phases.maintenance,
+        fileDeletion: {
+          mode: fileDeletionMode,
+          ready: fileDeletionMode === "durable" && inventory.phases.maintenance.ready,
+        },
       },
     },
     { headers: NO_STORE_HEADERS },
