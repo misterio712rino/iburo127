@@ -3,6 +3,7 @@ import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { readBoundedJsonBody } from "@/server/http/bounded-json-body";
 import { privateJsonResponse } from "@/server/http/private-json";
 import {
+  ACCOUNT_PROFILE_EMAIL_CHANGE_REQUIRES_VERIFICATION,
   ACCOUNT_PROFILE_EMAIL_CONFLICT,
   ACCOUNT_PROFILE_INVALID_DISPLAY_NAME,
   ACCOUNT_PROFILE_INVALID_EMAIL,
@@ -55,6 +56,15 @@ export async function PATCH(request: Request) {
     }
     if (error instanceof Error && error.message === ACCOUNT_PROFILE_EMAIL_CONFLICT) {
       return privateJsonResponse({ code: ACCOUNT_PROFILE_EMAIL_CONFLICT }, 409);
+    }
+    if (
+      error instanceof Error &&
+      error.message === ACCOUNT_PROFILE_EMAIL_CHANGE_REQUIRES_VERIFICATION
+    ) {
+      return privateJsonResponse(
+        { code: ACCOUNT_PROFILE_EMAIL_CHANGE_REQUIRES_VERIFICATION },
+        409,
+      );
     }
     throw error;
   }
