@@ -1,3 +1,5 @@
+import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
+
 export const PRACTICUM_WORKSPACE_NOT_FOUND = "PRACTICUM_WORKSPACE_NOT_FOUND";
 export const PRACTICUM_WORKSPACE_FORBIDDEN = "PRACTICUM_WORKSPACE_FORBIDDEN";
 export const PRACTICUM_WORKSPACE_INVALID_LESSON = "PRACTICUM_WORKSPACE_INVALID_LESSON";
@@ -60,10 +62,13 @@ export type PracticumLessonWorkspaceRecord = {
 };
 
 export interface PracticumWorkspaceRepository {
-  getLessonWorkspace(input: {
-    clientCaseId: string;
-    lessonId: string;
-  }): Promise<PracticumLessonWorkspaceRecord>;
+  getLessonWorkspace(
+    input: {
+      clientCaseId: string;
+      lessonId: string;
+    },
+    actor?: AuthenticatedActor,
+  ): Promise<PracticumLessonWorkspaceRecord>;
 
   saveHomeworkDraft(input: {
     clientCaseId: string;

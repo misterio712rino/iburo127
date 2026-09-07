@@ -110,7 +110,7 @@ export class PracticumWorkspaceService {
   ) {
     this.requireKnownLesson(input.lessonId);
     const clientCase = await this.requireAccessibleCase(actor, input.clientCaseId);
-    const workspace = await this.repository.getLessonWorkspace(input);
+    const workspace = await this.repository.getLessonWorkspace(input, actor);
     if (
       actor.roles.includes("CLIENT") &&
       clientCase.clientId === actor.userId &&

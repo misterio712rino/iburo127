@@ -2,6 +2,7 @@ import "server-only";
 
 import type { Prisma } from "@/generated/prisma/client";
 import { getPrismaClient } from "@/server/database/prisma";
+import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
 import {
   PRACTICUM_WORKSPACE_FORBIDDEN,
   PRACTICUM_WORKSPACE_LAWYER_NOT_ASSIGNED,
@@ -18,6 +19,28 @@ import { createCaseNotificationInTransaction } from "@/server/repositories/prism
 
 const HUMAN_SUPPORT_PLAN_CODES = ["PRO", "INDIVIDUAL"] as const;
 
+type ActorCaseAccessClause =
+  | { clientId: string }
+  | {
+      assignedLawyerId: string;
+      plan: { code: { in: Array<(typeof HUMAN_SUPPORT_PLAN_CODES)[number]> } };
+    };
+
+function actorWorkspaceCaseWhere(actor: AuthenticatedActor) {
+  if (actor.roles.includes("MANAGER")) return {};
+
+  const access: ActorCaseAccessClause[] = [];
+  if (actor.roles.includes("CLIENT")) access.push({ clientId: actor.userId });
+  if (actor.roles.includes("LAWYER")) {
+    access.push({
+      assignedLawyerId: actor.userId,
+      plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
+    });
+  }
+
+  return access.length ? { OR: access } : null;
+}
+
 function toHomeworkRecord(row: PracticumHomeworkRecord): PracticumHomeworkRecord {
   return row;
 }
@@ -33,15 +56,29 @@ function toMessageRecord(row: PracticumLessonMessageRecord): PracticumLessonMess
 async function getWorkspaceInTransaction(
   tx: Prisma.TransactionClient,
   input: { clientCaseId: string; lessonId: string },
+  actor?: AuthenticatedActor,
 ): Promise<PracticumLessonWorkspaceRecord> {
-  const homework = await tx.casePracticumHomework.findUnique({
-    where: {
-      clientCaseId_lessonId: {
-        clientCaseId: input.clientCaseId,
-        lessonId: input.lessonId,
-      },
-    },
-  });
+  const accessWhere = actor ? actorWorkspaceCaseWhere(actor) : undefined;
+  if (actor && !accessWhere) {
+    return { homework: null, revisions: [], messages: [] };
+  }
+
+  const homework = actor
+    ? await tx.casePracticumHomework.findFirst({
+        where: {
+          clientCaseId: input.clientCaseId,
+          lessonId: input.lessonId,
+          clientCase: accessWhere ?? {},
+        },
+      })
+    : await tx.casePracticumHomework.findUnique({
+        where: {
+          clientCaseId_lessonId: {
+            clientCaseId: input.clientCaseId,
+            lessonId: input.lessonId,
+          },
+        },
+      });
 
   const [revisions, messages] = await Promise.all([
     homework
@@ -54,6 +91,7 @@ async function getWorkspaceInTransaction(
       where: {
         clientCaseId: input.clientCaseId,
         lessonId: input.lessonId,
+        ...(actor ? { clientCase: accessWhere ?? {} } : {}),
       },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     }),
@@ -71,9 +109,12 @@ function homeworkCanBeEdited(status: PracticumHomeworkRecord["status"]) {
 }
 
 export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRepository {
-  async getLessonWorkspace(input: { clientCaseId: string; lessonId: string }) {
+  async getLessonWorkspace(
+    input: { clientCaseId: string; lessonId: string },
+    actor?: AuthenticatedActor,
+  ) {
     const prisma = getPrismaClient();
-    return prisma.$transaction((tx) => getWorkspaceInTransaction(tx, input));
+    return prisma.$transaction((tx) => getWorkspaceInTransaction(tx, input, actor));
   }
 
   async saveHomeworkDraft(input: {

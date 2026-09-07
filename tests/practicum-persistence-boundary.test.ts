@@ -75,6 +75,11 @@ const workspaceServiceSource = await readFile(
 assert.match(workspaceServiceSource, /clientPlanHasHumanSupport/);
 assert.match(
   workspaceServiceSource,
+  /repository\.getLessonWorkspace\(input, actor\)/,
+  "practicum workspace service must propagate actor scope to the persistence read",
+);
+assert.match(
+  workspaceServiceSource,
   /function hideHumanSupportWorkspace\([\s\S]*reviewedByUserId: null[\s\S]*reviewDecision: null[\s\S]*reviewComment: null[\s\S]*messages: \[\]/,
   "LITE workspace responses must hide historical lawyer review and messaging data",
 );
@@ -91,6 +96,26 @@ const workspaceRepositorySource = await readFile(
 assert.match(
   workspaceRepositorySource,
   /const HUMAN_SUPPORT_PLAN_CODES = \["PRO", "INDIVIDUAL"\] as const;/,
+);
+assert.match(
+  workspaceRepositorySource,
+  /async getLessonWorkspace\([\s\S]*actor\?: AuthenticatedActor/,
+  "workspace persistence read must accept the authenticated actor scope",
+);
+assert.match(
+  workspaceRepositorySource,
+  /assignedLawyerId: actor\.userId[\s\S]*plan: \{ code: \{ in: \[\.\.\.HUMAN_SUPPORT_PLAN_CODES\] \} \}/,
+  "LAWYER workspace reads must require current assignment and human-support plan",
+);
+assert.match(
+  workspaceRepositorySource,
+  /casePracticumHomework\.findFirst\([\s\S]*clientCase: accessWhere/,
+  "workspace homework read must apply actor access at the final Prisma query",
+);
+assert.match(
+  workspaceRepositorySource,
+  /casePracticumLessonMessage\.findMany\([\s\S]*clientCase: accessWhere/,
+  "workspace message read must apply actor access at the final Prisma query",
 );
 
 const saveStart = workspaceRepositorySource.indexOf("  async saveHomeworkDraft(");
