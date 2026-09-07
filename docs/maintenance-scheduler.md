@@ -2,9 +2,9 @@
 
 ## Scope
 
-The repository provides a provider-neutral runner for bounded authenticated maintenance jobs. It intentionally does **not** select or provision the production scheduler provider; Vercel Cron, Yandex Cloud scheduling, Kubernetes CronJob or another platform must be selected and verified separately before production readiness can be claimed.
+The repository provides a provider-neutral runner for bounded authenticated maintenance jobs and now includes a repository-tracked GitHub Actions schedule for the durable file-deletion worker/health pair.
 
-Supported jobs:
+Supported runner jobs:
 
 - `notification-deliveries`
 - `notification-delivery-health`
@@ -18,36 +18,62 @@ Supported jobs:
 - `file-deletion-health`
 - `ai-audit-health`
 
-The runner is `node scripts/run-maintenance-job.mjs <job>`; package scripts wrap the established jobs. `file-deletion-health` may be invoked through the generic runner until a dedicated package alias is added.
+The runner is `node scripts/run-maintenance-job.mjs <job>`; package scripts wrap the established jobs. `file-deletion-health` may be invoked directly through the generic runner until a dedicated package alias is added.
 
 ## Security boundary
 
-The runner requires:
+The runner requires scheduler-supplied environment values rather than hard-coded origins or credentials:
 
 ```env
-IB_MAINTENANCE_BASE_URL="https://staging-app.example.com"
+IB_RUNTIME_TARGET="staging|production"
+IB_MAINTENANCE_BASE_URL="https://app.example.com"
+BETTER_AUTH_URL="https://app.example.com"
 IB_MAINTENANCE_SECRET="<independent-random-secret-32+-chars>"
 IB_MAINTENANCE_REQUEST_TIMEOUT_MS="15000"
 ```
 
-For non-loopback requests it validates runtime target identity before using the maintenance secret. Staging requires the maintenance origin to match both `BETTER_AUTH_URL` and `IB_STAGING_BASE_URL`. Production additionally requires the exact one-run confirmation `IB_MAINTENANCE_PRODUCTION_CONFIRM=PRODUCTION:<origin>`. Redirects are refused, Bearer secrets are never put into command arguments, and a non-JSON/non-2xx/`ok !== true` response exits non-zero.
+For non-loopback requests it validates runtime target identity before using the maintenance secret. Staging additionally requires the maintenance origin to match `IB_STAGING_BASE_URL`. Production additionally requires the exact confirmation `IB_MAINTENANCE_PRODUCTION_CONFIRM=PRODUCTION:<origin>`. Redirects are refused, Bearer secrets are never placed in command arguments, and non-JSON, non-2xx or `ok !== true` responses exit non-zero.
 
-All jobs must have independent schedules/failure alerting where the scheduler platform permits it. Do not combine unrelated workers into one failure domain.
+## Durable file-deletion scheduler
+
+`.github/workflows/file-deletion-maintenance-scheduler.yml` is the selected repository-tracked schedule for the durable deletion pair.
+
+It runs on a five-minute cron **only after** all of these conditions are true:
+
+1. the workflow exists on the repository default branch;
+2. repository variable `IB_FILE_DELETION_SCHEDULER_ENABLED` is exactly `true`;
+3. the job is executing from the default branch;
+4. scheduler target/origin variables satisfy the generic maintenance runner guards;
+5. a valid independent `IB_MAINTENANCE_SECRET` is available;
+6. production targets additionally satisfy the explicit production confirmation guard.
+
+The audit branch therefore contains scheduler wiring without activating production. Do not set the enable flag or production values merely because this workflow exists.
+
+The workflow deliberately uses **two independent jobs**:
+
+- `file-deletions` invokes one bounded deletion-worker batch;
+- `file-deletion-health` independently checks backlog health.
+
+There is no `needs` dependency between them. A worker failure must not suppress backlog-health execution.
 
 ## Worker / health pairs
 
-These pairs must be scheduled independently so a stopped worker schedule can still be detected:
+Worker and health checks should remain independent failure domains where the scheduler platform permits it:
 
 - `notification-deliveries` + `notification-delivery-health`
 - `stale-uploads` + `stale-upload-health`
 - `file-scans` + `file-scan-health`
 - `file-deletions` + `file-deletion-health`
 
+Only the durable file-deletion pair currently has repository-tracked recurring GitHub Actions wiring. Other maintenance pairs still require a separately reviewed recurring schedule before full production enablement is claimed.
+
 ### File deletion activation boundary
 
-`file-deletions` and `file-deletion-health` depend on the additive `StoredFileDeletion` table. **Do not schedule either job before the staging migration exists and is verified.** `IB_FILE_DELETION_MODE` must remain `legacy` until migration verification and scheduler provisioning are complete.
+`file-deletions` and `file-deletion-health` depend on the additive `StoredFileDeletion` table and the durable deletion mode.
 
-Initial worker behavior is deliberately conservative: one deletion claim per invocation. The independent health check defaults to:
+The audit/staging path has already exercised durable deletion through exact-Preview staging E2E. That does **not** authorize production activation. Production must keep its current mode/configuration unchanged until its migration, environment values, scheduler enable flag and operational alerting are separately reviewed and explicitly approved.
+
+Initial worker behavior remains deliberately conservative: one deletion claim per invocation. The independent health check defaults to:
 
 ```env
 IB_FILE_DELETION_HEALTH_GRACE_MINUTES="15"
@@ -71,6 +97,14 @@ Task/questionnaire reminder jobs and AI audit health are independent jobs and mu
 
 ## Release status
 
-Code-level invocation exists for the maintenance jobs above and is guarded by target/auth contracts. Provider-specific recurring scheduler infrastructure is **not configured or verified** in the repository. Production readiness therefore remains externally blocked until the chosen scheduler is provisioned, observed against staging, and wired to failure alerting.
+Durable file deletion now has:
 
-For durable file deletion specifically, follow `docs/STAGING_FILE_DELETION_ACTIVATION.md`; never activate the mode merely because the code builds.
+- guarded request-side enqueue semantics;
+- durable tombstone/retry/lease processing;
+- aggregate backlog health;
+- exact-Preview staging runtime E2E evidence;
+- a fail-closed repository-tracked five-minute GitHub Actions schedule with independent worker/health jobs.
+
+Production scheduling is **not active or claimed**. Production readiness still requires explicit production migration/configuration approval, scheduler variables/secret provisioning, enable-flag activation, and observed production-safe alerting. Other maintenance workers also retain their own scheduling/provisioning requirements.
+
+For staging activation/rollback details follow `docs/STAGING_FILE_DELETION_ACTIVATION.md`.
