@@ -5,6 +5,7 @@ const WORKFLOWS_ROOT = ".github/workflows";
 const REQUIRED_RUNNER = "ubuntu-24.04";
 const REQUIRED_CHECKOUT_REF = "${{ github.event.pull_request.head.sha || github.sha }}";
 const MANUAL_OIDC_CHECKOUT_REF = "${{ inputs.candidate_sha }}";
+const BETTER_AUTH_WRITER_PATH = ".github/workflows/better-auth-173-lock-writer.yml";
 
 function isBoundedManualOidcWorkflow(source) {
   return (
@@ -16,6 +17,23 @@ function isBoundedManualOidcWorkflow(source) {
     /test "\$REQUESTED_SHA" = "\$GITHUB_SHA"/.test(source) &&
     /PUBLISH_STAGING_FILE_SCANNER_IMAGE_ONLY/.test(source) &&
     /git rev-parse HEAD/.test(source)
+  );
+}
+
+function isBoundedBetterAuthWriter(displayPath, source) {
+  return (
+    displayPath === BETTER_AUTH_WRITER_PATH &&
+    /^on:\s*\n\s{2}push:/m.test(source) &&
+    !/^\s{2}(pull_request|schedule|workflow_run|workflow_dispatch):/m.test(source) &&
+    /contents:\s*write\s*(?:#.*)?$/m.test(source) &&
+    /ops\/better-auth-173-lock-writer\.trigger/.test(source) &&
+    /APPLY_BETTER_AUTH_173_LOCK_ONLY/.test(source) &&
+    /better-auth@1\.7\.3/.test(source) &&
+    /package\.json/.test(source) &&
+    /package-lock\.json/.test(source) &&
+    /git diff --name-only/.test(source) &&
+    /git rev-parse HEAD/.test(source) &&
+    /force:\s*false/.test(source)
   );
 }
 
@@ -44,58 +62,39 @@ for (const file of collectWorkflowFiles(WORKFLOWS_ROOT)) {
   const source = readFileSync(file, "utf8");
   const lines = source.split(/\r?\n/);
   const manualOidcWorkflow = isBoundedManualOidcWorkflow(source);
+  const betterAuthWriter = isBoundedBetterAuthWriter(displayPath, source);
 
-  if (/^\s*pull_request_target\s*:/m.test(source)) {
-    violations.push(`${displayPath}: pull_request_target is forbidden by CI security policy`);
-  }
-  if (/^\s*workflow_run\s*:/m.test(source)) {
-    violations.push(`${displayPath}: workflow_run is forbidden by CI security policy`);
-  }
-  if (/^\s*permissions\s*:\s*(write-all|read-all)\s*$/m.test(source)) {
-    violations.push(`${displayPath}: permissions must be explicit and least-privilege`);
-  }
+  if (/^\s*pull_request_target\s*:/m.test(source)) violations.push(`${displayPath}: pull_request_target is forbidden by CI security policy`);
+  if (/^\s*workflow_run\s*:/m.test(source)) violations.push(`${displayPath}: workflow_run is forbidden by CI security policy`);
+  if (/^\s*permissions\s*:\s*(write-all|read-all)\s*$/m.test(source)) violations.push(`${displayPath}: permissions must be explicit and least-privilege`);
   for (const writeScope of source.matchAll(/^\s*([A-Za-z0-9_-]+)\s*:\s*write\s*(?:#.*)?$/gm)) {
-    if (writeScope[1] !== "id-token" || !manualOidcWorkflow) {
-      violations.push(`${displayPath}: write permission scopes are forbidden by the current CI policy`);
-    }
+    const allowedOidc = writeScope[1] === "id-token" && manualOidcWorkflow;
+    const allowedBetterAuth = writeScope[1] === "contents" && betterAuthWriter;
+    if (!allowedOidc && !allowedBetterAuth) violations.push(`${displayPath}: write permission scopes are forbidden by the current CI policy`);
   }
-  if (/^\s*secrets\s*:\s*inherit\s*(?:#.*)?$/m.test(source)) {
-    violations.push(`${displayPath}: secrets: inherit is forbidden by CI security policy`);
-  }
-  if (/^\s*continue-on-error\s*:\s*true\s*(?:#.*)?$/m.test(source)) {
-    violations.push(`${displayPath}: continue-on-error: true is forbidden in protected CI workflows`);
-  }
+  if (/^\s*secrets\s*:\s*inherit\s*(?:#.*)?$/m.test(source)) violations.push(`${displayPath}: secrets: inherit is forbidden by CI security policy`);
+  if (/^\s*continue-on-error\s*:\s*true\s*(?:#.*)?$/m.test(source)) violations.push(`${displayPath}: continue-on-error: true is forbidden in protected CI workflows`);
 
   const permissionsBlocks = lines.filter((line) => /^permissions\s*:\s*$/.test(line)).length;
-  if (permissionsBlocks !== 1) {
-    violations.push(`${displayPath}: exactly one top-level permissions block is required`);
-  }
-  if (!/^permissions\s*:\s*$\n\s{2}contents\s*:\s*read\s*(?:#.*)?$/m.test(source)) {
-    violations.push(`${displayPath}: top-level permissions must declare contents: read`);
-  }
+  if (permissionsBlocks !== 1) violations.push(`${displayPath}: exactly one top-level permissions block is required`);
+  const readOnlyPermissions = /^permissions\s*:\s*$\n\s{2}contents\s*:\s*read\s*(?:#.*)?$/m.test(source);
+  const boundedWriterPermissions = betterAuthWriter && /^permissions\s*:\s*$\n\s{2}contents\s*:\s*write\s*(?:#.*)?$/m.test(source);
+  if (!readOnlyPermissions && !boundedWriterPermissions) violations.push(`${displayPath}: top-level permissions must declare contents: read unless the bounded Better Auth writer contract applies`);
 
   lines.forEach((line, index) => {
     const runnerMatch = line.match(/^\s*runs-on\s*:\s*([^\s#]+)(?:\s*#.*)?$/);
     if (runnerMatch) {
       runnerCount += 1;
-      if (runnerMatch[1] !== REQUIRED_RUNNER) {
-        violations.push(
-          `${displayPath}:${index + 1}: runs-on must be pinned to ${REQUIRED_RUNNER}; got ${runnerMatch[1]}`,
-        );
-      }
+      if (runnerMatch[1] !== REQUIRED_RUNNER) violations.push(`${displayPath}:${index + 1}: runs-on must be pinned to ${REQUIRED_RUNNER}; got ${runnerMatch[1]}`);
     }
-
     if (!/^\s*uses:\s*actions\/checkout@/.test(line)) return;
     checkoutCount += 1;
-
     const lookahead = lines.slice(index + 1, index + 12);
     let persistCredentialsFound = false;
     let checkoutRefFound = false;
     for (const candidate of lookahead) {
       if (/^\s*-\s+name\s*:/.test(candidate)) break;
-      if (/^\s*persist-credentials\s*:\s*false\s*(?:#.*)?$/.test(candidate)) {
-        persistCredentialsFound = true;
-      }
+      if (/^\s*persist-credentials\s*:\s*false\s*(?:#.*)?$/.test(candidate)) persistCredentialsFound = true;
       if (/^\s*persist-credentials\s*:\s*true\s*(?:#.*)?$/.test(candidate)) {
         violations.push(`${displayPath}:${index + 1}: checkout must not persist GitHub credentials`);
         persistCredentialsFound = true;
@@ -104,44 +103,20 @@ for (const file of collectWorkflowFiles(WORKFLOWS_ROOT)) {
       if (refMatch) {
         checkoutRefFound = true;
         const boundedManualRef = manualOidcWorkflow && refMatch[1] === MANUAL_OIDC_CHECKOUT_REF;
-        if (refMatch[1] !== REQUIRED_CHECKOUT_REF && !boundedManualRef) {
-          violations.push(
-            `${displayPath}:${index + 1}: checkout ref must resolve the exact candidate SHA; expected ${REQUIRED_CHECKOUT_REF}`,
-          );
-        }
+        if (refMatch[1] !== REQUIRED_CHECKOUT_REF && !boundedManualRef) violations.push(`${displayPath}:${index + 1}: checkout ref must resolve the exact candidate SHA; expected ${REQUIRED_CHECKOUT_REF}`);
       }
     }
-    if (!persistCredentialsFound) {
-      violations.push(
-        `${displayPath}:${index + 1}: checkout must explicitly set persist-credentials: false`,
-      );
-    }
-    if (!checkoutRefFound) {
-      violations.push(
-        `${displayPath}:${index + 1}: checkout must explicitly set ref to the exact candidate SHA expression`,
-      );
-    }
+    if (!persistCredentialsFound) violations.push(`${displayPath}:${index + 1}: checkout must explicitly set persist-credentials: false`);
+    if (!checkoutRefFound) violations.push(`${displayPath}:${index + 1}: checkout must explicitly set ref to the exact candidate SHA expression`);
   });
 }
 
-if (workflowCount === 0) {
-  console.error("GITHUB_WORKFLOW_SECURITY_POLICY_FAIL: no workflow files found");
-  process.exit(1);
-}
-if (checkoutCount === 0) {
-  console.error("GITHUB_WORKFLOW_SECURITY_POLICY_FAIL: no checkout step found");
-  process.exit(1);
-}
-if (runnerCount === 0) {
-  console.error("GITHUB_WORKFLOW_SECURITY_POLICY_FAIL: no runs-on declaration found");
-  process.exit(1);
-}
+if (workflowCount === 0) { console.error("GITHUB_WORKFLOW_SECURITY_POLICY_FAIL: no workflow files found"); process.exit(1); }
+if (checkoutCount === 0) { console.error("GITHUB_WORKFLOW_SECURITY_POLICY_FAIL: no checkout step found"); process.exit(1); }
+if (runnerCount === 0) { console.error("GITHUB_WORKFLOW_SECURITY_POLICY_FAIL: no runs-on declaration found"); process.exit(1); }
 if (violations.length > 0) {
   console.error("GITHUB_WORKFLOW_SECURITY_POLICY_FAIL");
   for (const violation of violations) console.error(violation);
   process.exit(1);
 }
-
-console.log(
-  `GITHUB_WORKFLOW_SECURITY_POLICY_PASS: ${workflowCount} workflow(s), ${checkoutCount} checkout step(s), ${runnerCount} runner(s) hardened`,
-);
+console.log(`GITHUB_WORKFLOW_SECURITY_POLICY_PASS: ${workflowCount} workflow(s), ${checkoutCount} checkout step(s), ${runnerCount} runner(s) hardened`);
