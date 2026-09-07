@@ -25,11 +25,15 @@ type UserAccessState = {
   email: string | null;
   status: string;
   roles: Array<{ role: { code: string } }>;
-  authIdentities: Array<{ provider: string }>;
+  authIdentities: Array<{ provider: string; subject: string }>;
 };
 
 type RateLimitRow = {
   count: number | bigint;
+};
+
+type BetterAuthLoginRow = {
+  email: string;
 };
 
 export class AccessGateRateLimitError extends Error {
@@ -99,9 +103,37 @@ async function loadUserAccessState(userId: string): Promise<UserAccessState | nu
       email: true,
       status: true,
       roles: { select: { role: { select: { code: true } } } },
-      authIdentities: { select: { provider: true } },
+      authIdentities: { select: { provider: true, subject: true } },
     },
   });
+}
+
+function readBetterAuthSubject(user: UserAccessState): string | null {
+  const identities = user.authIdentities.filter(
+    (identity) => identity.provider === BETTER_AUTH_PROVIDER,
+  );
+  if (identities.length !== 1) return null;
+  const subject = identities[0]?.subject.trim() ?? "";
+  return subject || null;
+}
+
+async function resolveBetterAuthLoginEmail(user: UserAccessState): Promise<string | null> {
+  const subject = readBetterAuthSubject(user);
+  if (!subject) return null;
+
+  const rows = await getPrismaClient().$queryRaw<BetterAuthLoginRow[]>`
+    select "email"
+    from "user"
+    where "id" = ${subject}
+    limit 2
+  `;
+  if (rows.length !== 1) return null;
+
+  const email = rows[0]?.email?.trim().toLowerCase() ?? "";
+  if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return null;
+  }
+  return email;
 }
 
 async function findUserIds(identifier: AccessIdentifier): Promise<string[]> {
@@ -128,13 +160,12 @@ async function findUserIds(identifier: AccessIdentifier): Promise<string[]> {
   return rows.map((row) => row.id);
 }
 
-function isLoginReady(user: UserAccessState | null): user is UserAccessState & { email: string } {
+function isLoginReady(user: UserAccessState | null): user is UserAccessState {
   return Boolean(
     user &&
       user.status === "ACTIVE" &&
-      user.email &&
       user.roles.length > 0 &&
-      user.authIdentities.some((identity) => identity.provider === BETTER_AUTH_PROVIDER),
+      readBetterAuthSubject(user),
   );
 }
 
@@ -211,5 +242,8 @@ export async function resolveAccessChallengeToEmail(rawChallenge: unknown): Prom
   const payload = verifyAccessChallenge({ challenge: rawChallenge, secret });
   const user = await loadUserAccessState(payload.sub);
   if (!isLoginReady(user)) throw new Error("ACCESS_GATE_ACCOUNT_UNAVAILABLE");
-  return user.email;
+
+  const loginEmail = await resolveBetterAuthLoginEmail(user);
+  if (!loginEmail) throw new Error("ACCESS_GATE_ACCOUNT_UNAVAILABLE");
+  return loginEmail;
 }
