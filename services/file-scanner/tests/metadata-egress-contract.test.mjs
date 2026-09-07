@@ -43,3 +43,18 @@ test("staging scanner package bootstrap stays on HTTPS and does not require broa
   assert.doesNotMatch(cloudInit, /uri:\s+http:\/\//);
   assert.match(cloudInit, /package_update:\s+true/);
 });
+
+test("staging scanner package installation cannot auto-start public Caddy", () => {
+  const cloudInit = read("infra/file-scanner-staging/cloud-init.yaml.tftpl");
+
+  assert.match(cloudInit, /bootcmd:\n\s+- \[cloud-init-per, once, iburo-scanner-policy-rcd,/);
+  assert.match(cloudInit, /printf '#!\/bin\/sh\\nexit 101\\n' > \/usr\/sbin\/policy-rc\.d/);
+  assert.match(cloudInit, /touch \/run\/iburo-scanner-policy-rcd-created/);
+
+  const cleanupIndex = cloudInit.indexOf("rm -f /usr/sbin/policy-rc.d /run/iburo-scanner-policy-rcd-created");
+  const dockerStartIndex = cloudInit.indexOf("systemctl, enable, --now, docker");
+  const caddyDisableIndex = cloudInit.indexOf("systemctl, disable, --now, caddy");
+  assert.ok(cleanupIndex >= 0, "temporary package-service start policy must be removed deliberately");
+  assert.ok(dockerStartIndex > cleanupIndex, "Docker must start only after the temporary package policy is removed");
+  assert.ok(caddyDisableIndex > dockerStartIndex, "Caddy must stay disabled after package installation");
+});
