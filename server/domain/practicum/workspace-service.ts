@@ -1,3 +1,4 @@
+import { clientPlanHasHumanSupport } from "@/lib/platform/client-plan-entitlements";
 import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
 import { ClientCaseService } from "@/server/domain/client-cases/service";
 import {
@@ -8,6 +9,7 @@ import {
   PRACTICUM_WORKSPACE_LAWYER_NOT_ASSIGNED,
   PRACTICUM_WORKSPACE_NOT_FOUND,
   type PracticumHomeworkReviewDecision,
+  type PracticumLessonWorkspaceRecord,
   type PracticumWorkspaceRepository,
 } from "@/server/domain/practicum/workspace-contracts";
 
@@ -31,6 +33,35 @@ function normalizeBoundedText(
     throw new Error(errorCode);
   }
   return text;
+}
+
+function hideHumanSupportWorkspace(
+  workspace: PracticumLessonWorkspaceRecord,
+): PracticumLessonWorkspaceRecord {
+  const homework = workspace.homework
+    ? {
+        ...workspace.homework,
+        status:
+          workspace.homework.status === "IN_REVIEW" ||
+          workspace.homework.status === "CHANGES_REQUESTED" ||
+          workspace.homework.status === "ACCEPTED"
+            ? ("SUBMITTED" as const)
+            : workspace.homework.status,
+        reviewedAt: null,
+      }
+    : null;
+
+  return {
+    homework,
+    revisions: workspace.revisions.map((revision) => ({
+      ...revision,
+      reviewedByUserId: null,
+      reviewDecision: null,
+      reviewComment: null,
+      reviewedAt: null,
+    })),
+    messages: [],
+  };
 }
 
 export class PracticumWorkspaceService {
@@ -64,6 +95,7 @@ export class PracticumWorkspaceService {
     const clientCase = await this.requireAccessibleCase(actor, clientCaseId);
     if (
       !actor.roles.includes("LAWYER") ||
+      !clientPlanHasHumanSupport(clientCase.planCode) ||
       !clientCase.assignedLawyerId ||
       clientCase.assignedLawyerId !== actor.userId
     ) {
@@ -77,8 +109,16 @@ export class PracticumWorkspaceService {
     input: { clientCaseId: string; lessonId: string },
   ) {
     this.requireKnownLesson(input.lessonId);
-    await this.requireAccessibleCase(actor, input.clientCaseId);
-    return this.repository.getLessonWorkspace(input);
+    const clientCase = await this.requireAccessibleCase(actor, input.clientCaseId);
+    const workspace = await this.repository.getLessonWorkspace(input);
+    if (
+      actor.roles.includes("CLIENT") &&
+      clientCase.clientId === actor.userId &&
+      !clientPlanHasHumanSupport(clientCase.planCode)
+    ) {
+      return hideHumanSupportWorkspace(workspace);
+    }
+    return workspace;
   }
 
   async saveHomeworkDraft(
@@ -106,18 +146,21 @@ export class PracticumWorkspaceService {
     input: { clientCaseId: string; lessonId: string; answerText: unknown },
   ) {
     this.requireKnownLesson(input.lessonId);
-    await this.requireClientOwner(actor, input.clientCaseId);
+    const clientCase = await this.requireClientOwner(actor, input.clientCaseId);
     const answerText = normalizeBoundedText(
       input.answerText,
       MAX_HOMEWORK_LENGTH,
       PRACTICUM_WORKSPACE_INVALID_HOMEWORK,
     );
-    return this.repository.submitHomework({
+    const workspace = await this.repository.submitHomework({
       clientCaseId: input.clientCaseId,
       lessonId: input.lessonId,
       answerText,
       actorUserId: actor.userId,
     });
+    return clientPlanHasHumanSupport(clientCase.planCode)
+      ? workspace
+      : hideHumanSupportWorkspace(workspace);
   }
 
   async reviewHomework(
@@ -155,6 +198,9 @@ export class PracticumWorkspaceService {
   ) {
     this.requireKnownLesson(input.lessonId);
     const clientCase = await this.requireAccessibleCase(actor, input.clientCaseId);
+    if (!clientPlanHasHumanSupport(clientCase.planCode)) {
+      throw new Error(PRACTICUM_WORKSPACE_FORBIDDEN);
+    }
 
     const isClient = actor.roles.includes("CLIENT") && clientCase.clientId === actor.userId;
     const isAssignedLawyer =
