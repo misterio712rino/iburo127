@@ -1,0 +1,212 @@
+name: Core Maintenance Scheduler
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  notification-deliveries:
+    if: vars.IB_CORE_MAINTENANCE_SCHEDULER_ENABLED == 'true' && github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env: &maintenance-env
+      IB_RUNTIME_TARGET: ${{ vars.IB_MAINTENANCE_RUNTIME_TARGET }}
+      IB_MAINTENANCE_BASE_URL: ${{ vars.IB_MAINTENANCE_BASE_URL }}
+      BETTER_AUTH_URL: ${{ vars.IB_MAINTENANCE_BETTER_AUTH_URL }}
+      IB_STAGING_BASE_URL: ${{ vars.IB_STAGING_BASE_URL }}
+      IB_MAINTENANCE_PRODUCTION_CONFIRM: ${{ vars.IB_MAINTENANCE_PRODUCTION_CONFIRM }}
+      IB_MAINTENANCE_SECRET: ${{ secrets.IB_MAINTENANCE_SECRET }}
+    steps: &maintenance-steps
+      - name: Checkout exact scheduler revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Verify scheduler branch boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF_NAME" != "${{ github.event.repository.default_branch }}" ]; then
+            echo "CORE_MAINTENANCE_SCHEDULER_FAIL: default branch required" >&2
+            exit 1
+          fi
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$GITHUB_SHA" ]; then
+            echo "CORE_MAINTENANCE_SCHEDULER_FAIL: exact SHA mismatch" >&2
+            exit 1
+          fi
+          echo "CORE_MAINTENANCE_SCHEDULER_GATE_PASS: $actual_sha"
+      - name: Run notification delivery worker
+        run: node scripts/run-maintenance-job.mjs notification-deliveries
+
+  notification-delivery-health:
+    if: vars.IB_CORE_MAINTENANCE_SCHEDULER_ENABLED == 'true' && github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env: *maintenance-env
+    steps:
+      - name: Checkout exact scheduler revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Verify scheduler branch boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF_NAME" != "${{ github.event.repository.default_branch }}" ]; then
+            echo "CORE_MAINTENANCE_SCHEDULER_FAIL: default branch required" >&2
+            exit 1
+          fi
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$GITHUB_SHA" ]; then
+            echo "CORE_MAINTENANCE_SCHEDULER_FAIL: exact SHA mismatch" >&2
+            exit 1
+          fi
+          echo "CORE_MAINTENANCE_SCHEDULER_GATE_PASS: $actual_sha"
+      - name: Verify notification delivery backlog health
+        run: node scripts/run-maintenance-job.mjs notification-delivery-health
+
+  stale-uploads:
+    if: vars.IB_CORE_MAINTENANCE_SCHEDULER_ENABLED == 'true' && github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env: *maintenance-env
+    steps:
+      - name: Checkout exact scheduler revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Verify scheduler branch boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF_NAME" != "${{ github.event.repository.default_branch }}" ]; then
+            echo "CORE_MAINTENANCE_SCHEDULER_FAIL: default branch required" >&2
+            exit 1
+          fi
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$GITHUB_SHA" ]; then
+            echo "CORE_MAINTENANCE_SCHEDULER_FAIL: exact SHA mismatch" >&2
+            exit 1
+          fi
+          echo "CORE_MAINTENANCE_SCHEDULER_GATE_PASS: $actual_sha"
+      - name: Clean stale pending uploads
+        run: node scripts/run-maintenance-job.mjs stale-uploads
+
+  stale-upload-health:
+    if: vars.IB_CORE_MAINTENANCE_SCHEDULER_ENABLED == 'true' && github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env: *maintenance-env
+    steps:
+      - name: Checkout exact scheduler revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Verify scheduler branch boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF_NAME" != "${{ github.event.repository.default_branch }}" ]; then
+            echo "CORE_MAINTENANCE_SCHEDULER_FAIL: default branch required" >&2
+            exit 1
+          fi
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$GITHUB_SHA" ]; then
+            echo "CORE_MAINTENANCE_SCHEDULER_FAIL: exact SHA mismatch" >&2
+            exit 1
+          fi
+          echo "CORE_MAINTENANCE_SCHEDULER_GATE_PASS: $actual_sha"
+      - name: Verify stale upload backlog health
+        run: node scripts/run-maintenance-job.mjs stale-upload-health
+
+  task-reminders:
+    if: vars.IB_CORE_MAINTENANCE_SCHEDULER_ENABLED == 'true' && github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env: *maintenance-env
+    steps:
+      - name: Checkout exact scheduler revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Verify scheduler branch boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF_NAME" != "${{ github.event.repository.default_branch }}" ]; then
+            echo "CORE_MAINTENANCE_SCHEDULER_FAIL: default branch required" >&2
+            exit 1
+          fi
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$GITHUB_SHA" ]; then
+            echo "CORE_MAINTENANCE_SCHEDULER_FAIL: exact SHA mismatch" >&2
+            exit 1
+          fi
+          echo "CORE_MAINTENANCE_SCHEDULER_GATE_PASS: $actual_sha"
+      - name: Run task reminders
+        run: node scripts/run-maintenance-job.mjs task-reminders
+
+  questionnaire-reminders:
+    if: vars.IB_CORE_MAINTENANCE_SCHEDULER_ENABLED == 'true' && github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env: *maintenance-env
+    steps:
+      - name: Checkout exact scheduler revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Verify scheduler branch boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF_NAME" != "${{ github.event.repository.default_branch }}" ]; then
+            echo "CORE_MAINTENANCE_SCHEDULER_FAIL: default branch required" >&2
+            exit 1
+          fi
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$GITHUB_SHA" ]; then
+            echo "CORE_MAINTENANCE_SCHEDULER_FAIL: exact SHA mismatch" >&2
+            exit 1
+          fi
+          echo "CORE_MAINTENANCE_SCHEDULER_GATE_PASS: $actual_sha"
+      - name: Run questionnaire reminders
+        run: node scripts/run-maintenance-job.mjs questionnaire-reminders
+
+  ai-audit-health:
+    if: vars.IB_CORE_MAINTENANCE_SCHEDULER_ENABLED == 'true' && github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env: *maintenance-env
+    steps:
+      - name: Checkout exact scheduler revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Verify scheduler branch boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF_NAME" != "${{ github.event.repository.default_branch }}" ]; then
+            echo "CORE_MAINTENANCE_SCHEDULER_FAIL: default branch required" >&2
+            exit 1
+          fi
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$GITHUB_SHA" ]; then
+            echo "CORE_MAINTENANCE_SCHEDULER_FAIL: exact SHA mismatch" >&2
+            exit 1
+          fi
+          echo "CORE_MAINTENANCE_SCHEDULER_GATE_PASS: $actual_sha"
+      - name: Verify AI audit health
+        run: node scripts/run-maintenance-job.mjs ai-audit-health
