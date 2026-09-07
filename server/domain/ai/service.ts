@@ -40,7 +40,9 @@ export class AiAssistantService {
     actor: AuthenticatedActor,
     clientCaseId: string,
   ) {
-    if (!actor.roles.includes("CLIENT")) throw new Error(AI_ACCESS_DENIED);
+    const isClient = actor.roles.includes("CLIENT");
+    const isStaff = actor.roles.includes("LAWYER") || actor.roles.includes("MANAGER");
+    if (!isClient || isStaff) throw new Error(AI_ACCESS_DENIED);
 
     const clientCase = await this.clientCaseService.getCase(actor, { caseId: clientCaseId });
     if (!clientCase || clientCase.clientId !== actor.userId) {
