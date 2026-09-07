@@ -68,3 +68,5 @@ assert.match(
 );
 
 console.log("ACTIVITY_PERSISTENCE_PLAN_BOUNDARY_PASS");
+
+await import("./document-persistence-plan-boundary.test");

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getPrismaClient } from "@/server/database/prisma";
+import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
 import {
   DOCUMENT_NOT_FOUND,
   DOCUMENT_VERSION_CONFLICT,
@@ -13,6 +14,34 @@ import { createCaseNotificationInTransaction } from "@/server/repositories/prism
 import { isPrismaUniqueConstraintError } from "@/server/repositories/prisma/errors";
 
 const HUMAN_SUPPORT_PLAN_CODES = ["PRO", "INDIVIDUAL"] as const;
+
+type ActorCaseAccessClause =
+  | { clientId: string }
+  | {
+      assignedLawyerId: string;
+      plan: { code: { in: Array<(typeof HUMAN_SUPPORT_PLAN_CODES)[number]> } };
+    };
+
+function actorDocumentWhere(actor: AuthenticatedActor) {
+  if (actor.roles.includes("MANAGER")) return {};
+
+  const access: ActorCaseAccessClause[] = [];
+  if (actor.roles.includes("CLIENT")) access.push({ clientId: actor.userId });
+  if (actor.roles.includes("LAWYER")) {
+    access.push({
+      assignedLawyerId: actor.userId,
+      plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
+    });
+  }
+
+  return access.length
+    ? {
+        clientCase: {
+          is: { OR: access },
+        },
+      }
+    : null;
+}
 
 function toRecord(row: {
   id: string;
@@ -36,18 +65,28 @@ function assertExpectedVersion(currentVersion: number, expectedVersion: number) 
 }
 
 export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
-  async getByCaseAndCode(clientCaseId: string, documentCode: string) {
+  async getByCaseAndCode(
+    clientCaseId: string,
+    documentCode: string,
+    actor: AuthenticatedActor,
+  ) {
+    const scope = actorDocumentWhere(actor);
+    if (!scope) return null;
+
     const prisma = getPrismaClient();
-    const row = await prisma.caseDocument.findUnique({
-      where: { clientCaseId_documentCode: { clientCaseId, documentCode } },
+    const row = await prisma.caseDocument.findFirst({
+      where: { clientCaseId, documentCode, ...scope },
     });
     return row ? toRecord(row) : null;
   }
 
-  async listByCase(clientCaseId: string) {
+  async listByCase(clientCaseId: string, actor: AuthenticatedActor) {
+    const scope = actorDocumentWhere(actor);
+    if (!scope) return [];
+
     const prisma = getPrismaClient();
     const rows = await prisma.caseDocument.findMany({
-      where: { clientCaseId },
+      where: { clientCaseId, ...scope },
       orderBy: { createdAt: "asc" },
     });
     return rows.map(toRecord);

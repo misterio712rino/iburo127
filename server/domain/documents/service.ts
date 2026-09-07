@@ -77,13 +77,13 @@ export class CaseDocumentService {
 
   async list(actor: AuthenticatedActor, clientCaseId: string) {
     await this.requireAccessibleCase(actor, clientCaseId);
-    return this.repository.listByCase(clientCaseId);
+    return this.repository.listByCase(clientCaseId, actor);
   }
 
   async get(actor: AuthenticatedActor, clientCaseId: string, documentCode: string) {
     await this.requireAccessibleCase(actor, clientCaseId);
     this.definition(documentCode);
-    return this.repository.getByCaseAndCode(clientCaseId, documentCode);
+    return this.repository.getByCaseAndCode(clientCaseId, documentCode, actor);
   }
 
   async getOrCreateForClient(
@@ -93,7 +93,7 @@ export class CaseDocumentService {
   ): Promise<CaseDocumentRecord> {
     await this.requireClientEditor(actor, clientCaseId);
     const definition = this.definition(documentCode);
-    const existing = await this.repository.getByCaseAndCode(clientCaseId, documentCode);
+    const existing = await this.repository.getByCaseAndCode(clientCaseId, documentCode, actor);
     if (existing) return existing;
 
     const questionnaire = await this.questionnaires.get(actor, clientCaseId);
@@ -113,6 +113,7 @@ export class CaseDocumentService {
     const existing = await this.repository.getByCaseAndCode(
       input.clientCaseId,
       input.documentCode,
+      actor,
     );
     if (!existing) throw new Error(DOCUMENT_NOT_FOUND);
 
@@ -131,6 +132,7 @@ export class CaseDocumentService {
     const current = await this.repository.getByCaseAndCode(
       input.clientCaseId,
       input.documentCode,
+      actor,
     );
     if (!current || current.status !== "READY_FOR_REVIEW") {
       throw new Error(DOCUMENT_INVALID_TRANSITION);
@@ -147,6 +149,7 @@ export class CaseDocumentService {
     const current = await this.repository.getByCaseAndCode(
       input.clientCaseId,
       input.documentCode,
+      actor,
     );
     if (!current || current.status !== "SENT_FOR_REVIEW") {
       throw new Error(DOCUMENT_INVALID_TRANSITION);

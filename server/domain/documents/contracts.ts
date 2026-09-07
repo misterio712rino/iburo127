@@ -1,3 +1,5 @@
+import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
+
 export const DOCUMENT_NOT_FOUND = "DOCUMENT_NOT_FOUND";
 export const DOCUMENT_VERSION_CONFLICT = "DOCUMENT_VERSION_CONFLICT";
 
@@ -22,8 +24,15 @@ export type CaseDocumentRecord = {
 };
 
 export interface CaseDocumentRepository {
-  getByCaseAndCode(clientCaseId: string, documentCode: string): Promise<CaseDocumentRecord | null>;
-  listByCase(clientCaseId: string): Promise<readonly CaseDocumentRecord[]>;
+  getByCaseAndCode(
+    clientCaseId: string,
+    documentCode: string,
+    actor: AuthenticatedActor,
+  ): Promise<CaseDocumentRecord | null>;
+  listByCase(
+    clientCaseId: string,
+    actor: AuthenticatedActor,
+  ): Promise<readonly CaseDocumentRecord[]>;
   createForCase(input: {
     clientCaseId: string;
     documentCode: string;
