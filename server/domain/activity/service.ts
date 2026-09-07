@@ -31,7 +31,7 @@ export class CaseActivityService {
 
   async list(actor: AuthenticatedActor, clientCaseId: string, limit?: number) {
     await this.requireAccessibleCase(actor, clientCaseId);
-    return this.repository.listByCase(clientCaseId, normalizeLimit(limit));
+    return this.repository.listByCase(clientCaseId, normalizeLimit(limit), actor);
   }
 
   async appendForActor(
