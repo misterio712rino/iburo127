@@ -56,15 +56,24 @@ jobs:
             -H "x-iburo-staging-file-scan-cleanup-confirm: CLEAN_STAGING_FILE_SCAN_FIXTURES:${GITHUB_SHA}" \
             "$IB_STAGING_BASE_URL/_iburo/staging-file-scan-fixture-cleanup" || true)"
 
-          SAFE_CODE="$(CLEANUP_FILE="$cleanup_file" node --input-type=module -e '
+          SAFE_DIAGNOSTIC="$(CLEANUP_FILE="$cleanup_file" node --input-type=module -e '
             import { readFileSync } from "node:fs";
             try {
               const body = JSON.parse(readFileSync(process.env.CLEANUP_FILE, "utf8"));
-              const code = typeof body.errorCode === "string" && /^[A-Z0-9_]+$/.test(body.errorCode) ? body.errorCode : (body.pass === true ? "PASS" : "UNAVAILABLE");
-              process.stdout.write(code);
+              const d = body.diagnostic ?? {};
+              const safe = {
+                code: typeof body.errorCode === "string" && /^[A-Z0-9_]+$/.test(body.errorCode) ? body.errorCode : (body.pass === true ? "PASS" : "UNAVAILABLE"),
+                confirmationPresent: d.confirmationPresent === true,
+                confirmationLength: Number.isInteger(d.confirmationLength) ? d.confirmationLength : null,
+                confirmationExpectedLength: Number.isInteger(d.confirmationExpectedLength) ? d.confirmationExpectedLength : null,
+                confirmationPrefixMatch: d.confirmationPrefixMatch === true,
+                confirmationSuffixIsCommit: d.confirmationSuffixIsCommit === true,
+                confirmationMatchesIgnoreCase: d.confirmationMatchesIgnoreCase === true,
+              };
+              process.stdout.write(JSON.stringify(safe));
             } catch {
-              process.stdout.write("UNAVAILABLE");
+              process.stdout.write(JSON.stringify({ code: "UNAVAILABLE" }));
             }
           ')"
-          echo "STAGING_FILE_SCAN_CLEANUP_DIAGNOSTIC: http_status=$status code=$SAFE_CODE"
+          echo "STAGING_FILE_SCAN_CLEANUP_DIAGNOSTIC: http_status=$status $SAFE_DIAGNOSTIC"
           if [ "$status" != "200" ]; then exit 1; fi
