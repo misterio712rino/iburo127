@@ -1,14 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@/generated/prisma/client";
+import { sanitizeCaseNotificationText } from "@/lib/platform/case-notification-text";
 import type { NotificationType } from "@/server/domain/notifications/taxonomy";
 import { buildCaseActivityWrite } from "@/server/repositories/prisma/case-activity-write";
-
-const INTERNAL_CASE_REFERENCE_PATTERN = /\bIBR?-[A-Z0-9][A-Z0-9_-]*\b/gi;
-const UNASSIGNED_CASE_NUMBER = "Номер дела ещё не присвоен";
-
-export function sanitizeCaseNotificationText(value: string) {
-  return value.replace(INTERNAL_CASE_REFERENCE_PATTERN, UNASSIGNED_CASE_NUMBER);
-}
 
 export type CaseNotificationInput = {
   userId: string;
