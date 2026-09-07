@@ -129,6 +129,20 @@ try {
   assert.equal(requests.at(-1)?.url, "/api/internal/maintenance/file-scan-health");
   assert.equal(requests.at(-1)?.authorization, `Bearer ${secret}`);
 
+  const fileDeletionResult = await runRunner("file-deletions");
+  assert.equal(fileDeletionResult.code, 0);
+  assert.match(fileDeletionResult.stdout, /MAINTENANCE_SCHEDULER_PASS job=file-deletions status=200/);
+  assert.equal(requests.at(-1)?.method, "POST");
+  assert.equal(requests.at(-1)?.url, "/api/internal/maintenance/file-deletions");
+  assert.equal(requests.at(-1)?.authorization, `Bearer ${secret}`);
+
+  const fileDeletionHealthResult = await runRunner("file-deletion-health");
+  assert.equal(fileDeletionHealthResult.code, 0);
+  assert.match(fileDeletionHealthResult.stdout, /MAINTENANCE_SCHEDULER_PASS job=file-deletion-health status=200/);
+  assert.equal(requests.at(-1)?.method, "POST");
+  assert.equal(requests.at(-1)?.url, "/api/internal/maintenance/file-deletion-health");
+  assert.equal(requests.at(-1)?.authorization, `Bearer ${secret}`);
+
   const aiAuditHealthResult = await runRunner("ai-audit-health");
   assert.equal(aiAuditHealthResult.code, 0);
   assert.match(aiAuditHealthResult.stdout, /MAINTENANCE_SCHEDULER_PASS job=ai-audit-health status=200/);
@@ -149,6 +163,10 @@ try {
     fileScanResult.stderr,
     fileScanHealthResult.stdout,
     fileScanHealthResult.stderr,
+    fileDeletionResult.stdout,
+    fileDeletionResult.stderr,
+    fileDeletionHealthResult.stdout,
+    fileDeletionHealthResult.stderr,
     aiAuditHealthResult.stdout,
     aiAuditHealthResult.stderr,
   ]) {
