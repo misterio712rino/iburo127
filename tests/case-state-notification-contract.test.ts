@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
+import { sanitizeCaseNotificationText } from "@/lib/platform/case-notification-text";
 import { requireNotificationType } from "@/server/domain/notifications/taxonomy";
-import { sanitizeCaseNotificationText } from "@/server/repositories/prisma/case-notification-write";
 
 for (const type of [
   "questionnaire.completed",
