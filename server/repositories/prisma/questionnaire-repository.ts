@@ -15,6 +15,8 @@ import { buildCaseActivityWrite } from "@/server/repositories/prisma/case-activi
 import { createCaseNotificationInTransaction } from "@/server/repositories/prisma/case-notification-write";
 import { isPrismaUniqueConstraintError } from "@/server/repositories/prisma/errors";
 
+const HUMAN_SUPPORT_PLAN_CODES = ["PRO", "INDIVIDUAL"] as const;
+
 function normalizeAnswers(value: unknown): QuestionnaireAnswers {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
 
@@ -68,6 +70,12 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
     const prisma = getPrismaClient();
     try {
       return await prisma.$transaction(async (tx) => {
+        const ownedCase = await tx.clientCase.findFirst({
+          where: { id: clientCaseId, clientId: auditActorUserId },
+          select: { id: true },
+        });
+        if (!ownedCase) throw new Error(QUESTIONNAIRE_NOT_FOUND);
+
         const row = await tx.caseQuestionnaire.create({
           data: {
             clientCaseId,
@@ -88,8 +96,13 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
       });
     } catch (error) {
       if (!isPrismaUniqueConstraintError(error)) throw error;
-      const existing = await prisma.caseQuestionnaire.findUnique({ where: { clientCaseId } });
-      if (!existing) throw error;
+      const existing = await prisma.caseQuestionnaire.findFirst({
+        where: {
+          clientCaseId,
+          clientCase: { clientId: auditActorUserId },
+        },
+      });
+      if (!existing) throw new Error(QUESTIONNAIRE_NOT_FOUND);
       return toRecord(existing);
     }
   }
@@ -98,7 +111,12 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
     const prisma = getPrismaClient();
 
     return prisma.$transaction(async (tx) => {
-      const current = await tx.caseQuestionnaire.findUnique({ where: { clientCaseId: input.clientCaseId } });
+      const current = await tx.caseQuestionnaire.findFirst({
+        where: {
+          clientCaseId: input.clientCaseId,
+          clientCase: { clientId: input.auditActorUserId },
+        },
+      });
       if (!current) throw new Error(QUESTIONNAIRE_NOT_FOUND);
 
       const invalidated = new Set(input.invalidatedSectionIds ?? []);
@@ -110,6 +128,7 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
         where: {
           clientCaseId: input.clientCaseId,
           version: input.expectedVersion,
+          clientCase: { clientId: input.auditActorUserId },
         },
         data: {
           answers: {
@@ -137,7 +156,12 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
         }),
       });
 
-      const row = await tx.caseQuestionnaire.findUnique({ where: { clientCaseId: input.clientCaseId } });
+      const row = await tx.caseQuestionnaire.findFirst({
+        where: {
+          clientCaseId: input.clientCaseId,
+          clientCase: { clientId: input.auditActorUserId },
+        },
+      });
       if (!row) throw new Error(QUESTIONNAIRE_NOT_FOUND);
       return toRecord(row);
     });
@@ -147,7 +171,12 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
     const prisma = getPrismaClient();
 
     return prisma.$transaction(async (tx) => {
-      const current = await tx.caseQuestionnaire.findUnique({ where: { clientCaseId: input.clientCaseId } });
+      const current = await tx.caseQuestionnaire.findFirst({
+        where: {
+          clientCaseId: input.clientCaseId,
+          clientCase: { clientId: input.auditActorUserId },
+        },
+      });
       if (!current) throw new Error(QUESTIONNAIRE_NOT_FOUND);
 
       const completedSectionIds = current.completedSectionIds.includes(input.sectionId)
@@ -158,6 +187,7 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
         where: {
           clientCaseId: input.clientCaseId,
           version: input.expectedVersion,
+          clientCase: { clientId: input.auditActorUserId },
         },
         data: {
           completedSectionIds,
@@ -181,7 +211,12 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
         }),
       });
 
-      const row = await tx.caseQuestionnaire.findUnique({ where: { clientCaseId: input.clientCaseId } });
+      const row = await tx.caseQuestionnaire.findFirst({
+        where: {
+          clientCaseId: input.clientCaseId,
+          clientCase: { clientId: input.auditActorUserId },
+        },
+      });
       if (!row) throw new Error(QUESTIONNAIRE_NOT_FOUND);
       return toRecord(row);
     });
@@ -191,13 +226,19 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
     const prisma = getPrismaClient();
 
     return prisma.$transaction(async (tx) => {
-      const current = await tx.caseQuestionnaire.findUnique({ where: { clientCaseId: input.clientCaseId } });
+      const current = await tx.caseQuestionnaire.findFirst({
+        where: {
+          clientCaseId: input.clientCaseId,
+          clientCase: { clientId: input.auditActorUserId },
+        },
+      });
       if (!current) throw new Error(QUESTIONNAIRE_NOT_FOUND);
 
       const updated = await tx.caseQuestionnaire.updateMany({
         where: {
           clientCaseId: input.clientCaseId,
           version: input.expectedVersion,
+          clientCase: { clientId: input.auditActorUserId },
         },
         data: {
           status: "COMPLETED",
@@ -218,8 +259,13 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
         }),
       });
 
-      const clientCase = await tx.clientCase.findUnique({
-        where: { id: input.clientCaseId },
+      const clientCase = await tx.clientCase.findFirst({
+        where: {
+          id: input.clientCaseId,
+          clientId: input.auditActorUserId,
+          assignedLawyerId: { not: null },
+          plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
+        },
         select: { caseNumber: true, assignedLawyerId: true },
       });
       if (clientCase?.assignedLawyerId) {
@@ -233,7 +279,12 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
         });
       }
 
-      const row = await tx.caseQuestionnaire.findUnique({ where: { clientCaseId: input.clientCaseId } });
+      const row = await tx.caseQuestionnaire.findFirst({
+        where: {
+          clientCaseId: input.clientCaseId,
+          clientCase: { clientId: input.auditActorUserId },
+        },
+      });
       if (!row) throw new Error(QUESTIONNAIRE_NOT_FOUND);
       return toRecord(row);
     });
