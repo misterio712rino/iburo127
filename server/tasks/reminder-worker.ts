@@ -1,3 +1,4 @@
+import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
 import type {
   NotificationDeliveryChannel,
   NotificationRecord,
@@ -109,39 +110,42 @@ export class TaskReminderWorker {
     let createdOrExisting = 0;
 
     for (const task of assigned) {
+      const displayCaseNumber = getClientCaseDisplayNumber(task.caseNumber);
       await this.notifications.createSystem({
         userId: task.assigneeId,
         clientCaseId: task.clientCaseId,
         dedupeKey: reminderKey("assigned", task),
         type: "task.assigned",
         title: "Вам назначена новая задача",
-        body: `По делу ${task.caseNumber} появилась новая рабочая задача. Откройте очередь задач, чтобы посмотреть детали.`,
+        body: `Появилась новая рабочая задача. ${displayCaseNumber}. Откройте очередь задач, чтобы посмотреть детали.`,
       });
       createdOrExisting += 1;
     }
 
     for (const task of dueSoon) {
       if (!task.dueAt) continue;
+      const displayCaseNumber = getClientCaseDisplayNumber(task.caseNumber);
       await this.notifications.createSystem({
         userId: task.assigneeId,
         clientCaseId: task.clientCaseId,
         dedupeKey: reminderKey("due-soon", task),
         type: "task.due_soon",
         title: "Срок задачи приближается",
-        body: `По делу ${task.caseNumber} срок задачи наступит ${formatDueAt(task.dueAt)}. Проверьте рабочую очередь.`,
+        body: `Срок задачи наступит ${formatDueAt(task.dueAt)}. ${displayCaseNumber}. Проверьте рабочую очередь.`,
       });
       createdOrExisting += 1;
     }
 
     for (const task of overdue) {
       if (!task.dueAt) continue;
+      const displayCaseNumber = getClientCaseDisplayNumber(task.caseNumber);
       await this.notifications.createSystem({
         userId: task.assigneeId,
         clientCaseId: task.clientCaseId,
         dedupeKey: reminderKey("overdue", task),
         type: "task.overdue",
         title: "Задача просрочена",
-        body: `По делу ${task.caseNumber} срок задачи истёк ${formatDueAt(task.dueAt)}. Проверьте рабочую очередь.`,
+        body: `Срок задачи истёк ${formatDueAt(task.dueAt)}. ${displayCaseNumber}. Проверьте рабочую очередь.`,
       });
       createdOrExisting += 1;
     }
