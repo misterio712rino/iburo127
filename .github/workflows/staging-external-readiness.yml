@@ -267,6 +267,22 @@ jobs:
           )"
 
           if [ "$http_status" != "200" ]; then
+            HEALTH_FILE="$health_file" node --input-type=module -e '
+              import { readFileSync } from "node:fs";
+              try {
+                const body = JSON.parse(readFileSync(process.env.HEALTH_FILE, "utf8"));
+                const safe = {
+                  pass: body.pass === true,
+                  aggregateOnly: body.aggregateOnly === true,
+                  valuesPrinted: body.valuesPrinted === true,
+                  errorCode: typeof body.errorCode === "string" ? body.errorCode : null,
+                  jobs: body.jobs ?? null,
+                };
+                console.error(`STAGING_MAINTENANCE_BACKLOG_DIAGNOSTIC: ${JSON.stringify(safe)}`);
+              } catch {
+                console.error("STAGING_MAINTENANCE_BACKLOG_DIAGNOSTIC: unavailable");
+              }
+            '
             echo "STAGING_MAINTENANCE_BACKLOG_HEALTH_FAIL: http_status=$http_status" >&2
             exit 1
           fi
