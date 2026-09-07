@@ -2,6 +2,38 @@
 
 Status: staging-only operational runbook. This document does not authorize production changes.
 
+## Current evidence snapshot
+
+Current candidate at the time of this snapshot: `047fd789e0db93e40023529f3b05b981a8f598c9`.
+
+Proven on the exact protected Preview:
+
+- Vercel Preview deployment is `READY` for the exact candidate.
+- `Staging Application E2E` run `34144252143` passed.
+- exact staging identity passed.
+- read-only staging database baseline passed.
+- external readiness inventory endpoint passed and printed only aggregate/configuration metadata.
+- staging storage inventory is ready `4/4` using private Vercel Blob.
+- scanner inventory remains not ready `3/12`; the nine missing scanner bindings are listed below.
+- guarded stale scanner fixture cleanup passed with `deleted=0`.
+- maintenance health is functioning and returns expected aggregate `503` because only `fileScans` is unhealthy: `overduePending=43`; notification delivery, stale uploads, durable file deletion, and AI audit health are healthy.
+
+The first External Readiness attempt briefly received `404` from the maintenance-health route during deployment convergence. A rerun after the exact Preview was stable reached the route correctly and returned the expected aggregate `503` with `fileScans.overduePending=43`. The route is present in the exact Vercel build manifest. This transient first-attempt result is not treated as a code defect.
+
+Current scanner runtime configuration is still missing:
+
+- `IB_FILE_SCANNER_TARGET`
+- `IB_FILE_SCANNER_ORIGIN`
+- `IB_FILE_SCANNER_SECRET`
+- `IB_STAGING_FILE_SCANNER_ORIGIN`
+- `IB_STAGING_FILE_SCANNER_SECRET_SHA256`
+- `IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY`
+- `IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY`
+- `IB_STAGING_FILE_SCANNER_CONFIRM`
+- `IB_STAGING_VERCEL_BLOB_PRIVATE_HOST`
+
+Therefore the current status remains `LIVE_SCANNER_NOT_PROVEN` until Yandex staging infrastructure, scanner secret, HTTPS origin, and CLEAN/EICAR runtime smoke are actually completed.
+
 ## Objective
 
 Prove the complete live malware-scanner chain for the exact `audit/production-readiness` candidate:
