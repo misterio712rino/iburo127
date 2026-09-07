@@ -1,3 +1,5 @@
+import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
+
 export const PRACTICUM_NOT_FOUND = "PRACTICUM_NOT_FOUND";
 export const PRACTICUM_VERSION_CONFLICT = "PRACTICUM_VERSION_CONFLICT";
 
@@ -12,7 +14,10 @@ export type PracticumProgressRecord = {
 };
 
 export interface PracticumProgressRepository {
-  getByClientCaseId(clientCaseId: string): Promise<PracticumProgressRecord | null>;
+  getByClientCaseId(
+    clientCaseId: string,
+    actor?: AuthenticatedActor,
+  ): Promise<PracticumProgressRecord | null>;
   createForCase(clientCaseId: string): Promise<PracticumProgressRecord>;
   completeLesson(input: {
     clientCaseId: string;

@@ -37,12 +37,12 @@ export class PracticumService {
 
   async get(actor: AuthenticatedActor, clientCaseId: string): Promise<PracticumProgressRecord | null> {
     await this.requireAccessibleCase(actor, clientCaseId);
-    return this.repository.getByClientCaseId(clientCaseId);
+    return this.repository.getByClientCaseId(clientCaseId, actor);
   }
 
   async getOrCreateForClient(actor: AuthenticatedActor, clientCaseId: string) {
     await this.requireClientEditor(actor, clientCaseId);
-    const existing = await this.repository.getByClientCaseId(clientCaseId);
+    const existing = await this.repository.getByClientCaseId(clientCaseId, actor);
     return existing ?? this.repository.createForCase(clientCaseId);
   }
 

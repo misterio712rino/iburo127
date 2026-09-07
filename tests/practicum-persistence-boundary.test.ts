@@ -6,6 +6,31 @@ const progressSource = await readFile(
   resolve("server/repositories/prisma/practicum-progress-repository.ts"),
   "utf8",
 );
+const practicumServiceSource = await readFile(
+  resolve("server/domain/practicum/service.ts"),
+  "utf8",
+);
+
+assert.match(
+  progressSource,
+  /async getByClientCaseId\(clientCaseId: string, actor\?: AuthenticatedActor\)/,
+  "practicum progress persistence read must accept the authenticated actor scope",
+);
+assert.match(
+  progressSource,
+  /assignedLawyerId: actor\.userId[\s\S]*plan: \{ code: \{ in: \[\.\.\.HUMAN_SUPPORT_PLAN_CODES\] \} \}/,
+  "LAWYER practicum progress reads must require current assignment and human-support plan",
+);
+assert.match(
+  progressSource,
+  /clientCase: \{[\s\S]*is: \{ OR: access \}/,
+  "practicum progress read must apply actor access at the final Prisma query",
+);
+assert.match(
+  practicumServiceSource,
+  /repository\.getByClientCaseId\(clientCaseId, actor\)/,
+  "practicum service must propagate actor scope to the persistence read",
+);
 
 const completeLessonStart = progressSource.indexOf("  async completeLesson(");
 assert.ok(completeLessonStart >= 0, "completeLesson persistence path must exist");
