@@ -66,7 +66,7 @@
     "@base-ui/react": "^1.6.0",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
-    "better-auth": "^1.7.2",
+    "better-auth": "1.7.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.42.2",
@@ -87,10 +87,10 @@
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
+    "prisma-cli": "npm:prisma@7.9.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.12",
-    "typescript": "^5",
-    "prisma-cli": "npm:prisma@7.9.1"
+    "typescript": "^5"
   },
   "overrides": {
     "qs": "6.16.0",
