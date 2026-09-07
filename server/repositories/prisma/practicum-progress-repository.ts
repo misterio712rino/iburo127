@@ -11,6 +11,8 @@ import { buildCaseActivityWrite } from "@/server/repositories/prisma/case-activi
 import { createCaseNotificationInTransaction } from "@/server/repositories/prisma/case-notification-write";
 import { isPrismaUniqueConstraintError } from "@/server/repositories/prisma/errors";
 
+const HUMAN_SUPPORT_PLAN_CODES = ["PRO", "INDIVIDUAL"] as const;
+
 function toRecord(row: {
   clientCaseId: string;
   completedLessonIds: string[];
@@ -55,8 +57,11 @@ export class PrismaPracticumProgressRepository implements PracticumProgressRepos
     const prisma = getPrismaClient();
 
     return prisma.$transaction(async (tx) => {
-      const current = await tx.casePracticumProgress.findUnique({
-        where: { clientCaseId: input.clientCaseId },
+      const current = await tx.casePracticumProgress.findFirst({
+        where: {
+          clientCaseId: input.clientCaseId,
+          clientCase: { clientId: input.auditActorUserId },
+        },
       });
       if (!current) throw new Error(PRACTICUM_NOT_FOUND);
 
@@ -69,6 +74,7 @@ export class PrismaPracticumProgressRepository implements PracticumProgressRepos
         where: {
           clientCaseId: input.clientCaseId,
           version: input.expectedVersion,
+          clientCase: { clientId: input.auditActorUserId },
         },
         data: {
           completedLessonIds,
@@ -98,8 +104,13 @@ export class PrismaPracticumProgressRepository implements PracticumProgressRepos
           }),
         });
 
-        const clientCase = await tx.clientCase.findUnique({
-          where: { id: input.clientCaseId },
+        const clientCase = await tx.clientCase.findFirst({
+          where: {
+            id: input.clientCaseId,
+            clientId: input.auditActorUserId,
+            assignedLawyerId: { not: null },
+            plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
+          },
           select: { caseNumber: true, assignedLawyerId: true },
         });
         if (clientCase?.assignedLawyerId) {
@@ -114,8 +125,11 @@ export class PrismaPracticumProgressRepository implements PracticumProgressRepos
         }
       }
 
-      const row = await tx.casePracticumProgress.findUnique({
-        where: { clientCaseId: input.clientCaseId },
+      const row = await tx.casePracticumProgress.findFirst({
+        where: {
+          clientCaseId: input.clientCaseId,
+          clientCase: { clientId: input.auditActorUserId },
+        },
       });
       if (!row) throw new Error(PRACTICUM_NOT_FOUND);
       return toRecord(row);
