@@ -1,4 +1,4 @@
-import { getClientCaseDisplayNumber } from "@/server/domain/client-cases/case-number-presentation";
+import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
 import type { NotificationRecord } from "@/server/domain/notifications/contracts";
 
 export type QuestionnaireReminderCandidate = {
