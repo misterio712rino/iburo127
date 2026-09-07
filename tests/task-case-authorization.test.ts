@@ -9,11 +9,12 @@ import type {
   ClientCaseRepository,
 } from "@/server/domain/client-cases/contracts";
 import { ClientCaseService } from "@/server/domain/client-cases/service";
-import type {
-  CreateTaskRepositoryInput,
-  TaskRecord,
-  TaskRepository,
-  TaskStatus,
+import {
+  TASK_NOT_FOUND,
+  type CreateTaskRepositoryInput,
+  type TaskRecord,
+  type TaskRepository,
+  type TaskStatus,
 } from "@/server/domain/tasks/contracts";
 import {
   TASK_FORBIDDEN,
@@ -199,7 +200,7 @@ await assert.rejects(
     status: "WORKING",
     expectedVersion: 1,
   }),
-  new RegExp(TASK_FORBIDDEN),
+  new RegExp(TASK_NOT_FOUND),
 );
 assert.equal(repository.updates.includes("task-stale-assignee"), false);
 
