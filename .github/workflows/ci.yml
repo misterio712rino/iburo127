@@ -156,6 +156,24 @@ jobs:
       - name: Validate Prisma schema
         run: npm run db:validate
 
+      - name: Migration history fingerprint
+        run: npm run db:inspect:migrations
+
+      - name: Durable deletion migration SQL review
+        shell: bash
+        env:
+          IB_MIGRATION_SQL_PATH: prisma/migrations/20260906_stored_file_deletion_foundation/migration.sql
+        run: |
+          review_file="$RUNNER_TEMP/file-deletion-migration-review.txt"
+          npm run db:review:sql | tee "$review_file"
+          grep -Fx "REVIEW: ADD_UNIQUE" "$review_file" >/dev/null
+          grep -Fx "MIGRATION_REVIEW_REQUIRES_MANUAL_REVIEW" "$review_file" >/dev/null
+          if grep -Eq '^BLOCK:' "$review_file"; then
+            echo "FILE_DELETION_MIGRATION_REVIEW_FAIL: blocking SQL finding" >&2
+            exit 1
+          fi
+          echo "FILE_DELETION_MIGRATION_REVIEW_GATE_PASS"
+
       - name: Generate Prisma client
         run: npm run db:generate
 
