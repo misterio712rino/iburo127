@@ -107,6 +107,8 @@ jobs:
           for attempt in $(seq 1 "$max_attempts"); do
             http_status="$(
               curl --silent --show-error \
+                --connect-timeout 5 \
+                --max-time 20 \
                 --output "$identity_file" \
                 --write-out '%{http_code}' \
                 -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
@@ -163,6 +165,8 @@ jobs:
           for attempt in $(seq 1 "$max_attempts"); do
             http_status="$(
               curl --silent --show-error \
+                --connect-timeout 5 \
+                --max-time 20 \
                 --output "$response_file" \
                 --write-out '%{http_code}' \
                 -X POST \
@@ -244,6 +248,8 @@ jobs:
           for attempt in $(seq 1 "$max_attempts"); do
             http_status="$(
               curl --silent --show-error \
+                --connect-timeout 5 \
+                --max-time 20 \
                 --output "$response_file" \
                 --write-out '%{http_code}' \
                 -X POST \
