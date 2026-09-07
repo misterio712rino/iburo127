@@ -14,6 +14,7 @@ const expectedRoutes = [
   "staging-db-baseline",
   "staging-domain-fixtures",
   "staging-external-readiness",
+  "staging-file-deletion-worker",
   "staging-identity",
   "staging-storage-verify",
 ] as const;
