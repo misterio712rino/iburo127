@@ -1,7 +1,7 @@
 import { canAccessClientCaseAsStaff } from "@/server/domain/client-cases/access-policy";
 import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
 import { ClientCaseService } from "@/server/domain/client-cases/service";
-import type { TaskRecord, TaskRepository, TaskStatus } from "@/server/domain/tasks/contracts";
+import { TASK_NOT_FOUND, type TaskRecord, type TaskRepository, type TaskStatus } from "@/server/domain/tasks/contracts";
 
 export const TASK_FORBIDDEN = "TASK_FORBIDDEN";
 export const TASK_INVALID_STATUS = "TASK_INVALID_STATUS";
@@ -116,7 +116,7 @@ export class TaskService {
       throw new Error(TASK_FORBIDDEN);
     }
     const task = await this.get(actor, input.taskId);
-    if (!task) throw new Error(TASK_FORBIDDEN);
+    if (!task) throw new Error(TASK_NOT_FOUND);
 
     return this.repository.updateStatus({ actor, ...input });
   }
