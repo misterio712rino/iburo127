@@ -1,0 +1,206 @@
+name: Staging Better Auth 1.7.3 Upgrade
+
+on:
+  push:
+    branches:
+      - audit/production-readiness
+    paths:
+      - ops/staging-better-auth-173-upgrade.trigger
+
+permissions:
+  contents: read
+
+jobs:
+  upgrade:
+    if: github.ref_name == 'audit/production-readiness'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      IB_STAGING_BASE_URL: https://iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
+      IB_STAGING_DATABASE_NAME: neondb
+      IB_STAGING_BETTER_AUTH_SCHEMA: public
+
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          check-latest: false
+
+      - name: Exact one-shot trigger gate
+        shell: bash
+        run: |
+          test "$GITHUB_REF" = "refs/heads/audit/production-readiness"
+          actual_sha="$(git rev-parse HEAD)"
+          test "$actual_sha" = "$GITHUB_SHA"
+          test -f ops/staging-better-auth-173-upgrade.trigger
+          test "$(cat ops/staging-better-auth-173-upgrade.trigger)" = "RUN_STAGING_BETTER_AUTH_173_UPGRADE"
+          echo "STAGING_BETTER_AUTH_173_TRIGGER_GATE_PASS: $actual_sha"
+
+      - name: Generate exact Better Auth 1.7.3 lock candidate
+        shell: bash
+        run: |
+          npm install --package-lock-only --ignore-scripts --audit=false --fund=false --save-exact better-auth@1.7.3
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+          const lock = JSON.parse(readFileSync("package-lock.json", "utf8"));
+          if (pkg.dependencies?.["better-auth"] !== "1.7.3") process.exit(1);
+          if (lock.packages?.["node_modules/better-auth"]?.version !== "1.7.3") process.exit(1);
+          if (lock.packages?.["node_modules/@better-auth/core"]?.version !== "1.7.3") process.exit(1);
+          console.log("BETTER_AUTH_173_LOCK_CANDIDATE_PASS");
+          NODE
+          echo "BETTER_AUTH_173_LOCK_DIFF_BEGIN"
+          git diff -- package.json package-lock.json
+          echo "BETTER_AUTH_173_LOCK_DIFF_END"
+
+      - name: Verify exact protected Preview identity
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          identity_file="$RUNNER_TEMP/staging-better-auth-173-identity.json"
+          rm -f "$identity_file"
+          trap 'rm -f "$identity_file"' EXIT
+          for attempt in $(seq 1 24); do
+            http_status="$(
+              curl --silent --show-error \
+                --connect-timeout 5 \
+                --max-time 15 \
+                --output "$identity_file" \
+                --write-out '%{http_code}' \
+                -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+                "$IB_STAGING_BASE_URL/_iburo/staging-identity" \
+                || true
+            )"
+            if [ "$http_status" = "200" ] && IDENTITY_FILE="$identity_file" node --input-type=module -e '
+              import { readFileSync } from "node:fs";
+              try {
+                const body = JSON.parse(readFileSync(process.env.IDENTITY_FILE, "utf8"));
+                if (
+                  body.service === "iburo127" &&
+                  body.environment === "preview" &&
+                  body.branch === "audit/production-readiness" &&
+                  body.commitSha === process.env.GITHUB_SHA &&
+                  body.runtimeTarget === "staging" &&
+                  body.backendEnabled === true
+                ) process.exit(0);
+              } catch {}
+              process.exit(1);
+            '; then
+              echo "STAGING_BETTER_AUTH_173_IDENTITY_PASS: $GITHUB_SHA"
+              exit 0
+            fi
+            if [ "$attempt" -lt 24 ]; then sleep 5; fi
+          done
+          echo "STAGING_BETTER_AUTH_173_IDENTITY_FAIL" >&2
+          exit 1
+
+      - name: Verify legacy Better Auth staging baseline
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          preflight_file="$RUNNER_TEMP/staging-better-auth-173-preflight.html"
+          rm -f "$preflight_file"
+          trap 'rm -f "$preflight_file"' EXIT
+          http_status="$(
+            curl --silent --show-error \
+              --connect-timeout 5 \
+              --max-time 30 \
+              --output "$preflight_file" \
+              --write-out '%{http_code}' \
+              -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+              "$IB_STAGING_BASE_URL/_iburo/staging-better-auth-upgrade-173" \
+              || true
+          )"
+          test "$http_status" = "200"
+          grep -F "Legacy 1.7.0-1.7.2 account schema confirmed with no duplicate provider accounts." "$preflight_file" >/dev/null
+          grep -F "commit: $GITHUB_SHA" "$preflight_file" >/dev/null
+          grep -F "database: $IB_STAGING_DATABASE_NAME" "$preflight_file" >/dev/null
+          grep -F "schema: $IB_STAGING_BETTER_AUTH_SCHEMA" "$preflight_file" >/dev/null
+          grep -F "issuer nullable: false" "$preflight_file" >/dev/null
+          grep -F "legacy issuer index present: true" "$preflight_file" >/dev/null
+          grep -F "duplicate (providerId, accountId) groups: 0" "$preflight_file" >/dev/null
+          echo "STAGING_BETTER_AUTH_173_LEGACY_BASELINE_PASS"
+
+      - name: Apply guarded Better Auth 1.7.3 staging schema upgrade
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          result_file="$RUNNER_TEMP/staging-better-auth-173-result.json"
+          rm -f "$result_file"
+          trap 'rm -f "$result_file"' EXIT
+          confirmation="UPGRADE_BETTER_AUTH_173:${IB_STAGING_DATABASE_NAME}:${IB_STAGING_BETTER_AUTH_SCHEMA}:${GITHUB_SHA}"
+          http_status="$(
+            curl --silent --show-error \
+              --connect-timeout 5 \
+              --max-time 45 \
+              --output "$result_file" \
+              --write-out '%{http_code}' \
+              --request POST \
+              -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+              -H "Origin: $IB_STAGING_BASE_URL" \
+              -H "Sec-Fetch-Site: same-origin" \
+              --data-urlencode "confirm=$confirmation" \
+              "$IB_STAGING_BASE_URL/_iburo/staging-better-auth-upgrade-173" \
+              || true
+          )"
+          if [ "$http_status" != "200" ]; then
+            echo "STAGING_BETTER_AUTH_173_UPGRADE_FAIL: http_status=$http_status" >&2
+            exit 1
+          fi
+          RESULT_FILE="$result_file" node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const body = JSON.parse(readFileSync(process.env.RESULT_FILE, "utf8"));
+            if (
+              body.service !== "iburo127" ||
+              body.operation !== "staging-better-auth-upgrade-173" ||
+              body.environment !== "preview" ||
+              body.branch !== "audit/production-readiness" ||
+              body.commitSha !== process.env.GITHUB_SHA ||
+              body.runtimeTarget !== "staging" ||
+              body.database !== process.env.IB_STAGING_DATABASE_NAME ||
+              body.schema !== process.env.IB_STAGING_BETTER_AUTH_SCHEMA ||
+              body.duplicateProviderAccounts !== 0 ||
+              body.issuerNullable !== true ||
+              body.legacyIndexRemoved !== true ||
+              body.pass !== true
+            ) process.exit(1);
+          '
+          echo "STAGING_BETTER_AUTH_173_UPGRADE_PASS: $GITHUB_SHA"
+
+      - name: Verify upgraded staging schema cannot replay
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          verify_file="$RUNNER_TEMP/staging-better-auth-173-post.html"
+          rm -f "$verify_file"
+          trap 'rm -f "$verify_file"' EXIT
+          http_status="$(
+            curl --silent --show-error \
+              --connect-timeout 5 \
+              --max-time 30 \
+              --output "$verify_file" \
+              --write-out '%{http_code}' \
+              -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+              "$IB_STAGING_BASE_URL/_iburo/staging-better-auth-upgrade-173" \
+              || true
+          )"
+          test "$http_status" = "200"
+          grep -F "Better Auth account schema is already compatible with 1.7.3. Do not replay upgrade." "$verify_file" >/dev/null
+          grep -F "commit: $GITHUB_SHA" "$verify_file" >/dev/null
+          grep -F "issuer nullable: true" "$verify_file" >/dev/null
+          grep -F "legacy issuer index present: false" "$verify_file" >/dev/null
+          grep -F "duplicate (providerId, accountId) groups: 0" "$verify_file" >/dev/null
+          echo "STAGING_BETTER_AUTH_173_POSTVERIFY_PASS"
