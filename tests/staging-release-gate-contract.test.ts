@@ -255,6 +255,22 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(stagingDbProbe, /expectedHost|expectedUser/);
 
+const stagingDeletionWorkerRoute = await readFile(
+  resolve("app/%5Fiburo/staging-file-deletion-worker/route.ts"),
+  "utf8",
+);
+assert.match(stagingDeletionWorkerRoute, /export const dynamic = "force-dynamic"/);
+assert.match(stagingDeletionWorkerRoute, /export const runtime = "nodejs"/);
+assert.match(stagingDeletionWorkerRoute, /readStoredFileDeletionMode\(env\) !== "durable"/);
+assert.match(stagingDeletionWorkerRoute, /RUN_STAGING_FILE_DELETION:/);
+assert.match(stagingDeletionWorkerRoute, /Cache-Control/);
+assert.match(stagingDeletionWorkerRoute, /private, no-store/);
+await assert.rejects(
+  () => readFile(resolve("app/_iburo/staging-file-deletion-worker/route.ts"), "utf8"),
+  /ENOENT/,
+  "underscore-prefixed App Router folders are private; staging worker must use the %5F-encoded route folder",
+);
+
 const certifiedSha = "12a4155acd473838b3e4f48bc318016187854a68";
 const laterSha = "22a4155acd473838b3e4f48bc318016187854a68";
 const exactPreviewEnv = {
