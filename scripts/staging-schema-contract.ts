@@ -18,6 +18,7 @@ export const REQUIRED_STAGING_DOMAIN_TABLES = [
   "Notification",
   "NotificationDelivery",
   "StoredFile",
+  "StoredFileDeletion",
   "PotentialClientLead",
 ] as const;
 
@@ -29,6 +30,7 @@ export const REQUIRED_STAGING_ENUMS = [
   "TaskStatus",
   "CaseDocumentStatus",
   "StoredFileStatus",
+  "StoredFileDeletionStatus",
   "NotificationDeliveryChannel",
   "NotificationDeliveryStatus",
   "PotentialClientLeadContactType",
