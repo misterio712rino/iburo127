@@ -8,12 +8,26 @@ import type {
   ClientCaseRepository,
 } from "@/server/domain/client-cases/contracts";
 
+const HUMAN_SUPPORT_PLAN_CODES = ["PRO", "INDIVIDUAL"] as const;
+
+type ActorCaseAccessClause =
+  | { clientId: string }
+  | {
+      assignedLawyerId: string;
+      plan: { code: { in: Array<(typeof HUMAN_SUPPORT_PLAN_CODES)[number]> } };
+    };
+
 function actorAccessWhere(actor: AuthenticatedActor) {
   if (actor.roles.includes("MANAGER")) return {};
 
-  const access: Array<{ clientId: string } | { assignedLawyerId: string }> = [];
+  const access: ActorCaseAccessClause[] = [];
   if (actor.roles.includes("CLIENT")) access.push({ clientId: actor.userId });
-  if (actor.roles.includes("LAWYER")) access.push({ assignedLawyerId: actor.userId });
+  if (actor.roles.includes("LAWYER")) {
+    access.push({
+      assignedLawyerId: actor.userId,
+      plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
+    });
+  }
 
   return access.length ? { OR: access } : null;
 }
