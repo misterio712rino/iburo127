@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { requireNotificationType } from "@/server/domain/notifications/taxonomy";
+import { sanitizeCaseNotificationText } from "@/server/repositories/prisma/case-notification-write";
 
 for (const type of [
   "questionnaire.completed",
@@ -12,6 +13,23 @@ for (const type of [
 ] as const) {
   assert.equal(requireNotificationType(type), type);
 }
+
+assert.equal(
+  sanitizeCaseNotificationText("По делу IBR-2026-000001 требуется действие"),
+  "По делу Номер дела ещё не присвоен требуется действие",
+);
+assert.equal(
+  sanitizeCaseNotificationText("По делу IB-Q-1 требуется действие"),
+  "По делу Номер дела ещё не присвоен требуется действие",
+);
+assert.equal(
+  sanitizeCaseNotificationText("По делу А65-12345/2026 требуется действие"),
+  "По делу А65-12345/2026 требуется действие",
+);
+assert.doesNotMatch(
+  sanitizeCaseNotificationText("IBR-2026-000001 IB-Q-1"),
+  /\bIBR?-[A-Z0-9][A-Z0-9_-]*\b/i,
+);
 
 const helperSource = await readFile(
   resolve("server/repositories/prisma/case-notification-write.ts"),
@@ -54,6 +72,8 @@ assert.match(helperSource, /type:\s*"notification\.created"/);
 assert.match(helperSource, /actorUserId:\s*null/);
 assert.match(helperSource, /notificationId/);
 assert.match(helperSource, /notificationType:\s*input\.type/);
+assert.match(helperSource, /title:\s*sanitizeCaseNotificationText\(input\.title\)/);
+assert.match(helperSource, /body:\s*sanitizeCaseNotificationText\(input\.body\)/);
 assert.doesNotMatch(helperSource, /notificationDelivery/);
 assert.doesNotMatch(helperSource, /deliveryChannels/);
 
