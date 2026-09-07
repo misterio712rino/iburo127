@@ -1,0 +1,111 @@
+name: Better Auth 1.7.3 Lock Writer
+
+on:
+  push:
+    branches:
+      - audit/production-readiness
+    paths:
+      - ops/better-auth-173-lock-writer.trigger
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.ref_name == 'audit/production-readiness'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          check-latest: false
+
+      - name: Exact one-shot trigger gate
+        shell: bash
+        run: |
+          test "$GITHUB_REF" = "refs/heads/audit/production-readiness"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -f ops/better-auth-173-lock-writer.trigger
+          test "$(cat ops/better-auth-173-lock-writer.trigger)" = "APPLY_BETTER_AUTH_173_LOCK_ONLY"
+
+      - name: Generate and verify exact two-file diff
+        shell: bash
+        run: |
+          npm install --package-lock-only --ignore-scripts --audit=false --fund=false --save-exact better-auth@1.7.3
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+          const lock = JSON.parse(readFileSync("package-lock.json", "utf8"));
+          if (pkg.dependencies?.["better-auth"] !== "1.7.3") process.exit(1);
+          if (lock.packages?.["node_modules/better-auth"]?.version !== "1.7.3") process.exit(1);
+          if (lock.packages?.["node_modules/@better-auth/core"]?.version !== "1.7.3") process.exit(1);
+          for (const [name, meta] of Object.entries(lock.packages ?? {})) {
+            if ((name.startsWith("node_modules/better-auth") || name.startsWith("node_modules/@better-auth")) && meta?.version === "1.7.2") process.exit(1);
+          }
+          NODE
+          changed="$(git diff --name-only | sort)"
+          expected="$(printf 'package-lock.json\npackage.json')"
+          test "$changed" = "$expected"
+          git diff --check
+          echo "BETTER_AUTH_173_TWO_FILE_DIFF_PASS"
+
+      - name: Create atomic fast-forward commit through Git data API
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          base_tree="$(git rev-parse HEAD^{tree})"
+          BASE_TREE="$base_tree" node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const token = process.env.GITHUB_TOKEN;
+          const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
+          const expectedHead = process.env.GITHUB_SHA;
+          const baseTree = process.env.BASE_TREE;
+          const api = `https://api.github.com/repos/${owner}/${repo}`;
+          const headers = {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "Content-Type": "application/json",
+          };
+          async function request(path, init = {}) {
+            const res = await fetch(`${api}${path}`, { ...init, headers: { ...headers, ...(init.headers ?? {}) } });
+            const text = await res.text();
+            const body = text ? JSON.parse(text) : null;
+            if (!res.ok) throw new Error(`${init.method ?? "GET"} ${path} -> ${res.status}`);
+            return body;
+          }
+          async function assertHead() {
+            const ref = await request("/git/ref/heads/audit/production-readiness");
+            if (ref?.object?.sha !== expectedHead) throw new Error("branch head moved; refusing write");
+          }
+          await assertHead();
+          const entries = [];
+          for (const path of ["package.json", "package-lock.json"]) {
+            const content = readFileSync(path).toString("base64");
+            const blob = await request("/git/blobs", { method: "POST", body: JSON.stringify({ content, encoding: "base64" }) });
+            entries.push({ path, mode: "100644", type: "blob", sha: blob.sha });
+          }
+          const tree = await request("/git/trees", { method: "POST", body: JSON.stringify({ base_tree: baseTree, tree: entries }) });
+          await assertHead();
+          const commit = await request("/git/commits", {
+            method: "POST",
+            body: JSON.stringify({ message: "security: upgrade Better Auth runtime to 1.7.3", tree: tree.sha, parents: [expectedHead] }),
+          });
+          await assertHead();
+          const updated = await request("/git/refs/heads/audit/production-readiness", {
+            method: "PATCH",
+            body: JSON.stringify({ sha: commit.sha, force: false }),
+          });
+          if (updated?.object?.sha !== commit.sha) throw new Error("ref verification failed");
+          console.log(`BETTER_AUTH_173_ATOMIC_COMMIT_PASS: ${commit.sha}`);
+          NODE
