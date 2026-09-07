@@ -1,6 +1,6 @@
 #cloud-config
 bootcmd:
-  - [cloud-init-per, once, iburo-scanner-policy-rcd, sh, -ec, "if [ ! -e /usr/sbin/policy-rc.d ]; then printf '#!/bin/sh\\nexit 101\\n' > /usr/sbin/policy-rc.d; chmod 0755 /usr/sbin/policy-rc.d; touch /run/iburo-scanner-policy-rcd-created; fi"]
+  - [cloud-init-per, once, iburo-scanner-policy-rcd, sh, -ec, "if [ ! -e /usr/sbin/policy-rc.d ]; then echo '#!/bin/sh' > /usr/sbin/policy-rc.d; echo 'exit 101' >> /usr/sbin/policy-rc.d; chmod 0755 /usr/sbin/policy-rc.d; touch /run/iburo-scanner-policy-rcd-created; fi"]
 
 apt:
   preserve_sources_list: false

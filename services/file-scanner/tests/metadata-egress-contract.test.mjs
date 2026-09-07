@@ -48,7 +48,8 @@ test("staging scanner package installation cannot auto-start public Caddy", () =
   const cloudInit = read("infra/file-scanner-staging/cloud-init.yaml.tftpl");
 
   assert.match(cloudInit, /bootcmd:\n\s+- \[cloud-init-per, once, iburo-scanner-policy-rcd,/);
-  assert.match(cloudInit, /printf '#!\/bin\/sh\\nexit 101\\n' > \/usr\/sbin\/policy-rc\.d/);
+  assert.match(cloudInit, /echo '#!\/bin\/sh' > \/usr\/sbin\/policy-rc\.d/);
+  assert.match(cloudInit, /echo 'exit 101' >> \/usr\/sbin\/policy-rc\.d/);
   assert.match(cloudInit, /touch \/run\/iburo-scanner-policy-rcd-created/);
 
   const cleanupIndex = cloudInit.indexOf("rm -f /usr/sbin/policy-rc.d /run/iburo-scanner-policy-rcd-created");
