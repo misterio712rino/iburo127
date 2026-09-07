@@ -141,8 +141,15 @@ async function inspectBaseline(
     issuerNullable = issuerPresent ? issuer.rows[0]?.is_nullable === "YES" : null;
 
     const legacyIndex = await client.query<{ present: boolean }>(
-      `select to_regclass($1) is not null as present`,
-      [`${BETTER_AUTH_SCHEMA}.${LEGACY_INDEX}`],
+      `
+        select exists (
+          select 1
+          from pg_indexes
+          where schemaname = $1
+            and indexname = $2
+        ) as present
+      `,
+      [BETTER_AUTH_SCHEMA, LEGACY_INDEX],
     );
     legacyIndexPresent = legacyIndex.rows[0]?.present === true;
 
