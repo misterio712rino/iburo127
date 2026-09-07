@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import type {
   AuthenticatedActor,
   ClientCaseAccessScope,
@@ -245,7 +247,41 @@ async function testPracticumMutationBoundaries() {
   );
 }
 
+async function testDocumentPersistenceMutationBoundaries() {
+  const source = await readFile(
+    resolve("server/repositories/prisma/document-repository.ts"),
+    "utf8",
+  );
+  const regenerateStart = source.indexOf("  async regenerate(");
+  const sendStart = source.indexOf("  async sendForReview(");
+  const reviewStart = source.indexOf("  async markReviewed(");
+
+  assert.ok(regenerateStart >= 0 && sendStart > regenerateStart && reviewStart > sendStart);
+
+  const regenerateSource = source.slice(regenerateStart, sendStart);
+  const sendSource = source.slice(sendStart, reviewStart);
+  const reviewSource = source.slice(reviewStart);
+
+  assert.match(regenerateSource, /findFirst\([\s\S]*clientCase: \{ clientId: input\.auditActorUserId \}/);
+  assert.match(regenerateSource, /updateMany\([\s\S]*clientCase: \{ clientId: input\.auditActorUserId \}/);
+
+  assert.match(sendSource, /findFirst\([\s\S]*clientId: input\.auditActorUserId/);
+  assert.match(sendSource, /findFirst\([\s\S]*assignedLawyerId: \{ not: null \}/);
+  assert.match(sendSource, /findFirst\([\s\S]*plan: \{ code: \{ in: \[\.\.\.HUMAN_SUPPORT_PLAN_CODES\] \} \}/);
+  assert.match(sendSource, /updateMany\([\s\S]*clientId: input\.auditActorUserId/);
+  assert.match(sendSource, /updateMany\([\s\S]*assignedLawyerId: \{ not: null \}/);
+  assert.match(sendSource, /updateMany\([\s\S]*plan: \{ code: \{ in: \[\.\.\.HUMAN_SUPPORT_PLAN_CODES\] \} \}/);
+
+  assert.match(reviewSource, /findFirst\([\s\S]*assignedLawyerId: input\.auditActorUserId/);
+  assert.match(reviewSource, /findFirst\([\s\S]*plan: \{ code: \{ in: \[\.\.\.HUMAN_SUPPORT_PLAN_CODES\] \} \}/);
+  assert.match(reviewSource, /updateMany\([\s\S]*assignedLawyerId: input\.auditActorUserId/);
+  assert.match(reviewSource, /updateMany\([\s\S]*plan: \{ code: \{ in: \[\.\.\.HUMAN_SUPPORT_PLAN_CODES\] \} \}/);
+
+  assert.match(source, /const HUMAN_SUPPORT_PLAN_CODES = \["PRO", "INDIVIDUAL"\] as const;/);
+}
+
 await testQuestionnaireMutationBoundaries();
 await testPracticumMutationBoundaries();
+await testDocumentPersistenceMutationBoundaries();
 
 console.log("PRODUCTION_MUTATION_BOUNDARIES_PASS");
