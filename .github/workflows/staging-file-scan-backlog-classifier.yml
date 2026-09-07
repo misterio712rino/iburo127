@@ -13,11 +13,20 @@ jobs:
     if: github.ref_name == 'audit/production-readiness'
     runs-on: ubuntu-24.04
     timeout-minutes: 4
+    outputs:
+      pending: ${{ steps.aggregate.outputs.pending }}
+      known: ${{ steps.aggregate.outputs.known }}
+      unknown: ${{ steps.aggregate.outputs.unknown }}
+      overdue: ${{ steps.aggregate.outputs.overdue }}
+      unscheduled: ${{ steps.aggregate.outputs.unscheduled }}
+      zero_attempts: ${{ steps.aggregate.outputs.zero_attempts }}
+      older_7d: ${{ steps.aggregate.outputs.older_7d }}
     env:
       IB_STAGING_BASE_URL: https://iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
 
     steps:
       - name: Verify exact protected Preview and classify aggregate backlog
+        id: aggregate
         shell: bash
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
@@ -83,7 +92,7 @@ jobs:
           fi
 
           CLASSIFIER_FILE="$classifier_file" node --input-type=module -e '
-            import { readFileSync } from "node:fs";
+            import { appendFileSync, readFileSync } from "node:fs";
             const body = JSON.parse(readFileSync(process.env.CLASSIFIER_FILE, "utf8"));
             const integer = (value) => Number.isInteger(value) && value >= 0;
             const requiredCounts = [
@@ -121,13 +130,32 @@ jobs:
             ) {
               process.exit(1);
             }
-            console.log(JSON.stringify({
-              statuses: body.statuses,
-              pendingAge: body.pendingAge,
-              pendingSchedule: body.pendingSchedule,
-              pendingAttempts: body.pendingAttempts,
-              provenance: body.provenance,
-            }));
+            const output = [
+              `pending=${body.statuses.pendingScan}`,
+              `known=${body.provenance.strictKnownTechnicalFixtures}`,
+              `unknown=${body.provenance.unknownOrNonTechnical}`,
+              `overdue=${body.pendingSchedule.dueOrOverdue}`,
+              `unscheduled=${body.pendingSchedule.unscheduled}`,
+              `zero_attempts=${body.pendingAttempts.zero}`,
+              `older_7d=${body.pendingAge.olderThan7Days}`,
+            ].join("\n") + "\n";
+            appendFileSync(process.env.GITHUB_OUTPUT, output);
           '
 
           echo "STAGING_FILE_SCAN_CLASSIFIER_PASS"
+
+  aggregate-proof:
+    needs: classify
+    runs-on: ubuntu-24.04
+    name: >-
+      Scan backlog p=${{ needs.classify.outputs.pending }}
+      known=${{ needs.classify.outputs.known }}
+      unknown=${{ needs.classify.outputs.unknown }}
+      overdue=${{ needs.classify.outputs.overdue }}
+      unscheduled=${{ needs.classify.outputs.unscheduled }}
+      zeroAttempts=${{ needs.classify.outputs.zero_attempts }}
+      older7d=${{ needs.classify.outputs.older_7d }}
+    steps:
+      - name: Aggregate proof recorded
+        shell: bash
+        run: echo "STAGING_FILE_SCAN_AGGREGATE_PROOF_PASS"
