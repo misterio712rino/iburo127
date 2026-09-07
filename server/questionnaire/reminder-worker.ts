@@ -1,3 +1,4 @@
+import { getClientCaseDisplayNumber } from "@/server/domain/client-cases/case-number-presentation";
 import type { NotificationRecord } from "@/server/domain/notifications/contracts";
 
 export type QuestionnaireReminderCandidate = {
@@ -72,13 +73,14 @@ export class QuestionnaireReminderWorker {
     let createdOrExisting = 0;
     const day = reminderDay(now);
     for (const candidate of candidates) {
+      const displayCaseNumber = getClientCaseDisplayNumber(candidate.caseNumber);
       await this.notifications.createSystem({
         userId: candidate.clientId,
         clientCaseId: candidate.clientCaseId,
         dedupeKey: `questionnaire:reminder:${candidate.clientCaseId}:${day}`,
         type: "questionnaire.reminder",
         title: "Продолжите заполнение анкеты",
-        body: `По делу ${candidate.caseNumber} анкета ещё не завершена. Продолжите заполнение с того места, где остановились.`,
+        body: `По делу ${displayCaseNumber} анкета ещё не завершена. Продолжите заполнение с того места, где остановились.`,
       });
       createdOrExisting += 1;
     }
