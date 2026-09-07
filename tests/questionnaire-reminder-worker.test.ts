@@ -64,8 +64,10 @@ assert.equal(
   sink.inputs[0]?.dedupeKey,
   "questionnaire:reminder:case-questionnaire-1:2026-08-29",
 );
-assert.match(sink.inputs[0]?.body ?? "", /IB-Q-1/);
-assert.doesNotMatch(sink.inputs[0]?.body ?? "", /answer|field|ответы клиента|Sensitive/i);
+const body = sink.inputs[0]?.body ?? "";
+assert.match(body, /Номер дела ещё не присвоен/);
+assert.doesNotMatch(body, /IB-Q-1|IB-/);
+assert.doesNotMatch(body, /answer|field|ответы клиента|Sensitive/i);
 assert.equal("deliveryChannels" in (sink.inputs[0] ?? {}), false);
 
 await assert.rejects(worker.processBatch({ now, limit: 0 }), /QUESTIONNAIRE_REMINDER_INVALID_LIMIT/);
