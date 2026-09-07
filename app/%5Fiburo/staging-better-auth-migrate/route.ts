@@ -19,15 +19,15 @@ const REQUIRED_TABLES = [
   "twoFactor",
   "rateLimit",
 ] as const;
-const ADVISORY_LOCK_KEY = "iburo127:staging:better-auth:1.7.2";
-const EXPECTED_SQL_SHA256 = "86704c8b960e667eecb8b87f588fe93a2be07faba9f10025e44a9104f6f77deb";
+const ADVISORY_LOCK_KEY = "iburo127:staging:better-auth:1.7.3";
+const EXPECTED_SQL_SHA256 = "f8d5ff6d60875f00b23f4400562ee210a5314ffe77b6d3376e8873b5aa38da4d";
 const EXACT_GIT_SHA_PATTERN = /^[a-f0-9]{40}$/i;
 
 const REVIEWED_SQL = `create table "user" ("id" text not null primary key, "name" text not null, "email" text not null unique, "emailVerified" boolean not null, "image" text, "createdAt" timestamptz default CURRENT_TIMESTAMP not null, "updatedAt" timestamptz default CURRENT_TIMESTAMP not null, "twoFactorEnabled" boolean);
 
 create table "session" ("id" text not null primary key, "expiresAt" timestamptz not null, "token" text not null unique, "createdAt" timestamptz default CURRENT_TIMESTAMP not null, "updatedAt" timestamptz not null, "ipAddress" text, "userAgent" text, "userId" text not null references "user" ("id") on delete cascade);
 
-create table "account" ("id" text not null primary key, "issuer" text not null, "accountId" text not null, "providerId" text not null, "userId" text not null references "user" ("id") on delete cascade, "accessToken" text, "refreshToken" text, "idToken" text, "accessTokenExpiresAt" timestamptz, "refreshTokenExpiresAt" timestamptz, "scope" text, "password" text, "createdAt" timestamptz default CURRENT_TIMESTAMP not null, "updatedAt" timestamptz not null);
+create table "account" ("id" text not null primary key, "accountId" text not null, "providerId" text not null, "userId" text not null references "user" ("id") on delete cascade, "accessToken" text, "refreshToken" text, "idToken" text, "accessTokenExpiresAt" timestamptz, "refreshTokenExpiresAt" timestamptz, "scope" text, "password" text, "createdAt" timestamptz default CURRENT_TIMESTAMP not null, "updatedAt" timestamptz not null);
 
 create table "verification" ("id" text not null primary key, "identifier" text not null, "value" text not null, "expiresAt" timestamptz not null, "createdAt" timestamptz default CURRENT_TIMESTAMP not null, "updatedAt" timestamptz default CURRENT_TIMESTAMP not null);
 
@@ -44,8 +44,6 @@ create index "verification_identifier_idx" on "verification" ("identifier");
 create index "twoFactor_secret_idx" on "twoFactor" ("secret");
 
 create index "twoFactor_userId_idx" on "twoFactor" ("userId");
-
-create unique index "account_issuer_accountId_uidx" on "account" ("issuer", "accountId");
 `;
 
 const NO_STORE_HEADERS = {
