@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-const EXPECTED_BETTER_AUTH_VERSION = "1.7.2";
+const EXPECTED_BETTER_AUTH_VERSION = "1.7.3";
 const ALLOWED_ROOT_SPECS = new Set([
   EXPECTED_BETTER_AUTH_VERSION,
   `^${EXPECTED_BETTER_AUTH_VERSION}`,
