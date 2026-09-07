@@ -57,6 +57,41 @@ assert.ok(
   "production maintenance confirmation must be validated before the maintenance secret is used",
 );
 
+const schedulerWorkflow = await readFile(
+  resolve(".github/workflows/file-deletion-maintenance-scheduler.yml"),
+  "utf8",
+);
+assert.match(schedulerWorkflow, /cron: "\*\/5 \* \* \* \*"/);
+assert.match(
+  schedulerWorkflow,
+  /if: vars\.IB_FILE_DELETION_SCHEDULER_ENABLED == 'true' && github\.ref_name == github\.event\.repository\.default_branch/,
+  "scheduled deletion work must remain disabled unless explicitly enabled and must only run from the default branch",
+);
+assert.match(schedulerWorkflow, /^permissions:\n\s{2}contents: read$/m);
+assert.match(schedulerWorkflow, /runs-on: ubuntu-24\.04/);
+assert.match(schedulerWorkflow, /persist-credentials: false/);
+assert.match(
+  schedulerWorkflow,
+  /ref: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/,
+  "scheduler checkout must remain exact-SHA pinned",
+);
+assert.match(schedulerWorkflow, /IB_RUNTIME_TARGET: \$\{\{ vars\.IB_MAINTENANCE_RUNTIME_TARGET \}\}/);
+assert.match(schedulerWorkflow, /IB_MAINTENANCE_BASE_URL: \$\{\{ vars\.IB_MAINTENANCE_BASE_URL \}\}/);
+assert.match(schedulerWorkflow, /BETTER_AUTH_URL: \$\{\{ vars\.IB_MAINTENANCE_BETTER_AUTH_URL \}\}/);
+assert.match(schedulerWorkflow, /IB_MAINTENANCE_SECRET: \$\{\{ secrets\.IB_MAINTENANCE_SECRET \}\}/);
+assert.match(schedulerWorkflow, /node scripts\/run-maintenance-job\.mjs file-deletions/);
+assert.match(schedulerWorkflow, /node scripts\/run-maintenance-job\.mjs file-deletion-health/);
+assert.doesNotMatch(
+  schedulerWorkflow,
+  /https?:\/\//,
+  "scheduler workflow must not hard-code a staging or production maintenance endpoint",
+);
+assert.doesNotMatch(
+  schedulerWorkflow,
+  /PRODUCTION:https?:\/\//,
+  "scheduler workflow must not embed a production confirmation value",
+);
+
 const productionConfig = await readFile(resolve("server/config/production.ts"), "utf8");
 assert.match(
   productionConfig,
