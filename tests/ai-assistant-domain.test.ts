@@ -37,7 +37,7 @@ const clientActor: AuthenticatedActor = {
 
 const clientCase = {
   id: "11111111-1111-4111-8111-111111111111",
-  caseNumber: "CASE-001",
+  caseNumber: "IB-AI-001",
   clientId: clientActor.userId,
   planCode: "INDIVIDUAL",
   stageCode: "QUESTIONNAIRE",
@@ -118,7 +118,8 @@ const service = new AiAssistantService(
 
 const described = await service.describe(clientActor, clientCase.id);
 assert.equal(described.enabled, true);
-assert.equal(described.caseNumber, "CASE-001");
+assert.equal(described.caseNumber, "Номер дела ещё не присвоен");
+assert.doesNotMatch(described.caseNumber, /\bIBR?-/i);
 assert.equal(described.questionnaireCompletedSections, 3);
 assert.equal(described.readyFileCount, 5);
 assert.equal("featureCodes" in described, false);
@@ -150,7 +151,7 @@ assert.equal(capturedMessages[1]?.role, "user");
 assert.equal(capturedMessages[1]?.content, "Что мне делать дальше?");
 assert.match(capturedInstructions, /"questionnaireCompletedSections":3/);
 assert.match(capturedInstructions, /данными низшего доверия/i);
-assert.doesNotMatch(capturedInstructions, /CASE-001/);
+assert.doesNotMatch(capturedInstructions, /IB-AI-001/);
 assert.doesNotMatch(capturedInstructions, /22222222/);
 assert.equal(capturedSafetyIdentifier, buildAiSafetyIdentifier(clientActor.userId));
 assert.match(capturedSafetyIdentifier, /^[a-f0-9]{64}$/);

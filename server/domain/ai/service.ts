@@ -1,3 +1,4 @@
+import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
 import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
 import type { ClientCaseService } from "@/server/domain/client-cases/service";
 import {
@@ -91,7 +92,7 @@ export class AiAssistantService {
     const { clientCase, context } = await this.requireClientCaseContext(actor, clientCaseId);
     return {
       caseId: clientCase.id,
-      caseNumber: clientCase.caseNumber,
+      caseNumber: getClientCaseDisplayNumber(clientCase.caseNumber),
       planCode: context.planCode,
       stageCode: context.stageCode,
       caseStatus: context.caseStatus,
