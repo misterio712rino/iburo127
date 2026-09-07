@@ -6,16 +6,30 @@ import type {
   TaskReminderSource,
 } from "@/server/tasks/reminder-worker";
 
+const HUMAN_SUPPORT_PLAN_CODES = ["PRO", "INDIVIDUAL"] as const;
+
 function mapCandidates(rows: Array<{
   id: string;
   clientCaseId: string;
   assigneeId: string;
   dueAt: Date | null;
   createdAt: Date;
-  clientCase: { caseNumber: string; clientId: string };
+  clientCase: {
+    caseNumber: string;
+    clientId: string;
+    assignedLawyerId: string | null;
+    plan: { code: string };
+  };
 }>): TaskReminderCandidate[] {
   return rows
-    .filter((row) => row.clientCase.clientId !== row.assigneeId)
+    .filter(
+      (row) =>
+        row.clientCase.clientId !== row.assigneeId &&
+        row.clientCase.assignedLawyerId === row.assigneeId &&
+        HUMAN_SUPPORT_PLAN_CODES.includes(
+          row.clientCase.plan.code as (typeof HUMAN_SUPPORT_PLAN_CODES)[number],
+        ),
+    )
     .map((row) => ({
       id: row.id,
       clientCaseId: row.clientCaseId,
@@ -28,7 +42,19 @@ function mapCandidates(rows: Array<{
 
 const includeCase = {
   clientCase: {
-    select: { caseNumber: true, clientId: true },
+    select: {
+      caseNumber: true,
+      clientId: true,
+      assignedLawyerId: true,
+      plan: { select: { code: true } },
+    },
+  },
+} as const;
+
+const currentHumanSupportCase = {
+  is: {
+    assignedLawyerId: { not: null },
+    plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
   },
 } as const;
 
@@ -40,6 +66,7 @@ export class PrismaTaskReminderSource implements TaskReminderSource {
         status: { in: ["NEW", "WORKING"] },
         createdAt: { gte: input.createdAfter },
         assignee: { is: { status: "ACTIVE" } },
+        clientCase: currentHumanSupportCase,
       },
       include: includeCase,
       orderBy: { createdAt: "asc" },
@@ -55,6 +82,7 @@ export class PrismaTaskReminderSource implements TaskReminderSource {
         status: { in: ["NEW", "WORKING"] },
         dueAt: { gt: input.after, lte: input.through },
         assignee: { is: { status: "ACTIVE" } },
+        clientCase: currentHumanSupportCase,
       },
       include: includeCase,
       orderBy: { dueAt: "asc" },
@@ -70,6 +98,7 @@ export class PrismaTaskReminderSource implements TaskReminderSource {
         status: { in: ["NEW", "WORKING"] },
         dueAt: { gte: input.after, lte: input.through },
         assignee: { is: { status: "ACTIVE" } },
+        clientCase: currentHumanSupportCase,
       },
       include: includeCase,
       orderBy: { dueAt: "asc" },
