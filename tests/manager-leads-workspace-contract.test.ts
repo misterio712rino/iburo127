@@ -41,5 +41,16 @@ assert.match(exportSource, /privateResponse\(/);
 assert.match(exportSource, /privateJsonResponse\(/);
 assert.match(exportSource, /\\uFEFF/);
 assert.match(exportSource, /join\(";"\)/);
+assert.match(
+  exportSource,
+  /SPREADSHEET_FORMULA_PREFIX\s*=\s*\/\^\[=\+\\-@\\t\\r\\n\]\//,
+  "CSV export must recognize spreadsheet formula/control prefixes",
+);
+assert.match(
+  exportSource,
+  /SPREADSHEET_FORMULA_PREFIX\.test\(text\)\s*\?\s*`'\$\{text\}`\s*:\s*text/,
+  "CSV export must neutralize formula-prefixed cells before RFC-style quote escaping",
+);
+assert.match(exportSource, /safeText\.replaceAll\('\"', '\"\"'\)/);
 
 console.log("MANAGER_LEADS_WORKSPACE_CONTRACT_PASS");
