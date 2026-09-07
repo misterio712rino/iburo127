@@ -17,13 +17,14 @@ test("staging scanner host can obtain a runtime IAM token without exposing metad
   );
   assert.match(activate, /--header 'Metadata-Flavor:Google'/);
 
-  const metadataEgress = main.match(
-    /egress\s*\{\s*description\s*=\s*"Yandex VM metadata for the runtime service-account IAM token"[\s\S]*?\n\s*\}/,
-  )?.[0];
-  assert.ok(metadataEgress, "scanner security group must declare dedicated metadata egress");
+  const egressBlocks = [...main.matchAll(/egress\s*\{([\s\S]*?)\n\s*\}/g)].map((match) => match[0]);
+  const httpEgressBlocks = egressBlocks.filter((block) => /port\s*=\s*80/.test(block));
+  assert.equal(httpEgressBlocks.length, 1, "only metadata may use outbound TCP/80");
+
+  const metadataEgress = httpEgressBlocks[0];
+  assert.match(metadataEgress, /description\s*=\s*"Yandex VM metadata for the runtime service-account IAM token"/);
   assert.match(metadataEgress, /protocol\s*=\s*"TCP"/);
   assert.match(metadataEgress, /v4_cidr_blocks\s*=\s*\["169\.254\.169\.254\/32"\]/);
-  assert.match(metadataEgress, /port\s*=\s*80/);
   assert.doesNotMatch(metadataEgress, /0\.0\.0\.0\/0/);
 
   assert.match(
@@ -31,4 +32,14 @@ test("staging scanner host can obtain a runtime IAM token without exposing metad
     /iptables -I DOCKER-USER 1 -d 169\.254\.169\.254\/32 -j REJECT/,
     "containers must remain blocked from the metadata service even though the VM host can reach it",
   );
+});
+
+test("staging scanner package bootstrap stays on HTTPS and does not require broad TCP/80", () => {
+  const cloudInit = read("infra/file-scanner-staging/cloud-init.yaml.tftpl");
+
+  assert.match(cloudInit, /apt:\n\s+preserve_sources_list:\s+false/);
+  const httpsArchiveUris = cloudInit.match(/uri:\s+https:\/\/archive\.ubuntu\.com\/ubuntu/g) ?? [];
+  assert.equal(httpsArchiveUris.length, 2, "primary and security APT mirrors must both use HTTPS");
+  assert.doesNotMatch(cloudInit, /uri:\s+http:\/\//);
+  assert.match(cloudInit, /package_update:\s+true/);
 });

@@ -1,4 +1,13 @@
 #cloud-config
+apt:
+  preserve_sources_list: false
+  primary:
+    - arches: [default]
+      uri: https://archive.ubuntu.com/ubuntu
+  security:
+    - arches: [default]
+      uri: https://archive.ubuntu.com/ubuntu
+
 package_update: true
 package_upgrade: false
 
