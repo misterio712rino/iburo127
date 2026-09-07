@@ -172,7 +172,7 @@ try {
   assert.equal(invalidJobResult.code, 1);
   assert.match(
     invalidJobResult.stderr,
-    /job must be notification-deliveries, notification-delivery-health, stale-uploads, stale-upload-health, file-scans, file-scan-health, or ai-audit-health/,
+    /MAINTENANCE_SCHEDULER_FAIL:unsupported maintenance job/,
   );
   assert.equal(requests.length, requestCountBeforeInvalidJob);
 
