@@ -16,6 +16,7 @@ const expectedRoutes = [
   "staging-external-readiness",
   "staging-file-deletion-worker",
   "staging-identity",
+  "staging-maintenance-health",
   "staging-storage-verify",
 ] as const;
 
