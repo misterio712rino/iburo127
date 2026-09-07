@@ -23,7 +23,12 @@ const NO_STORE_HEADERS = {
   "X-Robots-Tag": "noindex",
 };
 
-const EXPECTED_PRISMA_MIGRATION = "20260831_initial_baseline";
+const EXPECTED_PRISMA_MIGRATIONS = [
+  "20260831_initial_baseline",
+  "20260901_access_gate_leads",
+  "20260905_practicum_homework_lesson_chat",
+  "20260906_stored_file_deletion_foundation",
+] as const;
 const BETTER_AUTH_TABLES = [
   "user",
   "session",
@@ -75,6 +80,12 @@ function unavailable(status = 404, failureStage?: ProbeFailureStage) {
     },
     { status, headers: NO_STORE_HEADERS },
   );
+}
+
+function matchesExpectedMigrationHistory(appliedMigrations: readonly MigrationRow[]) {
+  if (appliedMigrations.length !== EXPECTED_PRISMA_MIGRATIONS.length) return false;
+  const appliedNames = new Set(appliedMigrations.map((row) => row.migration_name));
+  return EXPECTED_PRISMA_MIGRATIONS.every((name) => appliedNames.has(name));
 }
 
 export async function GET() {
@@ -201,12 +212,8 @@ export async function GET() {
       });
 
       failureStage = "prisma-history";
-      if (
-        appliedMigrations.length !== 1 ||
-        unfinishedMigrations.length !== 0 ||
-        appliedMigrations[0]?.migration_name !== EXPECTED_PRISMA_MIGRATION
-      ) {
-        throw new Error("staging Prisma migration history does not match the reviewed baseline");
+      if (unfinishedMigrations.length !== 0 || !matchesExpectedMigrationHistory(appliedMigrations)) {
+        throw new Error("staging Prisma migration history does not match the reviewed migration set");
       }
 
       const presentDomainTables = REQUIRED_STAGING_DOMAIN_TABLES.filter((name) => tableSet.has(name));
@@ -263,7 +270,7 @@ export async function GET() {
             migrationTablePresent: prismaMigrationTablePresent,
             appliedCount: appliedMigrations.length,
             unfinishedCount: unfinishedMigrations.length,
-            appliedMigration: appliedMigrations[0]?.migration_name ?? null,
+            expectedCount: EXPECTED_PRISMA_MIGRATIONS.length,
             pass: true,
           },
           betterAuth: {
