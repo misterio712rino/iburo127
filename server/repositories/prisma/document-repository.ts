@@ -12,6 +12,8 @@ import { buildCaseActivityWrite } from "@/server/repositories/prisma/case-activi
 import { createCaseNotificationInTransaction } from "@/server/repositories/prisma/case-notification-write";
 import { isPrismaUniqueConstraintError } from "@/server/repositories/prisma/errors";
 
+const HUMAN_SUPPORT_PLAN_CODES = ["PRO", "INDIVIDUAL"] as const;
+
 function toRecord(row: {
   id: string;
   clientCaseId: string;
@@ -84,19 +86,22 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
   }) {
     const prisma = getPrismaClient();
     return prisma.$transaction(async (tx) => {
-      const current = await tx.caseDocument.findUnique({
+      const current = await tx.caseDocument.findFirst({
         where: {
-          clientCaseId_documentCode: {
-            clientCaseId: input.clientCaseId,
-            documentCode: input.documentCode,
-          },
+          clientCaseId: input.clientCaseId,
+          documentCode: input.documentCode,
+          clientCase: { clientId: input.auditActorUserId },
         },
       });
       if (!current) throw new Error(DOCUMENT_NOT_FOUND);
       assertExpectedVersion(current.version, input.expectedVersion);
 
       const updated = await tx.caseDocument.updateMany({
-        where: { id: current.id, version: input.expectedVersion },
+        where: {
+          id: current.id,
+          version: input.expectedVersion,
+          clientCase: { clientId: input.auditActorUserId },
+        },
         data: {
           status: input.status,
           regeneratedAt: new Date(),
@@ -133,11 +138,14 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
   }) {
     const prisma = getPrismaClient();
     return prisma.$transaction(async (tx) => {
-      const current = await tx.caseDocument.findUnique({
+      const current = await tx.caseDocument.findFirst({
         where: {
-          clientCaseId_documentCode: {
-            clientCaseId: input.clientCaseId,
-            documentCode: input.documentCode,
+          clientCaseId: input.clientCaseId,
+          documentCode: input.documentCode,
+          clientCase: {
+            clientId: input.auditActorUserId,
+            assignedLawyerId: { not: null },
+            plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
           },
         },
       });
@@ -145,7 +153,15 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
       assertExpectedVersion(current.version, input.expectedVersion);
 
       const updated = await tx.caseDocument.updateMany({
-        where: { id: current.id, version: input.expectedVersion },
+        where: {
+          id: current.id,
+          version: input.expectedVersion,
+          clientCase: {
+            clientId: input.auditActorUserId,
+            assignedLawyerId: { not: null },
+            plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
+          },
+        },
         data: {
           status: "SENT_FOR_REVIEW",
           sentForReviewAt: new Date(),
@@ -166,8 +182,13 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
         }),
       });
 
-      const clientCase = await tx.clientCase.findUnique({
-        where: { id: input.clientCaseId },
+      const clientCase = await tx.clientCase.findFirst({
+        where: {
+          id: input.clientCaseId,
+          clientId: input.auditActorUserId,
+          assignedLawyerId: { not: null },
+          plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
+        },
         select: { caseNumber: true, assignedLawyerId: true },
       });
       if (clientCase?.assignedLawyerId) {
@@ -195,11 +216,13 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
   }) {
     const prisma = getPrismaClient();
     return prisma.$transaction(async (tx) => {
-      const current = await tx.caseDocument.findUnique({
+      const current = await tx.caseDocument.findFirst({
         where: {
-          clientCaseId_documentCode: {
-            clientCaseId: input.clientCaseId,
-            documentCode: input.documentCode,
+          clientCaseId: input.clientCaseId,
+          documentCode: input.documentCode,
+          clientCase: {
+            assignedLawyerId: input.auditActorUserId,
+            plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
           },
         },
       });
@@ -207,7 +230,14 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
       assertExpectedVersion(current.version, input.expectedVersion);
 
       const updated = await tx.caseDocument.updateMany({
-        where: { id: current.id, version: input.expectedVersion },
+        where: {
+          id: current.id,
+          version: input.expectedVersion,
+          clientCase: {
+            assignedLawyerId: input.auditActorUserId,
+            plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
+          },
+        },
         data: {
           status: "REVIEWED",
           reviewedAt: new Date(),
@@ -228,8 +258,12 @@ export class PrismaCaseDocumentRepository implements CaseDocumentRepository {
         }),
       });
 
-      const clientCase = await tx.clientCase.findUnique({
-        where: { id: input.clientCaseId },
+      const clientCase = await tx.clientCase.findFirst({
+        where: {
+          id: input.clientCaseId,
+          assignedLawyerId: input.auditActorUserId,
+          plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
+        },
         select: { caseNumber: true, clientId: true },
       });
       if (clientCase) {
