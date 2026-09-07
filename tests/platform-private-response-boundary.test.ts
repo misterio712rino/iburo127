@@ -38,6 +38,13 @@ const forbiddenDirectResponses: Array<[RegExp, string]> = [
   [/\bnew\s+Response\s*\(/, "new Response"],
 ];
 
+const forbiddenExceptionPayloads: Array<[RegExp, string]> = [
+  [/\berror\.stack\b/, "error.stack"],
+  [/\bString\s*\(\s*error\s*\)/, "String(error)"],
+  [/\b(?:message|code|error|detail|details|reason)\s*:\s*error\.message\b/, "raw error.message response field"],
+  [/\b(?:message|code|error|detail|details|reason)\s*:\s*error\.stack\b/, "raw error.stack response field"],
+];
+
 for (const file of inspectedFiles) {
   const source = await readFile(file, "utf8");
   for (const [pattern, label] of forbiddenDirectResponses) {
@@ -45,6 +52,13 @@ for (const file of inspectedFiles) {
       source,
       pattern,
       `${file} must not use ${label}; authenticated platform routes/adapters must return through the shared private transport boundary`,
+    );
+  }
+  for (const [pattern, label] of forbiddenExceptionPayloads) {
+    assert.doesNotMatch(
+      source,
+      pattern,
+      `${file} must not expose ${label}; map exceptions to reviewed stable error codes instead`,
     );
   }
   assert.doesNotMatch(
