@@ -22,6 +22,7 @@ const expected = {
   "maintenance:run:file-scans": "node scripts/run-maintenance-job.mjs file-scans",
   "maintenance:run:file-scan-health": "node scripts/run-maintenance-job.mjs file-scan-health",
   "maintenance:run:file-deletions": "node scripts/run-maintenance-job.mjs file-deletions",
+  "maintenance:run:file-deletion-health": "node scripts/run-maintenance-job.mjs file-deletion-health",
   "maintenance:run:ai-audit-health": "node scripts/run-maintenance-job.mjs ai-audit-health",
 } as const;
 
