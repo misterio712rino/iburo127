@@ -53,4 +53,6 @@ assert.match(
 );
 assert.match(exportSource, /safeText\.replaceAll\('\"', '\"\"'\)/);
 
+await import("./account-profile-email-boundary.test");
+
 console.log("MANAGER_LEADS_WORKSPACE_CONTRACT_PASS");
