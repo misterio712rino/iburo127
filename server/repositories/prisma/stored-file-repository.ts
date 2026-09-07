@@ -2,6 +2,7 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { getPrismaClient } from "@/server/database/prisma";
+import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
 import type {
   ClaimedStoredFileScan,
   StoredFileRecord,
@@ -10,6 +11,36 @@ import type {
 } from "@/server/domain/files/contracts";
 import { buildCaseActivityWrite } from "@/server/repositories/prisma/case-activity-write";
 import { isPrismaUniqueConstraintError } from "@/server/repositories/prisma/errors";
+
+const HUMAN_SUPPORT_PLAN_CODES = ["PRO", "INDIVIDUAL"] as const;
+
+type ActorCaseAccessClause =
+  | { clientId: string }
+  | {
+      assignedLawyerId: string;
+      plan: { code: { in: Array<(typeof HUMAN_SUPPORT_PLAN_CODES)[number]> } };
+    };
+
+function actorFileWhere(actor: AuthenticatedActor) {
+  if (actor.roles.includes("MANAGER")) return {};
+
+  const access: ActorCaseAccessClause[] = [];
+  if (actor.roles.includes("CLIENT")) access.push({ clientId: actor.userId });
+  if (actor.roles.includes("LAWYER")) {
+    access.push({
+      assignedLawyerId: actor.userId,
+      plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
+    });
+  }
+
+  return access.length
+    ? {
+        clientCase: {
+          is: { OR: access },
+        },
+      }
+    : null;
+}
 
 function toRecord(row: StoredFileRecord): StoredFileRecord {
   return row;
@@ -41,18 +72,26 @@ function restoreData(file: StoredFileRecord) {
 }
 
 export class PrismaStoredFileRepository implements StoredFileRepository {
-  async listByCase(clientCaseId: string) {
+  async listByCase(clientCaseId: string, actor: AuthenticatedActor) {
+    const scope = actorFileWhere(actor);
+    if (!scope) return [];
+
     const prisma = getPrismaClient();
     const rows = await prisma.storedFile.findMany({
-      where: { clientCaseId },
+      where: { clientCaseId, ...scope },
       orderBy: { createdAt: "desc" },
     });
     return rows.map(toRecord);
   }
 
-  async getById(fileId: string) {
+  async getById(fileId: string, actor: AuthenticatedActor) {
+    const scope = actorFileWhere(actor);
+    if (!scope) return null;
+
     const prisma = getPrismaClient();
-    const row = await prisma.storedFile.findUnique({ where: { id: fileId } });
+    const row = await prisma.storedFile.findFirst({
+      where: { id: fileId, ...scope },
+    });
     return row ? toRecord(row) : null;
   }
 

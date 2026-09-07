@@ -1,3 +1,5 @@
+import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
+
 export type StoredFileStatus =
   | "PENDING_UPLOAD"
   | "PENDING_SCAN"
@@ -35,8 +37,11 @@ export type ClaimedStoredFileScan = StoredFileRecord & {
 };
 
 export interface StoredFileRepository {
-  listByCase(clientCaseId: string): Promise<readonly StoredFileRecord[]>;
-  getById(fileId: string): Promise<StoredFileRecord | null>;
+  listByCase(
+    clientCaseId: string,
+    actor: AuthenticatedActor,
+  ): Promise<readonly StoredFileRecord[]>;
+  getById(fileId: string, actor: AuthenticatedActor): Promise<StoredFileRecord | null>;
   listPendingBefore(before: Date, limit: number): Promise<readonly StoredFileRecord[]>;
   create(input: {
     id: string;

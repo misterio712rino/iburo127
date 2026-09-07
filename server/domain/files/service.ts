@@ -48,7 +48,7 @@ export class StoredFileService {
 
   async list(actor: AuthenticatedActor, clientCaseId: string) {
     const clientCase = await this.requireAccessibleCase(actor, clientCaseId);
-    const files = await this.repository.listByCase(clientCaseId);
+    const files = await this.repository.listByCase(clientCaseId, actor);
 
     if (clientCase.clientId === actor.userId) {
       return files.filter((file) => isClientVisibleFile(file, actor.userId));
@@ -58,7 +58,7 @@ export class StoredFileService {
   }
 
   async get(actor: AuthenticatedActor, fileId: string) {
-    const file = await this.repository.getById(fileId);
+    const file = await this.repository.getById(fileId, actor);
     if (!file || file.status !== "READY") throw new Error(FILE_NOT_FOUND);
     await this.requireAccessibleCase(actor, file.clientCaseId);
     return file;
@@ -66,7 +66,7 @@ export class StoredFileService {
 
   async getOwnedForDeletion(actor: AuthenticatedActor, fileId: string) {
     requireClientDeleteActor(actor);
-    const file = await this.repository.getById(fileId);
+    const file = await this.repository.getById(fileId, actor);
     if (!file) throw new Error(FILE_NOT_FOUND);
     const clientCase = await this.requireAccessibleCase(actor, file.clientCaseId);
     if (clientCase.clientId !== actor.userId || file.uploadedById !== actor.userId) {
@@ -125,7 +125,7 @@ export class StoredFileService {
   }
 
   async getPendingUpload(actor: AuthenticatedActor, fileId: string) {
-    const file = await this.repository.getById(fileId);
+    const file = await this.repository.getById(fileId, actor);
     if (!file) throw new Error(FILE_NOT_FOUND);
     await this.requireAccessibleCase(actor, file.clientCaseId);
     if (file.uploadedById !== actor.userId) throw new Error(FILE_UPLOAD_FORBIDDEN);

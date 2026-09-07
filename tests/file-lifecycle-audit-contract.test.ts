@@ -273,3 +273,5 @@ await assert.rejects(
 );
 
 console.log("FILE_LIFECYCLE_AUDIT_CONTRACT_PASS");
+
+await import("./file-persistence-plan-boundary.test");
