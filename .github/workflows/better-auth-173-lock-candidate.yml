@@ -1,0 +1,63 @@
+name: Better Auth 1.7.3 Lock Candidate
+
+on:
+  push:
+    branches:
+      - audit/production-readiness
+    paths:
+      - ops/better-auth-173-lock-candidate.trigger
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    if: github.ref_name == 'audit/production-readiness'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          check-latest: false
+
+      - name: Exact trigger gate
+        shell: bash
+        run: |
+          test "$GITHUB_REF" = "refs/heads/audit/production-readiness"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -f ops/better-auth-173-lock-candidate.trigger
+          test "$(cat ops/better-auth-173-lock-candidate.trigger)" = "GENERATE_BETTER_AUTH_173_LOCK_CANDIDATE"
+
+      - name: Generate exact lock candidate
+        shell: bash
+        run: |
+          npm install --package-lock-only --ignore-scripts --audit=false --fund=false --save-exact better-auth@1.7.3
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+          const lock = JSON.parse(readFileSync("package-lock.json", "utf8"));
+          if (pkg.dependencies?.["better-auth"] !== "1.7.3") process.exit(1);
+          if (lock.packages?.["node_modules/better-auth"]?.version !== "1.7.3") process.exit(1);
+          if (lock.packages?.["node_modules/@better-auth/core"]?.version !== "1.7.3") process.exit(1);
+          console.log("BETTER_AUTH_173_LOCK_CANDIDATE_PASS");
+          NODE
+
+      - name: Upload exact candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: better-auth-173-lock-candidate-${{ github.sha }}
+          path: |
+            package.json
+            package-lock.json
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 9
