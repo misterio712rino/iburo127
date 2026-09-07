@@ -62,25 +62,48 @@ const schedulerWorkflow = await readFile(
   "utf8",
 );
 assert.match(schedulerWorkflow, /cron: "\*\/5 \* \* \* \*"/);
-assert.match(
+assert.match(schedulerWorkflow, /^  file-deletions:$/m);
+assert.match(schedulerWorkflow, /^  file-deletion-health:$/m);
+assert.doesNotMatch(
   schedulerWorkflow,
-  /if: vars\.IB_FILE_DELETION_SCHEDULER_ENABLED == 'true' && github\.ref_name == github\.event\.repository\.default_branch/,
-  "scheduled deletion work must remain disabled unless explicitly enabled and must only run from the default branch",
+  /^\s+needs:/m,
+  "file deletion backlog health must remain independent from worker success/failure",
+);
+assert.equal(
+  [...schedulerWorkflow.matchAll(/if: vars\.IB_FILE_DELETION_SCHEDULER_ENABLED == 'true' && github\.ref_name == github\.event\.repository\.default_branch/g)].length,
+  2,
+  "worker and health jobs must each retain the explicit enable/default-branch gate",
 );
 assert.match(schedulerWorkflow, /^permissions:\n\s{2}contents: read$/m);
-assert.match(schedulerWorkflow, /runs-on: ubuntu-24\.04/);
-assert.match(schedulerWorkflow, /persist-credentials: false/);
-assert.match(
-  schedulerWorkflow,
-  /ref: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/,
-  "scheduler checkout must remain exact-SHA pinned",
+assert.equal(
+  [...schedulerWorkflow.matchAll(/runs-on: ubuntu-24\.04/g)].length,
+  2,
+  "worker and health jobs must use the pinned runner image",
+);
+assert.equal(
+  [...schedulerWorkflow.matchAll(/persist-credentials: false/g)].length,
+  2,
+  "each independent scheduler job must disable checkout credential persistence",
+);
+assert.equal(
+  [...schedulerWorkflow.matchAll(/ref: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/g)].length,
+  2,
+  "each independent scheduler checkout must remain exact-SHA pinned",
 );
 assert.match(schedulerWorkflow, /IB_RUNTIME_TARGET: \$\{\{ vars\.IB_MAINTENANCE_RUNTIME_TARGET \}\}/);
 assert.match(schedulerWorkflow, /IB_MAINTENANCE_BASE_URL: \$\{\{ vars\.IB_MAINTENANCE_BASE_URL \}\}/);
 assert.match(schedulerWorkflow, /BETTER_AUTH_URL: \$\{\{ vars\.IB_MAINTENANCE_BETTER_AUTH_URL \}\}/);
 assert.match(schedulerWorkflow, /IB_MAINTENANCE_SECRET: \$\{\{ secrets\.IB_MAINTENANCE_SECRET \}\}/);
-assert.match(schedulerWorkflow, /node scripts\/run-maintenance-job\.mjs file-deletions/);
-assert.match(schedulerWorkflow, /node scripts\/run-maintenance-job\.mjs file-deletion-health/);
+assert.equal(
+  [...schedulerWorkflow.matchAll(/node scripts\/run-maintenance-job\.mjs file-deletions/g)].length,
+  1,
+  "worker job must invoke only one bounded deletion batch per schedule tick",
+);
+assert.equal(
+  [...schedulerWorkflow.matchAll(/node scripts\/run-maintenance-job\.mjs file-deletion-health/g)].length,
+  1,
+  "health job must inspect the backlog independently once per schedule tick",
+);
 assert.doesNotMatch(
   schedulerWorkflow,
   /https?:\/\//,
