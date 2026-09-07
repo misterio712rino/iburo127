@@ -12,7 +12,7 @@ const deploySource = await readFile(
   "utf8",
 );
 const reviewedSql = await readFile(
-  resolve("database/better-auth/1.7.2/schema.sql"),
+  resolve("database/better-auth/1.7.3/schema.sql"),
   "utf8",
 );
 const prismaMigrationEntries = await readdir(resolve("prisma/migrations"), {
@@ -43,7 +43,6 @@ const requiredPhysicalColumns: Record<string, readonly string[]> = {
   account: [
     "id",
     "userId",
-    "issuer",
     "accountId",
     "providerId",
     "accessToken",
@@ -90,6 +89,13 @@ for (const [tableName, columns] of Object.entries(requiredPhysicalColumns)) {
       `missing ${tableName}.${columnName} from Better Auth verifier`,
     );
   }
+  if (tableName === "account") {
+    assert.doesNotMatch(
+      declaration,
+      /"issuer"/,
+      "Better Auth 1.7.3 core account schema must not require issuer",
+    );
+  }
 }
 
 for (const nullableColumn of [
@@ -113,6 +119,10 @@ for (const nullableColumn of [
 assert.match(source, /NULLABLE_COLUMNS\.has\(`\$\{tableName\}\.\$\{columnName\}`\)/);
 assert.match(source, /column\.nullable !== expectedNullable/);
 assert.match(source, /nullability mismatch/);
+assert.match(source, /const legacyIssuerColumn = columnsByTable\.get\("account"\)\?\.get\("issuer"\)/);
+assert.match(source, /if \(!legacyIssuerColumn\.nullable\)/);
+assert.match(source, /account\.issuer from Better Auth 1\.7\.0-1\.7\.2 must be nullable under 1\.7\.3/);
+assert.match(source, /STRING_TYPES\.has\(legacyIssuerColumn\.dataType\)/);
 
 for (const columnName of [
   "image",
@@ -147,7 +157,8 @@ assert.doesNotMatch(source, /\.(?:password|secret|backupCodes|accessToken|refres
 
 assert.match(source, /hasIndex\("user", \["email"\], true\)/);
 assert.match(source, /hasIndex\("session", \["token"\], true\)/);
-assert.match(source, /hasIndex\("account", \["issuer", "accountId"\], true\)/);
+assert.match(source, /if \(hasIndex\("account", \["issuer", "accountId"\], true\)\)/);
+assert.match(source, /legacy account unique index on \(issuer, accountId\) must be removed for Better Auth 1\.7\.3/);
 assert.match(source, /hasIndex\("rateLimit", \["key"\], true\)/);
 for (const supportingIndex of [
   '["session", ["userId"]]',
@@ -185,10 +196,18 @@ for (const tableName of Object.keys(requiredPhysicalColumns)) {
     `reviewed Better Auth SQL must create ${tableName}`,
   );
 }
+assert.doesNotMatch(reviewedSql, /"issuer"/i, "fresh Better Auth 1.7.3 SQL must not require issuer");
+assert.doesNotMatch(
+  reviewedSql,
+  /account_issuer_accountId_uidx/i,
+  "fresh Better Auth 1.7.3 SQL must not create the legacy issuer index",
+);
 assert.match(deploySource, /requireStagingDatabaseTarget\(\)/);
 assert.match(deploySource, /IB_RUNTIME_TARGET/);
 assert.match(deploySource, /IB_STAGING_BETTER_AUTH_SQL_SHA256/);
 assert.match(deploySource, /IB_STAGING_BETTER_AUTH_MIGRATION_CONFIRM/);
+assert.match(deploySource, /database\/better-auth\/1\.7\.3\/schema\.sql/);
+assert.match(deploySource, /iburo127:staging:better-auth:1\.7\.3/);
 assert.match(deploySource, /BEGIN/);
 assert.match(deploySource, /COMMIT/);
 assert.match(deploySource, /STAGING_BETTER_AUTH_MIGRATION_PASS/);
