@@ -197,7 +197,7 @@ async function testTaskAuthorization() {
 
   await assert.rejects(
     service.updateStatus(actors.otherLawyer, { taskId: task.id, status: "WORKING", expectedVersion: 1 }),
-    /TASK_FORBIDDEN/,
+    /TASK_NOT_FOUND/,
   );
 
   const working = await service.updateStatus(actors.lawyer, {
