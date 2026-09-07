@@ -10,9 +10,12 @@ const STATUS_LABELS = {
   ARCHIVED: "Архив",
 } as const;
 
+const SPREADSHEET_FORMULA_PREFIX = /^[=+\-@\t\r\n]/;
+
 function csvCell(value: unknown) {
   const text = String(value ?? "");
-  return `"${text.replaceAll('"', '""')}"`;
+  const safeText = SPREADSHEET_FORMULA_PREFIX.test(text) ? `'${text}` : text;
+  return `"${safeText.replaceAll('"', '""')}"`;
 }
 
 export async function GET() {
