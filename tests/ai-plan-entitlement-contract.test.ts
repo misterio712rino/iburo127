@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
-import type { AiCaseContext } from "@/server/domain/ai/contracts";
+import { ClientCaseService } from "@/server/domain/client-cases/service";
+import {
+  AI_ACCESS_DENIED,
+  type AiCaseContext,
+} from "@/server/domain/ai/contracts";
 import {
   AI_POLICY_BOUNDARY_REPLY,
   buildAiInstructions,
 } from "@/server/domain/ai/policy";
+import { AiAssistantService } from "@/server/domain/ai/service";
 import { STAGING_PLAN_FEATURE_CODES } from "@/server/staging/domain-fixtures";
 
 function hasFeature(codes: readonly string[], featureCode: string) {
@@ -69,5 +74,55 @@ assert.doesNotMatch(
   "shared AI safety fallback must remain plan-neutral",
 );
 assert.match(AI_POLICY_BOUNDARY_REPLY, /отдельной консультации с квалифицированным юристом/i);
+
+const failIfAuthorizationFallsThrough = () => {
+  throw new Error("AI_ROLE_BOUNDARY_FELL_THROUGH");
+};
+const multiRoleBoundaryService = new AiAssistantService(
+  new ClientCaseService({
+    async findAccessibleCase() {
+      return failIfAuthorizationFallsThrough();
+    },
+    async listAccessibleCases() {
+      return failIfAuthorizationFallsThrough();
+    },
+  }),
+  {
+    async loadCaseContext() {
+      return failIfAuthorizationFallsThrough();
+    },
+  },
+  {
+    async reply() {
+      return failIfAuthorizationFallsThrough();
+    },
+  },
+  {
+    async reserveRequest() {
+      return failIfAuthorizationFallsThrough();
+    },
+    async recordOutcome() {
+      return failIfAuthorizationFallsThrough();
+    },
+  },
+);
+
+for (const roles of [
+  ["CLIENT", "MANAGER"],
+  ["CLIENT", "LAWYER"],
+  ["CLIENT", "LAWYER", "MANAGER"],
+] as const) {
+  const actor = { userId: "multi-role-user", roles: [...roles] };
+  await assert.rejects(
+    () => multiRoleBoundaryService.describe(actor, "case-id"),
+    new RegExp(AI_ACCESS_DENIED),
+    `${roles.join("+")} must fail closed before case/context access`,
+  );
+  await assert.rejects(
+    () => multiRoleBoundaryService.reply(actor, "case-id", { message: "Что дальше?" }),
+    new RegExp(AI_ACCESS_DENIED),
+    `${roles.join("+")} must fail closed before AI quota/provider access`,
+  );
+}
 
 console.log("AI_PLAN_ENTITLEMENT_CONTRACT_PASS");
