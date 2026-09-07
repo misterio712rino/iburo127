@@ -4,21 +4,23 @@ Status: staging-only operational runbook. This document does not authorize produ
 
 ## Current evidence snapshot
 
-Current candidate at the time of this snapshot: `047fd789e0db93e40023529f3b05b981a8f598c9`.
+Current candidate at the time of this snapshot: `27ec13ac990d755db0457e2ceabec95462eedc6f`.
 
 Proven on the exact protected Preview:
 
 - Vercel Preview deployment is `READY` for the exact candidate.
-- `Staging Application E2E` run `34144252143` passed.
+- CI run `34144902518` passed, including foundation, TypeScript, lint, build, scanner service tests, scanner Docker build, and Terraform fmt/validate.
+- Secret History run `34144902507` passed.
+- `Staging Application E2E` run `34144898574` passed, including exact identity, LITE/PRO auth fixtures, sign-in matrix, and fresh-session application E2E.
 - exact staging identity passed.
-- read-only staging database baseline passed.
-- external readiness inventory endpoint passed and printed only aggregate/configuration metadata.
-- staging storage inventory is ready `4/4` using private Vercel Blob.
+- read-only staging database baseline passed on the immediately preceding scanner-runbook candidate; the current change is documentation-only and application E2E exact identity is current.
+- staging scan backlog classifier passed on the current exact candidate with `p=43`, `known=0`, `unknown=43`, `overdue=43`, `unscheduled=0`, `zeroAttempts=43`, `older7d=0`.
+- external readiness inventory on the scanner-runbook candidate printed only aggregate/configuration metadata and proved storage ready `4/4` using private Vercel Blob.
 - scanner inventory remains not ready `3/12`; the nine missing scanner bindings are listed below.
 - guarded stale scanner fixture cleanup passed with `deleted=0`.
 - maintenance health is functioning and returns expected aggregate `503` because only `fileScans` is unhealthy: `overduePending=43`; notification delivery, stale uploads, durable file deletion, and AI audit health are healthy.
 
-The first External Readiness attempt briefly received `404` from the maintenance-health route during deployment convergence. A rerun after the exact Preview was stable reached the route correctly and returned the expected aggregate `503` with `fileScans.overduePending=43`. The route is present in the exact Vercel build manifest. This transient first-attempt result is not treated as a code defect.
+The first External Readiness attempt on `047fd789e0db93e40023529f3b05b981a8f598c9` briefly received `404` from the maintenance-health route during deployment convergence. A rerun after the exact Preview was stable reached the route correctly and returned the expected aggregate `503` with `fileScans.overduePending=43`. The route was present in the exact Vercel build manifest. This transient first-attempt result is not treated as a code defect.
 
 Current scanner runtime configuration is still missing:
 
