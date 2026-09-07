@@ -56,7 +56,7 @@ const currentHumanSupportCase = {
     assignedLawyerId: { not: null },
     plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
   },
-} as const;
+};
 
 export class PrismaTaskReminderSource implements TaskReminderSource {
   async listRecentlyAssigned(input: { createdAfter: Date; limit: number }) {
