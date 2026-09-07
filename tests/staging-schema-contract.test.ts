@@ -25,6 +25,8 @@ const validInput = {
 };
 
 assert.ok(REQUIRED_STAGING_DOMAIN_TABLES.includes("UserSecurityEvent"));
+assert.ok(REQUIRED_STAGING_DOMAIN_TABLES.includes("StoredFileDeletion"));
+assert.ok(REQUIRED_STAGING_ENUMS.includes("StoredFileDeletionStatus"));
 assert.ok(REQUIRED_STORED_FILE_STATUS_VALUES.includes("QUARANTINED"));
 assert.ok(REQUIRED_STORED_FILE_SCAN_COLUMNS.includes("scanLeaseToken"));
 assert.doesNotThrow(() => assertStagingSchemaContract(validInput));
@@ -79,9 +81,29 @@ assert.throws(
   () =>
     assertStagingSchemaContract({
       ...validInput,
+      tables: validInput.tables.filter((tableName) => tableName !== "StoredFileDeletion"),
+    }),
+  /missing required domain tables: StoredFileDeletion/,
+);
+
+assert.throws(
+  () =>
+    assertStagingSchemaContract({
+      ...validInput,
       enums: validInput.enums.filter((enumName) => enumName !== "ClientCaseStatus"),
     }),
   /missing required domain enums: ClientCaseStatus/,
+);
+
+assert.throws(
+  () =>
+    assertStagingSchemaContract({
+      ...validInput,
+      enums: validInput.enums.filter(
+        (enumName) => enumName !== "StoredFileDeletionStatus",
+      ),
+    }),
+  /missing required domain enums: StoredFileDeletionStatus/,
 );
 
 assert.throws(
