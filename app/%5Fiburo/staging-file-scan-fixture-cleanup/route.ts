@@ -16,6 +16,7 @@ export const runtime = "nodejs";
 
 const EXACT_GIT_SHA_PATTERN = /^[a-f0-9]{40}$/i;
 const CONFIRM_HEADER = "x-iburo-staging-file-scan-cleanup-confirm";
+const CONFIRM_PREFIX = "CLEAN_STAGING_FILE_SCAN_FIXTURES:";
 const FIXTURE_NAMES = ["iburo-staging-e2e.pdf", "iburo-staging-file-lifecycle.pdf"] as const;
 const FIXTURE_MIME_TYPE = "application/pdf";
 const MIN_AGE_MINUTES = 30;
@@ -49,19 +50,39 @@ function boundaryFailureCode(env: NodeJS.ProcessEnv, request: Request, commitSha
   if (env.IB_RUNTIME_TARGET?.trim() !== "staging") return "RUNTIME_TARGET_MISMATCH";
   if (!commitSha) return "PREVIEW_COMMIT_MISSING";
   if (!isVercelPreviewBackendAllowed(env)) return "PREVIEW_BACKEND_DISABLED";
-  if (request.headers.get(CONFIRM_HEADER) !== `CLEAN_STAGING_FILE_SCAN_FIXTURES:${commitSha}`) {
+  if (request.headers.get(CONFIRM_HEADER) !== `${CONFIRM_PREFIX}${commitSha}`) {
     return "CONFIRMATION_MISMATCH";
   }
   return null;
 }
 
-function unavailable(status = 404, errorCode?: string) {
+function confirmationDiagnostic(request: Request, commitSha: string | null) {
+  const received = request.headers.get(CONFIRM_HEADER);
+  const expected = commitSha ? `${CONFIRM_PREFIX}${commitSha}` : null;
+  return {
+    confirmationPresent: received !== null,
+    confirmationLength: received?.length ?? 0,
+    confirmationExpectedLength: expected?.length ?? 0,
+    confirmationPrefixMatch: received?.startsWith(CONFIRM_PREFIX) ?? false,
+    confirmationSuffixIsCommit: Boolean(commitSha && received?.endsWith(commitSha)),
+    confirmationMatchesIgnoreCase: Boolean(
+      expected && received && received.toLowerCase() === expected.toLowerCase(),
+    ),
+  };
+}
+
+function unavailable(
+  status = 404,
+  errorCode?: string,
+  diagnostic?: ReturnType<typeof confirmationDiagnostic>,
+) {
   return NextResponse.json(
     {
       service: "iburo127",
       operation: "staging-file-scan-fixture-cleanup",
       pass: false,
       ...(errorCode ? { errorCode } : {}),
+      ...(diagnostic ? { diagnostic } : {}),
     },
     { status, headers: NO_STORE_HEADERS },
   );
@@ -72,7 +93,13 @@ export async function POST(request: Request) {
   const commitSha = exactPreviewCommitSha(env);
   const boundaryError = boundaryFailureCode(env, request, commitSha);
   if (!isExactStagingPreview(env) || !commitSha || boundaryError) {
-    return unavailable(404, boundaryError ?? "STAGING_BOUNDARY_MISMATCH");
+    return unavailable(
+      404,
+      boundaryError ?? "STAGING_BOUNDARY_MISMATCH",
+      boundaryError === "CONFIRMATION_MISMATCH"
+        ? confirmationDiagnostic(request, commitSha)
+        : undefined,
+    );
   }
 
   const prisma = getPrismaClient();
