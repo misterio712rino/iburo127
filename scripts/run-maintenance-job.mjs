@@ -10,6 +10,7 @@ const JOB_PATHS = Object.freeze({
   "file-scans": "/api/internal/maintenance/file-scans",
   "file-scan-health": "/api/internal/maintenance/file-scan-health",
   "file-deletions": "/api/internal/maintenance/file-deletions",
+  "file-deletion-health": "/api/internal/maintenance/file-deletion-health",
   "ai-audit-health": "/api/internal/maintenance/ai-audit-health",
 });
 
@@ -103,7 +104,7 @@ function readTimeoutMs(env, job) {
 function requireJob(job) {
   if (!Object.hasOwn(JOB_PATHS, job)) {
     fail(
-      "job must be notification-deliveries, notification-delivery-health, stale-uploads, stale-upload-health, file-scans, file-scan-health, or ai-audit-health; additional supported jobs: task-reminders, questionnaire-reminders, file-deletions",
+      "unsupported maintenance job; use one of the fixed JOB_PATHS entries",
     );
   }
   return job;

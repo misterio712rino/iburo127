@@ -1,6 +1,7 @@
 import "./vercel-staging-identity-route-contract.test";
 import "./staging-internal-route-boundary-contract.test";
 import "./maintenance-route-security-contract.test";
+import "./file-deletion-health.test";
 
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -33,6 +34,11 @@ assert.match(
   runner,
   /"file-deletions": "\/api\/internal\/maintenance\/file-deletions"/,
   "file deletion package command must resolve to the guarded internal maintenance route",
+);
+assert.match(
+  runner,
+  /"file-deletion-health": "\/api\/internal\/maintenance\/file-deletion-health"/,
+  "independent file deletion backlog health must remain available to external schedulers",
 );
 const targetGuardIndex = runner.indexOf("assertMaintenanceEnvironmentTarget(env, target)");
 const secretIndex = runner.indexOf("const secret = requireSecret(env)");
@@ -101,5 +107,28 @@ assert.ok(
 assert.match(deletionRoute, /const FILE_DELETION_BATCH_LIMIT = 1;/);
 assert.match(deletionRoute, /Cache-Control": "no-store"/);
 assert.match(deletionRoute, /FILE_DELETION_ATTENTION_REQUIRED/);
+
+const deletionHealthRoute = await readFile(
+  resolve("app/api/internal/maintenance/file-deletion-health/route.ts"),
+  "utf8",
+);
+const deletionHealthAuthIndex = deletionHealthRoute.indexOf(
+  "isAuthorizedMaintenanceRequest(request, maintenanceConfig.secret)",
+);
+const deletionHealthInspectIndex = deletionHealthRoute.indexOf(
+  "getStoredFileDeletionHealthService().inspect",
+);
+assert.ok(deletionHealthAuthIndex >= 0, "file deletion health must require maintenance auth");
+assert.ok(
+  deletionHealthInspectIndex > deletionHealthAuthIndex,
+  "file deletion backlog must never be queried before maintenance authorization",
+);
+assert.match(deletionHealthRoute, /FILE_DELETION_BACKLOG_UNHEALTHY/);
+assert.match(deletionHealthRoute, /Cache-Control": "no-store"/);
+assert.doesNotMatch(
+  deletionHealthRoute,
+  /fileId\s*:|clientCaseId\s*:|requestedByUserId\s*:|objectKey\s*:|leaseToken\s*:/,
+  "file deletion health response must remain aggregate-only",
+);
 
 console.log("MAINTENANCE_PACKAGE_SCRIPT_CONTRACT_PASS");
