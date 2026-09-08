@@ -34,8 +34,16 @@ const platformPageSecurityHeaders = [
   { key: "Content-Security-Policy", value: contentSecurityPolicy },
 ] as const;
 
+const privatePageSecurityHeaders = [
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Referrer-Policy", value: "no-referrer" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  { key: "Content-Security-Policy", value: contentSecurityPolicy },
+] as const;
+
 const privatePageHeaders = [
-  ...platformPageSecurityHeaders,
+  ...privatePageSecurityHeaders,
   { key: "Cache-Control", value: "private, no-store, max-age=0" },
   { key: "Pragma", value: "no-cache" },
 ] as const;
