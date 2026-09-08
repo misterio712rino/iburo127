@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 
 const signOutSource = await readFile(resolve("components/platform/auth/SignOutButton.tsx"), "utf8");
 const mfaEnrollmentSource = await readFile(resolve("components/platform/auth/MfaEnrollmentForm.tsx"), "utf8");
+const twoFactorSource = await readFile(resolve("components/platform/auth/TwoFactorForm.tsx"), "utf8");
 const authLayoutSource = await readFile(resolve("app/auth/layout.tsx"), "utf8");
 const authInteractionSource = await readFile(
   resolve("components/platform/auth/AuthInteractionStyles.tsx"),
@@ -23,6 +24,27 @@ assert.match(
 assert.match(mfaEnrollmentSource, /authClient\.twoFactor\.enable/);
 assert.match(mfaEnrollmentSource, /authClient\.twoFactor\.verifyTotp/);
 assert.match(mfaEnrollmentSource, /trustDevice: false/);
+
+assert.match(
+  twoFactorSource,
+  /role="group"[\s\S]*aria-label="Способ двухфакторного подтверждения"/,
+  "two-factor verification methods must remain an explicitly named control group",
+);
+assert.match(
+  twoFactorSource,
+  /aria-pressed=\{mode === "totp"\}/,
+  "TOTP selector must expose its selected state",
+);
+assert.match(
+  twoFactorSource,
+  /aria-pressed=\{mode === "backup"\}/,
+  "backup-code selector must expose its selected state",
+);
+assert.match(
+  twoFactorSource,
+  /<form onSubmit=\{submit\} className="space-y-5" aria-busy=\{pending\}>/,
+  "two-factor verification form must expose its pending state",
+);
 
 assert.match(
   authLayoutSource,
