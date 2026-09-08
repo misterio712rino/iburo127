@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
-export const VERCEL_AUTOMATION_BYPASS_HEADER = "x-vercel-protection-bypass";
+export const IB_STAGING_CONTROL_HEADER = "x-iburo-staging-control";
 
 const MIN_AUTOMATION_SECRET_LENGTH = 16;
 const MAX_AUTOMATION_SECRET_LENGTH = 512;
@@ -29,7 +29,7 @@ export function isAuthorizedVercelAutomationRequest(
   env: EnvironmentLike = process.env,
 ): boolean {
   const expected = safeAutomationSecret(env.VERCEL_AUTOMATION_BYPASS_SECRET);
-  const provided = safeAutomationSecret(request.headers.get(VERCEL_AUTOMATION_BYPASS_HEADER));
+  const provided = safeAutomationSecret(request.headers.get(IB_STAGING_CONTROL_HEADER));
   if (!expected || !provided) return false;
   return timingSafeEqual(digest(provided), digest(expected));
 }
