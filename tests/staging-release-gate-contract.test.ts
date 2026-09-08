@@ -104,6 +104,39 @@ for (const mutatingJob of [
 }
 assert.match(maintenanceWrapper, /STAGING_MAINTENANCE_HEALTH_PASS/);
 
+const externalReadinessWorkflow = await readFile(
+  resolve(".github/workflows/staging-external-readiness.yml"),
+  "utf8",
+);
+const cleanupStepStart = externalReadinessWorkflow.indexOf(
+  "- name: Clean stale guarded file-scan fixtures",
+);
+const maintenanceStepStart = externalReadinessWorkflow.indexOf(
+  "- name: Verify aggregate maintenance backlog health",
+);
+assert.ok(cleanupStepStart >= 0, "external readiness must retain guarded file-scan fixture cleanup");
+assert.ok(
+  maintenanceStepStart > cleanupStepStart,
+  "guarded fixture cleanup must remain before aggregate maintenance health",
+);
+const cleanupStep = externalReadinessWorkflow.slice(cleanupStepStart, maintenanceStepStart);
+assert.match(cleanupStep, /max_attempts=6/);
+assert.match(cleanupStep, /delay_seconds=3/);
+assert.match(cleanupStep, /for attempt in \$\(seq 1 "\$max_attempts"\); do/);
+assert.match(
+  cleanupStep,
+  /if \[ "\$http_status" != "404" \] && \[ "\$http_status" != "000" \]; then\s+break/,
+  "cleanup retries must be limited to transient route/transport misses",
+);
+assert.match(cleanupStep, /STAGING_FILE_SCAN_FIXTURE_CLEANUP_WAIT/);
+assert.match(cleanupStep, /CLEAN_STAGING_FILE_SCAN_FIXTURES:\$\{GITHUB_SHA\}/);
+assert.match(cleanupStep, /_iburo\/staging-file-scan-fixture-cleanup/);
+assert.match(
+  cleanupStep,
+  /if \[ "\$http_status" != "200" \]; then/,
+  "any non-success response remaining after bounded retries must fail closed",
+);
+
 const passIndex = release.indexOf("STAGING_RELEASE_READINESS_PASS");
 assert.ok(passIndex > previousIndex, "release PASS marker must only be reachable after every required verifier");
 assert.doesNotMatch(release, /\|\||;\s*npm run/, "release verifiers must remain fail-closed through && chaining");
