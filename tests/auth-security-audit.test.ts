@@ -184,4 +184,29 @@ assert.doesNotMatch(
   "reset-token scrubbing must not trigger a Next navigation that would discard the token prop",
 );
 
+const authRouteSource = await readFile(
+  resolve("app/api/auth/[...all]/route.ts"),
+  "utf8",
+);
+assert.match(
+  authRouteSource,
+  /function canonicalizeAuthPath\(pathname: string\): string/,
+  "raw Better Auth routes must canonicalize equivalent paths before enforcing the access gate",
+);
+assert.match(
+  authRouteSource,
+  /pathname\.replace\(\/\\\/\+\$\/, ""\)/,
+  "trailing slashes must be removed before checking the gated email sign-in path",
+);
+assert.match(
+  authRouteSource,
+  /canonicalizeAuthPath\(new URL\(request\.url\)\.pathname\)/,
+  "direct email sign-in blocking must use the canonicalized pathname",
+);
+assert.match(
+  authRouteSource,
+  /ACCESS_GATE_ONLY_PATHS = new Set\(\["\/api\/auth\/sign-in\/email"\]\)/,
+  "direct Better Auth email/password sign-in must remain access-gate only",
+);
+
 console.log("AUTH_SECURITY_AUDIT_TEST_PASS");
