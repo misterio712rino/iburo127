@@ -48,21 +48,21 @@ export class AccessGateRateLimitError extends Error {
 async function consumeRateLimit(input: {
   key: string;
   limit: number;
-  nowSeconds: number;
+  nowMs: number;
 }): Promise<void> {
   const prisma = getPrismaClient();
-  const windowStart = input.nowSeconds - RATE_LIMIT_WINDOW_SECONDS;
+  const windowStartMs = input.nowMs - RATE_LIMIT_WINDOW_SECONDS * 1000;
   const rows = await prisma.$queryRaw<RateLimitRow[]>`
     insert into "rateLimit" ("id", "key", "count", "lastRequest")
-    values (${randomUUID()}, ${input.key}, 1, ${input.nowSeconds})
+    values (${randomUUID()}, ${input.key}, 1, ${input.nowMs})
     on conflict ("key") do update
     set
       "count" = case
-        when "rateLimit"."lastRequest" < ${windowStart} then 1
+        when "rateLimit"."lastRequest" < ${windowStartMs} then 1
         else "rateLimit"."count" + 1
       end,
       "lastRequest" = case
-        when "rateLimit"."lastRequest" < ${windowStart} then ${input.nowSeconds}
+        when "rateLimit"."lastRequest" < ${windowStartMs} then ${input.nowMs}
         else "rateLimit"."lastRequest"
       end
     returning "count"
@@ -80,17 +80,17 @@ async function enforceAccessGateRateLimit(
 ): Promise<void> {
   const { secret } = readBetterAuthRuntimeConfig();
   const clientIp = readTrustedAccessGateClientIp(request);
-  const nowSeconds = Math.floor(Date.now() / 1000);
+  const nowMs = Date.now();
 
   await consumeRateLimit({
     key: accessGateRateLimitDigest("ip", clientIp, secret),
     limit: RATE_LIMIT_IP_MAX,
-    nowSeconds,
+    nowMs,
   });
   await consumeRateLimit({
     key: accessGateRateLimitDigest("contact", identifier.contactKey, secret),
     limit: RATE_LIMIT_CONTACT_MAX,
-    nowSeconds,
+    nowMs,
   });
 }
 
