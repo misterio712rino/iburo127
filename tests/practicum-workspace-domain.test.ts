@@ -29,6 +29,10 @@ const clientActor: AuthenticatedActor = { userId: CLIENT_ID, roles: ["CLIENT"] }
 const lawyerActor: AuthenticatedActor = { userId: LAWYER_ID, roles: ["LAWYER"] };
 const otherLawyerActor: AuthenticatedActor = { userId: OTHER_LAWYER_ID, roles: ["LAWYER"] };
 const managerActor: AuthenticatedActor = { userId: MANAGER_ID, roles: ["MANAGER"] };
+const managerLawyerActor: AuthenticatedActor = {
+  userId: LAWYER_ID,
+  roles: ["MANAGER", "LAWYER"],
+};
 
 function makeCase(assignedLawyerId: string | null = LAWYER_ID): ClientCaseRecord {
   return {
@@ -206,6 +210,16 @@ async function expectCode(action: () => Promise<unknown>, code: string) {
   );
 
   await expectCode(
+    () => service.reviewHomework(managerLawyerActor, {
+      clientCaseId: CASE_ID,
+      lessonId: LESSON_ID,
+      decision: "ACCEPTED",
+      comment: "",
+    }),
+    PRACTICUM_WORKSPACE_FORBIDDEN,
+  );
+
+  await expectCode(
     () => service.reviewHomework(otherLawyerActor, {
       clientCaseId: CASE_ID,
       lessonId: LESSON_ID,
@@ -242,6 +256,15 @@ async function expectCode(action: () => Promise<unknown>, code: string) {
       clientCaseId: CASE_ID,
       lessonId: LESSON_ID,
       body: "Менеджер не должен отвечать в чате",
+    }),
+    PRACTICUM_WORKSPACE_FORBIDDEN,
+  );
+
+  await expectCode(
+    () => service.sendLessonMessage(managerLawyerActor, {
+      clientCaseId: CASE_ID,
+      lessonId: LESSON_ID,
+      body: "Менеджер с дополнительной ролью юриста тоже не должен отвечать",
     }),
     PRACTICUM_WORKSPACE_FORBIDDEN,
   );

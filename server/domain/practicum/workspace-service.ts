@@ -94,6 +94,7 @@ export class PracticumWorkspaceService {
   private async requireAssignedLawyer(actor: AuthenticatedActor, clientCaseId: string) {
     const clientCase = await this.requireAccessibleCase(actor, clientCaseId);
     if (
+      actor.roles.includes("MANAGER") ||
       !actor.roles.includes("LAWYER") ||
       !clientPlanHasHumanSupport(clientCase.planCode) ||
       !clientCase.assignedLawyerId ||
@@ -204,7 +205,9 @@ export class PracticumWorkspaceService {
 
     const isClient = actor.roles.includes("CLIENT") && clientCase.clientId === actor.userId;
     const isAssignedLawyer =
-      actor.roles.includes("LAWYER") && clientCase.assignedLawyerId === actor.userId;
+      !actor.roles.includes("MANAGER") &&
+      actor.roles.includes("LAWYER") &&
+      clientCase.assignedLawyerId === actor.userId;
 
     if (!isClient && !isAssignedLawyer) {
       throw new Error(PRACTICUM_WORKSPACE_FORBIDDEN);
