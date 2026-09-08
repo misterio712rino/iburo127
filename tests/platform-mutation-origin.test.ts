@@ -14,7 +14,7 @@ import {
   evaluatePlatformMutationOrigin,
 } from "@/server/http/trusted-mutation-origin";
 import {
-  VERCEL_AUTOMATION_BYPASS_HEADER,
+  IB_STAGING_CONTROL_HEADER,
   isAuthorizedVercelAutomationRequest,
 } from "@/server/staging/vercel-automation-auth";
 
@@ -43,10 +43,17 @@ function request(
   if (options.fetchSite !== undefined) headers.set("sec-fetch-site", options.fetchSite);
   if (options.userAgent !== undefined) headers.set("user-agent", options.userAgent);
   if (options.automationBypass !== undefined) {
-    headers.set(VERCEL_AUTOMATION_BYPASS_HEADER, options.automationBypass);
+    headers.set(IB_STAGING_CONTROL_HEADER, options.automationBypass);
   }
   return { method, headers };
 }
+
+assert.equal(IB_STAGING_CONTROL_HEADER, "x-iburo-staging-control");
+assert.notEqual(
+  IB_STAGING_CONTROL_HEADER,
+  "x-vercel-protection-bypass",
+  "application staging-control authentication must remain separate from Vercel's consumed protection-bypass header",
+);
 
 const automationSecret = "0123456789abcdef0123456789abcdef";
 const automationEnv = { VERCEL_AUTOMATION_BYPASS_SECRET: automationSecret };
