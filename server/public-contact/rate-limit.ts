@@ -39,21 +39,22 @@ export async function enforcePublicContactRateLimit(request: Request): Promise<v
   const clientIp = readTrustedClientIp(request);
   const { secret } = readBetterAuthRuntimeConfig();
   const key = rateLimitKey(clientIp, secret);
-  const nowSeconds = Math.floor(Date.now() / 1000);
-  const windowStart = nowSeconds - PUBLIC_CONTACT_RATE_LIMIT_WINDOW_SECONDS;
+  // Better Auth shares this table and stores lastRequest as epoch milliseconds.
+  const nowMs = Date.now();
+  const windowStartMs = nowMs - PUBLIC_CONTACT_RATE_LIMIT_WINDOW_SECONDS * 1000;
   const prisma = getPrismaClient();
 
   const rows = await prisma.$queryRaw<RateLimitRow[]>`
     insert into "rateLimit" ("id", "key", "count", "lastRequest")
-    values (${randomUUID()}, ${key}, 1, ${nowSeconds})
+    values (${randomUUID()}, ${key}, 1, ${nowMs})
     on conflict ("key") do update
     set
       "count" = case
-        when "rateLimit"."lastRequest" < ${windowStart} then 1
+        when "rateLimit"."lastRequest" < ${windowStartMs} then 1
         else "rateLimit"."count" + 1
       end,
       "lastRequest" = case
-        when "rateLimit"."lastRequest" < ${windowStart} then ${nowSeconds}
+        when "rateLimit"."lastRequest" < ${windowStartMs} then ${nowMs}
         else "rateLimit"."lastRequest"
       end
     returning "count"

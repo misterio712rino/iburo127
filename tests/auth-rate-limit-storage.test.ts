@@ -6,6 +6,10 @@ const authSource = await readFile(
   resolve("server/auth/better-auth-instance.ts"),
   "utf8",
 );
+const publicContactRateLimitSource = await readFile(
+  resolve("server/public-contact/rate-limit.ts"),
+  "utf8",
+);
 const prismaSchema = await readFile(resolve("prisma/schema.prisma"), "utf8");
 const stagingVerifier = await readFile(
   resolve("scripts/verify-staging-better-auth-schema.ts"),
@@ -21,6 +25,22 @@ assert.doesNotMatch(
   authSource,
   /rateLimit:\s*\{[\s\S]*?storage:\s*"memory"/,
   "process-local rate-limit storage must not be reintroduced",
+);
+
+assert.match(
+  publicContactRateLimitSource,
+  /const nowMs = Date\.now\(\);/,
+  "public contact throttling must store the shared rateLimit clock in epoch milliseconds",
+);
+assert.match(
+  publicContactRateLimitSource,
+  /const windowStartMs = nowMs - PUBLIC_CONTACT_RATE_LIMIT_WINDOW_SECONDS \* 1000;/,
+  "public contact throttling must convert its seconds-based policy window to milliseconds",
+);
+assert.doesNotMatch(
+  publicContactRateLimitSource,
+  /Math\.floor\(Date\.now\(\) \/ 1000\)/,
+  "public contact throttling must not write epoch seconds into Better Auth's millisecond rateLimit table",
 );
 
 for (const providerModel of [
