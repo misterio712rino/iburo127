@@ -29,6 +29,17 @@ function commitSha(env: NodeJS.ProcessEnv) {
   return value && /^[a-f0-9]{40}$/i.test(value) ? value.toLowerCase() : null;
 }
 
+function automationBypassConfigured(env: NodeJS.ProcessEnv) {
+  const value = env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  return Boolean(
+    value &&
+      value.length >= 16 &&
+      value.length <= 512 &&
+      value === value.trim() &&
+      !/[\r\n\0]/.test(value),
+  );
+}
+
 function isExactStagingPreview(env: NodeJS.ProcessEnv) {
   return (
     env.VERCEL_ENV?.trim() === "preview" &&
@@ -53,6 +64,7 @@ export async function GET() {
       commitSha: commitSha(env),
       runtimeTarget: runtimeTarget(env),
       backendEnabled: true,
+      automationBypassConfigured: automationBypassConfigured(env),
     },
     { headers: NO_STORE_HEADERS },
   );
