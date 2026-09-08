@@ -11,6 +11,10 @@ const productionConfig = await readFile(resolve("server/config/production.ts"), 
 const prismaRuntime = await readFile(resolve("server/database/prisma.ts"), "utf8");
 const betterAuthRuntime = await readFile(resolve("server/auth/better-auth-instance.ts"), "utf8");
 const stagingTargetGuard = await readFile(resolve("scripts/staging-target-guard.ts"), "utf8");
+const recoveryRunbook = await readFile(
+  resolve("docs/PRODUCTION_DATABASE_RECOVERY_RUNBOOK.md"),
+  "utf8",
+);
 
 function fixtureDatabaseUrl(sslMode?: string) {
   const base = [
@@ -86,5 +90,21 @@ assert.match(
   /databaseUrl:\s*stabilizePostgresSslMode\(databaseUrl\)/,
   "staging DB consumers must preserve pg@8 strict TLS semantics without rewriting staging env",
 );
+
+assert.match(
+  recoveryRunbook,
+  /\*\*Status: BLOCKED \/ NOT YET PROVEN\.\*\*/,
+  "recovery documentation must not claim production backup readiness before runtime proof",
+);
+assert.match(recoveryRunbook, /RPO \(Recovery Point Objective\)/);
+assert.match(recoveryRunbook, /RTO \(Recovery Time Objective\)/);
+assert.match(recoveryRunbook, /Restore to an isolated target/);
+assert.match(recoveryRunbook, /A backup is not considered usable until a restore from it has been demonstrated/);
+assert.match(recoveryRunbook, /Never test restore by overwriting the authoritative production database/);
+assert.match(recoveryRunbook, /rollback compatibility classification/);
+assert.match(recoveryRunbook, /Unknown compatibility blocks production deployment/);
+assert.match(recoveryRunbook, /do not execute ad-hoc destructive SQL/i);
+assert.match(recoveryRunbook, /prisma db push/);
+assert.match(recoveryRunbook, /production change separately approved/);
 
 console.log("PRODUCTION_DATABASE_CONFIG_CONTRACT_PASS");
