@@ -13,6 +13,10 @@ import {
   PLATFORM_MUTATION_ORIGIN_REJECTED,
   evaluatePlatformMutationOrigin,
 } from "@/server/http/trusted-mutation-origin";
+import {
+  VERCEL_AUTOMATION_BYPASS_HEADER,
+  isAuthorizedVercelAutomationRequest,
+} from "@/server/staging/vercel-automation-auth";
 
 const productionEnv = { BETTER_AUTH_URL: "https://app.example.com" };
 const confirmedCommitSha = "12a4155acd473838b3e4f48bc318016187854a68";
@@ -27,14 +31,62 @@ const confirmedPreviewEnv = {
 
 function request(
   method: string,
-  options: { origin?: string; fetchSite?: string; userAgent?: string } = {},
+  options: {
+    origin?: string;
+    fetchSite?: string;
+    userAgent?: string;
+    automationBypass?: string;
+  } = {},
 ): Pick<Request, "method" | "headers"> {
   const headers = new Headers();
   if (options.origin !== undefined) headers.set("origin", options.origin);
   if (options.fetchSite !== undefined) headers.set("sec-fetch-site", options.fetchSite);
   if (options.userAgent !== undefined) headers.set("user-agent", options.userAgent);
+  if (options.automationBypass !== undefined) {
+    headers.set(VERCEL_AUTOMATION_BYPASS_HEADER, options.automationBypass);
+  }
   return { method, headers };
 }
+
+const automationSecret = "0123456789abcdef0123456789abcdef";
+const automationEnv = { VERCEL_AUTOMATION_BYPASS_SECRET: automationSecret };
+assert.equal(isAuthorizedVercelAutomationRequest(request("POST"), automationEnv), false);
+assert.equal(
+  isAuthorizedVercelAutomationRequest(
+    request("POST", { automationBypass: "fedcba9876543210fedcba9876543210" }),
+    automationEnv,
+  ),
+  false,
+);
+assert.equal(
+  isAuthorizedVercelAutomationRequest(
+    request("POST", { automationBypass: automationSecret }),
+    automationEnv,
+  ),
+  true,
+);
+assert.equal(
+  isAuthorizedVercelAutomationRequest(
+    request("POST", { automationBypass: automationSecret }),
+    {},
+  ),
+  false,
+  "staging control mutations must fail closed when Vercel does not expose the automation secret",
+);
+assert.equal(
+  isAuthorizedVercelAutomationRequest(
+    request("POST", { automationBypass: automationSecret }),
+    { VERCEL_AUTOMATION_BYPASS_SECRET: "too-short" },
+  ),
+  false,
+);
+assert.equal(
+  isAuthorizedVercelAutomationRequest(
+    request("POST", { automationBypass: automationSecret }),
+    { VERCEL_AUTOMATION_BYPASS_SECRET: `${automationSecret}\n` },
+  ),
+  false,
+);
 
 for (const method of ["GET", "HEAD", "OPTIONS"]) {
   assert.deepEqual(evaluatePlatformMutationOrigin(request(method), {}), { allowed: true });
@@ -209,12 +261,23 @@ assert.doesNotThrow(() => assertVercelPreviewBackendAllowed(anotherValidShaPrevi
 const proxySource = await readFile(resolve("proxy.ts"), "utf8");
 assert.match(proxySource, /isVercelPreviewBackendAllowed\(\)/);
 assert.match(proxySource, /evaluatePlatformMutationOrigin\(request\)/);
+assert.match(proxySource, /isAuthorizedVercelAutomationRequest\(request\)/);
+assert.match(proxySource, /request\.nextUrl\.pathname\.startsWith\("\/_iburo\/"\)/);
+assert.match(proxySource, /SAFE_METHODS = new Set\(\["GET", "HEAD", "OPTIONS"\]\)/);
 assert.match(
   proxySource,
-  /matcher:\s*\["\/app\/:path\*", "\/portal\/:path\*", "\/auth\/:path\*", "\/api\/:path\*"\]/,
+  /matcher:\s*\["\/app\/:path\*", "\/portal\/:path\*", "\/auth\/:path\*", "\/api\/:path\*", "\/_iburo\/:path\*"\]/,
 );
 assert.match(proxySource, /Cache-Control": "private, no-store"/);
 assert.match(proxySource, /STAGING_BACKEND_DISABLED/);
+assert.match(proxySource, /STAGING_CONTROL_UNAVAILABLE/);
+const stagingControlAuthIndex = proxySource.indexOf("isAuthorizedVercelAutomationRequest(request)");
+const platformOriginIndex = proxySource.indexOf("evaluatePlatformMutationOrigin(request)");
+assert.ok(stagingControlAuthIndex >= 0, "staging control mutation authorization must exist");
+assert.ok(
+  stagingControlAuthIndex < platformOriginIndex,
+  "staging control-plane authorization must run before ordinary platform mutation handling",
+);
 assert.doesNotMatch(proxySource, /\/api\/auth/);
 assert.doesNotMatch(proxySource, /\/api\/internal/);
 

@@ -1,12 +1,22 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isVercelPreviewBackendAllowed } from "@/server/config/vercel-preview-boundary";
 import { evaluatePlatformMutationOrigin } from "@/server/http/trusted-mutation-origin";
+import { isAuthorizedVercelAutomationRequest } from "@/server/staging/vercel-automation-auth";
 
 const PRIVATE_NO_STORE_HEADERS = {
   "Cache-Control": "private, no-store",
 };
 
 const STAGING_BACKEND_DISABLED = "STAGING_BACKEND_DISABLED";
+const STAGING_CONTROL_UNAVAILABLE = "STAGING_CONTROL_UNAVAILABLE";
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+function isStagingControlMutation(request: NextRequest): boolean {
+  return (
+    request.nextUrl.pathname.startsWith("/_iburo/") &&
+    !SAFE_METHODS.has(request.method.toUpperCase())
+  );
+}
 
 export function proxy(request: NextRequest) {
   if (!isVercelPreviewBackendAllowed()) {
@@ -17,6 +27,19 @@ export function proxy(request: NextRequest) {
       },
       {
         status: 503,
+        headers: PRIVATE_NO_STORE_HEADERS,
+      },
+    );
+  }
+
+  if (isStagingControlMutation(request) && !isAuthorizedVercelAutomationRequest(request)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: { code: STAGING_CONTROL_UNAVAILABLE },
+      },
+      {
+        status: 404,
         headers: PRIVATE_NO_STORE_HEADERS,
       },
     );
@@ -40,5 +63,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/app/:path*", "/portal/:path*", "/auth/:path*", "/api/:path*"],
+  matcher: ["/app/:path*", "/portal/:path*", "/auth/:path*", "/api/:path*", "/_iburo/:path*"],
 };
