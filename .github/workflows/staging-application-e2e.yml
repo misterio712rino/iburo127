@@ -214,6 +214,12 @@ jobs:
               fi
             fi
 
+            if [ "$http_status" = "000" ] && [ "$attempt" -lt "$max_attempts" ]; then
+              echo "STAGING_NETWORK_RETRY_WAIT: operation=client-plan-auth attempt=$attempt/$max_attempts"
+              sleep "$delay_seconds"
+              continue
+            fi
+
             failure_stage="$(RESPONSE_FILE="$response_file" node --input-type=module -e '
               import { readFileSync } from "node:fs";
               try {
@@ -297,6 +303,12 @@ jobs:
                 sleep "$delay_seconds"
                 continue
               fi
+            fi
+
+            if [ "$http_status" = "000" ] && [ "$attempt" -lt "$max_attempts" ]; then
+              echo "STAGING_NETWORK_RETRY_WAIT: operation=application-fixture-reset attempt=$attempt/$max_attempts"
+              sleep "$delay_seconds"
+              continue
             fi
 
             failure_stage="$(RESPONSE_FILE="$response_file" node --input-type=module -e '
