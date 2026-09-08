@@ -26,6 +26,10 @@ const externalReadinessWorkflow = await readFile(
   resolve(".github/workflows/staging-external-readiness.yml"),
   "utf8",
 );
+const applicationE2eWorkflow = await readFile(
+  resolve(".github/workflows/staging-application-e2e.yml"),
+  "utf8",
+);
 
 assert.match(productionConfig, /IB_FILE_SCANNER_ORIGIN/);
 assert.match(productionConfig, /IB_FILE_SCANNER_SECRET/);
@@ -116,5 +120,29 @@ assert.match(
   /if \[ "\$http_status" != "200" \]; then/,
   "maintenance health must continue to fail closed on a real 503 unhealthy verdict",
 );
+
+for (const [stepName, operation] of [
+  ["Ensure LITE and PRO client auth fixtures", "client-plan-auth"],
+  ["Reset dedicated application E2E fixtures", "application-fixture-reset"],
+] as const) {
+  const step =
+    applicationE2eWorkflow.split(`- name: ${stepName}`)[1]?.split("\n      - name:")[0] ?? "";
+  assert.ok(step, `application E2E must keep ${stepName}`);
+  assert.match(
+    step,
+    /max_attempts=6[\s\S]*delay_seconds=2[\s\S]*for attempt in \$\(seq 1 "\$max_attempts"\); do/,
+    `${stepName} must retain a bounded retry loop`,
+  );
+  assert.match(
+    step,
+    new RegExp(`if \\[ "\\$http_status" = "000" \\] && \\[ "\\$attempt" -lt "\\$max_attempts" \\]; then[\\s\\S]*STAGING_NETWORK_RETRY_WAIT: operation=${operation}[\\s\\S]*continue`),
+    `${stepName} must retry transient curl/network timeouts`,
+  );
+  assert.match(
+    step,
+    /if \[ "\$http_status" = "200" \]/,
+    `${stepName} must keep HTTP 200 as the only success path`,
+  );
+}
 
 console.log("FILE_SCAN_CONFIG_CONTRACT_PASS");
