@@ -1,5 +1,6 @@
 import "server-only";
 
+import { normalizeCourtCaseNumber } from "@/lib/platform/client-case-number";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { privateJsonResponse } from "@/server/http/private-json";
 
@@ -30,7 +31,7 @@ export function toClientCaseTransportRecord(clientCase: {
 }): ClientCaseTransportRecord {
   return {
     id: clientCase.id,
-    caseNumber: clientCase.caseNumber,
+    caseNumber: normalizeCourtCaseNumber(clientCase.caseNumber) ?? "Номер дела ещё не присвоен",
     planCode: clientCase.planCode,
     stageCode: clientCase.stageCode,
     status: clientCase.status,

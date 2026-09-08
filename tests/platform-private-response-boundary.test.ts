@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
+import { normalizeCourtCaseNumber } from "../lib/platform/client-case-number";
+
 async function collectFiles(
   directory: string,
   include: (fileName: string) => boolean,
@@ -78,6 +80,22 @@ assert.match(helper, /"Cache-Control":\s*"private, no-store, max-age=0"/);
 assert.match(helper, /Pragma:\s*"no-cache"/);
 assert.match(helper, /"X-Content-Type-Options":\s*"nosniff"/);
 assert.match(helper, /Response\.json\(body/);
+
+const clientCaseTransport = await readFile(resolve("server/client-cases/transport.ts"), "utf8");
+assert.match(
+  clientCaseTransport,
+  /caseNumber:\s*normalizeCourtCaseNumber\(clientCase\.caseNumber\)\s*\?\?\s*"Номер дела ещё не присвоен"/,
+  "platform case transport must mask internal/non-court case numbers before returning authenticated JSON",
+);
+assert.doesNotMatch(
+  clientCaseTransport,
+  /caseNumber:\s*clientCase\.caseNumber/,
+  "platform case transport must not serialize raw case numbers",
+);
+assert.equal(normalizeCourtCaseNumber("IB-2026-0001"), null);
+assert.equal(normalizeCourtCaseNumber("IBR-2026-0001"), null);
+assert.equal(normalizeCourtCaseNumber("A40-12345/2026"), "А40-12345/2026");
+assert.equal(normalizeCourtCaseNumber("А40-12345/2026"), "А40-12345/2026");
 
 console.log(
   `PLATFORM_PRIVATE_RESPONSE_BOUNDARY_PASS: ${inspectedFiles.length} route/adapter file(s) inspected`,
