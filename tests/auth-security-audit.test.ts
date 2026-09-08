@@ -164,4 +164,24 @@ assert.match(
   "sign-out must redirect only after Better Auth reports success",
 );
 
+const resetPasswordSource = await readFile(
+  resolve("components/platform/auth/ResetPasswordForm.tsx"),
+  "utf8",
+);
+assert.match(
+  resetPasswordSource,
+  /useEffect\(\(\) => \{[\s\S]*new URL\(window\.location\.href\)[\s\S]*searchParams\.has\("token"\)[\s\S]*searchParams\.delete\("token"\)[\s\S]*window\.history\.replaceState\(window\.history\.state, "", sanitizedUrl\);[\s\S]*\}, \[\]\);/,
+  "password reset page must remove the recovery token from the current browser URL after hydration",
+);
+assert.match(
+  resetPasswordSource,
+  /authClient\.resetPassword\(\{ newPassword: password, token \}\)/,
+  "password reset must keep using the server-validated token prop after URL scrubbing",
+);
+assert.doesNotMatch(
+  resetPasswordSource,
+  /useRouter\(|router\.(?:push|replace)\(/,
+  "reset-token scrubbing must not trigger a Next navigation that would discard the token prop",
+);
+
 console.log("AUTH_SECURITY_AUDIT_TEST_PASS");
