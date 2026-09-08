@@ -5,6 +5,8 @@ import {
   STAGING_HTTP_TARGET_GUARD,
 } from "./staging-http-target-guard";
 
+const INTERNAL_CASE_NUMBER = /^IBR?-/iu;
+
 function fail(message: string): never {
   console.error(`STAGING_HTTP_AUTHZ_FAIL: ${message}`);
   process.exit(1);
@@ -30,13 +32,6 @@ try {
 const clientCookie = required("IB_STAGING_CLIENT_COOKIE");
 const lawyerCookie = required("IB_STAGING_LAWYER_COOKIE");
 const managerCookie = required("IB_STAGING_MANAGER_COOKIE");
-const clientCaseNumber = required("IB_STAGING_CLIENT_CASE_NUMBER");
-const clientUnassignedCaseNumber = required("IB_STAGING_CLIENT_UNASSIGNED_CASE_NUMBER");
-const lawyerCaseNumber = required("IB_STAGING_LAWYER_CASE_NUMBER");
-
-if (clientUnassignedCaseNumber === lawyerCaseNumber) {
-  fail("CLIENT unassigned boundary case must differ from the LAWYER assigned case");
-}
 
 type JsonEnvelope<T> = {
   ok: boolean;
@@ -45,7 +40,7 @@ type JsonEnvelope<T> = {
 };
 
 type SessionData = { roles: string[] };
-type CaseData = { caseNumber: string };
+type CaseData = { id: string; caseNumber: string };
 
 async function request(path: string, cookie?: string) {
   const url = new URL(path, baseUrl);
@@ -104,37 +99,70 @@ async function listCases(label: string, cookie: string): Promise<CaseData[]> {
   if (response.status !== 200) fail(`${label} cases expected 200, got ${response.status}`);
   const body = await readJson<CaseData[]>(response);
   if (!body.ok || !Array.isArray(body.data)) fail(`${label} cases returned invalid payload`);
+
+  const seenIds = new Set<string>();
+  for (const [index, item] of body.data.entries()) {
+    if (!item || typeof item.id !== "string" || !item.id.trim()) {
+      fail(`${label} cases item ${index} is missing an opaque id`);
+    }
+    if (seenIds.has(item.id)) fail(`${label} cases returned duplicate opaque id`);
+    seenIds.add(item.id);
+
+    if (typeof item.caseNumber !== "string") {
+      fail(`${label} cases item ${index} returned a non-string caseNumber`);
+    }
+    if (INTERNAL_CASE_NUMBER.test(item.caseNumber.trim())) {
+      fail(`${label} cases exposed an internal case number through authenticated transport`);
+    }
+  }
+
   return body.data;
 }
 
-function hasCase(cases: CaseData[], caseNumber: string) {
-  return cases.some((item) => item.caseNumber === caseNumber);
+function toCaseIds(cases: CaseData[]): Set<string> {
+  return new Set(cases.map((item) => item.id));
 }
 
 async function verifyCaseScopes() {
   const clientCases = await listCases("CLIENT", clientCookie);
-  if (!hasCase(clientCases, clientCaseNumber)) fail("CLIENT cannot see its primary staging case");
-  if (!hasCase(clientCases, clientUnassignedCaseNumber)) {
-    fail("CLIENT cannot see its unassigned boundary staging case");
-  }
-  if (hasCase(clientCases, lawyerCaseNumber) && lawyerCaseNumber !== clientCaseNumber) {
-    fail("CLIENT can see the LAWYER-only staging case");
-  }
-
   const lawyerCases = await listCases("LAWYER", lawyerCookie);
-  if (!hasCase(lawyerCases, lawyerCaseNumber)) fail("LAWYER cannot see its assigned staging case");
-  if (hasCase(lawyerCases, clientUnassignedCaseNumber)) {
-    fail("LAWYER can see an unassigned CLIENT-only staging case");
-  }
-
   const managerCases = await listCases("MANAGER", managerCookie);
-  if (!hasCase(managerCases, clientCaseNumber)) fail("MANAGER cannot see CLIENT primary staging case");
-  if (!hasCase(managerCases, clientUnassignedCaseNumber)) {
-    fail("MANAGER cannot see CLIENT unassigned staging case");
-  }
-  if (!hasCase(managerCases, lawyerCaseNumber)) fail("MANAGER cannot see LAWYER staging case");
 
-  console.log("CASE_SCOPES: CLIENT/LAWYER/MANAGER visibility verified through HTTP API");
+  if (clientCases.length !== 2) {
+    fail(`CLIENT technical fixture expected exactly 2 visible cases, got ${clientCases.length}`);
+  }
+
+  const clientIds = toCaseIds(clientCases);
+  const lawyerIds = toCaseIds(lawyerCases);
+  const managerIds = toCaseIds(managerCases);
+
+  const clientCasesVisibleToLawyer = clientCases.filter((item) => lawyerIds.has(item.id));
+  if (clientCasesVisibleToLawyer.length !== 1) {
+    fail(
+      `LAWYER expected exactly 1 assigned technical CLIENT case, got ${clientCasesVisibleToLawyer.length}`,
+    );
+  }
+
+  const clientOnlyCases = clientCases.filter((item) => !lawyerIds.has(item.id));
+  if (clientOnlyCases.length !== 1) {
+    fail(`CLIENT expected exactly 1 unassigned CLIENT-only case, got ${clientOnlyCases.length}`);
+  }
+
+  const lawyerOnlyCases = lawyerCases.filter((item) => !clientIds.has(item.id));
+  if (lawyerOnlyCases.length < 1) {
+    fail("LAWYER expected at least 1 assigned case outside the technical CLIENT scope");
+  }
+
+  for (const item of clientCases) {
+    if (!managerIds.has(item.id)) fail("MANAGER cannot see a CLIENT-visible staging case");
+  }
+  for (const item of lawyerCases) {
+    if (!managerIds.has(item.id)) fail("MANAGER cannot see a LAWYER-visible staging case");
+  }
+
+  console.log(
+    "CASE_SCOPES: CLIENT/LAWYER/MANAGER visibility verified through opaque case ids; internal case numbers are absent from transport",
+  );
 }
 
 async function verifyClientCannotUseStaffTasks() {
