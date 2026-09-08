@@ -8,9 +8,15 @@ function handlers() {
   return toNextJsHandler(getBetterAuthInstance());
 }
 
+function canonicalizeAuthPath(pathname: string): string {
+  if (pathname.length <= 1) return pathname;
+  return pathname.replace(/\/+$/, "");
+}
+
 function isAccessGateOnlyPath(request: Request): boolean {
   try {
-    return ACCESS_GATE_ONLY_PATHS.has(new URL(request.url).pathname);
+    const pathname = canonicalizeAuthPath(new URL(request.url).pathname);
+    return ACCESS_GATE_ONLY_PATHS.has(pathname);
   } catch {
     return true;
   }
