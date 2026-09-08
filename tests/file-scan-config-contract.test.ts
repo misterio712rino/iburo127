@@ -22,6 +22,10 @@ const caseProgressOperations = await readFile(
   resolve("server/case-progress/operations.ts"),
   "utf8",
 );
+const externalReadinessWorkflow = await readFile(
+  resolve(".github/workflows/staging-external-readiness.yml"),
+  "utf8",
+);
 
 assert.match(productionConfig, /IB_FILE_SCANNER_ORIGIN/);
 assert.match(productionConfig, /IB_FILE_SCANNER_SECRET/);
@@ -85,6 +89,32 @@ assert.doesNotMatch(
   caseProgressOperations,
   /readyFileCount:\s*visibleFiles\.length/,
   "case progress must not label all client-visible scan states as safe files",
+);
+
+const maintenanceHealthStep =
+  externalReadinessWorkflow
+    .split("- name: Verify aggregate maintenance backlog health")[1]
+    ?.split("- name: Verify private staging storage")[0] ?? "";
+assert.ok(maintenanceHealthStep, "external readiness must keep the maintenance health step");
+assert.match(
+  maintenanceHealthStep,
+  /max_attempts=6[\s\S]*delay_seconds=3[\s\S]*for attempt in \$\(seq 1 "\$max_attempts"\); do/,
+  "maintenance health must use a bounded retry loop for transient Preview alias misses",
+);
+assert.match(
+  maintenanceHealthStep,
+  /\[ "\$http_status" != "404" \] && \[ "\$http_status" != "000" \]/,
+  "maintenance health retries must be limited to transient edge-miss and network statuses",
+);
+assert.match(
+  maintenanceHealthStep,
+  /x-iburo-staging-maintenance-health-confirm: RUN_STAGING_MAINTENANCE_HEALTH:\$\{GITHUB_SHA\}/,
+  "maintenance health retries must remain bound to the exact candidate SHA",
+);
+assert.match(
+  maintenanceHealthStep,
+  /if \[ "\$http_status" != "200" \]; then/,
+  "maintenance health must continue to fail closed on a real 503 unhealthy verdict",
 );
 
 console.log("FILE_SCAN_CONFIG_CONTRACT_PASS");
