@@ -10,8 +10,33 @@ const dashboardSource = await readFile(
 
 assert.match(
   portalSource,
-  /const cases = await clientCaseService\.listCases\(actor\);[\s\S]*if \(actor\.roles\.includes\("MANAGER"\)\) \{[\s\S]*<ManagerProductionDashboard actor=\{actor\} cases=\{cases\}/,
-  "MANAGER dashboard must receive the actor-authorized production case list",
+  /const cases = await clientCaseService\.listCases\(actor\);[\s\S]*if \(actor\.roles\.includes\("MANAGER"\)\) \{[\s\S]*const managerCases = cases\.map\(withDisplayCaseNumber\);[\s\S]*<ManagerProductionDashboard actor=\{actor\} cases=\{managerCases\}/,
+  "MANAGER dashboard must receive the actor-authorized production case list with client-safe display numbers",
+);
+assert.match(
+  portalSource,
+  /function withDisplayCaseNumber\(clientCase: ClientCaseRecord\): ClientCaseRecord \{[\s\S]*caseNumber: getClientCaseDisplayNumber\(clientCase\.caseNumber\)/,
+  "portal presentation records must sanitize internal case numbers through the shared display helper",
+);
+assert.match(
+  portalSource,
+  /const displayStaffCases = staffCases\.map\(withDisplayCaseNumber\);[\s\S]*<LawyerProductionDashboard[\s\S]*cases=\{displayStaffCases\}/,
+  "LAWYER dashboard must receive display-safe case numbers",
+);
+assert.match(
+  portalSource,
+  /getClientCaseDisplayNumber\(primaryClientCase\.caseNumber\)/,
+  "client next-action card must not render the internal case identifier",
+);
+assert.match(
+  portalSource,
+  /getClientCaseDisplayNumber\(clientCase\.caseNumber\)/,
+  "client case cards must not render the internal case identifier",
+);
+assert.doesNotMatch(
+  portalSource,
+  />\{(?:primaryClientCase|clientCase)\.caseNumber\}</,
+  "portal JSX must never render a raw internal case number",
 );
 assert.match(
   portalSource,

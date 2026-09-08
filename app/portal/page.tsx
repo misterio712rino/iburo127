@@ -12,6 +12,7 @@ import {
   getPlanDisplayLabel,
 } from "@/lib/platform/case-progress";
 import { resolveCasePortalAudience } from "@/lib/platform/case-portal-audience";
+import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
 import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
 import { UNAUTHENTICATED } from "@/server/auth/runtime";
 import { getCaseProgressSummaryForActor } from "@/server/case-progress/operations";
@@ -42,6 +43,13 @@ const STATUS_PRIORITY: Readonly<Record<ClientCaseRecord["status"], number>> = {
   ARCHIVED: 10,
 };
 
+function withDisplayCaseNumber(clientCase: ClientCaseRecord): ClientCaseRecord {
+  return {
+    ...clientCase,
+    caseNumber: getClientCaseDisplayNumber(clientCase.caseNumber),
+  };
+}
+
 export function selectPrimaryClientCase(cases: readonly ClientCaseRecord[]) {
   return [...cases].sort((left, right) => {
     const statusDelta = STATUS_PRIORITY[right.status] - STATUS_PRIORITY[left.status];
@@ -68,6 +76,7 @@ export default async function PortalPage() {
   const cases = await clientCaseService.listCases(actor);
 
   if (actor.roles.includes("MANAGER")) {
+    const managerCases = cases.map(withDisplayCaseNumber);
     return (
       <div className="manager-interaction-shell">
         <ManagerInteractionStyles />
@@ -76,7 +85,7 @@ export default async function PortalPage() {
           <PortalMobileDrawer showStaffTasks showProspectLeads />
         </div>
         <div className="manager-dashboard-host">
-          <ManagerProductionDashboard actor={actor} cases={cases} />
+          <ManagerProductionDashboard actor={actor} cases={managerCases} />
         </div>
       </div>
     );
@@ -97,10 +106,11 @@ export default async function PortalPage() {
         })),
       ),
     ]);
+    const displayStaffCases = staffCases.map(withDisplayCaseNumber);
 
     return (
       <LawyerProductionDashboard
-        cases={staffCases}
+        cases={displayStaffCases}
         tasks={tasks}
         progressEntries={staffProgressEntries}
       />
@@ -158,7 +168,7 @@ export default async function PortalPage() {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#7B2330]">Сейчас важно</p>
-              <p className="mt-2 font-mono text-xs font-semibold text-slate-400">{primaryClientCase.caseNumber}</p>
+              <p className="mt-2 font-mono text-xs font-semibold text-slate-400">{getClientCaseDisplayNumber(primaryClientCase.caseNumber)}</p>
               <h2 id="portal-next-action-heading" className="mt-2 text-2xl font-bold text-slate-900">{primaryNextAction.title}</h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">{primaryNextAction.description}</p>
             </div>
@@ -189,7 +199,7 @@ export default async function PortalPage() {
                 <article key={clientCase.id} className="rounded-[28px] border border-white/80 bg-white/90 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="font-mono text-xs font-semibold tracking-[0.08em] text-slate-400">{clientCase.caseNumber}</p>
+                      <p className="font-mono text-xs font-semibold tracking-[0.08em] text-slate-400">{getClientCaseDisplayNumber(clientCase.caseNumber)}</p>
                       <h3 className="mt-3 text-2xl font-bold text-slate-900">Тариф «{getPlanDisplayLabel(clientCase.planCode, audience)}»</h3>
                     </div>
                     <span className="rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-bold text-slate-600">
