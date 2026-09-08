@@ -18,6 +18,10 @@ const objectStorageSigner = await readFile(
   resolve("server/files/yandex-s3-signer.ts"),
   "utf8",
 );
+const caseProgressOperations = await readFile(
+  resolve("server/case-progress/operations.ts"),
+  "utf8",
+);
 
 assert.match(productionConfig, /IB_FILE_SCANNER_ORIGIN/);
 assert.match(productionConfig, /IB_FILE_SCANNER_SECRET/);
@@ -66,5 +70,21 @@ assert.match(scannerCore, /SCANNER_RESPONSE_MAX_BYTES = 16 \* 1024/);
 assert.doesNotMatch(scannerCore, /fileName\s*:/);
 assert.doesNotMatch(scannerCore, /clientCaseId\s*:/);
 assert.doesNotMatch(scannerCore, /userId\s*:/);
+
+assert.match(
+  caseProgressOperations,
+  /storedFileService\.list\(actor, clientCase\.id\)/,
+  "case progress must use the actor-scoped visible file list",
+);
+assert.match(
+  caseProgressOperations,
+  /readyFileCount:\s*visibleFiles\.filter\(\(file\) => file\.status === "READY"\)\.length/,
+  "case progress must count only READY files as safe",
+);
+assert.doesNotMatch(
+  caseProgressOperations,
+  /readyFileCount:\s*visibleFiles\.length/,
+  "case progress must not label all client-visible scan states as safe files",
+);
 
 console.log("FILE_SCAN_CONFIG_CONTRACT_PASS");

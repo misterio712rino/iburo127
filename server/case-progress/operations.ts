@@ -21,7 +21,7 @@ export async function getCaseProgressSummaryForActor(
   clientCase: ClientCaseRecord,
   audience: CaseProgressAudience,
 ) {
-  const [questionnaire, practicum, documents, readyFiles] = await Promise.all([
+  const [questionnaire, practicum, documents, visibleFiles] = await Promise.all([
     questionnaireService.get(actor, clientCase.id),
     practicumService.get(actor, clientCase.id),
     caseDocumentService.list(actor, clientCase.id),
@@ -52,6 +52,6 @@ export async function getCaseProgressSummaryForActor(
         }
       : null,
     documents: documents.map((document) => ({ status: document.status })),
-    readyFileCount: readyFiles.length,
+    readyFileCount: visibleFiles.filter((file) => file.status === "READY").length,
   });
 }
