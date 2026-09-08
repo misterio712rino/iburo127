@@ -250,21 +250,34 @@ jobs:
         run: |
           test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
           cleanup_file="$RUNNER_TEMP/staging-file-scan-fixture-cleanup.json"
+          max_attempts=6
+          delay_seconds=3
           rm -f "$cleanup_file"
           trap 'rm -f "$cleanup_file"' EXIT
 
-          http_status="$(
-            curl --silent --show-error \
-              --connect-timeout 5 \
-              --max-time 45 \
-              --output "$cleanup_file" \
-              --write-out '%{http_code}' \
-              --request POST \
-              -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
-              -H "x-iburo-staging-file-scan-cleanup-confirm: CLEAN_STAGING_FILE_SCAN_FIXTURES:${GITHUB_SHA}" \
-              "$IB_STAGING_BASE_URL/_iburo/staging-file-scan-fixture-cleanup" \
-              || true
-          )"
+          for attempt in $(seq 1 "$max_attempts"); do
+            http_status="$(
+              curl --silent --show-error \
+                --connect-timeout 5 \
+                --max-time 45 \
+                --output "$cleanup_file" \
+                --write-out '%{http_code}' \
+                --request POST \
+                -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+                -H "x-iburo-staging-file-scan-cleanup-confirm: CLEAN_STAGING_FILE_SCAN_FIXTURES:${GITHUB_SHA}" \
+                "$IB_STAGING_BASE_URL/_iburo/staging-file-scan-fixture-cleanup" \
+                || true
+            )"
+
+            if [ "$http_status" != "404" ] && [ "$http_status" != "000" ]; then
+              break
+            fi
+
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              echo "STAGING_FILE_SCAN_FIXTURE_CLEANUP_WAIT: attempt=$attempt/$max_attempts status=$http_status"
+              sleep "$delay_seconds"
+            fi
+          done
 
           if [ "$http_status" != "200" ]; then
             echo "STAGING_FILE_SCAN_FIXTURE_CLEANUP_FAIL: http_status=$http_status" >&2
