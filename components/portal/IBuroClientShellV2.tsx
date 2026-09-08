@@ -106,6 +106,7 @@ export function IBuroClientShellV2({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
   const previousPathnameRef = useRef(pathname);
   const base = `/portal/cases/${caseId}`;
   const userInitials = initials(displayName);
@@ -130,20 +131,42 @@ export function IBuroClientShellV2({
 
   useEffect(() => {
     if (!drawerOpen) return;
-    const previousOverflow = document.body.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousRootOverflow = document.documentElement.style.overflow;
+    const trigger = menuButtonRef.current;
     document.body.style.overflow = "hidden";
-    closeButtonRef.current?.focus();
+    document.documentElement.style.overflow = "hidden";
+    const focusFrame = requestAnimationFrame(() => closeButtonRef.current?.focus());
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        event.preventDefault();
         setDrawerOpen(false);
-        requestAnimationFrame(() => menuButtonRef.current?.focus());
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const focusable = drawerRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => {
-      document.body.style.overflow = previousOverflow;
+      cancelAnimationFrame(focusFrame);
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousRootOverflow;
       document.removeEventListener("keydown", onKeyDown);
+      trigger?.focus();
     };
   }, [drawerOpen]);
 
@@ -287,7 +310,15 @@ export function IBuroClientShellV2({
 
       {drawerOpen ? (
         <div className={styles.drawerOverlay} onPointerDown={() => closeDrawer(true)}>
-          <aside id="iburo-client-mobile-drawer" className={styles.drawer} aria-label="Меню iБюро" onPointerDown={(event) => event.stopPropagation()}>
+          <aside
+            ref={drawerRef}
+            id="iburo-client-mobile-drawer"
+            className={styles.drawer}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Меню iБюро"
+            onPointerDown={(event) => event.stopPropagation()}
+          >
             <div className={styles.drawerHeader}>
               <IBuroBrand dot />
               <button ref={closeButtonRef} type="button" aria-label="Закрыть меню" onClick={() => closeDrawer(true)}>
