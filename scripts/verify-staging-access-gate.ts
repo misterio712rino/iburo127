@@ -41,6 +41,7 @@ const knownEmails = [
 const exactSha = required("GITHUB_SHA");
 if (!/^[a-f0-9]{40}$/.test(exactSha)) fail("GITHUB_SHA is not an exact lowercase SHA");
 const prospectEmail = `staging.e2e.${exactSha.slice(0, 16)}@example.test`;
+const blockedDirectSignInEmail = `staging.raw-sign-in.${exactSha.slice(0, 16)}@example.test`;
 
 type AccessGateEnvelope = {
   ok: boolean;
@@ -51,6 +52,54 @@ type AccessGateEnvelope = {
   };
   error?: { code?: string };
 };
+
+type GatedAuthEnvelope = {
+  ok?: boolean;
+  error?: { code?: string };
+};
+
+async function verifyDirectBetterAuthSignInBlocked(): Promise<void> {
+  for (const path of ["/api/auth/sign-in/email", "/api/auth/sign-in/email/"] as const) {
+    const response = await fetch(new URL(path, baseUrl), {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+        origin: baseUrl.origin,
+      },
+      body: JSON.stringify({
+        email: blockedDirectSignInEmail,
+        password: "staging-password-that-must-never-authenticate",
+      }),
+      redirect: "manual",
+    });
+
+    const cacheControl = response.headers.get("cache-control")?.toLowerCase() ?? "";
+    if (!cacheControl.includes("no-store")) {
+      fail(`${path} direct sign-in rejection is missing no-store`);
+    }
+
+    const text = await response.text();
+    let body: GatedAuthEnvelope;
+    try {
+      body = JSON.parse(text) as GatedAuthEnvelope;
+    } catch {
+      fail(`${path} direct sign-in rejection returned non-JSON status ${response.status}`);
+    }
+
+    if (
+      response.status !== 404 ||
+      body.ok !== false ||
+      body.error?.code !== "ACCESS_GATE_REQUIRED"
+    ) {
+      fail(
+        `${path} bypassed the access-gate wrapper with status ${response.status}/${body.error?.code ?? "UNKNOWN"}`,
+      );
+    }
+  }
+
+  console.log("ACCESS_GATE_RAW_SIGN_IN: canonical and trailing-slash Better Auth paths blocked");
+}
 
 async function postIdentifier(identifier: string): Promise<AccessGateEnvelope> {
   const response = await fetch(new URL("/api/public/access-gate", baseUrl), {
@@ -134,6 +183,7 @@ async function verifyProspect(): Promise<void> {
   console.log("ACCESS_GATE_PROSPECT: redirect target and deduplicated manager lead verified");
 }
 
+await verifyDirectBetterAuthSignInBlocked();
 await verifyKnownAccounts();
 await verifyProspect();
 console.log("STAGING_ACCESS_GATE_E2E_PASS");
