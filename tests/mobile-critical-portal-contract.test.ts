@@ -36,6 +36,12 @@ assert.match(portalMobileDrawerSource, /event\.key === "Escape"/);
 assert.match(portalMobileDrawerSource, /document\.body\.style\.overflow = "hidden"/);
 
 assert.match(clientShellV2Source, /aria-expanded=\{drawerOpen\}/, "UI v2 hamburger must expose drawer state");
+assert.match(clientShellV2Source, /role="dialog"/, "UI v2 mobile drawer must expose dialog semantics");
+assert.match(clientShellV2Source, /aria-modal="true"/, "UI v2 mobile drawer must be announced as modal");
+assert.match(clientShellV2Source, /drawerRef\.current\?\.querySelectorAll<HTMLElement>/, "UI v2 mobile drawer must keep keyboard focus inside the modal");
+assert.match(clientShellV2Source, /event\.key !== "Tab"/, "UI v2 mobile drawer must intercept tab navigation for focus trapping");
+assert.match(clientShellV2Source, /document\.documentElement\.style\.overflow = "hidden"/, "UI v2 mobile drawer must lock root scrolling on mobile browsers");
+assert.match(clientShellV2Source, /trigger\?\.focus\(\)/, "UI v2 mobile drawer must restore focus to its trigger after closing");
 assert.match(clientShellV2Source, /setDrawerOpen\(false\)/, "UI v2 navigation must close the drawer after selection");
 assert.match(clientShellV2Source, /\/portal\/notifications\?caseId=\$\{caseId\}/, "UI v2 must preserve authorized selected-case context for Notifications");
 assert.match(clientShellV2Source, /\/portal\/profile\?caseId=\$\{caseId\}/, "UI v2 must preserve selected-case context for Profile");
