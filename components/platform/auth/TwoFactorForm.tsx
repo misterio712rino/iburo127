@@ -56,9 +56,14 @@ export function TwoFactorForm() {
 
   return (
     <div>
-      <div className="mb-5 grid grid-cols-2 rounded-2xl bg-slate-100 p-1 text-sm font-semibold">
+      <div
+        className="mb-5 grid grid-cols-2 rounded-2xl bg-slate-100 p-1 text-sm font-semibold"
+        role="group"
+        aria-label="Способ двухфакторного подтверждения"
+      >
         <button
           type="button"
+          aria-pressed={mode === "totp"}
           onClick={() => switchMode("totp")}
           className={`rounded-xl px-3 py-2.5 transition ${mode === "totp" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}
         >
@@ -66,6 +71,7 @@ export function TwoFactorForm() {
         </button>
         <button
           type="button"
+          aria-pressed={mode === "backup"}
           onClick={() => switchMode("backup")}
           className={`rounded-xl px-3 py-2.5 transition ${mode === "backup" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}
         >
@@ -73,7 +79,7 @@ export function TwoFactorForm() {
         </button>
       </div>
 
-      <form onSubmit={submit} className="space-y-5">
+      <form onSubmit={submit} className="space-y-5" aria-busy={pending}>
         <div className="space-y-2">
           <label htmlFor="two-factor-code" className="block text-sm font-semibold text-slate-700">
             {mode === "totp" ? "Код из приложения-аутентификатора" : "Одноразовый резервный код"}
