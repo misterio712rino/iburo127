@@ -6,6 +6,10 @@ const authSource = await readFile(
   resolve("server/auth/better-auth-instance.ts"),
   "utf8",
 );
+const accessGateRateLimitSource = await readFile(
+  resolve("server/auth/access-gate.ts"),
+  "utf8",
+);
 const publicContactRateLimitSource = await readFile(
   resolve("server/public-contact/rate-limit.ts"),
   "utf8",
@@ -25,6 +29,22 @@ assert.doesNotMatch(
   authSource,
   /rateLimit:\s*\{[\s\S]*?storage:\s*"memory"/,
   "process-local rate-limit storage must not be reintroduced",
+);
+
+assert.match(
+  accessGateRateLimitSource,
+  /const nowMs = Date\.now\(\);/,
+  "access gate throttling must store the shared rateLimit clock in epoch milliseconds",
+);
+assert.match(
+  accessGateRateLimitSource,
+  /const windowStartMs = input\.nowMs - RATE_LIMIT_WINDOW_SECONDS \* 1000;/,
+  "access gate throttling must convert its seconds-based policy window to milliseconds",
+);
+assert.doesNotMatch(
+  accessGateRateLimitSource,
+  /Math\.floor\(Date\.now\(\) \/ 1000\)/,
+  "access gate throttling must not write epoch seconds into Better Auth's millisecond rateLimit table",
 );
 
 assert.match(
