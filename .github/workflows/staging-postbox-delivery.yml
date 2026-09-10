@@ -143,30 +143,47 @@ jobs:
             import { readFileSync } from "node:fs";
             const body = JSON.parse(readFileSync(process.env.INVENTORY_FILE, "utf8"));
             const phase = body.phases?.postbox;
-            if (
-              body.service !== "iburo127" ||
-              body.operation !== "staging-external-readiness" ||
-              body.environment !== "preview" ||
-              body.branch !== "audit/production-readiness" ||
-              body.commitSha !== process.env.GITHUB_SHA ||
-              body.runtimeTarget !== "staging" ||
-              body.networkAccessed !== false ||
-              body.valuesPrinted !== false ||
-              !phase ||
-              typeof phase.ready !== "boolean" ||
-              !Number.isInteger(phase.requiredCount) ||
-              !Number.isInteger(phase.configuredCount) ||
-              !Array.isArray(phase.missingOrPlaceholder) ||
-              !Array.isArray(phase.invalidOrInconsistent)
-            ) process.exit(1);
-            const safe = {
-              ready: phase.ready,
-              requiredCount: phase.requiredCount,
-              configuredCount: phase.configuredCount,
-              missingOrPlaceholder: phase.missingOrPlaceholder,
-              invalidOrInconsistent: phase.invalidOrInconsistent,
+            const safeDiagnostic = {
+              serviceMatches: body.service === "iburo127",
+              operationMatches: body.operation === "staging-external-readiness",
+              environmentMatches: body.environment === "preview",
+              branchMatches: body.branch === "audit/production-readiness",
+              commitShaMatches: body.commitSha === process.env.GITHUB_SHA,
+              runtimeTargetMatches: body.runtimeTarget === "staging",
+              networkAccessed: body.networkAccessed,
+              valuesPrinted: body.valuesPrinted,
+              phasePresent: Boolean(phase),
+              phaseKeys: phase && typeof phase === "object" ? Object.keys(phase).sort() : [],
+              ready: typeof phase?.ready === "boolean" ? phase.ready : null,
+              requiredCount: Number.isInteger(phase?.requiredCount) ? phase.requiredCount : null,
+              configuredCount: Number.isInteger(phase?.configuredCount) ? phase.configuredCount : null,
+              missingOrPlaceholder: Array.isArray(phase?.missingOrPlaceholder) ? phase.missingOrPlaceholder : null,
+              invalidOrInconsistent: Array.isArray(phase?.invalidOrInconsistent) ? phase.invalidOrInconsistent : null,
             };
-            console.log(`STAGING_POSTBOX_INVENTORY: ${JSON.stringify(safe)}`);
+            console.log(`STAGING_POSTBOX_INVENTORY_DIAGNOSTIC: ${JSON.stringify(safeDiagnostic)}`);
+            if (
+              !safeDiagnostic.serviceMatches ||
+              !safeDiagnostic.operationMatches ||
+              !safeDiagnostic.environmentMatches ||
+              !safeDiagnostic.branchMatches ||
+              !safeDiagnostic.commitShaMatches ||
+              !safeDiagnostic.runtimeTargetMatches ||
+              safeDiagnostic.networkAccessed !== false ||
+              safeDiagnostic.valuesPrinted !== false ||
+              !safeDiagnostic.phasePresent ||
+              safeDiagnostic.ready === null ||
+              safeDiagnostic.requiredCount === null ||
+              safeDiagnostic.configuredCount === null ||
+              safeDiagnostic.missingOrPlaceholder === null ||
+              safeDiagnostic.invalidOrInconsistent === null
+            ) process.exit(1);
+            console.log(`STAGING_POSTBOX_INVENTORY: ${JSON.stringify({
+              ready: safeDiagnostic.ready,
+              requiredCount: safeDiagnostic.requiredCount,
+              configuredCount: safeDiagnostic.configuredCount,
+              missingOrPlaceholder: safeDiagnostic.missingOrPlaceholder,
+              invalidOrInconsistent: safeDiagnostic.invalidOrInconsistent,
+            })}`);
           '
 
       - name: Verify Postbox delivery through protected Preview runtime
