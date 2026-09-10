@@ -46,6 +46,7 @@ export interface StoredFileDeletionRepository {
   claimDueDeletion(input: {
     now: Date;
     leaseUntil: Date;
+    fileId?: string;
   }): Promise<ClaimedStoredFileDeletion | null>;
   rescheduleDeletion(input: {
     fileId: string;
