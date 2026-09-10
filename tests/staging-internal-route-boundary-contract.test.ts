@@ -20,6 +20,7 @@ const expectedRoutes = [
   "staging-file-scan-fixture-cleanup",
   "staging-identity",
   "staging-maintenance-health",
+  "staging-postbox-verify",
   "staging-storage-verify",
 ] as const;
 
@@ -90,5 +91,45 @@ for (const routeName of expectedRoutes) {
     );
   }
 }
+
+const postboxVerifierSource = await readFile(
+  resolve(stagingRoot, "staging-postbox-verify", "route.ts"),
+  "utf8",
+);
+assert.match(
+  postboxVerifierSource,
+  /const CONFIRM_HEADER = "x-iburo-staging-postbox-confirm";/,
+  "Postbox verifier must require a dedicated staging confirmation header",
+);
+assert.match(
+  postboxVerifierSource,
+  /const CONFIRM_VALUE = "RUN_STAGING_POSTBOX_VERIFY";/,
+  "Postbox verifier confirmation value must remain exact and non-user-controlled",
+);
+assert.match(
+  postboxVerifierSource,
+  /to: STAGING_POSTBOX_SIMULATOR_RECIPIENT/,
+  "Postbox verifier must send only to the fixed Yandex Postbox simulator recipient",
+);
+assert.doesNotMatch(
+  postboxVerifierSource,
+  /request\.(?:json|text|formData|arrayBuffer)\s*\(/,
+  "Postbox verifier must not accept a request-body recipient or message payload",
+);
+assert.match(
+  postboxVerifierSource,
+  /clientCaseDataIncluded:\s*false/,
+  "Postbox verifier must explicitly attest that no client/case data is included",
+);
+assert.match(
+  postboxVerifierSource,
+  /providerResponseLogged:\s*false/,
+  "Postbox verifier must not log the provider response",
+);
+assert.match(
+  postboxVerifierSource,
+  /valuesPrinted:\s*false/,
+  "Postbox verifier must not expose configured credential values",
+);
 
 console.log("STAGING_INTERNAL_ROUTE_BOUNDARY_CONTRACT_PASS");
