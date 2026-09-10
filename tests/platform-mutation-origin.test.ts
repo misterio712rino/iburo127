@@ -25,6 +25,7 @@ const confirmedPreviewEnv = {
   VERCEL_ENV: "preview",
   VERCEL_GIT_COMMIT_REF: VERCEL_STAGING_BRANCH,
   VERCEL_GIT_COMMIT_SHA: confirmedCommitSha,
+  VERCEL_URL: "iburo127-test-deployment.vercel.app",
   IB_RUNTIME_TARGET: "staging",
   IB_VERCEL_PREVIEW_BACKEND_CONFIRM: VERCEL_STAGING_CONFIRMATION,
 };
@@ -56,43 +57,106 @@ assert.notEqual(
 );
 
 const automationSecret = "0123456789abcdef0123456789abcdef";
-const automationEnv = { VERCEL_AUTOMATION_BYPASS_SECRET: automationSecret };
-assert.equal(isAuthorizedVercelAutomationRequest(request("POST"), automationEnv), false);
+const exactIdentity = {
+  service: "iburo127",
+  environment: "preview",
+  branch: VERCEL_STAGING_BRANCH,
+  commitSha: confirmedCommitSha,
+  runtimeTarget: "staging",
+  backendEnabled: true,
+};
+let edgeProbeCount = 0;
+const edgeValidationFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  edgeProbeCount += 1;
+  assert.equal(
+    String(input),
+    "https://iburo127-test-deployment.vercel.app/_iburo/staging-identity",
+  );
+  assert.equal(init?.method, "GET");
+  assert.equal(init?.cache, "no-store");
+  assert.equal(init?.redirect, "manual");
+  const headers = new Headers(init?.headers);
+  if (headers.get("x-vercel-protection-bypass") !== automationSecret) {
+    return new Response(null, { status: 403 });
+  }
+  return Response.json(exactIdentity);
+}) as typeof fetch;
+
+edgeProbeCount = 0;
 assert.equal(
-  isAuthorizedVercelAutomationRequest(
+  await isAuthorizedVercelAutomationRequest(request("POST"), confirmedPreviewEnv, edgeValidationFetch),
+  false,
+);
+assert.equal(edgeProbeCount, 0, "missing application control credential must fail before network access");
+
+edgeProbeCount = 0;
+assert.equal(
+  await isAuthorizedVercelAutomationRequest(
     request("POST", { automationBypass: "fedcba9876543210fedcba9876543210" }),
-    automationEnv,
+    confirmedPreviewEnv,
+    edgeValidationFetch,
   ),
   false,
 );
+assert.equal(edgeProbeCount, 1, "invalid control credential must be rejected by Vercel edge proof");
+
+edgeProbeCount = 0;
 assert.equal(
-  isAuthorizedVercelAutomationRequest(
+  await isAuthorizedVercelAutomationRequest(
     request("POST", { automationBypass: automationSecret }),
-    automationEnv,
+    confirmedPreviewEnv,
+    edgeValidationFetch,
   ),
   true,
 );
+assert.equal(edgeProbeCount, 1, "valid control credential must be proven against the exact deployment");
+
 assert.equal(
-  isAuthorizedVercelAutomationRequest(
+  await isAuthorizedVercelAutomationRequest(
     request("POST", { automationBypass: automationSecret }),
-    {},
+    { ...confirmedPreviewEnv, VERCEL_URL: undefined },
+    edgeValidationFetch,
   ),
   false,
-  "staging control mutations must fail closed when Vercel does not expose the automation secret",
+  "staging control must fail closed without an exact Vercel deployment URL",
 );
 assert.equal(
-  isAuthorizedVercelAutomationRequest(
+  await isAuthorizedVercelAutomationRequest(
     request("POST", { automationBypass: automationSecret }),
-    { VERCEL_AUTOMATION_BYPASS_SECRET: "too-short" },
+    { ...confirmedPreviewEnv, VERCEL_URL: "evil.example" },
+    edgeValidationFetch,
   ),
   false,
+  "staging control proof must never probe a non-Vercel host",
 );
 assert.equal(
-  isAuthorizedVercelAutomationRequest(
+  await isAuthorizedVercelAutomationRequest(
     request("POST", { automationBypass: automationSecret }),
-    { VERCEL_AUTOMATION_BYPASS_SECRET: `${automationSecret}\n` },
+    { ...confirmedPreviewEnv, VERCEL_ENV: "production" },
+    edgeValidationFetch,
   ),
   false,
+  "staging control proof must be unavailable outside Preview",
+);
+assert.equal(
+  await isAuthorizedVercelAutomationRequest(
+    request("POST", { automationBypass: automationSecret }),
+    confirmedPreviewEnv,
+    (async () => Response.json({ ...exactIdentity, commitSha: "22a4155acd473838b3e4f48bc318016187854a68" })) as typeof fetch,
+  ),
+  false,
+  "edge proof must be bound to the exact deployed commit",
+);
+assert.equal(
+  await isAuthorizedVercelAutomationRequest(
+    request("POST", { automationBypass: automationSecret }),
+    confirmedPreviewEnv,
+    (async () => {
+      throw new Error("network unavailable");
+    }) as typeof fetch,
+  ),
+  false,
+  "edge proof network failures must fail closed",
 );
 
 for (const method of ["GET", "HEAD", "OPTIONS"]) {
@@ -268,7 +332,7 @@ assert.doesNotThrow(() => assertVercelPreviewBackendAllowed(anotherValidShaPrevi
 const proxySource = await readFile(resolve("proxy.ts"), "utf8");
 assert.match(proxySource, /isVercelPreviewBackendAllowed\(\)/);
 assert.match(proxySource, /evaluatePlatformMutationOrigin\(request\)/);
-assert.match(proxySource, /isAuthorizedVercelAutomationRequest\(request\)/);
+assert.match(proxySource, /await isAuthorizedVercelAutomationRequest\(request\)/);
 assert.match(proxySource, /request\.nextUrl\.pathname\.startsWith\("\/_iburo\/"\)/);
 assert.match(proxySource, /SAFE_METHODS = new Set\(\["GET", "HEAD", "OPTIONS"\]\)/);
 assert.match(
@@ -278,7 +342,8 @@ assert.match(
 assert.match(proxySource, /Cache-Control": "private, no-store"/);
 assert.match(proxySource, /STAGING_BACKEND_DISABLED/);
 assert.match(proxySource, /STAGING_CONTROL_UNAVAILABLE/);
-const stagingControlAuthIndex = proxySource.indexOf("isAuthorizedVercelAutomationRequest(request)");
+assert.doesNotMatch(proxySource, /STAGING_CONTROL_AUTH_REJECTED/);
+const stagingControlAuthIndex = proxySource.indexOf("await isAuthorizedVercelAutomationRequest(request)");
 const platformOriginIndex = proxySource.indexOf("evaluatePlatformMutationOrigin(request)");
 assert.ok(stagingControlAuthIndex >= 0, "staging control mutation authorization must exist");
 assert.ok(
@@ -287,6 +352,22 @@ assert.ok(
 );
 assert.doesNotMatch(proxySource, /\/api\/auth/);
 assert.doesNotMatch(proxySource, /\/api\/internal/);
+
+const automationAuthSource = await readFile(
+  resolve("server/staging/vercel-automation-auth.ts"),
+  "utf8",
+);
+assert.match(automationAuthSource, /VERCEL_URL/);
+assert.match(automationAuthSource, /x-vercel-protection-bypass/);
+assert.match(automationAuthSource, /_iburo\/staging-identity/);
+assert.match(automationAuthSource, /cache: "no-store"/);
+assert.match(automationAuthSource, /redirect: "manual"/);
+assert.match(automationAuthSource, /AbortController/);
+assert.doesNotMatch(
+  automationAuthSource,
+  /env\.VERCEL_AUTOMATION_BYPASS_SECRET/,
+  "application control authorization must validate the provided credential against Vercel edge rather than a potentially drifted runtime copy",
+);
 
 const stagingBypassSource = await readFile(
   resolve("scripts/staging-vercel-protection-bypass.mjs"),
