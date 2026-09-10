@@ -3,6 +3,12 @@ import { join, relative } from "node:path";
 
 const WORKFLOWS_ROOT = ".github/workflows";
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
+const APPROVED_ACTION_REFS = new Map([
+  ["actions/checkout", new Set(["3d3c42e5aac5ba805825da76410c181273ba90b1"])], // v7.0.1
+  ["actions/setup-node", new Set(["820762786026740c76f36085b0efc47a31fe5020"])], // v7.0.0
+  ["actions/upload-artifact", new Set(["043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"])], // v7.0.1
+  ["hashicorp/setup-terraform", new Set(["dfe3c3f87815947d99a8997f908cb6525fc44e9e"])], // v4.0.1
+]);
 
 function collectWorkflowFiles(directory) {
   const files = [];
@@ -56,6 +62,19 @@ for (const file of collectWorkflowFiles(WORKFLOWS_ROOT)) {
       violations.push(
         `${relative(".", file)}:${index + 1}: ${action} must be pinned to a full lowercase 40-character commit SHA`,
       );
+      return;
+    }
+
+    const approvedRefs = APPROVED_ACTION_REFS.get(action);
+    if (!approvedRefs) {
+      violations.push(`${relative(".", file)}:${index + 1}: action repository ${action} is not approved by this policy`);
+      return;
+    }
+
+    if (!approvedRefs.has(ref)) {
+      violations.push(
+        `${relative(".", file)}:${index + 1}: ${action}@${ref} is not an approved immutable action revision`,
+      );
     }
   });
 }
@@ -71,4 +90,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log(`GITHUB_ACTION_PIN_POLICY_PASS: ${externalActionCount} external action reference(s) pinned`);
+console.log(
+  `GITHUB_ACTION_PIN_POLICY_PASS: ${externalActionCount} external action reference(s) pinned to ${APPROVED_ACTION_REFS.size} approved repository/revision allowlist entries`,
+);
