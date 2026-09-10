@@ -18,6 +18,7 @@ const [
   requestRuntimeSource,
   maintenanceRouteSource,
   workerRuntimeSource,
+  stagingWorkerRouteSource,
 ] = await Promise.all([
   readFile(resolve("server/files/operations.ts"), "utf8"),
   readFile(resolve("server/files/deletion-mode.ts"), "utf8"),
@@ -30,6 +31,7 @@ const [
   readFile(resolve("server/files/deletion-request-runtime.ts"), "utf8"),
   readFile(resolve("app/api/internal/maintenance/file-deletions/route.ts"), "utf8"),
   readFile(resolve("server/files/deletion-worker-runtime.ts"), "utf8"),
+  readFile(resolve("app/%5Fiburo/staging-file-deletion-worker/route.ts"), "utf8"),
 ]);
 
 // Production and ordinary runtimes remain fail-closed on legacy when the flag
@@ -88,6 +90,11 @@ assert.match(contractsSource, /"COMPLETED"/);
 assert.match(contractsSource, /"REQUIRES_ATTENTION"/);
 assert.match(contractsSource, /interface StoredFileDeletionEnqueueRepository/);
 assert.match(contractsSource, /enqueueDeletion/);
+assert.match(
+  contractsSource,
+  /claimDueDeletion\(input: \{[\s\S]*?fileId\?: string;[\s\S]*?\}\): Promise<ClaimedStoredFileDeletion \| null>/,
+  "deletion claims must support an optional exact file target for isolated staging proof",
+);
 assert.doesNotMatch(contractsSource, /fileName|mimeType|checksumSha256|signedUrl|email/i);
 
 assert.match(workerSource, /storage\.deleteObject\(deletion\.objectKey\)/);
@@ -95,6 +102,12 @@ assert.match(workerSource, /repository\.finalizeDeletion/);
 assert.match(workerSource, /repository\.rescheduleDeletion/);
 assert.match(workerSource, /repository\.markDeletionRequiresAttention/);
 assert.match(workerSource, /finalizationDeferred/);
+assert.match(workerSource, /fileId\?: string;/);
+assert.match(
+  workerSource,
+  /repository\.claimDueDeletion\(\{[\s\S]*?fileId: input\.fileId,[\s\S]*?\}\)/,
+  "worker must forward an optional exact target to the repository claim boundary",
+);
 assert.doesNotMatch(workerSource, /restoreDeleted/);
 assert.doesNotMatch(workerSource, /console\.(?:log|error|warn)/);
 
@@ -132,6 +145,12 @@ assert.match(repositorySource, /storedFileDeletion\.updateMany/);
 assert.match(repositorySource, /prisma\.\$transaction/);
 assert.match(repositorySource, /buildCaseActivityWrite/);
 assert.match(repositorySource, /type: "file\.deleted"/);
+assert.match(repositorySource, /fileId\?: string/);
+assert.match(
+  repositorySource,
+  /\.\.\.\(input\.fileId \? \{ fileId: input\.fileId \} : \{\}\)/,
+  "repository eligibility must constrain find/claim operations when an exact target is supplied",
+);
 assert.doesNotMatch(repositorySource, /console\.(?:log|error|warn)/);
 
 // Request-side boundary: CLIENT-only, owner-scoped, idempotent tombstone lookup,
@@ -176,6 +195,28 @@ assert.match(maintenanceRouteSource, /Cache-Control": "no-store"/);
 assert.doesNotMatch(
   maintenanceRouteSource,
   /fileId\s*:|clientCaseId\s*:|requestedByUserId\s*:|objectKey\s*:|leaseToken\s*:/,
+);
+
+// The staging deletion proof must never use the production worker as a global
+// queue drain. Its irreversible object-deletion capability is constrained to the
+// caller-validated target fileId while production maintenance keeps the default
+// unscoped queue semantics by omitting fileId.
+assert.match(stagingWorkerRouteSource, /UUID_PATTERN\.test\(body\.fileId\)/);
+assert.match(stagingWorkerRouteSource, /repository\.getByFileId\(fileId\)/);
+assert.match(
+  stagingWorkerRouteSource,
+  /getStoredFileDeletionWorker\(\)\.runBatch\(\{[\s\S]*?limit: 1,[\s\S]*?fileId,[\s\S]*?\}\)/,
+  "staging deletion proof must bind every physical deletion claim to its requested fileId",
+);
+assert.doesNotMatch(
+  stagingWorkerRouteSource,
+  /runBatch\(\{\s*now: new Date\(\),\s*limit: 1\s*\}\)/,
+  "staging verifier must not invoke the global deletion queue",
+);
+assert.doesNotMatch(
+  maintenanceRouteSource,
+  /runBatch\(\{[\s\S]*?fileId/,
+  "production maintenance worker must retain global queue semantics unless explicitly redesigned",
 );
 
 assert.match(workerRuntimeSource, /new StoredFileDeletionWorker/);
