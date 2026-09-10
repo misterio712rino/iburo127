@@ -1,0 +1,428 @@
+name: Staging Browser Visual QA
+# Real Chromium browser QA against the exact protected audit Preview.
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Exact 40-character candidate SHA to verify
+        required: true
+        type: string
+      confirmation:
+        description: Type RUN_STAGING_BROWSER_VISUAL_QA
+        required: true
+        type: string
+  push:
+    branches:
+      - audit/production-readiness
+
+permissions:
+  contents: read
+
+jobs:
+  browser-visual:
+    if: github.ref_name == 'audit/production-readiness'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      IB_RUNTIME_TARGET: staging
+      IB_STAGING_BASE_URL: https://iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
+      IB_STAGING_DATABASE_NAME: neondb
+      IB_STAGING_CLIENT_EMAIL: client.staging-e2e@example.test
+      IB_STAGING_LITE_EMAIL: client.lite@example.test
+      IB_STAGING_PRO_EMAIL: client.pro@example.test
+      IB_STAGING_LAWYER_EMAIL: lawyer.demo@example.test
+      IB_STAGING_MANAGER_EMAIL: manager.demo@example.test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Exact staging gate
+        shell: bash
+        env:
+          REQUESTED_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.sha }}
+          CONFIRMATION: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmation || 'RUN_STAGING_BROWSER_VISUAL_QA' }}
+        run: |
+          if [ "$CONFIRMATION" != "RUN_STAGING_BROWSER_VISUAL_QA" ]; then
+            echo "STAGING_BROWSER_VISUAL_QA_GATE_FAIL: confirmation mismatch" >&2
+            exit 1
+          fi
+          if ! printf '%s' "$REQUESTED_SHA" | grep -Eq '^[a-f0-9]{40}$'; then
+            echo "STAGING_BROWSER_VISUAL_QA_GATE_FAIL: candidate SHA must be 40 lowercase hex characters" >&2
+            exit 1
+          fi
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$GITHUB_SHA" ] || [ "$actual_sha" != "$REQUESTED_SHA" ]; then
+            echo "STAGING_BROWSER_VISUAL_QA_GATE_FAIL: exact candidate mismatch" >&2
+            exit 1
+          fi
+          echo "STAGING_BROWSER_VISUAL_QA_GATE_PASS: $actual_sha"
+
+      - name: GitHub Actions pin policy
+        run: npm run check:ci-action-pins
+
+      - name: GitHub workflow security policy
+        run: npm run check:ci-workflow-security
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install application dependencies
+        run: npm ci
+
+      - name: Install pinned browser runtime
+        run: |
+          npm install --no-save --package-lock=false --ignore-scripts playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Verify exact protected Preview identity
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          identity_file="$RUNNER_TEMP/staging-browser-visual-identity.json"
+          max_attempts=24
+          delay_seconds=3
+          consecutive=0
+          rm -f "$identity_file"
+          trap 'rm -f "$identity_file"' EXIT
+          for attempt in $(seq 1 "$max_attempts"); do
+            status="$(curl --silent --show-error --connect-timeout 5 --max-time 20 --output "$identity_file" --write-out '%{http_code}' -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" "$IB_STAGING_BASE_URL/_iburo/staging-identity" || true)"
+            if [ "$status" = "200" ] && IDENTITY_FILE="$identity_file" node --input-type=module -e '
+              import { readFileSync } from "node:fs";
+              try {
+                const body = JSON.parse(readFileSync(process.env.IDENTITY_FILE, "utf8"));
+                if (body.service === "iburo127" && body.environment === "preview" && body.branch === "audit/production-readiness" && body.commitSha === process.env.GITHUB_SHA && body.runtimeTarget === "staging" && body.backendEnabled === true) process.exit(0);
+              } catch {}
+              process.exit(1);
+            '; then
+              consecutive=$((consecutive + 1))
+              if [ "$consecutive" -ge 2 ]; then
+                echo "STAGING_BROWSER_VISUAL_IDENTITY_PASS"
+                exit 0
+              fi
+            else
+              consecutive=0
+            fi
+            [ "$attempt" -lt "$max_attempts" ] && sleep "$delay_seconds"
+          done
+          echo "STAGING_BROWSER_VISUAL_IDENTITY_FAIL" >&2
+          exit 1
+
+      - name: Ensure LITE and PRO client browser fixtures
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          response_file="$RUNNER_TEMP/staging-browser-plan-fixtures.json"
+          status="$(curl --silent --show-error --connect-timeout 5 --max-time 30 --output "$response_file" --write-out '%{http_code}' -X POST -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" -H "x-iburo-staging-control: $VERCEL_AUTOMATION_BYPASS_SECRET" -H "Origin: $IB_STAGING_BASE_URL" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "confirm=BOOTSTRAP_CLIENT_PLAN_AUTH:${IB_STAGING_DATABASE_NAME}:public:${GITHUB_SHA}" "$IB_STAGING_BASE_URL/_iburo/staging-client-plan-auth-fixtures" || true)"
+          if [ "$status" != "200" ]; then
+            echo "STAGING_BROWSER_PLAN_FIXTURE_FAIL: http_status=$status" >&2
+            exit 1
+          fi
+          RESPONSE_FILE="$response_file" node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const body = JSON.parse(readFileSync(process.env.RESPONSE_FILE, "utf8"));
+            const labels = Array.isArray(body.fixtures) ? body.fixtures.map((x) => x.label).sort() : [];
+            if (body.pass !== true || body.commitSha !== process.env.GITHUB_SHA || JSON.stringify(labels) !== JSON.stringify(["CLIENT_E2E","CLIENT_LITE","CLIENT_PRO"])) process.exit(1);
+          '
+          rm -f "$response_file"
+          echo "STAGING_BROWSER_PLAN_FIXTURE_PASS"
+
+      - name: Real Chromium role plan viewport QA
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          IB_STAGING_CLIENT_PASSWORD: ${{ secrets.IB_STAGING_CLIENT_PASSWORD }}
+          IB_STAGING_LAWYER_PASSWORD: ${{ secrets.IB_STAGING_LAWYER_PASSWORD }}
+          IB_STAGING_LAWYER_TOTP_SECRET: ${{ secrets.IB_STAGING_LAWYER_TOTP_SECRET }}
+          IB_STAGING_MANAGER_PASSWORD: ${{ secrets.IB_STAGING_MANAGER_PASSWORD }}
+          IB_STAGING_MANAGER_TOTP_SECRET: ${{ secrets.IB_STAGING_MANAGER_TOTP_SECRET }}
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/staging-browser-visual-qa.mjs" <<'EOF'
+          import { chromium } from 'playwright';
+          import { createHmac } from 'node:crypto';
+          import { mkdir, writeFile } from 'node:fs/promises';
+          import path from 'node:path';
+
+          const baseUrl = new URL(process.env.IB_STAGING_BASE_URL);
+          const bypass = required('VERCEL_AUTOMATION_BYPASS_SECRET');
+          const clientPassword = required('IB_STAGING_CLIENT_PASSWORD');
+          const lawyerPassword = required('IB_STAGING_LAWYER_PASSWORD');
+          const managerPassword = required('IB_STAGING_MANAGER_PASSWORD');
+          const outDir = path.join(process.env.RUNNER_TEMP, 'iburo-browser-visual-evidence');
+          await mkdir(outDir, { recursive: true });
+
+          if (process.env.IB_RUNTIME_TARGET !== 'staging') throw new Error('runtime target must be staging');
+          if (baseUrl.protocol !== 'https:' || baseUrl.hostname === 'iburo127.ru' || baseUrl.hostname.endsWith('.iburo127.ru')) throw new Error('production host blocked');
+
+          const viewports = [
+            { name: 'mobile-375', width: 375, height: 812, mobile: true },
+            { name: 'mobile-390', width: 390, height: 844, mobile: true },
+            { name: 'mobile-430', width: 430, height: 932, mobile: true },
+            { name: 'tablet-768', width: 768, height: 1024, mobile: false },
+            { name: 'desktop-1440', width: 1440, height: 1000, mobile: false },
+          ];
+          const findings = [];
+          const checks = [];
+
+          function required(name) {
+            const value = process.env[name]?.trim();
+            if (!value) throw new Error(`missing ${name}`);
+            return value;
+          }
+
+          function base32Decode(value) {
+            const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+            const clean = value.toUpperCase().replace(/=+$/u, '').replace(/\s+/gu, '');
+            let bits = '';
+            for (const char of clean) {
+              const index = alphabet.indexOf(char);
+              if (index < 0) throw new Error('invalid base32 TOTP secret');
+              bits += index.toString(2).padStart(5, '0');
+            }
+            const bytes = [];
+            for (let i = 0; i + 8 <= bits.length; i += 8) bytes.push(Number.parseInt(bits.slice(i, i + 8), 2));
+            return Buffer.from(bytes);
+          }
+
+          function totp(secret) {
+            const counter = Math.floor(Date.now() / 1000 / 30);
+            const input = Buffer.alloc(8);
+            input.writeBigUInt64BE(BigInt(counter));
+            const digest = createHmac('sha1', base32Decode(secret)).update(input).digest();
+            const offset = digest[digest.length - 1] & 0x0f;
+            const binary = ((digest[offset] & 0x7f) << 24) | ((digest[offset + 1] & 0xff) << 16) | ((digest[offset + 2] & 0xff) << 8) | (digest[offset + 3] & 0xff);
+            return String(binary % 1_000_000).padStart(6, '0');
+          }
+
+          function safeName(value) {
+            return value.replace(/[^a-z0-9_.-]+/giu, '-').replace(/^-+|-+$/gu, '').toLowerCase();
+          }
+
+          async function screenshot(page, label, viewport) {
+            const file = `${safeName(label)}--${viewport.name}.png`;
+            await page.screenshot({ path: path.join(outDir, file), fullPage: true, animations: 'disabled' });
+            checks.push({ kind: 'screenshot', label, viewport: viewport.name, file });
+          }
+
+          async function assertNoOverflow(page, label, viewport) {
+            const geometry = await page.evaluate(() => ({
+              rootClient: document.documentElement.clientWidth,
+              rootScroll: document.documentElement.scrollWidth,
+              bodyClient: document.body?.clientWidth ?? 0,
+              bodyScroll: document.body?.scrollWidth ?? 0,
+            }));
+            if (geometry.rootScroll > geometry.rootClient + 2 || geometry.bodyScroll > geometry.bodyClient + 2) {
+              throw new Error(`${label} horizontal overflow at ${viewport.name}: ${JSON.stringify(geometry)}`);
+            }
+            checks.push({ kind: 'overflow', label, viewport: viewport.name, pass: true, geometry });
+          }
+
+          async function settle(page) {
+            await page.waitForLoadState('domcontentloaded');
+            await page.waitForTimeout(350);
+          }
+
+          function observe(page, scope) {
+            page.on('pageerror', (error) => findings.push({ scope, type: 'pageerror', message: error.message.slice(0, 500) }));
+            page.on('console', (message) => {
+              if (message.type() === 'error') findings.push({ scope, type: 'console-error', message: message.text().slice(0, 500) });
+            });
+          }
+
+          async function openChecked(page, pathname, label, viewport, expectedText) {
+            const response = await page.goto(new URL(pathname, baseUrl).href, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+            if (!response || response.status() >= 500) throw new Error(`${label} navigation failed: ${response?.status() ?? 'no response'}`);
+            await settle(page);
+            if (expectedText) await page.getByText(expectedText, { exact: false }).first().waitFor({ state: 'visible', timeout: 12_000 });
+            await assertNoOverflow(page, label, viewport);
+            await screenshot(page, label, viewport);
+          }
+
+          async function signIn(page, account, password, totpSecret) {
+            await page.goto(new URL('/auth/sign-in', baseUrl).href, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+            await page.getByRole('heading', { name: 'Вход в приложение' }).waitFor({ state: 'visible' });
+            await page.locator('#identifier').fill(account);
+            await page.getByRole('button', { name: 'Продолжить' }).click();
+            await page.locator('#password').waitFor({ state: 'visible', timeout: 15_000 });
+            await page.locator('#password').fill(password);
+            await page.getByRole('button', { name: 'Войти' }).click();
+            if (totpSecret) {
+              await page.waitForURL(/\/auth\/two-factor(?:\?|$)/u, { timeout: 20_000 });
+              await page.getByRole('heading', { name: 'Подтверждение входа' }).waitFor({ state: 'visible' });
+              await page.locator('#two-factor-code').fill(totp(totpSecret));
+              await page.getByRole('button', { name: 'Подтвердить вход' }).click();
+            }
+            await page.waitForURL(/\/portal(?:\/|$)/u, { timeout: 25_000 });
+            await settle(page);
+            checks.push({ kind: 'ui-login', accountClass: totpSecret ? 'staff-mfa' : 'client', pass: true });
+          }
+
+          async function testClient(browser, fixture, viewport) {
+            const context = await browser.newContext({
+              viewport: { width: viewport.width, height: viewport.height },
+              isMobile: viewport.mobile,
+              hasTouch: viewport.mobile,
+              extraHTTPHeaders: { 'x-vercel-protection-bypass': bypass },
+              locale: 'ru-RU',
+              timezoneId: 'Asia/Bishkek',
+            });
+            const page = await context.newPage();
+            observe(page, `${fixture.plan}/${viewport.name}`);
+            try {
+              await signIn(page, fixture.email, clientPassword);
+              const current = new URL(page.url());
+              const match = current.pathname.match(/^\/portal\/cases\/([^/]+)$/u);
+              if (!match) throw new Error(`${fixture.plan} did not land on a client case: ${current.pathname}`);
+              const caseId = match[1];
+              await page.locator(`[data-plan="${fixture.plan}"]`).waitFor({ state: 'visible', timeout: 12_000 });
+              await page.getByText('AI-помощник', { exact: true }).first().waitFor({ state: 'visible' });
+              if (fixture.plan === 'LITE') {
+                if (await page.getByText('Ваш специалист', { exact: true }).count()) throw new Error('LITE unexpectedly exposes human specialist card');
+                if (await page.getByText('Ипотечное жильё', { exact: true }).count()) throw new Error('LITE unexpectedly exposes mortgage service');
+                await page.getByText('Самостоятельно + AI', { exact: true }).waitFor({ state: 'visible' });
+              } else {
+                await page.getByText('Ваш специалист', { exact: true }).first().waitFor({ state: 'visible' });
+                await page.getByText('Ипотечное жильё', { exact: true }).first().waitFor({ state: 'visible' });
+              }
+              await assertNoOverflow(page, `${fixture.plan}-dashboard`, viewport);
+              await screenshot(page, `${fixture.plan}-dashboard`, viewport);
+
+              if (viewport.name === 'mobile-390') {
+                const trigger = page.getByRole('button', { name: 'Открыть меню' });
+                await trigger.click();
+                const dialog = page.getByRole('dialog', { name: 'Меню iБюро' });
+                await dialog.waitFor({ state: 'visible' });
+                const focused = await page.evaluate(() => document.activeElement?.getAttribute('aria-label'));
+                if (focused !== 'Закрыть меню') throw new Error(`${fixture.plan} mobile drawer did not focus close button`);
+                await screenshot(page, `${fixture.plan}-mobile-drawer`, viewport);
+                await page.keyboard.press('Escape');
+                await dialog.waitFor({ state: 'hidden' });
+                const restored = await page.evaluate(() => document.activeElement?.getAttribute('aria-label'));
+                if (restored !== 'Открыть меню') throw new Error(`${fixture.plan} mobile drawer did not restore trigger focus`);
+                checks.push({ kind: 'mobile-drawer-focus', plan: fixture.plan, pass: true });
+              }
+
+              if (fixture.plan === 'INDIVIDUAL' && (viewport.name === 'mobile-390' || viewport.name === 'desktop-1440')) {
+                const modules = [
+                  ['practicum', 'Практикум'],
+                  ['questionnaire', 'Анкета'],
+                  ['documents', 'Документы'],
+                  ['files', 'Файлы'],
+                  ['ai', 'AI'],
+                  ['progress', 'Прогресс'],
+                  ['activity', 'История'],
+                ];
+                for (const [segment, expected] of modules) {
+                  await openChecked(page, `/portal/cases/${caseId}/${segment}`, `individual-${segment}`, viewport, expected);
+                }
+                await openChecked(page, `/portal/notifications?caseId=${caseId}`, 'individual-notifications', viewport, 'Уведом');
+                await openChecked(page, `/portal/profile?caseId=${caseId}`, 'individual-profile', viewport, 'Профил');
+                await openChecked(page, `/portal/security?caseId=${caseId}`, 'individual-security', viewport, 'Безопас');
+              }
+            } finally {
+              await context.close();
+            }
+          }
+
+          async function testStaff(browser, role, email, password, totpSecret, viewport) {
+            const context = await browser.newContext({
+              viewport: { width: viewport.width, height: viewport.height },
+              isMobile: viewport.mobile,
+              hasTouch: viewport.mobile,
+              extraHTTPHeaders: { 'x-vercel-protection-bypass': bypass },
+              locale: 'ru-RU',
+              timezoneId: 'Asia/Bishkek',
+            });
+            const page = await context.newPage();
+            observe(page, `${role}/${viewport.name}`);
+            try {
+              await signIn(page, email, password, totpSecret);
+              await openChecked(page, '/portal', `${role}-dashboard`, viewport, role === 'LAWYER' ? 'Юрист' : 'Руковод');
+              if (viewport.name === 'desktop-1440' || viewport.name === 'mobile-390') {
+                const caseLinks = page.locator('a[href^="/portal/cases/"]');
+                if (await caseLinks.count()) {
+                  const href = await caseLinks.first().getAttribute('href');
+                  if (href) await openChecked(page, href, `${role}-case`, viewport, role === 'LAWYER' ? 'Дело' : 'дел');
+                }
+              }
+            } finally {
+              await context.close();
+            }
+          }
+
+          const browser = await chromium.launch({ headless: true });
+          try {
+            const clients = [
+              { plan: 'LITE', email: required('IB_STAGING_LITE_EMAIL') },
+              { plan: 'PRO', email: required('IB_STAGING_PRO_EMAIL') },
+              { plan: 'INDIVIDUAL', email: required('IB_STAGING_CLIENT_EMAIL') },
+            ];
+            for (const viewport of viewports) {
+              for (const fixture of clients) {
+                await testClient(browser, fixture, viewport);
+                await new Promise((resolve) => setTimeout(resolve, 1100));
+              }
+              if (viewport.name === 'mobile-390' || viewport.name === 'desktop-1440') {
+                await new Promise((resolve) => setTimeout(resolve, 11_000));
+                await testStaff(browser, 'LAWYER', required('IB_STAGING_LAWYER_EMAIL'), lawyerPassword, required('IB_STAGING_LAWYER_TOTP_SECRET'), viewport);
+                await new Promise((resolve) => setTimeout(resolve, 4_000));
+                await testStaff(browser, 'MANAGER', required('IB_STAGING_MANAGER_EMAIL'), managerPassword, required('IB_STAGING_MANAGER_TOTP_SECRET'), viewport);
+              }
+            }
+
+            for (const viewport of [viewports[0], viewports[4]]) {
+              const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, isMobile: viewport.mobile, hasTouch: viewport.mobile, extraHTTPHeaders: { 'x-vercel-protection-bypass': bypass }, locale: 'ru-RU' });
+              const page = await context.newPage();
+              observe(page, `public-recovery/${viewport.name}`);
+              try {
+                await openChecked(page, '/auth/forgot-password', 'forgot-password', viewport, 'Восстанов');
+              } finally {
+                await context.close();
+              }
+            }
+          } finally {
+            await browser.close();
+          }
+
+          const hardFindings = findings.filter((item) => !/favicon|avatar/iu.test(item.message));
+          const report = {
+            pass: hardFindings.length === 0,
+            commitSha: process.env.GITHUB_SHA,
+            engine: 'Chromium via Playwright 1.55.0',
+            viewports: viewports.map(({ name, width, height, mobile }) => ({ name, width, height, mobile })),
+            roles: ['CLIENT', 'LAWYER', 'MANAGER'],
+            plans: ['LITE', 'PRO', 'INDIVIDUAL'],
+            checkCount: checks.length,
+            findings: hardFindings,
+            checks,
+          };
+          await writeFile(path.join(outDir, 'report.json'), JSON.stringify(report, null, 2));
+          console.log(`STAGING_BROWSER_VISUAL_QA_SUMMARY: checks=${checks.length} findings=${hardFindings.length}`);
+          if (hardFindings.length) {
+            console.error(JSON.stringify(hardFindings.slice(0, 20), null, 2));
+            process.exitCode = 1;
+          } else {
+            console.log('STAGING_BROWSER_VISUAL_QA_PASS');
+          }
+          EOF
+          node "$RUNNER_TEMP/staging-browser-visual-qa.mjs"
+
+      - name: Upload browser visual evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: staging-browser-visual-evidence-${{ github.sha }}
+          path: ${{ runner.temp }}/iburo-browser-visual-evidence
+          if-no-files-found: warn
+          retention-days: 7
