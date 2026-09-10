@@ -6,16 +6,53 @@ const REQUIRED_RUNNER = "ubuntu-24.04";
 const REQUIRED_CHECKOUT_REF = "${{ github.event.pull_request.head.sha || github.sha }}";
 const MANUAL_OIDC_CHECKOUT_REF = "${{ inputs.candidate_sha }}";
 
+function collectJobBlocks(source) {
+  const lines = source.split(/\r?\n/);
+  const jobsIndex = lines.findIndex((line) => /^jobs:\s*(?:#.*)?$/.test(line));
+  if (jobsIndex < 0) return [];
+
+  const blocks = [];
+  let current = null;
+
+  for (let index = jobsIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (/^[^\s#][^:]*:\s*(?:#.*)?$/.test(line)) break;
+
+    const jobMatch = line.match(/^ {2}([A-Za-z0-9_-]+):\s*(?:#.*)?$/);
+    if (jobMatch) {
+      if (current) {
+        current.source = lines.slice(current.start, index).join("\n");
+        blocks.push(current);
+      }
+      current = { name: jobMatch[1], start: index, source: "" };
+    }
+  }
+
+  if (current) {
+    current.source = lines.slice(current.start).join("\n");
+    blocks.push(current);
+  }
+
+  return blocks;
+}
+
 function isBoundedManualOidcWorkflow(source) {
+  const jobs = collectJobBlocks(source);
+  if (jobs.length !== 1) return false;
+  const jobSource = jobs[0].source;
+
   return (
     /^on:\s*\n\s{2}workflow_dispatch:/m.test(source) &&
     !/^\s{2}(push|pull_request|schedule|workflow_run):/m.test(source) &&
-    /id-token:\s*write\s*(?:#.*)?$/m.test(source) &&
-    /ref:\s*\$\{\{ inputs\.candidate_sha \}\}/.test(source) &&
-    /test "\$GITHUB_REF" = "refs\/heads\/audit\/production-readiness"/.test(source) &&
-    /test "\$REQUESTED_SHA" = "\$GITHUB_SHA"/.test(source) &&
-    /PUBLISH_STAGING_FILE_SCANNER_IMAGE_ONLY/.test(source) &&
-    /git rev-parse HEAD/.test(source)
+    !/^ {2}id-token:\s*write\s*(?:#.*)?$/m.test(source) &&
+    /^ {4}permissions\s*:\s*$/m.test(jobSource) &&
+    /^ {6}contents\s*:\s*read\s*(?:#.*)?$/m.test(jobSource) &&
+    /^ {6}id-token\s*:\s*write\s*(?:#.*)?$/m.test(jobSource) &&
+    /ref:\s*\$\{\{ inputs\.candidate_sha \}\}/.test(jobSource) &&
+    /test "\$GITHUB_REF" = "refs\/heads\/audit\/production-readiness"/.test(jobSource) &&
+    /test "\$REQUESTED_SHA" = "\$GITHUB_SHA"/.test(jobSource) &&
+    /PUBLISH_STAGING_FILE_SCANNER_IMAGE_ONLY/.test(jobSource) &&
+    /git rev-parse HEAD/.test(jobSource)
   );
 }
 
@@ -54,6 +91,9 @@ for (const file of collectWorkflowFiles(WORKFLOWS_ROOT)) {
   if (/^\s*permissions\s*:\s*(write-all|read-all)\s*$/m.test(source)) {
     violations.push(`${displayPath}: permissions must be explicit and least-privilege`);
   }
+  if (/^\s*permissions\s*:\s*\{/m.test(source)) {
+    violations.push(`${displayPath}: inline permissions mappings are forbidden; use auditable block permissions`);
+  }
   for (const writeScope of source.matchAll(/^\s*([A-Za-z0-9_-]+)\s*:\s*write\s*(?:#.*)?$/gm)) {
     if (writeScope[1] !== "id-token" || !manualOidcWorkflow) {
       violations.push(`${displayPath}: write permission scopes are forbidden by the current CI policy`);
@@ -72,6 +112,12 @@ for (const file of collectWorkflowFiles(WORKFLOWS_ROOT)) {
   }
   if (!/^permissions\s*:\s*$\n\s{2}contents\s*:\s*read\s*(?:#.*)?$/m.test(source)) {
     violations.push(`${displayPath}: top-level permissions must declare contents: read`);
+  }
+
+  if (/^\s*id-token\s*:\s*write\s*(?:#.*)?$/m.test(source) && !manualOidcWorkflow) {
+    violations.push(
+      `${displayPath}: id-token: write is allowed only in the single guarded manual staging publication job`,
+    );
   }
 
   lines.forEach((line, index) => {
