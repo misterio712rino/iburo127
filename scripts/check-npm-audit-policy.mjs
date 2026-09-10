@@ -41,8 +41,10 @@ const allowedResidual = new Map([
 
 const root = lockfile?.packages?.[""];
 const prismaCli = lockfile?.packages?.["node_modules/prisma-cli"];
+const prismaConfig = lockfile?.packages?.["node_modules/@prisma/config"];
+const deepmergeTs = lockfile?.packages?.["node_modules/deepmerge-ts"];
 const mysql2 = lockfile?.packages?.["node_modules/mysql2"];
-if (!root || !prismaCli || !mysql2) {
+if (!root || !prismaCli || !prismaConfig || !deepmergeTs || !mysql2) {
   console.error("DEPENDENCY_AUDIT_POLICY_FAIL: expected Prisma CLI residual layout is missing");
   process.exit(1);
 }
@@ -66,6 +68,18 @@ if (prismaCli.name !== "prisma" || prismaCli.version !== "7.9.1" || prismaCli.de
 }
 if (prismaCli.dependencies?.mysql2 !== "3.15.3") {
   console.error("DEPENDENCY_AUDIT_POLICY_FAIL: upstream Prisma CLI mysql2 pin changed; review override assumptions");
+  process.exit(1);
+}
+if (prismaConfig.version !== "7.9.1" || prismaConfig.dev !== true) {
+  console.error("DEPENDENCY_AUDIT_POLICY_FAIL: @prisma/config is no longer the reviewed dev-only 7.9.1 package");
+  process.exit(1);
+}
+if (prismaConfig.dependencies?.["deepmerge-ts"] !== "7.1.5") {
+  console.error("DEPENDENCY_AUDIT_POLICY_FAIL: @prisma/config deepmerge-ts pin changed; review residual assumptions");
+  process.exit(1);
+}
+if (deepmergeTs.version !== "7.1.5" || deepmergeTs.dev !== true) {
+  console.error("DEPENDENCY_AUDIT_POLICY_FAIL: deepmerge-ts is no longer the reviewed dev-only 7.1.5 package");
   process.exit(1);
 }
 if (mysql2.version !== "3.24.3" || (mysql2.dev !== true && mysql2.devOptional !== true)) {
@@ -127,5 +141,5 @@ if (
 }
 
 console.log(
-  "DEPENDENCY_AUDIT_POLICY_PASS: 3 reviewed Prisma CLI upstream residual findings; mysql2 is pinned to patched 3.24.3; no unreviewed findings",
+  "DEPENDENCY_AUDIT_POLICY_PASS: 3 reviewed dev-only Prisma CLI upstream residual findings; mysql2 is pinned to patched 3.24.3; no unreviewed findings",
 );
