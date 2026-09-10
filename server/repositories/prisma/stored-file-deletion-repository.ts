@@ -67,9 +67,10 @@ export class PrismaStoredFileDeletionRepository implements StoredFileDeletionRep
     });
   }
 
-  async claimDueDeletion(input: { now: Date; leaseUntil: Date }) {
+  async claimDueDeletion(input: { now: Date; leaseUntil: Date; fileId?: string }) {
     const prisma = getPrismaClient();
     const eligible = {
+      ...(input.fileId ? { fileId: input.fileId } : {}),
       OR: [
         {
           status: "PENDING" as const,
