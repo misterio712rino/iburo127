@@ -11,6 +11,7 @@ const ciWorkflowSource = readFileSync(resolve(repoRoot, ".github/workflows/ci.ym
 const checkoutSha = "3d3c42e5aac5ba805825da76410c181273ba90b1";
 const setupNodeSha = "820762786026740c76f36085b0efc47a31fe5020";
 const setupTerraformSha = "dfe3c3f87815947d99a8997f908cb6525fc44e9e";
+const unapprovedActionSha = "1111111111111111111111111111111111111111";
 const exactCandidateRef = "${{ github.event.pull_request.head.sha || github.sha }}";
 const manualOidcCandidateRef = "${{ inputs.candidate_sha }}";
 
@@ -155,6 +156,26 @@ withWorkflow(safeWorkflow().replace(`actions/setup-node@${setupNodeSha}`, "actio
   assert.match(result.stderr, /GITHUB_ACTION_PIN_POLICY_FAIL/);
   assert.match(result.stderr, /must be pinned to a full lowercase 40-character commit SHA/);
 });
+
+withWorkflow(
+  safeWorkflow().replace(`actions/setup-node@${setupNodeSha}`, `unreviewed/setup-node@${setupNodeSha}`),
+  (root) => {
+    const result = runPolicy(pinPolicyScript, root);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /GITHUB_ACTION_PIN_POLICY_FAIL/);
+    assert.match(result.stderr, /action repository unreviewed\/setup-node is not approved by this policy/);
+  },
+);
+
+withWorkflow(
+  safeWorkflow().replace(`actions/setup-node@${setupNodeSha}`, `actions/setup-node@${unapprovedActionSha}`),
+  (root) => {
+    const result = runPolicy(pinPolicyScript, root);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /GITHUB_ACTION_PIN_POLICY_FAIL/);
+    assert.match(result.stderr, /actions\/setup-node@1111111111111111111111111111111111111111 is not an approved immutable action revision/);
+  },
+);
 
 withWorkflow(safeWorkflow().replace("contents: read", "contents: write"), (root) => {
   const result = runPolicy(workflowSecurityScript, root);
