@@ -46,7 +46,7 @@ assert.match(
 const scannerDockerStep = ciWorkflowSource.match(
   /      - name: File scanner Docker build\r?\n        shell: bash\r?\n        run: \|\r?\n([\s\S]*?)(?=\r?\n      - name:|$)/,
 )?.[0];
-assert.ok(scannerDockerStep, "Push and PR CI must build the isolated scanner image");
+assert.ok(scannerDockerStep, "push and PR CI must build the isolated scanner image");
 assert.match(
   scannerDockerStep,
   /docker build --pull=false --tag "\$image" services\/file-scanner/,
@@ -121,9 +121,11 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
-  id-token: write
 jobs:
   publish:
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -184,6 +186,19 @@ withWorkflow(safeWorkflow().replace("contents: read", "contents: write"), (root)
   assert.match(result.stderr, /write permission scopes are forbidden/);
 });
 
+withWorkflow(
+  safeWorkflow().replace(
+    "  validate:\n    runs-on: ubuntu-24.04",
+    "  validate:\n    permissions: { contents: write }\n    runs-on: ubuntu-24.04",
+  ),
+  (root) => {
+    const result = runPolicy(workflowSecurityScript, root);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /GITHUB_WORKFLOW_SECURITY_POLICY_FAIL/);
+    assert.match(result.stderr, /inline permissions mappings are forbidden/);
+  },
+);
+
 withWorkflow(safeWorkflow().replace("  pull_request:", "  pull_request_target:"), (root) => {
   const result = runPolicy(workflowSecurityScript, root);
   assert.notEqual(result.status, 0);
@@ -225,6 +240,41 @@ withWorkflow(safeManualOidcWorkflow(), (root) => {
   assert.match(workflow.stdout, /GITHUB_WORKFLOW_SECURITY_POLICY_PASS/);
 });
 
+withWorkflow(
+  safeManualOidcWorkflow().replace(
+    "permissions:\n  contents: read\njobs:",
+    "permissions:\n  contents: read\n  id-token: write\njobs:",
+  ),
+  (root) => {
+    const result = runPolicy(workflowSecurityScript, root);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /GITHUB_WORKFLOW_SECURITY_POLICY_FAIL/);
+    assert.match(result.stderr, /single guarded manual staging publication job|write permission scopes are forbidden/);
+  },
+);
+
+withWorkflow(
+  safeManualOidcWorkflow().replace(
+    "jobs:\n  publish:",
+    `jobs:
+  unguarded:
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-24.04
+    steps:
+      - name: No candidate binding
+        run: echo unguarded
+  publish:`,
+  ),
+  (root) => {
+    const result = runPolicy(workflowSecurityScript, root);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /GITHUB_WORKFLOW_SECURITY_POLICY_FAIL/);
+    assert.match(result.stderr, /single guarded manual staging publication job|write permission scopes are forbidden/);
+  },
+);
+
 withWorkflow(safeManualOidcWorkflow().replace('id-token: write', 'packages: write'), (root) => {
   const result = runPolicy(workflowSecurityScript, root);
   assert.notEqual(result.status, 0);
@@ -240,7 +290,7 @@ withWorkflow(safeWorkflow().replace('contents: read', 'contents: read\n  id-toke
 withWorkflow(safeManualOidcWorkflow().replace('test "$REQUESTED_SHA" = "$GITHUB_SHA"', 'test "$REQUESTED_SHA" = "unbound"'), (root) => {
   const result = runPolicy(workflowSecurityScript, root);
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /checkout ref must resolve the exact candidate SHA/);
+  assert.match(result.stderr, /checkout ref must resolve the exact candidate SHA|single guarded manual staging publication job|write permission scopes are forbidden/);
 });
 
 assert.equal(
