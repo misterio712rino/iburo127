@@ -264,6 +264,7 @@ jobs:
                 --write-out '%{http_code}' \
                 --request POST \
                 -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+                -H "x-iburo-staging-control: $VERCEL_AUTOMATION_BYPASS_SECRET" \
                 -H "x-iburo-staging-file-scan-cleanup-confirm: CLEAN_STAGING_FILE_SCAN_FIXTURES:${GITHUB_SHA}" \
                 "$IB_STAGING_BASE_URL/_iburo/staging-file-scan-fixture-cleanup" \
                 || true
@@ -327,6 +328,7 @@ jobs:
                 --write-out '%{http_code}' \
                 --request POST \
                 -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+                -H "x-iburo-staging-control: $VERCEL_AUTOMATION_BYPASS_SECRET" \
                 -H "x-iburo-staging-maintenance-health-confirm: RUN_STAGING_MAINTENANCE_HEALTH:${GITHUB_SHA}" \
                 "$IB_STAGING_BASE_URL/_iburo/staging-maintenance-health" \
                 || true
@@ -396,6 +398,7 @@ jobs:
             --max-time 30 \
             --request POST \
             -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+            -H "x-iburo-staging-control: $VERCEL_AUTOMATION_BYPASS_SECRET" \
             -H "x-iburo-staging-storage-confirm: RUN_STAGING_STORAGE_VERIFY" \
             "$IB_STAGING_BASE_URL/_iburo/staging-storage-verify" \
           | node --input-type=module -e '
