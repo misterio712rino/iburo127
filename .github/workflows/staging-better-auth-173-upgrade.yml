@@ -142,6 +142,7 @@ jobs:
               --write-out '%{http_code}' \
               --request POST \
               -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+              -H "x-iburo-staging-control: $VERCEL_AUTOMATION_BYPASS_SECRET" \
               -H "Origin: $IB_STAGING_BASE_URL" \
               -H "Sec-Fetch-Site: same-origin" \
               --data-urlencode "confirm=$confirmation" \
