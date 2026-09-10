@@ -320,6 +320,42 @@ async function clearBoundedRateLimits(pool: Pool, request: Request, secret: stri
   return deleted;
 }
 
+async function readCompleteFixtures(pool: Pool) {
+  const completeFixtures = [];
+  for (const fixture of FIXTURES) {
+    const state = await readFixtureState(pool, fixture);
+    if (state.state !== "complete" || !state.userId || !state.subject) return null;
+    completeFixtures.push({
+      label: fixture.label,
+      email: fixture.email,
+      created: false,
+      state: "complete" as const,
+    });
+  }
+  return completeFixtures;
+}
+
+function pass(
+  sha: string,
+  database: string,
+  fixtures: Array<{ label: string; email: string; created: boolean; state: "complete" }>,
+  rateLimitsDeleted: number,
+) {
+  return safeJson(200, {
+    service: "iburo127",
+    operation: "staging-client-plan-auth-fixtures",
+    environment: "preview",
+    branch: VERCEL_STAGING_BRANCH,
+    commitSha: sha,
+    runtimeTarget: "staging",
+    database,
+    schema: SCHEMA,
+    fixtures,
+    rateLimitsDeleted,
+    pass: true,
+  });
+}
+
 export async function POST(request: Request) {
   const env = process.env;
   if (!isExactStagingPreview(env)) return fail("preview-boundary", 404);
@@ -369,9 +405,6 @@ export async function POST(request: Request) {
   let failureStage: FailureStage = "connect";
   try {
     lockClient = await pool.connect();
-    failureStage = "lock";
-    await lockClient.query("select pg_advisory_lock(hashtext($1))", [ADVISORY_LOCK_KEY]);
-    lockHeld = true;
 
     const identity = await lockClient.query<{ databaseName: string; currentSchema: string | null }>(
       `select current_database() as "databaseName", current_schema() as "currentSchema"`,
@@ -382,6 +415,21 @@ export async function POST(request: Request) {
     ) {
       throw new Error("staging database identity mismatch");
     }
+
+    const completeFixtures = await readCompleteFixtures(pool);
+    if (completeFixtures) {
+      failureStage = "verification";
+      const rateLimitsDeleted = await clearBoundedRateLimits(pool, request, configuration.auth.secret);
+      return pass(sha, target.expectedDatabaseName, completeFixtures, rateLimitsDeleted);
+    }
+
+    failureStage = "lock";
+    const lock = await lockClient.query<{ acquired: boolean }>(
+      "select pg_try_advisory_lock(hashtext($1)) as acquired",
+      [ADVISORY_LOCK_KEY],
+    );
+    if (lock.rows[0]?.acquired !== true) return fail("lock");
+    lockHeld = true;
 
     const auth = betterAuth({
       appName: "iБюро staging client plan fixtures",
@@ -414,19 +462,7 @@ export async function POST(request: Request) {
     }
     const rateLimitsDeleted = await clearBoundedRateLimits(pool, request, configuration.auth.secret);
 
-    return safeJson(200, {
-      service: "iburo127",
-      operation: "staging-client-plan-auth-fixtures",
-      environment: "preview",
-      branch: VERCEL_STAGING_BRANCH,
-      commitSha: sha,
-      runtimeTarget: "staging",
-      database: target.expectedDatabaseName,
-      schema: SCHEMA,
-      fixtures,
-      rateLimitsDeleted,
-      pass: true,
-    });
+    return pass(sha, target.expectedDatabaseName, fixtures, rateLimitsDeleted);
   } catch {
     return fail(failureStage);
   } finally {
