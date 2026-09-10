@@ -3,6 +3,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 import { normalizeCourtCaseNumber } from "../lib/platform/client-case-number";
+import { getManualTrailingSlashRedirectPath } from "../server/http/trailing-slash-policy";
 
 async function collectFiles(
   directory: string,
@@ -96,6 +97,67 @@ assert.equal(normalizeCourtCaseNumber("IB-2026-0001"), null);
 assert.equal(normalizeCourtCaseNumber("IBR-2026-0001"), null);
 assert.equal(normalizeCourtCaseNumber("A40-12345/2026"), "А40-12345/2026");
 assert.equal(normalizeCourtCaseNumber("А40-12345/2026"), "А40-12345/2026");
+
+assert.equal(
+  getManualTrailingSlashRedirectPath("/api/auth/sign-in/email/"),
+  null,
+  "Better Auth trailing-slash paths must reach the route handler instead of an early framework redirect",
+);
+assert.equal(getManualTrailingSlashRedirectPath("/api/auth/"), null);
+assert.equal(getManualTrailingSlashRedirectPath("/api/auth/sign-in/email"), null);
+assert.equal(getManualTrailingSlashRedirectPath("/auth/login/"), "/auth/login");
+assert.equal(getManualTrailingSlashRedirectPath("/portal/"), "/portal");
+assert.equal(getManualTrailingSlashRedirectPath("/api/platform/cases/"), "/api/platform/cases");
+assert.equal(getManualTrailingSlashRedirectPath("/contacts/"), "/contacts");
+assert.equal(getManualTrailingSlashRedirectPath("/"), null);
+
+const nextConfigSource = await readFile(resolve("next.config.ts"), "utf8");
+assert.match(
+  nextConfigSource,
+  /skipTrailingSlashRedirect:\s*true/,
+  "Next framework trailing-slash redirect must stay disabled so private auth slash variants reach the reviewed route boundary",
+);
+
+const proxySource = await readFile(resolve("proxy.ts"), "utf8");
+assert.match(proxySource, /getManualTrailingSlashRedirectPath\(request\.nextUrl\.pathname\)/);
+assert.match(proxySource, /new URL\(request\.url\)/);
+assert.match(proxySource, /NextResponse\.redirect\(canonicalUrl, 308\)/);
+assert.match(proxySource, /matcher:\s*\["\/\(\(\?!_next\/static\|_next\/image\)\.\*\)"\]/);
+
+const authRouteSource = await readFile(resolve("app/api/auth/[...all]/route.ts"), "utf8");
+assert.match(authRouteSource, /canonicalizeAuthPath/);
+assert.match(authRouteSource, /ACCESS_GATE_ONLY_PATHS = new Set\(\["\/api\/auth\/sign-in\/email"\]\)/);
+assert.match(authRouteSource, /privateJsonResponse\([\s\S]*ACCESS_GATE_REQUIRED[\s\S]*404/);
+
+const stagingBypassSource = await readFile(
+  resolve("scripts/staging-vercel-protection-bypass.mjs"),
+  "utf8",
+);
+const crossOriginGuardIndex = stagingBypassSource.indexOf(
+  "if (requestUrl.origin !== targetOrigin)",
+);
+const vercelBypassHeaderIndex = stagingBypassSource.indexOf(
+  'headers.set("x-vercel-protection-bypass", secret)',
+);
+const mutationOriginIndex = stagingBypassSource.indexOf('headers.set("origin", targetOrigin)');
+const stagingControlHeaderIndex = stagingBypassSource.indexOf(
+  "headers.set(STAGING_CONTROL_HEADER, secret)",
+);
+assert.ok(
+  crossOriginGuardIndex >= 0 && crossOriginGuardIndex < vercelBypassHeaderIndex,
+  "staging credentials must never be attached before the cross-origin guard",
+);
+assert.match(
+  stagingBypassSource,
+  /hostname === "iburo127\.ru" \|\| hostname\.endsWith\("\.iburo127\.ru"\)/,
+  "production hostname must remain blocked by the staging wrapper",
+);
+assert.match(stagingBypassSource, /STAGING_CONTROL_HEADER = "x-iburo-staging-control"/);
+assert.ok(
+  mutationOriginIndex >= 0 && mutationOriginIndex < stagingControlHeaderIndex,
+  "unsafe staging-control requests must set their exact staging Origin before the application credential",
+);
+assert.match(stagingBypassSource, /headers\.set\("sec-fetch-site", "same-origin"\)/);
 
 console.log(
   `PLATFORM_PRIVATE_RESPONSE_BOUNDARY_PASS: ${inspectedFiles.length} route/adapter file(s) inspected`,

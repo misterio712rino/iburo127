@@ -69,6 +69,7 @@ const legacyMarketingRoutes = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  skipTrailingSlashRedirect: true,
   async redirects() {
     return legacyMarketingRoutes.map((source) => ({
       source,
