@@ -46,6 +46,10 @@ const fixtureSource = await readFile(
   resolve("app/%5Fiburo/staging-application-e2e-fixtures/route.ts"),
   "utf8",
 );
+const clientPlanAuthFixtureSource = await readFile(
+  resolve("app/%5Fiburo/staging-client-plan-auth-fixtures/route.ts"),
+  "utf8",
+);
 const technicalFixtureSource = await readFile(
   resolve("server/staging/technical-e2e-fixture.ts"),
   "utf8",
@@ -93,5 +97,30 @@ assert.doesNotMatch(
   /rateLimit\.deleteMany\(\s*\{?\s*\}?\s*\)/,
   "staging reset must never use an unbounded Prisma rate-limit delete",
 );
+
+const completeFixtureFastPathIndex = clientPlanAuthFixtureSource.indexOf(
+  "const completeFixtures = await readCompleteFixtures(pool);",
+);
+const nonBlockingLockIndex = clientPlanAuthFixtureSource.indexOf("pg_try_advisory_lock");
+assert.ok(
+  completeFixtureFastPathIndex >= 0 && nonBlockingLockIndex > completeFixtureFastPathIndex,
+  "complete client-plan auth fixtures must bypass the advisory-lock mutation path",
+);
+assert.match(
+  clientPlanAuthFixtureSource,
+  /select pg_try_advisory_lock\(hashtext\(\$1\)\) as acquired/,
+  "client-plan auth bootstrap must use non-blocking advisory-lock acquisition",
+);
+assert.match(
+  clientPlanAuthFixtureSource,
+  /if \(lock\.rows\[0\]\?\.acquired !== true\) return fail\("lock"\);/,
+  "client-plan auth bootstrap must fail closed when its advisory lock is busy",
+);
+assert.doesNotMatch(
+  clientPlanAuthFixtureSource,
+  /\bpg_advisory_lock\(/,
+  "client-plan auth bootstrap must never wait indefinitely for an advisory lock",
+);
+assert.match(clientPlanAuthFixtureSource, /pg_advisory_unlock\(hashtext\(\$1\)\)/);
 
 console.log("STAGING_ACCESS_GATE_RATE_LIMIT_RESET_CONTRACT_PASS");
