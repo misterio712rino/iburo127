@@ -11,6 +11,11 @@ on:
         description: Type RUN_STAGING_POSTBOX_DELIVERY
         required: true
         type: string
+  push:
+    branches:
+      - audit/production-readiness
+    paths:
+      - .github/workflows/staging-postbox-delivery.yml
 
 permissions:
   contents: read
@@ -41,8 +46,8 @@ jobs:
       - name: Exact staging Postbox gate
         shell: bash
         env:
-          REQUESTED_SHA: ${{ inputs.candidate_sha }}
-          CONFIRMATION: ${{ inputs.confirmation }}
+          REQUESTED_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.sha }}
+          CONFIRMATION: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmation || 'RUN_STAGING_POSTBOX_DELIVERY' }}
         run: |
           if [ "$GITHUB_REF" != "refs/heads/audit/production-readiness" ]; then
             echo "STAGING_POSTBOX_GATE_FAIL: audit branch required" >&2
