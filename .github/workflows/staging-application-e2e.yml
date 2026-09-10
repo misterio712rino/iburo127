@@ -19,6 +19,12 @@ on:
 permissions:
   contents: read
 
+# The workflow mutates one shared staging database/fixture set. Never cancel an
+# in-flight mutation; queue later runs instead so reset/auth flows cannot overlap.
+concurrency:
+  group: staging-application-e2e-audit-production-readiness
+  cancel-in-progress: false
+
 jobs:
   verify:
     if: github.ref_name == 'audit/production-readiness'
