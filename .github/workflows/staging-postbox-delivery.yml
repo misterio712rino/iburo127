@@ -224,6 +224,7 @@ jobs:
               --write-out '%{http_code}' \
               --request POST \
               -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+              -H "x-iburo-staging-control: $VERCEL_AUTOMATION_BYPASS_SECRET" \
               -H "x-iburo-staging-postbox-confirm: RUN_STAGING_POSTBOX_VERIFY" \
               "$IB_STAGING_BASE_URL/_iburo/staging-postbox-verify" \
               || true
