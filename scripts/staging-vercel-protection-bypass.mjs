@@ -2,6 +2,8 @@ const ENABLE_ENV = "IB_STAGING_VERCEL_AUTOMATION_BYPASS";
 const SECRET_ENV = "VERCEL_AUTOMATION_BYPASS_SECRET";
 const BASE_URL_ENV = "IB_STAGING_BASE_URL";
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+const STAGING_CONTROL_PATH_PREFIX = "/_iburo/";
+const STAGING_CONTROL_HEADER = "x-iburo-staging-control";
 
 function fail(message) {
   throw new Error(`STAGING_VERCEL_AUTOMATION_BYPASS_FAIL:${message}`);
@@ -88,6 +90,9 @@ if (process.env[ENABLE_ENV]?.trim() === "1") {
     if (!SAFE_METHODS.has(request.method.toUpperCase())) {
       headers.set("origin", targetOrigin);
       headers.set("sec-fetch-site", "same-origin");
+      if (requestUrl.pathname.startsWith(STAGING_CONTROL_PATH_PREFIX)) {
+        headers.set(STAGING_CONTROL_HEADER, secret);
+      }
     }
 
     return nativeFetch(new Request(request, { headers }));
