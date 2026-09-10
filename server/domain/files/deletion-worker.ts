@@ -154,7 +154,11 @@ export class StoredFileDeletionWorker {
     }
   }
 
-  async runBatch(input: { now: Date; limit: number }): Promise<StoredFileDeletionBatchResult> {
+  async runBatch(input: {
+    now: Date;
+    limit: number;
+    fileId?: string;
+  }): Promise<StoredFileDeletionBatchResult> {
     if (!(input.now instanceof Date) || !Number.isFinite(input.now.getTime())) {
       throw new Error(`${FILE_DELETION_INVALID_CONFIG}:now`);
     }
@@ -173,6 +177,7 @@ export class StoredFileDeletionWorker {
       const deletion = await this.repository.claimDueDeletion({
         now: input.now,
         leaseUntil: new Date(input.now.getTime() + this.config.leaseSeconds * 1000),
+        fileId: input.fileId,
       });
       if (!deletion) break;
       result.claimed += 1;
