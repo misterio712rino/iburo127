@@ -89,15 +89,56 @@ function observePage(page, scope) {
     observations.push({ scope, type: "pageerror", message: error.message.slice(0, 600) });
   });
   page.on("console", (message) => {
-    if (message.type() === "error") {
-      observations.push({ scope, type: "console-error", message: message.text().slice(0, 600) });
+    if (message.type() !== "error") return;
+    const text = message.text();
+    if (text.includes("https://vercel.live/_next-live/feedback/feedback.js")) return;
+    observations.push({ scope, type: "console-error", message: text.slice(0, 600) });
+  });
+  page.on("response", (response) => {
+    if (response.status() < 400) return;
+    let url;
+    try {
+      url = new URL(response.url());
+    } catch {
+      return;
     }
+    if (url.origin !== baseUrl.origin) return;
+    observations.push({
+      scope,
+      type: "http-error",
+      status: response.status(),
+      url: `${url.pathname}${url.search}`.slice(0, 600),
+    });
   });
 }
 
 async function settle(page) {
   await page.waitForLoadState("domcontentloaded");
-  await page.waitForTimeout(450);
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await page.waitForTimeout(700);
+}
+
+async function waitForVisibleText(page, text, { exact = false, timeout = 12_000 } = {}) {
+  const locator = page.getByText(text, { exact });
+  const deadline = Date.now() + timeout;
+  do {
+    const count = await locator.count();
+    for (let index = 0; index < count; index += 1) {
+      const candidate = locator.nth(index);
+      if (await candidate.isVisible()) return candidate;
+    }
+    await page.waitForTimeout(200);
+  } while (Date.now() < deadline);
+  throw new Error(`visible text not found: ${JSON.stringify(text)}`);
+}
+
+async function hasVisibleText(page, text, { exact = true } = {}) {
+  const locator = page.getByText(text, { exact });
+  const count = await locator.count();
+  for (let index = 0; index < count; index += 1) {
+    if (await locator.nth(index).isVisible()) return true;
+  }
+  return false;
 }
 
 async function takeScreenshot(page, label, viewport) {
@@ -132,9 +173,7 @@ async function openChecked(page, pathname, label, viewport, expectedText) {
     throw new Error(`${label} navigation failed: ${response?.status() ?? "no response"}`);
   }
   await settle(page);
-  if (expectedText) {
-    await page.getByText(expectedText, { exact: false }).first().waitFor({ state: "visible", timeout: 12_000 });
-  }
+  if (expectedText) await waitForVisibleText(page, expectedText, { exact: false, timeout: 12_000 });
   await assertNoHorizontalOverflow(page, label, viewport);
   await takeScreenshot(page, label, viewport);
 }
@@ -159,6 +198,25 @@ async function safeScenario(scope, page, fn) {
   }
 }
 
+async function enterIdentifier(page, email, label, viewport) {
+  const identifier = page.locator("#identifier");
+  const continueButton = page.getByRole("button", { name: "Продолжить" });
+  await identifier.waitFor({ state: "visible", timeout: 15_000 });
+  await settle(page);
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    await identifier.click();
+    await identifier.fill("");
+    await identifier.pressSequentially(email, { delay: 18 });
+    await page.waitForTimeout(250);
+    if ((await identifier.inputValue()) === email && await continueButton.isEnabled()) return;
+    await page.waitForTimeout(450);
+  }
+
+  await takeScreenshot(page, `login-${label}-identifier-disabled`, viewport);
+  throw new Error(`identifier step did not enable Continue for ${label}; valueLength=${(await identifier.inputValue()).length}`);
+}
+
 async function uiLogin(browser, { label, email, password, totpSecret }) {
   const viewport = { name: "auth-desktop", width: 1280, height: 900, mobile: false };
   const context = await browser.newContext(contextOptions(viewport));
@@ -167,17 +225,24 @@ async function uiLogin(browser, { label, email, password, totpSecret }) {
   try {
     await page.goto(new URL("/auth/sign-in", baseUrl).href, { waitUntil: "domcontentloaded", timeout: 35_000 });
     await page.getByRole("heading", { name: "Вход в приложение" }).waitFor({ state: "visible", timeout: 15_000 });
-    await page.locator("#identifier").fill(email);
+    await enterIdentifier(page, email, label, viewport);
     if (label === "INDIVIDUAL") await takeScreenshot(page, "sign-in-identifier", viewport);
     await page.getByRole("button", { name: "Продолжить" }).click();
-    await page.locator("#password").waitFor({ state: "visible", timeout: 20_000 });
-    await page.locator("#password").fill(password);
-    await page.getByRole("button", { name: "Войти" }).click();
+
+    const passwordInput = page.locator("#password");
+    await passwordInput.waitFor({ state: "visible", timeout: 20_000 });
+    await passwordInput.click();
+    await passwordInput.pressSequentially(password, { delay: 10 });
+    const signInButton = page.getByRole("button", { name: "Войти" });
+    if (!await signInButton.isEnabled()) throw new Error(`${label} password step did not enable Sign in`);
+    await signInButton.click();
 
     if (totpSecret) {
       await page.waitForURL(/\/auth\/two-factor(?:\?|$)/u, { timeout: 25_000 });
       await page.getByRole("heading", { name: "Подтверждение входа" }).waitFor({ state: "visible", timeout: 15_000 });
       if (label === "LAWYER") await takeScreenshot(page, "staff-two-factor", viewport);
+      const secondsInWindow = Math.floor(Date.now() / 1000) % 30;
+      if (secondsInWindow >= 27) await page.waitForTimeout((31 - secondsInWindow) * 1000);
       await page.locator("#two-factor-code").fill(totp(totpSecret));
       await page.getByRole("button", { name: "Подтвердить вход" }).click();
     }
@@ -195,7 +260,7 @@ async function verifyMobileDrawer(page, label, viewport) {
   const trigger = page.getByRole("button", { name: "Открыть меню" });
   await trigger.waitFor({ state: "visible", timeout: 10_000 });
   await trigger.click();
-  const dialog = page.getByRole("dialog", { name: "Меню iБюро" });
+  const dialog = page.getByRole("dialog", { name: "Меню кабинета" });
   await dialog.waitFor({ state: "visible", timeout: 10_000 });
   const focused = await page.evaluate(() => document.activeElement?.getAttribute("aria-label"));
   if (focused !== "Закрыть меню") throw new Error(`${label}: drawer did not focus close control`);
@@ -205,6 +270,30 @@ async function verifyMobileDrawer(page, label, viewport) {
   const restored = await page.evaluate(() => document.activeElement?.getAttribute("aria-label"));
   if (restored !== "Открыть меню") throw new Error(`${label}: drawer did not restore trigger focus`);
   checks.push({ kind: "mobile-drawer-focus", label, pass: true });
+}
+
+async function verifyClientModules(page, fixture, viewport, caseId) {
+  const modules = [
+    ["practicum", "Практикум"],
+    ["questionnaire", "Анкета"],
+    ["documents", "Документы"],
+    ["files", "Файлы"],
+    ["ai", "AI"],
+    ["progress", "Прогресс"],
+    ["activity", "История"],
+  ];
+  for (const [segment, expectedText] of modules) {
+    await openChecked(
+      page,
+      `/portal/cases/${caseId}/${segment}`,
+      `${fixture.plan.toLowerCase()}-${segment}`,
+      viewport,
+      expectedText,
+    );
+  }
+  await openChecked(page, `/portal/notifications?caseId=${caseId}`, `${fixture.plan.toLowerCase()}-notifications`, viewport, "Уведом");
+  await openChecked(page, `/portal/profile?caseId=${caseId}`, `${fixture.plan.toLowerCase()}-profile`, viewport, "Профил");
+  await openChecked(page, `/portal/security?caseId=${caseId}`, `${fixture.plan.toLowerCase()}-security`, viewport, "Безопас");
 }
 
 async function verifyClient(browser, fixture, viewport, storageState) {
@@ -223,40 +312,24 @@ async function verifyClient(browser, fixture, viewport, storageState) {
       const caseId = match[1];
 
       await page.locator(`[data-plan="${fixture.plan}"]`).waitFor({ state: "visible", timeout: 15_000 });
-      await page.getByText("AI-помощник", { exact: true }).first().waitFor({ state: "visible", timeout: 12_000 });
+      await waitForVisibleText(page, "AI-помощник", { exact: true, timeout: 12_000 });
 
       if (fixture.plan === "LITE") {
-        if (await page.getByText("Ваш специалист", { exact: true }).count()) throw new Error("LITE exposes human specialist UI");
-        if (await page.getByText("Ипотечное жильё", { exact: true }).count()) throw new Error("LITE exposes mortgage UI");
-        await page.getByText("Самостоятельно + AI", { exact: true }).waitFor({ state: "visible", timeout: 10_000 });
+        if (await hasVisibleText(page, "Ваш специалист", { exact: true })) throw new Error("LITE exposes human specialist UI");
+        if (await hasVisibleText(page, "Ипотечное жильё", { exact: true })) throw new Error("LITE exposes mortgage UI");
+        await waitForVisibleText(page, "Самостоятельно + AI", { exact: true, timeout: 10_000 });
       } else {
-        await page.getByText("Ваш специалист", { exact: true }).first().waitFor({ state: "visible", timeout: 10_000 });
-        await page.getByText("Ипотечное жильё", { exact: true }).first().waitFor({ state: "visible", timeout: 10_000 });
+        await waitForVisibleText(page, "Ваш специалист", { exact: true, timeout: 10_000 });
+        await waitForVisibleText(page, "Ипотечное жильё", { exact: true, timeout: 10_000 });
       }
 
       await assertNoHorizontalOverflow(page, `${fixture.plan}-dashboard`, viewport);
       await takeScreenshot(page, `${fixture.plan}-dashboard`, viewport);
 
-      if (viewport.name === "mobile-390") {
-        await verifyMobileDrawer(page, fixture.plan, viewport);
-      }
+      if (viewport.name === "mobile-390") await verifyMobileDrawer(page, fixture.plan, viewport);
 
-      if (fixture.plan === "INDIVIDUAL" && (viewport.name === "mobile-390" || viewport.name === "desktop-1440")) {
-        const modules = [
-          ["practicum", "Практикум"],
-          ["questionnaire", "Анкета"],
-          ["documents", "Документы"],
-          ["files", "Файлы"],
-          ["ai", "AI"],
-          ["progress", "Прогресс"],
-          ["activity", "История"],
-        ];
-        for (const [segment, expectedText] of modules) {
-          await openChecked(page, `/portal/cases/${caseId}/${segment}`, `individual-${segment}`, viewport, expectedText);
-        }
-        await openChecked(page, `/portal/notifications?caseId=${caseId}`, "individual-notifications", viewport, "Уведом");
-        await openChecked(page, `/portal/profile?caseId=${caseId}`, "individual-profile", viewport, "Профил");
-        await openChecked(page, `/portal/security?caseId=${caseId}`, "individual-security", viewport, "Безопас");
+      if (viewport.name === "desktop-1440" || (fixture.plan === "INDIVIDUAL" && viewport.name === "mobile-390")) {
+        await verifyClientModules(page, fixture, viewport, caseId);
       }
     });
   } finally {
@@ -274,6 +347,10 @@ async function verifyStaff(browser, role, viewport, storageState) {
       if (!response || response.status() >= 500) throw new Error(`staff portal navigation failed: ${response?.status() ?? "no response"}`);
       await page.waitForURL(/\/portal(?:\/|$)/u, { timeout: 15_000 });
       await page.locator("main").first().waitFor({ state: "visible", timeout: 15_000 });
+      if (role === "MANAGER") {
+        await waitForVisibleText(page, "Панель руководителя", { exact: true, timeout: 15_000 });
+        await page.waitForTimeout(500);
+      }
       await assertNoHorizontalOverflow(page, `${role}-dashboard`, viewport);
       await takeScreenshot(page, `${role}-dashboard`, viewport);
 
@@ -285,6 +362,14 @@ async function verifyStaff(browser, role, viewport, storageState) {
       if (await caseLinks.count()) {
         const href = await caseLinks.first().getAttribute("href");
         if (href) await openChecked(page, href, `${role}-case`, viewport);
+      }
+
+      await openChecked(page, "/portal/profile", `${role.toLowerCase()}-profile`, viewport, "Профил");
+      await openChecked(page, "/portal/notifications", `${role.toLowerCase()}-notifications`, viewport, "Уведом");
+      await openChecked(page, "/portal/security", `${role.toLowerCase()}-security`, viewport, "Безопас");
+      await openChecked(page, "/portal/tasks", `${role.toLowerCase()}-tasks`, viewport, "Задач");
+      if (role === "MANAGER") {
+        await openChecked(page, "/portal/leads", `${role.toLowerCase()}-leads`, viewport, "Потенциаль");
       }
     });
   } finally {
