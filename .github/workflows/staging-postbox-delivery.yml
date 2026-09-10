@@ -156,13 +156,15 @@ jobs:
               typeof phase.ready !== "boolean" ||
               !Number.isInteger(phase.requiredCount) ||
               !Number.isInteger(phase.configuredCount) ||
-              !Array.isArray(phase.missing)
+              !Array.isArray(phase.missingOrPlaceholder) ||
+              !Array.isArray(phase.invalidOrInconsistent)
             ) process.exit(1);
             const safe = {
               ready: phase.ready,
               requiredCount: phase.requiredCount,
               configuredCount: phase.configuredCount,
-              missing: phase.missing,
+              missingOrPlaceholder: phase.missingOrPlaceholder,
+              invalidOrInconsistent: phase.invalidOrInconsistent,
             };
             console.log(`STAGING_POSTBOX_INVENTORY: ${JSON.stringify(safe)}`);
           '
