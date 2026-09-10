@@ -288,6 +288,48 @@ assert.ok(
 assert.doesNotMatch(proxySource, /\/api\/auth/);
 assert.doesNotMatch(proxySource, /\/api\/internal/);
 
+const stagingBypassSource = await readFile(
+  resolve("scripts/staging-vercel-protection-bypass.mjs"),
+  "utf8",
+);
+assert.match(stagingBypassSource, /headers\.set\("x-vercel-protection-bypass", secret\)/);
+assert.match(stagingBypassSource, /STAGING_CONTROL_PATH_PREFIX = "\/_iburo\/"/);
+assert.match(stagingBypassSource, /STAGING_CONTROL_HEADER = "x-iburo-staging-control"/);
+const unsafeMethodIndex = stagingBypassSource.indexOf("!SAFE_METHODS.has(request.method.toUpperCase())");
+const stagingControlPathIndex = stagingBypassSource.indexOf(
+  "requestUrl.pathname.startsWith(STAGING_CONTROL_PATH_PREFIX)",
+);
+const stagingControlHeaderIndex = stagingBypassSource.indexOf(
+  "headers.set(STAGING_CONTROL_HEADER, secret)",
+);
+assert.ok(unsafeMethodIndex >= 0, "staging fetch wrapper must distinguish unsafe methods");
+assert.ok(
+  unsafeMethodIndex < stagingControlPathIndex && stagingControlPathIndex < stagingControlHeaderIndex,
+  "the application control credential must be forwarded only inside unsafe same-origin /_iburo requests",
+);
+
+const workflowMutationContracts = [
+  [".github/workflows/staging-application-e2e.yml", "/_iburo/staging-client-plan-auth-fixtures"],
+  [".github/workflows/staging-application-e2e.yml", "/_iburo/staging-application-e2e-fixtures"],
+  [".github/workflows/staging-external-readiness.yml", "/_iburo/staging-file-scan-fixture-cleanup"],
+  [".github/workflows/staging-external-readiness.yml", "/_iburo/staging-maintenance-health"],
+  [".github/workflows/staging-external-readiness.yml", "/_iburo/staging-storage-verify"],
+  [".github/workflows/staging-yandex-ai-smoke.yml", "/_iburo/staging-ai-verify"],
+  [".github/workflows/staging-better-auth-173-upgrade.yml", "/_iburo/staging-better-auth-upgrade-173"],
+] as const;
+for (const [workflowPath, route] of workflowMutationContracts) {
+  const workflowSource = await readFile(resolve(workflowPath), "utf8");
+  const escapedRoute = route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const protectedMutation = new RegExp(
+    `(?:-X POST|--request POST)[\\s\\S]{0,700}x-vercel-protection-bypass: \\$VERCEL_AUTOMATION_BYPASS_SECRET[\\s\\S]{0,300}x-iburo-staging-control: \\$VERCEL_AUTOMATION_BYPASS_SECRET[\\s\\S]{0,900}${escapedRoute}`,
+  );
+  assert.match(
+    workflowSource,
+    protectedMutation,
+    `${workflowPath} must forward the separate application control credential for ${route}`,
+  );
+}
+
 const portalLayoutSource = await readFile(resolve("app/portal/layout.tsx"), "utf8");
 assert.match(portalLayoutSource, /resolveProductionStaffMfaState\(\)/);
 const mfaEnrollSource = await readFile(resolve("app/auth/mfa-enroll/page.tsx"), "utf8");
