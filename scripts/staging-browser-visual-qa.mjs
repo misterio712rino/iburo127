@@ -259,9 +259,17 @@ async function uiLogin(browser, { label, email, password, totpSecret }) {
 async function verifyMobileDrawer(page, label, viewport) {
   const trigger = page.getByRole("button", { name: "Открыть меню" });
   await trigger.waitFor({ state: "visible", timeout: 10_000 });
+  const controlsId = await trigger.getAttribute("aria-controls");
+  if (!controlsId || !/^[A-Za-z][A-Za-z0-9_-]*$/u.test(controlsId)) {
+    throw new Error(`${label}: menu trigger has no safe aria-controls target`);
+  }
   await trigger.click();
-  const dialog = page.getByRole("dialog", { name: "Меню кабинета" });
+  const dialog = page.locator(`#${controlsId}`);
   await dialog.waitFor({ state: "visible", timeout: 10_000 });
+  if (await dialog.getAttribute("role") !== "dialog") throw new Error(`${label}: controlled drawer is not a dialog`);
+  if (await dialog.getAttribute("aria-modal") !== "true") throw new Error(`${label}: controlled drawer is not aria-modal`);
+  const accessibleName = await dialog.getAttribute("aria-label");
+  if (!accessibleName?.trim()) throw new Error(`${label}: controlled drawer has no accessible name`);
   const focused = await page.evaluate(() => document.activeElement?.getAttribute("aria-label"));
   if (focused !== "Закрыть меню") throw new Error(`${label}: drawer did not focus close control`);
   await takeScreenshot(page, `${label}-mobile-drawer`, viewport);
@@ -269,7 +277,7 @@ async function verifyMobileDrawer(page, label, viewport) {
   await dialog.waitFor({ state: "hidden", timeout: 10_000 });
   const restored = await page.evaluate(() => document.activeElement?.getAttribute("aria-label"));
   if (restored !== "Открыть меню") throw new Error(`${label}: drawer did not restore trigger focus`);
-  checks.push({ kind: "mobile-drawer-focus", label, pass: true });
+  checks.push({ kind: "mobile-drawer-focus", label, accessibleName, pass: true });
 }
 
 async function verifyClientModules(page, fixture, viewport, caseId) {
