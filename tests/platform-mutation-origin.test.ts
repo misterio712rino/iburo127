@@ -337,7 +337,13 @@ assert.match(proxySource, /request\.nextUrl\.pathname\.startsWith\("\/_iburo\/"\
 assert.match(proxySource, /SAFE_METHODS = new Set\(\["GET", "HEAD", "OPTIONS"\]\)/);
 assert.match(
   proxySource,
-  /matcher:\s*\["\/app\/:path\*", "\/portal\/:path\*", "\/auth\/:path\*", "\/api\/:path\*", "\/_iburo\/:path\*"\]/,
+  /SECURITY_PATH_PREFIXES = \["\/app", "\/portal", "\/auth", "\/api", "\/_iburo"\] as const/,
+  "manual trailing-slash handling must keep the existing security namespaces explicit",
+);
+assert.match(
+  proxySource,
+  /matcher:\s*\["\/\(\(\?!_next\/static\|_next\/image\)\.\*\)"\]/,
+  "proxy must observe non-static routes when framework trailing-slash redirects are disabled",
 );
 assert.match(proxySource, /Cache-Control": "private, no-store"/);
 assert.match(proxySource, /STAGING_BACKEND_DISABLED/);
