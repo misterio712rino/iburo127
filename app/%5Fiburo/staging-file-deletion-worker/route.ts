@@ -93,7 +93,11 @@ export async function POST(request: Request) {
     for (let index = 0; index < MAX_CLAIMS_PER_PROOF; index += 1) {
       if (target.status === "COMPLETED" || target.status === "REQUIRES_ATTENTION") break;
 
-      const result = await getStoredFileDeletionWorker().runBatch({ now: new Date(), limit: 1 });
+      const result = await getStoredFileDeletionWorker().runBatch({
+        now: new Date(),
+        limit: 1,
+        fileId,
+      });
       for (const key of Object.keys(totals) as Array<keyof typeof totals>) {
         totals[key] += result[key];
       }
