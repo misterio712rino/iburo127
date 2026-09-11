@@ -12,9 +12,6 @@ on:
         description: Type RUN_STAGING_BROWSER_VISUAL_QA
         required: true
         type: string
-  push:
-    branches:
-      - audit/production-readiness
 
 permissions:
   contents: read
