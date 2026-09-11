@@ -5,6 +5,11 @@ const WORKFLOWS_ROOT = ".github/workflows";
 const REQUIRED_RUNNER = "ubuntu-24.04";
 const REQUIRED_CHECKOUT_REF = "${{ github.event.pull_request.head.sha || github.sha }}";
 const MANUAL_OIDC_CHECKOUT_REF = "${{ inputs.candidate_sha }}";
+const SHARED_STAGING_AUTH_CONCURRENCY_GROUP = "staging-application-e2e-audit-production-readiness";
+const SHARED_STAGING_AUTH_WORKFLOWS = new Set([
+  ".github/workflows/staging-application-e2e.yml",
+  ".github/workflows/staging-browser-visual-qa.yml",
+]);
 
 function collectJobBlocks(source) {
   const lines = source.split(/\r?\n/);
@@ -74,6 +79,7 @@ const violations = [];
 let checkoutCount = 0;
 let workflowCount = 0;
 let runnerCount = 0;
+let sharedStagingAuthWorkflowCount = 0;
 
 for (const file of collectWorkflowFiles(WORKFLOWS_ROOT)) {
   workflowCount += 1;
@@ -81,6 +87,19 @@ for (const file of collectWorkflowFiles(WORKFLOWS_ROOT)) {
   const source = readFileSync(file, "utf8");
   const lines = source.split(/\r?\n/);
   const manualOidcWorkflow = isBoundedManualOidcWorkflow(source);
+
+  if (SHARED_STAGING_AUTH_WORKFLOWS.has(displayPath)) {
+    sharedStagingAuthWorkflowCount += 1;
+    const expectedConcurrency = new RegExp(
+      `^concurrency:\\s*$\\n(?:#.*\\n|\\s*#.*\\n)*\\s{2}group:\\s*${SHARED_STAGING_AUTH_CONCURRENCY_GROUP}\\s*$\\n\\s{2}cancel-in-progress:\\s*false\\s*(?:#.*)?$`,
+      "m",
+    );
+    if (!expectedConcurrency.test(source)) {
+      violations.push(
+        `${displayPath}: shared staging auth workflows must use concurrency group ${SHARED_STAGING_AUTH_CONCURRENCY_GROUP} with cancel-in-progress: false`,
+      );
+    }
+  }
 
   if (/^\s*pull_request_target\s*:/m.test(source)) {
     violations.push(`${displayPath}: pull_request_target is forbidden by CI security policy`);
@@ -181,6 +200,14 @@ if (checkoutCount === 0) {
 if (runnerCount === 0) {
   console.error("GITHUB_WORKFLOW_SECURITY_POLICY_FAIL: no runs-on declaration found");
   process.exit(1);
+}
+if (
+  sharedStagingAuthWorkflowCount !== 0 &&
+  sharedStagingAuthWorkflowCount !== SHARED_STAGING_AUTH_WORKFLOWS.size
+) {
+  violations.push(
+    `shared staging auth concurrency policy expected either no scoped workflows or all ${SHARED_STAGING_AUTH_WORKFLOWS.size}; found ${sharedStagingAuthWorkflowCount}`,
+  );
 }
 if (violations.length > 0) {
   console.error("GITHUB_WORKFLOW_SECURITY_POLICY_FAIL");
