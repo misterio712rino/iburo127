@@ -7,7 +7,7 @@ const EXACT_GIT_SHA_PATTERN = /^[a-f0-9]{40}$/;
 
 type EnvironmentLike = Readonly<Record<string, string | undefined>>;
 
-function isPreviewBackendConfirmationAllowed(value: string | undefined, commitSha: string) {
+function isPreviewBackendConfirmationAllowed(value: string | undefined) {
   const confirmation = value?.trim().toLowerCase();
   const branchConfirmation = VERCEL_STAGING_CONFIRMATION.toLowerCase();
   if (confirmation === branchConfirmation) return true;
