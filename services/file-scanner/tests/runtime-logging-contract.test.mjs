@@ -41,12 +41,18 @@ test("scanner runtime logging stays on the reviewed structured allowlist", () =>
     /function defaultLogger\(event, category\) \{\s*const record = category \? \{ event, category \} : \{ event \};\s*console\.info\(JSON\.stringify\(record\)\);\s*\}/,
     "request logging must serialize only the reviewed event/category fields",
   );
-  assert.match(serviceSource, /logger\("scan_complete", verdict === "CLEAN" \? "clean" : "malicious"\);/);
-  assert.match(serviceSource, /logger\("request_failed", safe\.category\);/);
-  assert.doesNotMatch(
-    serviceSource,
-    /logger\([^\n]*(?:sourceUrl|request|headers|secret|token|error\.message|stack)/i,
-    "scanner logger calls must not receive source capabilities, request data, credentials or raw errors",
+
+  const loggerCallLines = serviceSource
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("logger("));
+  assert.deepEqual(
+    loggerCallLines,
+    [
+      'logger("scan_complete", verdict === "CLEAN" ? "clean" : "malicious");',
+      'logger("request_failed", safe.category);',
+    ],
+    "scanner request logging may emit only reviewed event/category pairs and must not receive request data, source capabilities, credentials or raw errors",
   );
 
   const serverSource = readFileSync(resolve(srcRoot, "server.mjs"), "utf8");
