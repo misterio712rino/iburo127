@@ -12,11 +12,7 @@ function isPreviewBackendConfirmationAllowed(value: string | undefined, commitSh
   const branchConfirmation = VERCEL_STAGING_CONFIRMATION.toLowerCase();
   if (confirmation === branchConfirmation) return true;
 
-  const legacyPrefix = `${branchConfirmation}:`;
-  if (!confirmation?.startsWith(legacyPrefix)) return false;
-
-  const legacySha = confirmation.slice(legacyPrefix.length);
-  return EXACT_GIT_SHA_PATTERN.test(legacySha) && legacySha !== commitSha;
+  return false;
 }
 
 export function isVercelPreviewBackendAllowed(env: EnvironmentLike = process.env) {
