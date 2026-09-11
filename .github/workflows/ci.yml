@@ -222,6 +222,9 @@ jobs:
           terraform -chdir=infra/file-scanner-staging init -backend=false -input=false
           terraform -chdir=infra/file-scanner-staging validate
 
+      - name: Staging internal route boundary contract
+        run: npx tsx tests/staging-internal-route-boundary-contract.test.ts
+
       - name: Production foundation tests
         run: npm run test:foundation
 
