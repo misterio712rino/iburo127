@@ -160,6 +160,7 @@ jobs:
   aggregate-proof:
     needs: classify
     runs-on: ubuntu-24.04
+    timeout-minutes: 2
     name: >-
       Scan backlog p=${{ needs.classify.outputs.pending }}
       known=${{ needs.classify.outputs.known }}
