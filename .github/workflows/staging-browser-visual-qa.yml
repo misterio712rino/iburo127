@@ -19,6 +19,12 @@ on:
 permissions:
   contents: read
 
+# Browser QA and Application E2E share fixed staging auth accounts. Keep both
+# workflows in one non-cancelling queue so session cleanup cannot race another run.
+concurrency:
+  group: staging-application-e2e-audit-production-readiness
+  cancel-in-progress: false
+
 jobs:
   browser-visual:
     if: github.ref_name == 'audit/production-readiness'
