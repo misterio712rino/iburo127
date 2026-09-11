@@ -64,6 +64,9 @@ jobs:
 
       - name: Vercel Preview identity verifier contract
         run: npx tsx tests/vercel-preview-identity-verifier-contract.test.ts
+      - name: Vercel Preview backend boundary contract
+        run: npx tsx tests/vercel-preview-boundary.test.ts
+
 
       - name: Dependency audit policy
         shell: bash
