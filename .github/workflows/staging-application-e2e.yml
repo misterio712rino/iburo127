@@ -38,6 +38,8 @@ jobs:
       IB_STAGING_AUTH_FLOW_CONFIRM: AUTH-FLOW:iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
       IB_STAGING_AUTH_REQUEST_TIMEOUT_MS: "15000"
       IB_STAGING_CLIENT_EMAIL: client.staging-e2e@example.test
+      IB_STAGING_LITE_EMAIL: client.lite@example.test
+      IB_STAGING_PRO_EMAIL: client.pro@example.test
       IB_STAGING_LAWYER_EMAIL: lawyer.demo@example.test
       IB_STAGING_MANAGER_EMAIL: manager.demo@example.test
       IB_STAGING_CLIENT_CASE_NUMBER: IBR-2026-009901
