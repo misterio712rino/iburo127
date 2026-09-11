@@ -29,7 +29,7 @@ jobs:
   verify:
     if: github.ref_name == 'audit/production-readiness'
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 50
     env:
       IB_RUNTIME_TARGET: staging
       IB_STAGING_BASE_URL: https://iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
@@ -366,3 +366,28 @@ jobs:
           IB_STAGING_MANAGER_PASSWORD: ${{ secrets.IB_STAGING_MANAGER_PASSWORD }}
           IB_STAGING_MANAGER_TOTP_SECRET: ${{ secrets.IB_STAGING_MANAGER_TOTP_SECRET }}
         run: npm run check:staging:application-e2e
+
+
+      - name: Install pinned Chromium browser runtime
+        run: |
+          npm install --no-save --package-lock=false --ignore-scripts playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Real Chromium role plan viewport QA
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          IB_STAGING_CLIENT_PASSWORD: ${{ secrets.IB_STAGING_CLIENT_PASSWORD }}
+          IB_STAGING_LAWYER_PASSWORD: ${{ secrets.IB_STAGING_LAWYER_PASSWORD }}
+          IB_STAGING_LAWYER_TOTP_SECRET: ${{ secrets.IB_STAGING_LAWYER_TOTP_SECRET }}
+          IB_STAGING_MANAGER_PASSWORD: ${{ secrets.IB_STAGING_MANAGER_PASSWORD }}
+          IB_STAGING_MANAGER_TOTP_SECRET: ${{ secrets.IB_STAGING_MANAGER_TOTP_SECRET }}
+        run: node scripts/staging-browser-visual-qa.mjs
+
+      - name: Upload browser visual evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: staging-browser-visual-evidence-${{ github.sha }}
+          path: ${{ runner.temp }}/iburo-browser-visual-evidence
+          if-no-files-found: warn
+          retention-days: 7
