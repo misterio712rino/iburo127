@@ -1,0 +1,28 @@
+.root :global(button) {
+  min-height: 44px;
+  border-radius: 12px;
+  box-shadow: none;
+  transform: none;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.root :global(button:hover) {
+  transform: none;
+  box-shadow: none;
+}
+
+.root :global(button:focus-visible) {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(181, 31, 42, 0.1);
+}
+
+.root :global(button:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root :global(button) {
+    transition: none;
+  }
+}

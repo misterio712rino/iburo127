@@ -1,0 +1,70 @@
+.client-case-shell[data-client-plan="individual"] main > div > section:first-child h1 {
+  font-family: var(--font-iburo-display), Georgia, "Times New Roman", serif !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.025em !important;
+}
+
+.client-case-shell[data-client-plan="individual"] main > div > section:nth-child(2) > div:first-child {
+  background: #b91f29 !important;
+}
+
+.client-case-shell[data-client-plan="individual"] main > div > section:nth-child(2) > div:first-child > div.absolute {
+  top: -14px !important;
+  right: 24px !important;
+  width: 132px !important;
+  height: 132px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  opacity: 0.14;
+  background: rgba(255,255,255,.95);
+  clip-path: polygon(50% 0, 58% 32%, 66% 42%, 100% 50%, 66% 58%, 58% 68%, 50% 100%, 42% 68%, 34% 58%, 0 50%, 34% 42%, 42% 32%);
+}
+
+.client-case-shell[data-client-plan="individual"] main > div > section:nth-child(2) > div:first-child h2 {
+  font-size: 30px !important;
+  line-height: 1.08 !important;
+}
+
+.client-case-shell[data-client-plan="individual"] main > div > section:nth-child(2) > article,
+.client-case-shell[data-client-plan="individual"] main > div > section:nth-child(3),
+.client-case-shell[data-client-plan="individual"] main > div > section:nth-child(4) > div:last-child > a,
+.client-case-shell[data-client-plan="individual"] main > div > section:nth-child(4) > div:last-child > article,
+.client-case-shell[data-client-plan="individual"] main > div > section:nth-child(5) > article {
+  background: #25242a !important;
+  border-color: rgba(255,255,255,.08) !important;
+}
+
+.client-case-shell[data-client-plan="individual"] main > div > section:nth-child(3) {
+  box-shadow: 0 12px 34px rgba(0,0,0,.12) !important;
+}
+
+.client-case-shell[data-client-plan="individual"] main > div > section:nth-child(4) > div:last-child > a,
+.client-case-shell[data-client-plan="individual"] main > div > section:nth-child(4) > div:last-child > article {
+  min-height: 210px !important;
+}
+
+.client-case-shell[data-client-plan="individual"] main > div > section:nth-child(5) > article {
+  min-height: 248px;
+}
+
+.client-case-shell[data-client-plan="individual"] main > div > section:nth-child(5) > article:first-child > div:last-child > div {
+  color: var(--ib-text) !important;
+}
+
+.client-case-shell[data-client-plan="individual"] .client-user-chip {
+  background: #25242a !important;
+}
+
+.client-case-shell[data-client-plan="individual"] > aside {
+  background: #1b1b20 !important;
+}
+
+.client-case-shell[data-client-plan="individual"] header {
+  background: rgba(35,35,41,.96) !important;
+}
+
+@media (min-width: 1280px) {
+  .client-case-shell[data-client-plan="individual"] main {
+    max-width: 1120px !important;
+  }
+}

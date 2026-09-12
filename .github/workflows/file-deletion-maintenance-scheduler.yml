@@ -1,0 +1,84 @@
+name: File Deletion Maintenance Scheduler
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  file-deletions:
+    if: vars.IB_FILE_DELETION_SCHEDULER_ENABLED == 'true' && github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      IB_RUNTIME_TARGET: ${{ vars.IB_MAINTENANCE_RUNTIME_TARGET }}
+      IB_MAINTENANCE_BASE_URL: ${{ vars.IB_MAINTENANCE_BASE_URL }}
+      BETTER_AUTH_URL: ${{ vars.IB_MAINTENANCE_BETTER_AUTH_URL }}
+      IB_STAGING_BASE_URL: ${{ vars.IB_STAGING_BASE_URL }}
+      IB_MAINTENANCE_PRODUCTION_CONFIRM: ${{ vars.IB_MAINTENANCE_PRODUCTION_CONFIRM }}
+      IB_MAINTENANCE_SECRET: ${{ secrets.IB_MAINTENANCE_SECRET }}
+
+    steps:
+      - name: Checkout exact scheduler revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify scheduler branch boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF_NAME" != "${{ github.event.repository.default_branch }}" ]; then
+            echo "FILE_DELETION_SCHEDULER_FAIL: default branch required" >&2
+            exit 1
+          fi
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$GITHUB_SHA" ]; then
+            echo "FILE_DELETION_SCHEDULER_FAIL: exact SHA mismatch" >&2
+            exit 1
+          fi
+          echo "FILE_DELETION_SCHEDULER_GATE_PASS: $actual_sha"
+
+      - name: Run durable file deletion worker
+        run: node scripts/run-maintenance-job.mjs file-deletions
+
+  file-deletion-health:
+    if: vars.IB_FILE_DELETION_SCHEDULER_ENABLED == 'true' && github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      IB_RUNTIME_TARGET: ${{ vars.IB_MAINTENANCE_RUNTIME_TARGET }}
+      IB_MAINTENANCE_BASE_URL: ${{ vars.IB_MAINTENANCE_BASE_URL }}
+      BETTER_AUTH_URL: ${{ vars.IB_MAINTENANCE_BETTER_AUTH_URL }}
+      IB_STAGING_BASE_URL: ${{ vars.IB_STAGING_BASE_URL }}
+      IB_MAINTENANCE_PRODUCTION_CONFIRM: ${{ vars.IB_MAINTENANCE_PRODUCTION_CONFIRM }}
+      IB_MAINTENANCE_SECRET: ${{ secrets.IB_MAINTENANCE_SECRET }}
+
+    steps:
+      - name: Checkout exact scheduler revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify scheduler branch boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF_NAME" != "${{ github.event.repository.default_branch }}" ]; then
+            echo "FILE_DELETION_HEALTH_SCHEDULER_FAIL: default branch required" >&2
+            exit 1
+          fi
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$GITHUB_SHA" ]; then
+            echo "FILE_DELETION_HEALTH_SCHEDULER_FAIL: exact SHA mismatch" >&2
+            exit 1
+          fi
+          echo "FILE_DELETION_HEALTH_SCHEDULER_GATE_PASS: $actual_sha"
+
+      - name: Verify durable file deletion backlog health
+        run: node scripts/run-maintenance-job.mjs file-deletion-health

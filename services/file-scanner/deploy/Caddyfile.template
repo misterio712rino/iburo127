@@ -1,0 +1,16 @@
+# HOSTNAME REQUIRED — NOT YET ASSIGNED.
+# Replace this token only after a separately approved staging-only DNS record exists.
+<STAGING_SCANNER_HOSTNAME> {
+  request_body {
+    max_size 8KB
+  }
+
+  reverse_proxy 127.0.0.1:8080 {
+    transport http {
+      dial_timeout 5s
+      response_header_timeout 60s
+    }
+  }
+
+  header -Server
+}
