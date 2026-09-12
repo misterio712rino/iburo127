@@ -408,8 +408,8 @@ assert.match(workflowSource, /IB_STAGING_CLIENT_AI_CASE_NUMBER:\s*IBR-2026-00990
 assert.match(workflowSource, /IB_STAGING_CLIENT_SECOND_AI_CASE_NUMBER:\s*IBR-2026-000104/);
 assert.match(
   workflowSource,
-  /JSON\.stringify\(labels\) !== JSON\.stringify\(\["CLIENT_E2E", "CLIENT_LITE", "CLIENT_PRO"\]\)/,
-  "application E2E must bootstrap its dedicated technical client alongside plan fixtures",
+  /JSON\.stringify\(labels\) !== JSON\.stringify\(\["CLIENT_E2E", "CLIENT_INDIVIDUAL", "CLIENT_LITE", "CLIENT_PRO"\]\)/,
+  "application E2E must bootstrap its dedicated technical client alongside all plan fixtures",
 );
 assert.match(workflowSource, /IB_STAGING_OTHER_CLIENT_PASSWORD:\s*\$\{\{ secrets\.IB_STAGING_CLIENT_PASSWORD \}\}/);
 assert.doesNotMatch(workflowSource, /secrets\.IB_STAGING_OTHER_CLIENT_(?:EMAIL|PASSWORD)/);
