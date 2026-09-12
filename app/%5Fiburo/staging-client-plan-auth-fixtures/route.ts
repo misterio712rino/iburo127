@@ -37,6 +37,7 @@ const TARIFF_FIXTURE_EMAILS: ReadonlySet<string> = new Set([
   "client.lite@example.test",
   "client.pro@example.test",
   "client.individual@example.test",
+  TECHNICAL_E2E_CLIENT.email,
 ]);
 
 const NO_STORE_HEADERS = {
