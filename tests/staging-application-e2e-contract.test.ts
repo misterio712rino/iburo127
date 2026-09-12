@@ -17,6 +17,9 @@ import {
 import {
   isVercelPreviewBackendAllowed,
   VERCEL_STAGING_CONFIRMATION,
+  VERCEL_STAGING_REPOSITORY_ID,
+  VERCEL_STAGING_REPOSITORY_NAME,
+  VERCEL_STAGING_REPOSITORY_OWNER,
 } from "../server/config/vercel-preview-boundary";
 import {
   LEGACY_E2E_CLIENT_EMAIL,
@@ -128,10 +131,13 @@ assert.equal(
 assert.equal(requiresStagingSignInLimiterWait(true, 4), false);
 const previewBoundaryEnv = {
   VERCEL_ENV: "preview",
+  VERCEL_GIT_PROVIDER: "github",
+  VERCEL_GIT_REPO_OWNER: VERCEL_STAGING_REPOSITORY_OWNER,
+  VERCEL_GIT_REPO_SLUG: VERCEL_STAGING_REPOSITORY_NAME,
+  VERCEL_GIT_REPO_ID: VERCEL_STAGING_REPOSITORY_ID,
   VERCEL_GIT_COMMIT_REF: "audit/production-readiness",
   VERCEL_GIT_COMMIT_SHA: previewCommitSha,
   IB_RUNTIME_TARGET: "staging",
-  IB_VERCEL_PREVIEW_BACKEND_CONFIRM: VERCEL_STAGING_CONFIRMATION,
 };
 assert.equal(
   isVercelPreviewBackendAllowed(previewBoundaryEnv),
@@ -143,8 +149,8 @@ assert.equal(
     ...previewBoundaryEnv,
     IB_VERCEL_PREVIEW_BACKEND_CONFIRM: `${VERCEL_STAGING_CONFIRMATION}:${previewCommitSha}`,
   }),
-  false,
-  "legacy SHA-bound Preview confirmation must not become the active contract again",
+  true,
+  "legacy confirmation fields must not become an additional runtime gate",
 );
 assert.equal(
   isVercelPreviewBackendAllowed({ ...previewBoundaryEnv, VERCEL_GIT_COMMIT_SHA: "not-a-sha" }),
