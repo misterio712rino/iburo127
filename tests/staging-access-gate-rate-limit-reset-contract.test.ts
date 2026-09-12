@@ -98,13 +98,34 @@ assert.doesNotMatch(
   "staging reset must never use an unbounded Prisma rate-limit delete",
 );
 
-const completeFixtureFastPathIndex = clientPlanAuthFixtureSource.indexOf(
-  "const completeFixtures = await readCompleteFixtures(pool);",
-);
 const nonBlockingLockIndex = clientPlanAuthFixtureSource.indexOf("pg_try_advisory_lock");
+const authContextIndex = clientPlanAuthFixtureSource.indexOf("const context = await auth.$context");
+const passwordHashIndex = clientPlanAuthFixtureSource.indexOf("context.password.hash(password)");
+const updatePasswordIndex = clientPlanAuthFixtureSource.indexOf("context.internalAdapter.updatePassword(subject, hashedPassword)");
+assert.ok(nonBlockingLockIndex >= 0, "client-plan auth bootstrap must acquire its staging advisory lock");
 assert.ok(
-  completeFixtureFastPathIndex >= 0 && nonBlockingLockIndex > completeFixtureFastPathIndex,
-  "complete client-plan auth fixtures must bypass the advisory-lock mutation path",
+  authContextIndex > nonBlockingLockIndex && passwordHashIndex > authContextIndex && updatePasswordIndex > passwordHashIndex,
+  "tariff password synchronization must occur only inside the guarded advisory-lock mutation path",
+);
+assert.match(
+  clientPlanAuthFixtureSource,
+  /const TARIFF_FIXTURE_EMAILS: ReadonlySet<string> = new Set\(\[/,
+  "password synchronization must remain limited to the fixed tariff fixtures",
+);
+for (const email of [
+  "client.lite@example.test",
+  "client.pro@example.test",
+  "client.individual@example.test",
+]) {
+  assert.ok(
+    clientPlanAuthFixtureSource.includes(`"${email}"`),
+    `tariff password synchronization must keep ${email} pinned`,
+  );
+}
+assert.match(
+  clientPlanAuthFixtureSource,
+  /if \(TARIFF_FIXTURE_EMAILS\.has\(fixture\.email\)\) \{\s*await synchronizePassword\(initial\.subject, password\);/,
+  "already-complete tariff fixtures must synchronize the configured staging password",
 );
 assert.match(
   clientPlanAuthFixtureSource,
