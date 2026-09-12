@@ -33,6 +33,11 @@ const FIXTURES = [
   { label: "CLIENT_INDIVIDUAL", email: "client.individual@example.test", displayName: "Клиент INDIVIDUAL" },
   TECHNICAL_E2E_CLIENT,
 ] as const;
+const TARIFF_FIXTURE_EMAILS: ReadonlySet<string> = new Set([
+  "client.lite@example.test",
+  "client.pro@example.test",
+  "client.individual@example.test",
+]);
 
 const NO_STORE_HEADERS = {
   "Cache-Control": "private, no-store, max-age=0",
@@ -261,10 +266,14 @@ async function ensureFixture(
   fixture: Fixture,
   password: string,
   signUp: (body: { name: string; email: string; password: string; rememberMe: boolean }) => Promise<unknown>,
+  synchronizePassword: (subject: string, password: string) => Promise<void>,
 ) {
   await ensureTechnicalDomainUser(pool, fixture);
   const initial = await readFixtureState(pool, fixture);
   if (initial.state === "complete" && initial.userId && initial.subject) {
+    if (TARIFF_FIXTURE_EMAILS.has(fixture.email)) {
+      await synchronizePassword(initial.subject, password);
+    }
     return { label: fixture.label, email: fixture.email, created: false, state: "complete" as const };
   }
   if (initial.state !== "bootstrap-required" || !initial.userId) {
@@ -319,21 +328,6 @@ async function clearBoundedRateLimits(pool: Pool, request: Request, secret: stri
   }
   if (deleted > keys.length) throw new Error("bounded rate-limit reset exceeded key inventory");
   return deleted;
-}
-
-async function readCompleteFixtures(pool: Pool) {
-  const completeFixtures = [];
-  for (const fixture of FIXTURES) {
-    const state = await readFixtureState(pool, fixture);
-    if (state.state !== "complete" || !state.userId || !state.subject) return null;
-    completeFixtures.push({
-      label: fixture.label,
-      email: fixture.email,
-      created: false,
-      state: "complete" as const,
-    });
-  }
-  return completeFixtures;
 }
 
 function pass(
@@ -417,13 +411,6 @@ export async function POST(request: Request) {
       throw new Error("staging database identity mismatch");
     }
 
-    const completeFixtures = await readCompleteFixtures(pool);
-    if (completeFixtures) {
-      failureStage = "verification";
-      const rateLimitsDeleted = await clearBoundedRateLimits(pool, request, configuration.auth.secret);
-      return pass(sha, target.expectedDatabaseName, completeFixtures, rateLimitsDeleted);
-    }
-
     failureStage = "lock";
     const lock = await lockClient.query<{ acquired: boolean }>(
       "select pg_try_advisory_lock(hashtext($1)) as acquired",
@@ -448,11 +435,18 @@ export async function POST(request: Request) {
     });
     const signUp = async (body: { name: string; email: string; password: string; rememberMe: boolean }) =>
       auth.api.signUpEmail({ body });
+    const context = await auth.$context;
+    const synchronizePassword = async (subject: string, password: string) => {
+      const hashedPassword = await context.password.hash(password);
+      await context.internalAdapter.updatePassword(subject, hashedPassword);
+    };
 
     failureStage = "fixture";
     const fixtures = [];
     for (const fixture of FIXTURES) {
-      fixtures.push(await ensureFixture(pool, fixture, configuration.password, signUp));
+      fixtures.push(
+        await ensureFixture(pool, fixture, configuration.password, signUp, synchronizePassword),
+      );
     }
 
     failureStage = "verification";
