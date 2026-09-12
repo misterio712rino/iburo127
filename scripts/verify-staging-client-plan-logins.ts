@@ -5,7 +5,11 @@ import {
 
 const FAIL = "STAGING_CLIENT_PLAN_LOGIN_MATRIX_FAIL";
 const MAX_JSON_BYTES = 64 * 1024;
-const FIXTURES = ["client.lite@example.test", "client.pro@example.test"] as const;
+const FIXTURES = [
+  "client.lite@example.test",
+  "client.pro@example.test",
+  "client.individual@example.test",
+] as const;
 
 type Envelope = Record<string, unknown> & {
   ok?: boolean;
