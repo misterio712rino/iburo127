@@ -4,6 +4,9 @@ import { resolve } from "node:path";
 import {
   VERCEL_STAGING_BRANCH,
   VERCEL_STAGING_CONFIRMATION,
+  VERCEL_STAGING_REPOSITORY_ID,
+  VERCEL_STAGING_REPOSITORY_NAME,
+  VERCEL_STAGING_REPOSITORY_OWNER,
   isVercelPreviewBackendAllowed,
 } from "@/server/config/vercel-preview-boundary";
 
@@ -308,10 +311,13 @@ const certifiedSha = "12a4155acd473838b3e4f48bc318016187854a68";
 const laterSha = "22a4155acd473838b3e4f48bc318016187854a68";
 const exactPreviewEnv = {
   VERCEL_ENV: "preview",
+  VERCEL_GIT_PROVIDER: "github",
+  VERCEL_GIT_REPO_OWNER: VERCEL_STAGING_REPOSITORY_OWNER,
+  VERCEL_GIT_REPO_SLUG: VERCEL_STAGING_REPOSITORY_NAME,
+  VERCEL_GIT_REPO_ID: VERCEL_STAGING_REPOSITORY_ID,
   VERCEL_GIT_COMMIT_REF: VERCEL_STAGING_BRANCH,
   VERCEL_GIT_COMMIT_SHA: certifiedSha,
   IB_RUNTIME_TARGET: "staging",
-  IB_VERCEL_PREVIEW_BACKEND_CONFIRM: VERCEL_STAGING_CONFIRMATION,
 };
 
 assert.equal(
@@ -329,8 +335,8 @@ assert.equal(
     ...exactPreviewEnv,
     IB_VERCEL_PREVIEW_BACKEND_CONFIRM: `${VERCEL_STAGING_CONFIRMATION}:${certifiedSha}`,
   }),
-  false,
-  "the legacy SHA-bound confirmation must fail closed",
+  true,
+  "legacy confirmation fields must not become an additional runtime gate",
 );
 assert.equal(
   isVercelPreviewBackendAllowed({ ...exactPreviewEnv, VERCEL_GIT_COMMIT_SHA: "not-a-sha" }),
