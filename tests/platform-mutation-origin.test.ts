@@ -4,7 +4,9 @@ import { resolve } from "node:path";
 import {
   VERCEL_PREVIEW_BOUNDARY_ERROR,
   VERCEL_STAGING_BRANCH,
-  VERCEL_STAGING_CONFIRMATION,
+  VERCEL_STAGING_REPOSITORY_ID,
+  VERCEL_STAGING_REPOSITORY_NAME,
+  VERCEL_STAGING_REPOSITORY_OWNER,
   assertVercelPreviewBackendAllowed,
   isVercelPreviewBackendAllowed,
 } from "@/server/config/vercel-preview-boundary";
@@ -23,11 +25,14 @@ const confirmedCommitSha = "12a4155acd473838b3e4f48bc318016187854a68";
 const confirmedPreviewEnv = {
   BETTER_AUTH_URL: "https://app.example.com",
   VERCEL_ENV: "preview",
+  VERCEL_GIT_PROVIDER: "github",
+  VERCEL_GIT_REPO_OWNER: VERCEL_STAGING_REPOSITORY_OWNER,
+  VERCEL_GIT_REPO_SLUG: VERCEL_STAGING_REPOSITORY_NAME,
+  VERCEL_GIT_REPO_ID: VERCEL_STAGING_REPOSITORY_ID,
   VERCEL_GIT_COMMIT_REF: VERCEL_STAGING_BRANCH,
   VERCEL_GIT_COMMIT_SHA: confirmedCommitSha,
   VERCEL_URL: "iburo127-test-deployment.vercel.app",
   IB_RUNTIME_TARGET: "staging",
-  IB_VERCEL_PREVIEW_BACKEND_CONFIRM: VERCEL_STAGING_CONFIRMATION,
 };
 
 function request(
@@ -312,13 +317,20 @@ for (const previewEnv of [
 assert.equal(isVercelPreviewBackendAllowed(confirmedPreviewEnv), true);
 assert.doesNotThrow(() => assertVercelPreviewBackendAllowed(confirmedPreviewEnv));
 
-const legacyShaBoundConfirmation = {
+const legacyConfirmationFieldIsIgnored = {
   ...confirmedPreviewEnv,
-  IB_VERCEL_PREVIEW_BACKEND_CONFIRM: `${VERCEL_STAGING_CONFIRMATION}:${confirmedCommitSha}`,
+  IB_VERCEL_PREVIEW_BACKEND_CONFIRM: "STAGING:audit/production-readiness:legacy",
 };
-assert.equal(isVercelPreviewBackendAllowed(legacyShaBoundConfirmation), false);
+assert.equal(isVercelPreviewBackendAllowed(legacyConfirmationFieldIsIgnored), true);
+assert.doesNotThrow(() => assertVercelPreviewBackendAllowed(legacyConfirmationFieldIsIgnored));
+
+const foreignRepository = {
+  ...confirmedPreviewEnv,
+  VERCEL_GIT_REPO_ID: "1",
+};
+assert.equal(isVercelPreviewBackendAllowed(foreignRepository), false);
 assert.throws(
-  () => assertVercelPreviewBackendAllowed(legacyShaBoundConfirmation),
+  () => assertVercelPreviewBackendAllowed(foreignRepository),
   new RegExp(VERCEL_PREVIEW_BOUNDARY_ERROR),
 );
 
