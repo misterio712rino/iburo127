@@ -39,10 +39,13 @@ const [
 // durable so the isolated staging environment can prove the cutover path.
 const exactAuditPreview = {
   VERCEL_ENV: "preview",
+  VERCEL_GIT_PROVIDER: "github",
+  VERCEL_GIT_REPO_OWNER: "misterio712rino",
+  VERCEL_GIT_REPO_SLUG: "iburo127",
+  VERCEL_GIT_REPO_ID: "1303795826",
   VERCEL_GIT_COMMIT_REF: "audit/production-readiness",
   VERCEL_GIT_COMMIT_SHA: "a".repeat(40),
   IB_RUNTIME_TARGET: "staging",
-  IB_VERCEL_PREVIEW_BACKEND_CONFIRM: "STAGING:audit/production-readiness",
 };
 assert.equal(readStoredFileDeletionMode({}), "legacy");
 assert.equal(readStoredFileDeletionMode({ IB_RUNTIME_TARGET: "staging" }), "legacy");
