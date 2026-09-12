@@ -122,7 +122,7 @@ assert.match(
 );
 
 for (const [stepName, operation] of [
-  ["Ensure LITE and PRO client auth fixtures", "client-plan-auth"],
+  ["Bootstrap LITE, PRO, and INDIVIDUAL client-plan auth fixtures", "client-plan-auth"],
   ["Reset dedicated application E2E fixtures", "application-fixture-reset"],
 ] as const) {
   const step =
