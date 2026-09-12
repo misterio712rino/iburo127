@@ -158,7 +158,7 @@ jobs:
           echo "STAGING_APPLICATION_E2E_IDENTITY_FAIL" >&2
           exit 1
 
-      - name: Ensure LITE and PRO client auth fixtures
+      - name: Bootstrap LITE, PRO, and INDIVIDUAL client-plan auth fixtures
         shell: bash
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
@@ -197,7 +197,7 @@ jobs:
                 body.runtimeTarget !== "staging" ||
                 body.database !== process.env.IB_STAGING_DATABASE_NAME ||
                 body.schema !== "public" ||
-                JSON.stringify(labels) !== JSON.stringify(["CLIENT_E2E", "CLIENT_LITE", "CLIENT_PRO"])
+                JSON.stringify(labels) !== JSON.stringify(["CLIENT_E2E", "CLIENT_INDIVIDUAL", "CLIENT_LITE", "CLIENT_PRO"])
               ) process.exit(1);
             '; then
               echo "STAGING_CLIENT_PLAN_AUTH_FIXTURE_PASS"
@@ -340,7 +340,7 @@ jobs:
           echo "STAGING_APPLICATION_E2E_FIXTURE_RESET_FAIL: retry budget exhausted" >&2
           exit 1
 
-      - name: Verify LITE and PRO client sign-in matrix
+      - name: Verify LITE, PRO, and INDIVIDUAL client-plan logins
         env:
           IB_STAGING_VERCEL_AUTOMATION_BYPASS: "1"
           NODE_OPTIONS: --import=./scripts/staging-vercel-protection-bypass.mjs
