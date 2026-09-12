@@ -1,6 +1,6 @@
 import {
   VERCEL_STAGING_BRANCH,
-  VERCEL_STAGING_CONFIRMATION,
+  isVercelPreviewBackendAllowed,
 } from "@/server/config/vercel-preview-boundary";
 
 export const PLATFORM_MUTATION_ORIGIN_REJECTED = "PLATFORM_MUTATION_ORIGIN_REJECTED";
@@ -73,12 +73,9 @@ function parseRequestOrigin(value: string | null): string | null {
 function isConfirmedStagingPreview(env: Record<string, string | undefined>): boolean {
   const commitSha = env.VERCEL_GIT_COMMIT_SHA?.trim().toLowerCase() ?? "";
   return (
-    env.VERCEL_ENV?.trim() === "preview" &&
-    env.VERCEL_GIT_COMMIT_REF?.trim() === VERCEL_STAGING_BRANCH &&
     EXACT_GIT_SHA_PATTERN.test(commitSha) &&
-    env.IB_RUNTIME_TARGET?.trim() === "staging" &&
-    env.IB_VERCEL_PREVIEW_BACKEND_CONFIRM?.trim().toLowerCase() ===
-      VERCEL_STAGING_CONFIRMATION.toLowerCase()
+    env.VERCEL_GIT_COMMIT_REF?.trim() === VERCEL_STAGING_BRANCH &&
+    isVercelPreviewBackendAllowed(env)
   );
 }
 
