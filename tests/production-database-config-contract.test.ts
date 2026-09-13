@@ -32,6 +32,25 @@ function fixtureDatabaseUrl(sslMode?: string) {
   return sslMode ? `${base}?sslmode=${sslMode}` : base;
 }
 
+function targetDatabaseUrl(input: {
+  user: string;
+  host: string;
+  database: string;
+  sslMode?: string;
+}) {
+  const base = [
+    "postgresql://",
+    input.user,
+    ":",
+    "fixture-password",
+    "@",
+    input.host,
+    "/",
+    input.database,
+  ].join("");
+  return input.sslMode ? `${base}?sslmode=${input.sslMode}` : base;
+}
+
 assert.equal(POSTGRES_EXPLICIT_STRICT_SSL_MODE, "verify-full");
 for (const legacyMode of ["prefer", "require", "verify-ca", "REQUIRE"]) {
   const normalized = stabilizePostgresSslMode(
@@ -61,8 +80,12 @@ const validProductionEnvironment: NodeJS.ProcessEnv = {
   IB_PRODUCTION_DATABASE_NAME: "iburo_prod",
   IB_PRODUCTION_DATABASE_USER: "iburo_prod_user",
 };
-const rawProductionUrl =
-  "postgresql://iburo_prod_user:secret@rc1-prod.mdb.yandexcloud.net/iburo_prod?sslmode=require";
+const rawProductionUrl = targetDatabaseUrl({
+  user: "iburo_prod_user",
+  host: "rc1-prod.mdb.yandexcloud.net",
+  database: "iburo_prod",
+  sslMode: "require",
+});
 const normalizedProductionUrl = stabilizePostgresSslMode(rawProductionUrl);
 assert.equal(new URL(normalizedProductionUrl).searchParams.get("sslmode"), "verify-full");
 assert.doesNotThrow(() =>
@@ -71,7 +94,12 @@ assert.doesNotThrow(() =>
 
 assert.doesNotThrow(() =>
   assertDatabaseTargetBoundary(
-    "postgresql://stage_user:secret@stage.pg.example.net/iburo_stage?sslmode=verify-full",
+    targetDatabaseUrl({
+      user: "stage_user",
+      host: "stage.pg.example.net",
+      database: "iburo_stage",
+      sslMode: "verify-full",
+    }),
     {
       NODE_ENV: "production",
       VERCEL_ENV: "preview",
@@ -124,7 +152,11 @@ assert.throws(
 assert.throws(
   () =>
     assertDatabaseTargetBoundary(
-      "postgresql://iburo_prod_user:secret@rc1-prod.mdb.yandexcloud.net/iburo_prod",
+      targetDatabaseUrl({
+        user: "iburo_prod_user",
+        host: "rc1-prod.mdb.yandexcloud.net",
+        database: "iburo_prod",
+      }),
       validProductionEnvironment,
     ),
   /DATABASE_TARGET_CONFIG_ERROR:DATABASE_URL_SSLMODE/,
