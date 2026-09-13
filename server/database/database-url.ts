@@ -1,6 +1,7 @@
 import "server-only";
 
 import { stabilizePostgresSslMode } from "@/lib/database/postgres-ssl";
+import { assertDatabaseTargetBoundary } from "@/server/database/database-target-guard";
 
 export const DATABASE_CONFIG_ERROR = "DATABASE_CONFIG_ERROR";
 
@@ -25,5 +26,7 @@ export function readPostgresDatabaseUrl(
   if (!parsed.hostname || parsed.pathname === "/" || parsed.pathname === "") fail();
   if (parsed.hash) fail();
 
-  return stabilizePostgresSslMode(databaseUrl);
+  const stabilizedDatabaseUrl = stabilizePostgresSslMode(databaseUrl);
+  assertDatabaseTargetBoundary(stabilizedDatabaseUrl, env);
+  return stabilizedDatabaseUrl;
 }
