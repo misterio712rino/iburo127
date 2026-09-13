@@ -18,6 +18,7 @@ import {
   isVercelPreviewBackendAllowed,
 } from "@/server/config/vercel-preview-boundary";
 
+// Staging-only simulator proof trigger; no production behavior changes.
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
