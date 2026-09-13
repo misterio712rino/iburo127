@@ -1,15 +1,14 @@
 export const DATABASE_TARGET_CONFIG_ERROR = "DATABASE_TARGET_CONFIG_ERROR";
 
-type DatabaseTargetEnvironment = Pick<
-  NodeJS.ProcessEnv,
-  | "NODE_ENV"
-  | "VERCEL_ENV"
-  | "IB_RUNTIME_TARGET"
-  | "IB_DB_TARGET"
-  | "IB_PRODUCTION_DATABASE_HOST"
-  | "IB_PRODUCTION_DATABASE_NAME"
-  | "IB_PRODUCTION_DATABASE_USER"
->;
+type DatabaseTargetEnvironment = {
+  NODE_ENV?: string;
+  VERCEL_ENV?: string;
+  IB_RUNTIME_TARGET?: string;
+  IB_DB_TARGET?: string;
+  IB_PRODUCTION_DATABASE_HOST?: string;
+  IB_PRODUCTION_DATABASE_NAME?: string;
+  IB_PRODUCTION_DATABASE_USER?: string;
+};
 
 function fail(name: string): never {
   throw new Error(`${DATABASE_TARGET_CONFIG_ERROR}:${name}`);
