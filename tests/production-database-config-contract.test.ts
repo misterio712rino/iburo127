@@ -5,6 +5,10 @@ import {
   POSTGRES_EXPLICIT_STRICT_SSL_MODE,
   stabilizePostgresSslMode,
 } from "../lib/database/postgres-ssl";
+import {
+  assertDatabaseTargetBoundary,
+  DATABASE_TARGET_CONFIG_ERROR,
+} from "../server/database/database-target-guard";
 
 const guard = await readFile(resolve("server/database/database-url.ts"), "utf8");
 const productionConfig = await readFile(resolve("server/config/production.ts"), "utf8");
@@ -48,6 +52,84 @@ for (const stableMode of ["verify-full", "disable"]) {
 const noSslModeUrl = fixtureDatabaseUrl();
 assert.equal(stabilizePostgresSslMode(noSslModeUrl), noSslModeUrl);
 
+const validProductionEnvironment: NodeJS.ProcessEnv = {
+  NODE_ENV: "production",
+  VERCEL_ENV: "production",
+  IB_RUNTIME_TARGET: "production",
+  IB_DB_TARGET: "production",
+  IB_PRODUCTION_DATABASE_HOST: "rc1-prod.mdb.yandexcloud.net",
+  IB_PRODUCTION_DATABASE_NAME: "iburo_prod",
+  IB_PRODUCTION_DATABASE_USER: "iburo_prod_user",
+};
+const rawProductionUrl =
+  "postgresql://iburo_prod_user:secret@rc1-prod.mdb.yandexcloud.net/iburo_prod?sslmode=require";
+const normalizedProductionUrl = stabilizePostgresSslMode(rawProductionUrl);
+assert.equal(new URL(normalizedProductionUrl).searchParams.get("sslmode"), "verify-full");
+assert.doesNotThrow(() =>
+  assertDatabaseTargetBoundary(normalizedProductionUrl, validProductionEnvironment),
+);
+
+assert.doesNotThrow(() =>
+  assertDatabaseTargetBoundary(
+    "postgresql://stage_user:secret@stage.pg.example.net/iburo_stage?sslmode=verify-full",
+    {
+      NODE_ENV: "production",
+      VERCEL_ENV: "preview",
+      IB_RUNTIME_TARGET: "staging",
+      IB_DB_TARGET: "staging",
+    },
+  ),
+  "the production guard must remain inert for isolated staging Preview runtime",
+);
+
+for (const [name, environment] of [
+  [
+    "IB_RUNTIME_TARGET",
+    { ...validProductionEnvironment, IB_RUNTIME_TARGET: "staging" },
+  ],
+  ["IB_DB_TARGET", { ...validProductionEnvironment, IB_DB_TARGET: "staging" }],
+  ["NODE_ENV", { ...validProductionEnvironment, NODE_ENV: "development" }],
+  ["VERCEL_ENV", { ...validProductionEnvironment, VERCEL_ENV: "preview" }],
+] as const) {
+  assert.throws(
+    () => assertDatabaseTargetBoundary(normalizedProductionUrl, environment),
+    new RegExp(`${DATABASE_TARGET_CONFIG_ERROR}:${name}`),
+  );
+}
+
+assert.throws(
+  () =>
+    assertDatabaseTargetBoundary(normalizedProductionUrl, {
+      ...validProductionEnvironment,
+      IB_PRODUCTION_DATABASE_HOST: "staging.pg.yandexcloud.net",
+    }),
+  /DATABASE_TARGET_CONFIG_ERROR:IB_PRODUCTION_DATABASE_HOST/,
+);
+assert.throws(
+  () =>
+    assertDatabaseTargetBoundary(normalizedProductionUrl, {
+      ...validProductionEnvironment,
+      IB_PRODUCTION_DATABASE_NAME: "iburo_stage",
+    }),
+  /DATABASE_TARGET_CONFIG_ERROR:IB_PRODUCTION_DATABASE_NAME/,
+);
+assert.throws(
+  () =>
+    assertDatabaseTargetBoundary(normalizedProductionUrl, {
+      ...validProductionEnvironment,
+      IB_PRODUCTION_DATABASE_USER: "staging_user",
+    }),
+  /DATABASE_TARGET_CONFIG_ERROR:IB_PRODUCTION_DATABASE_USER/,
+);
+assert.throws(
+  () =>
+    assertDatabaseTargetBoundary(
+      "postgresql://iburo_prod_user:secret@rc1-prod.mdb.yandexcloud.net/iburo_prod",
+      validProductionEnvironment,
+    ),
+  /DATABASE_TARGET_CONFIG_ERROR:DATABASE_URL_SSLMODE/,
+);
+
 assert.match(guard, /DATABASE_URL\?\.trim\(\)/);
 assert.match(guard, /\[\\r\\n\\0\]/);
 assert.match(guard, /new URL\(databaseUrl\)/);
@@ -57,6 +139,12 @@ assert.match(guard, /!parsed\.hostname/);
 assert.match(guard, /parsed\.pathname === "\/"/);
 assert.match(guard, /parsed\.hash/);
 assert.match(guard, /stabilizePostgresSslMode\(databaseUrl\)/);
+assert.match(guard, /assertDatabaseTargetBoundary\(stabilizedDatabaseUrl, env\)/);
+assert.ok(
+  guard.indexOf("stabilizePostgresSslMode(databaseUrl)") <
+    guard.indexOf("assertDatabaseTargetBoundary(stabilizedDatabaseUrl, env)"),
+  "production target validation must run after legacy SSL modes are stabilized",
+);
 
 assert.match(productionConfig, /readPostgresDatabaseUrl/);
 assert.match(
