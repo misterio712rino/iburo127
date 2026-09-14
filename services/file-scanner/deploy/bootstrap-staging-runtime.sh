@@ -32,6 +32,7 @@ esac
 command -v curl >/dev/null 2>&1 || fail "curl unavailable"
 command -v jq >/dev/null 2>&1 || fail "jq unavailable"
 command -v caddy >/dev/null 2>&1 || fail "caddy unavailable"
+command -v docker >/dev/null 2>&1 || fail "docker unavailable"
 
 printf '%s\n' "STAGING_FILE_SCANNER_LOCKBOX_BOOTSTRAP_START"
 
@@ -88,7 +89,7 @@ printf '%s\n' "STAGING_FILE_SCANNER_SECRET_INSTALLED"
 printf '%s\n' "STAGING_FILE_SCANNER_LOCAL_HEALTH_WAIT"
 
 health_ok=0
-for _attempt in $(seq 1 120); do
+for _attempt in $(seq 1 360); do
   # shellcheck disable=SC1090
   . "$SCANNER_ENV"
 
@@ -108,10 +109,20 @@ for _attempt in $(seq 1 120); do
   fi
 
   unset IB_FILE_SCANNER_SECRET
+
+  if [ $((_attempt % 24)) -eq 0 ]; then
+    printf '%s\n' "STAGING_FILE_SCANNER_LOCAL_HEALTH_PENDING:${_attempt}"
+  fi
+
   sleep 5
 done
 
-[ "$health_ok" = "1" ] || fail "local scanner health timeout"
+if [ "$health_ok" != "1" ]; then
+  printf '%s\n' "STAGING_FILE_SCANNER_CONTAINER_DIAGNOSTICS_BEGIN" >&2
+  docker logs --tail 200 iburo-file-scanner-staging 2>&1 || true
+  printf '%s\n' "STAGING_FILE_SCANNER_CONTAINER_DIAGNOSTICS_END" >&2
+  fail "local scanner health timeout"
+fi
 
 printf '%s\n' "STAGING_FILE_SCANNER_LOCAL_HEALTH_PASS"
 
