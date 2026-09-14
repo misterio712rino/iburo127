@@ -39,6 +39,6 @@ test("signature bootstrap avoids Docker stdout logfile recursion and restart per
   );
   assert.match(
     entrypoint,
-    /freshclam\s+--stdout\s+--config-file=\/etc\/clamav\/freshclam\.conf\s+--daemon/,
+    /freshclam\s+--config-file=\/etc\/clamav\/freshclam\.conf\s+--daemon\s+--stdout/,
   );
 });
