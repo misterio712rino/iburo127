@@ -1,3 +1,4 @@
+# retry after immutable Yandex WIF subject binding
 name: Staging File Scanner Image One Shot
 
 on:
