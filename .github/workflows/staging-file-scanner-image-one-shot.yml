@@ -53,7 +53,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          trap 'docker logout cr.yandex >/dev/null 2>&1 || true; unset oidc_jwt iam_token oidc_response exchange_response image_repository image_tag image_digest immutable_image' EXIT
+          trap 'docker logout cr.yandex >/dev/null 2>&1 || true; rm -f /tmp/wif-exchange.json; unset oidc_jwt iam_token oidc_response exchange_status exchange_response image_repository image_tag image_digest immutable_image jwt_payload jwt_b64 jwt_pad' EXIT
 
           oidc_response="$(curl --fail --silent --show-error \
             --header "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
@@ -62,7 +62,13 @@ jobs:
           test -n "$oidc_jwt"
           echo "::add-mask::$oidc_jwt"
 
-          exchange_response="$(printf '%s' "$oidc_jwt" | curl --fail --silent --show-error --request POST \
+          jwt_b64="$(printf '%s' "$oidc_jwt" | cut -d. -f2 | tr '_-' '/+')"
+          jwt_pad=$(( (4 - ${#jwt_b64} % 4) % 4 ))
+          jwt_b64="${jwt_b64}$(printf '=%.0s' $(seq 1 "$jwt_pad") 2>/dev/null || true)"
+          jwt_payload="$(printf '%s' "$jwt_b64" | base64 -d 2>/dev/null)"
+          printf '%s' "$jwt_payload" | jq -c '{iss,aud,sub,repository,ref,workflow,job_workflow_ref}'
+
+          exchange_status="$(printf '%s' "$oidc_jwt" | curl --silent --show-error --output /tmp/wif-exchange.json --write-out '%{http_code}' --request POST \
             --header 'Content-Type: application/x-www-form-urlencoded' \
             --data-urlencode 'grant_type=urn:ietf:params:oauth:grant-type:token-exchange' \
             --data-urlencode 'requested_token_type=urn:ietf:params:oauth:token-type:access_token' \
@@ -70,6 +76,13 @@ jobs:
             --data-urlencode "audience=${PUBLISHER_SERVICE_ACCOUNT_ID}" \
             --data-urlencode 'subject_token@-' \
             https://auth.yandex.cloud/oauth/token)"
+          echo "YANDEX_WIF_EXCHANGE_HTTP_STATUS=$exchange_status"
+          if [ "$exchange_status" != "200" ]; then
+            jq -r '"YANDEX_WIF_ERROR=" + (.error // "unknown"), "YANDEX_WIF_ERROR_DESCRIPTION=" + (.error_description // "unspecified")' /tmp/wif-exchange.json
+            exit 22
+          fi
+
+          exchange_response="$(cat /tmp/wif-exchange.json)"
           iam_token="$(printf '%s' "$exchange_response" | jq -er '.access_token | strings | select(length > 0)')"
           test -n "$iam_token"
           echo "::add-mask::$iam_token"
