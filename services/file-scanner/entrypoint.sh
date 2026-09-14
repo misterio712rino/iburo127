@@ -4,12 +4,16 @@ set -eu
 mkdir -p /var/lib/clamav /run/clamav
 chown clamav:clamav /var/lib/clamav /run/clamav
 
+initial_freshclam_config="/tmp/freshclam.initial.conf"
+sed '/^[[:space:]]*NotifyClamd[[:space:]]/d' /etc/clamav/freshclam.conf > "$initial_freshclam_config"
+chmod 0644 "$initial_freshclam_config"
+
 signature_bootstrap_ok=0
 attempt=1
 while [ "$attempt" -le 3 ]; do
   printf '%s\n' "STAGING_FILE_SCANNER_SIGNATURE_BOOTSTRAP_ATTEMPT:${attempt}"
 
-  if timeout 420s gosu clamav freshclam --stdout --config-file=/etc/clamav/freshclam.conf; then
+  if timeout 420s gosu clamav freshclam --stdout --config-file="$initial_freshclam_config"; then
     signature_bootstrap_ok=1
     break
   fi
@@ -18,6 +22,8 @@ while [ "$attempt" -le 3 ]; do
   sleep $((attempt * 15))
   attempt=$((attempt + 1))
 done
+
+rm -f "$initial_freshclam_config"
 
 [ "$signature_bootstrap_ok" -eq 1 ] || {
   printf '%s\n' "STAGING_FILE_SCANNER_SIGNATURE_BOOTSTRAP_FAIL" >&2
