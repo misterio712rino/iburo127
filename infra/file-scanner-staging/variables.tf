@@ -294,8 +294,25 @@ variable "scanner_hostname" {
   }
 }
 
+variable "scanner_lockbox_secret_id" {
+  description = "Optional staging-only Lockbox secret ID containing exactly one IB_FILE_SCANNER_SECRET text entry."
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      var.scanner_lockbox_secret_id == "" ||
+      (
+        length(trimspace(var.scanner_lockbox_secret_id)) >= 8 &&
+        !can(regex("[[:space:][:cntrl:]]", var.scanner_lockbox_secret_id))
+      )
+    )
+    error_message = "scanner_lockbox_secret_id must be empty or a reviewed Yandex Lockbox secret ID."
+  }
+}
+
 variable "tls_activation_enabled" {
-  description = "Records explicit intent to activate Caddy only after a staging DNS record exists."
+  description = "Records explicit intent to activate the staging scanner and Caddy after DNS and Lockbox are approved."
   type        = bool
   default     = false
 }
