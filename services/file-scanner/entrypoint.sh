@@ -2,14 +2,14 @@
 set -eu
 
 mkdir -p /var/lib/clamav /run/clamav
-chown -R clamav:clamav /var/lib/clamav /run/clamav
+chown clamav:clamav /var/lib/clamav /run/clamav
 
 signature_bootstrap_ok=0
 attempt=1
 while [ "$attempt" -le 3 ]; do
   printf '%s\n' "STAGING_FILE_SCANNER_SIGNATURE_BOOTSTRAP_ATTEMPT:${attempt}"
 
-  if timeout 420s gosu clamav freshclam --config-file=/etc/clamav/freshclam.conf; then
+  if timeout 420s gosu clamav freshclam --stdout --config-file=/etc/clamav/freshclam.conf; then
     signature_bootstrap_ok=1
     break
   fi
@@ -43,7 +43,7 @@ printf '%s\n' "STAGING_FILE_SCANNER_SIGNATURE_BOOTSTRAP_PASS"
 
 gosu clamav clamd --config-file=/etc/clamav/clamd.conf &
 clamd_pid=$!
-gosu clamav freshclam --config-file=/etc/clamav/freshclam.conf --daemon &
+gosu clamav freshclam --stdout --config-file=/etc/clamav/freshclam.conf --daemon &
 freshclam_pid=$!
 gosu clamav node /service/src/server.mjs &
 service_pid=$!
