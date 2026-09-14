@@ -66,6 +66,12 @@ write_files:
     content: |
       SCANNER_IMAGE=${scanner_image}
       SCANNER_IMAGE_DIGEST=${scanner_image_digest}
+  - path: /etc/iburo-file-scanner/bootstrap.env
+    owner: root:root
+    permissions: "0644"
+    content: |
+      SCANNER_LOCKBOX_SECRET_ID=${scanner_lockbox_secret_id}
+      SCANNER_HOSTNAME=${scanner_hostname}
   - path: /opt/iburo/file-scanner/docker-compose.staging.yml
     owner: root:root
     permissions: "0644"
@@ -76,6 +82,11 @@ write_files:
     permissions: "0750"
     encoding: b64
     content: ${scanner_activate_b64}
+  - path: /usr/local/sbin/iburo-file-scanner-bootstrap
+    owner: root:root
+    permissions: "0750"
+    encoding: b64
+    content: ${scanner_bootstrap_b64}
 
 runcmd:
   - [sh, -ec, "if [ -f /run/iburo-scanner-policy-rcd-created ]; then rm -f /usr/sbin/policy-rc.d /run/iburo-scanner-policy-rcd-created; fi"]
@@ -90,5 +101,6 @@ runcmd:
   - [systemctl, enable, --now, docker]
   - [systemctl, enable, --now, iburo-file-scanner-metadata-firewall.service]
   - [systemctl, disable, --now, caddy]
+  - [sh, -ec, "if [ '${scanner_activation_enabled}' = 'true' ]; then /usr/local/sbin/iburo-file-scanner-bootstrap; fi"]
 
-final_message: "Staging scanner host prerequisites prepared; scanner, secret, DNS, and TLS remain intentionally unconfigured."
+final_message: "Staging scanner host initialization complete. Activation runs only when explicitly enabled with a reviewed hostname and Lockbox secret."
