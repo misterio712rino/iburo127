@@ -1,0 +1,9 @@
+# iБюро repository ownership
+* @misterio712rino
+
+# Security- and release-critical areas remain explicitly owned.
+/.github/ @misterio712rino
+/security/ @misterio712rino
+/prisma/ @misterio712rino
+/server/ @misterio712rino
+/scripts/ @misterio712rino

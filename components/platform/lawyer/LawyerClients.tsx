@@ -1,0 +1,11 @@
+"use client";
+import Link from "next/link";
+import { ArrowRight, UserRound } from "lucide-react";
+import { LawyerRouteGuard } from "./LawyerRouteGuard";
+import { PriorityBadge } from "./PriorityBadge";
+import { useLawyerCases } from "./useLawyerCases";
+import { PlatformShell } from "@/components/platform/PlatformShell";
+import { PlanBadge, PlatformCard, ProfileAvatar, ProgressBar, SectionHeader } from "@/components/platform/PlatformPrimitives";
+import { getClientCaseDisplayNumber } from "@/lib/platform/client-case-number";
+
+export function LawyerClients(){return <LawyerRouteGuard><PlatformShell><div className="flex flex-col gap-7 sm:gap-9"><SectionHeader title="Клиенты" description="Клиенты в работе и состояние их дел."/><div className="grid gap-4 lg:grid-cols-3">{useLawyerCases().map(({summary:item})=><Link key={item.identity.id} href={`/app/lawyer/cases/${item.clientCase.caseNumber}`} className="min-w-0 rounded-[1.4rem] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"><PlatformCard className="h-full p-5 transition hover:-translate-y-0.5 sm:p-6"><div className="flex items-start justify-between gap-3"><ProfileAvatar initials={item.identity.initials}/><PriorityBadge priority={item.priority}/></div><h2 className="mt-5 text-xl font-semibold">{item.identity.displayName}</h2><p className="mt-1 text-xs text-muted-foreground">{getClientCaseDisplayNumber(item.clientCase.caseNumber)}</p><div className="mt-5 flex items-center justify-between gap-3"><PlanBadge plan={item.clientCase.plan}/><span className="text-sm font-medium">{item.clientCase.progress}%</span></div><div className="mt-3"><ProgressBar value={item.clientCase.progress}/></div><div className="mt-5 flex items-center justify-between gap-3 border-t border-border pt-4"><div><p className="text-xs text-muted-foreground">Текущий этап</p><p className="mt-1 text-sm font-medium">{item.clientCase.stage}</p></div><ArrowRight className="size-4 text-primary"/></div><p className="mt-4 flex items-center gap-2 text-xs text-muted-foreground"><UserRound className="size-3.5"/>Анна Орлова</p></PlatformCard></Link>)}</div></div></PlatformShell></LawyerRouteGuard>}

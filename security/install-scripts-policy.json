@@ -1,0 +1,22 @@
+{
+  "@prisma/engines": {
+    "version": "7.9.1",
+    "lockfilePath": "node_modules/@prisma/engines"
+  },
+  "esbuild": {
+    "version": "0.28.2",
+    "lockfilePath": "node_modules/esbuild"
+  },
+  "fsevents": {
+    "version": "2.3.3",
+    "lockfilePath": "node_modules/fsevents"
+  },
+  "prisma": {
+    "version": "7.9.1",
+    "lockfilePath": "node_modules/prisma-cli"
+  },
+  "unrs-resolver": {
+    "version": "1.12.2",
+    "lockfilePath": "node_modules/unrs-resolver"
+  }
+}

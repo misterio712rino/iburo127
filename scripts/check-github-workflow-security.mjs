@@ -1,0 +1,220 @@
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
+
+const WORKFLOWS_ROOT = ".github/workflows";
+const REQUIRED_RUNNER = "ubuntu-24.04";
+const REQUIRED_CHECKOUT_REF = "${{ github.event.pull_request.head.sha || github.sha }}";
+const MANUAL_OIDC_CHECKOUT_REF = "${{ inputs.candidate_sha }}";
+const SHARED_STAGING_AUTH_CONCURRENCY_GROUP = "staging-application-e2e-audit-production-readiness";
+const SHARED_STAGING_AUTH_WORKFLOWS = new Set([
+  ".github/workflows/staging-application-e2e.yml",
+  ".github/workflows/staging-browser-visual-qa.yml",
+]);
+
+function collectJobBlocks(source) {
+  const lines = source.split(/\r?\n/);
+  const jobsIndex = lines.findIndex((line) => /^jobs:\s*(?:#.*)?$/.test(line));
+  if (jobsIndex < 0) return [];
+
+  const blocks = [];
+  let current = null;
+
+  for (let index = jobsIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (/^[^\s#][^:]*:\s*(?:#.*)?$/.test(line)) break;
+
+    const jobMatch = line.match(/^ {2}([A-Za-z0-9_-]+):\s*(?:#.*)?$/);
+    if (jobMatch) {
+      if (current) {
+        current.source = lines.slice(current.start, index).join("\n");
+        blocks.push(current);
+      }
+      current = { name: jobMatch[1], start: index, source: "" };
+    }
+  }
+
+  if (current) {
+    current.source = lines.slice(current.start).join("\n");
+    blocks.push(current);
+  }
+
+  return blocks;
+}
+
+function isBoundedManualOidcWorkflow(source) {
+  const jobs = collectJobBlocks(source);
+  if (jobs.length !== 1) return false;
+  const jobSource = jobs[0].source;
+
+  return (
+    /^on:\s*\n\s{2}workflow_dispatch:/m.test(source) &&
+    !/^\s{2}(push|pull_request|schedule|workflow_run):/m.test(source) &&
+    !/^ {2}id-token:\s*write\s*(?:#.*)?$/m.test(source) &&
+    /^ {4}permissions\s*:\s*$/m.test(jobSource) &&
+    /^ {6}contents\s*:\s*read\s*(?:#.*)?$/m.test(jobSource) &&
+    /^ {6}id-token\s*:\s*write\s*(?:#.*)?$/m.test(jobSource) &&
+    /ref:\s*\$\{\{ inputs\.candidate_sha \}\}/.test(jobSource) &&
+    /test "\$GITHUB_REF" = "refs\/heads\/audit\/production-readiness"/.test(jobSource) &&
+    /test "\$REQUESTED_SHA" = "\$GITHUB_SHA"/.test(jobSource) &&
+    /PUBLISH_STAGING_FILE_SCANNER_IMAGE_ONLY/.test(jobSource) &&
+    /git rev-parse HEAD/.test(jobSource)
+  );
+}
+
+function collectWorkflowFiles(directory) {
+  const files = [];
+  for (const entry of readdirSync(directory)) {
+    const absolute = join(directory, entry);
+    const stat = statSync(absolute);
+    if (stat.isDirectory()) {
+      files.push(...collectWorkflowFiles(absolute));
+      continue;
+    }
+    if (/\.ya?ml$/i.test(entry)) files.push(absolute);
+  }
+  return files;
+}
+
+const violations = [];
+let checkoutCount = 0;
+let workflowCount = 0;
+let runnerCount = 0;
+let sharedStagingAuthWorkflowCount = 0;
+
+for (const file of collectWorkflowFiles(WORKFLOWS_ROOT)) {
+  workflowCount += 1;
+  const displayPath = relative(".", file);
+  const source = readFileSync(file, "utf8");
+  const lines = source.split(/\r?\n/);
+  const manualOidcWorkflow = isBoundedManualOidcWorkflow(source);
+
+  if (SHARED_STAGING_AUTH_WORKFLOWS.has(displayPath)) {
+    sharedStagingAuthWorkflowCount += 1;
+    const expectedConcurrency = new RegExp(
+      `^concurrency:\\s*$\\n(?:#.*\\n|\\s*#.*\\n)*\\s{2}group:\\s*${SHARED_STAGING_AUTH_CONCURRENCY_GROUP}\\s*$\\n\\s{2}cancel-in-progress:\\s*false\\s*(?:#.*)?$`,
+      "m",
+    );
+    if (!expectedConcurrency.test(source)) {
+      violations.push(
+        `${displayPath}: shared staging auth workflows must use concurrency group ${SHARED_STAGING_AUTH_CONCURRENCY_GROUP} with cancel-in-progress: false`,
+      );
+    }
+  }
+
+  if (/^\s*pull_request_target\s*:/m.test(source)) {
+    violations.push(`${displayPath}: pull_request_target is forbidden by CI security policy`);
+  }
+  if (/^\s*workflow_run\s*:/m.test(source)) {
+    violations.push(`${displayPath}: workflow_run is forbidden by CI security policy`);
+  }
+  if (/^\s*permissions\s*:\s*(write-all|read-all)\s*$/m.test(source)) {
+    violations.push(`${displayPath}: permissions must be explicit and least-privilege`);
+  }
+  if (/^\s*permissions\s*:\s*\{/m.test(source)) {
+    violations.push(`${displayPath}: inline permissions mappings are forbidden; use auditable block permissions`);
+  }
+  for (const writeScope of source.matchAll(/^\s*([A-Za-z0-9_-]+)\s*:\s*write\s*(?:#.*)?$/gm)) {
+    if (writeScope[1] !== "id-token" || !manualOidcWorkflow) {
+      violations.push(`${displayPath}: write permission scopes are forbidden by the current CI policy`);
+    }
+  }
+  if (/^\s*secrets\s*:\s*inherit\s*(?:#.*)?$/m.test(source)) {
+    violations.push(`${displayPath}: secrets: inherit is forbidden by CI security policy`);
+  }
+  if (/^\s*continue-on-error\s*:\s*true\s*(?:#.*)?$/m.test(source)) {
+    violations.push(`${displayPath}: continue-on-error: true is forbidden in protected CI workflows`);
+  }
+
+  const permissionsBlocks = lines.filter((line) => /^permissions\s*:\s*$/.test(line)).length;
+  if (permissionsBlocks !== 1) {
+    violations.push(`${displayPath}: exactly one top-level permissions block is required`);
+  }
+  if (!/^permissions\s*:\s*$\n\s{2}contents\s*:\s*read\s*(?:#.*)?$/m.test(source)) {
+    violations.push(`${displayPath}: top-level permissions must declare contents: read`);
+  }
+
+  if (/^\s*id-token\s*:\s*write\s*(?:#.*)?$/m.test(source) && !manualOidcWorkflow) {
+    violations.push(
+      `${displayPath}: id-token: write is allowed only in the single guarded manual staging publication job`,
+    );
+  }
+
+  lines.forEach((line, index) => {
+    const runnerMatch = line.match(/^\s*runs-on\s*:\s*([^\s#]+)(?:\s*#.*)?$/);
+    if (runnerMatch) {
+      runnerCount += 1;
+      if (runnerMatch[1] !== REQUIRED_RUNNER) {
+        violations.push(
+          `${displayPath}:${index + 1}: runs-on must be pinned to ${REQUIRED_RUNNER}; got ${runnerMatch[1]}`,
+        );
+      }
+    }
+
+    if (!/^\s*uses:\s*actions\/checkout@/.test(line)) return;
+    checkoutCount += 1;
+
+    const lookahead = lines.slice(index + 1, index + 12);
+    let persistCredentialsFound = false;
+    let checkoutRefFound = false;
+    for (const candidate of lookahead) {
+      if (/^\s*-\s+name\s*:/.test(candidate)) break;
+      if (/^\s*persist-credentials\s*:\s*false\s*(?:#.*)?$/.test(candidate)) {
+        persistCredentialsFound = true;
+      }
+      if (/^\s*persist-credentials\s*:\s*true\s*(?:#.*)?$/.test(candidate)) {
+        violations.push(`${displayPath}:${index + 1}: checkout must not persist GitHub credentials`);
+        persistCredentialsFound = true;
+      }
+      const refMatch = candidate.match(/^\s*ref\s*:\s*(.+?)\s*(?:#.*)?$/);
+      if (refMatch) {
+        checkoutRefFound = true;
+        const boundedManualRef = manualOidcWorkflow && refMatch[1] === MANUAL_OIDC_CHECKOUT_REF;
+        if (refMatch[1] !== REQUIRED_CHECKOUT_REF && !boundedManualRef) {
+          violations.push(
+            `${displayPath}:${index + 1}: checkout ref must resolve the exact candidate SHA; expected ${REQUIRED_CHECKOUT_REF}`,
+          );
+        }
+      }
+    }
+    if (!persistCredentialsFound) {
+      violations.push(
+        `${displayPath}:${index + 1}: checkout must explicitly set persist-credentials: false`,
+      );
+    }
+    if (!checkoutRefFound) {
+      violations.push(
+        `${displayPath}:${index + 1}: checkout must explicitly set ref to the exact candidate SHA expression`,
+      );
+    }
+  });
+}
+
+if (workflowCount === 0) {
+  console.error("GITHUB_WORKFLOW_SECURITY_POLICY_FAIL: no workflow files found");
+  process.exit(1);
+}
+if (checkoutCount === 0) {
+  console.error("GITHUB_WORKFLOW_SECURITY_POLICY_FAIL: no checkout step found");
+  process.exit(1);
+}
+if (runnerCount === 0) {
+  console.error("GITHUB_WORKFLOW_SECURITY_POLICY_FAIL: no runs-on declaration found");
+  process.exit(1);
+}
+if (
+  sharedStagingAuthWorkflowCount !== 0 &&
+  sharedStagingAuthWorkflowCount !== SHARED_STAGING_AUTH_WORKFLOWS.size
+) {
+  violations.push(
+    `shared staging auth concurrency policy expected either no scoped workflows or all ${SHARED_STAGING_AUTH_WORKFLOWS.size}; found ${sharedStagingAuthWorkflowCount}`,
+  );
+}
+if (violations.length > 0) {
+  console.error("GITHUB_WORKFLOW_SECURITY_POLICY_FAIL");
+  for (const violation of violations) console.error(violation);
+  process.exit(1);
+}
+
+console.log(
+  `GITHUB_WORKFLOW_SECURITY_POLICY_PASS: ${workflowCount} workflow(s), ${checkoutCount} checkout step(s), ${runnerCount} runner(s) hardened`,
+);

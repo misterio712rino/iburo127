@@ -1,0 +1,175 @@
+import type { Metadata } from "next";
+import {
+  Phone,
+  Mail,
+  MapPin,
+  Clock,
+  MessageCircle,
+} from "lucide-react";
+
+import ContactRequestForm from "@/components/sections/ContactRequestForm";
+
+export const metadata: Metadata = {
+  title: "Контакты",
+  description: "Свяжитесь с нами любым удобным способом.",
+  alternates: {
+    canonical: "/contacts",
+  },
+};
+
+export default function ContactsPage() {
+  return (
+    <main className="bg-[#F7F5F2]">
+      <section className="py-24">
+        <div className="mx-auto max-w-7xl px-6">
+          <span className="text-sm font-semibold uppercase tracking-[0.35em] text-[#7B2330]">
+            Контакты
+          </span>
+
+          <h1 className="mt-6 text-6xl font-bold leading-tight text-[#2B2B2B]">
+            Свяжитесь
+            <br />
+            с нами
+          </h1>
+
+          <p className="mt-8 max-w-3xl text-xl leading-9 text-[#666]">
+            Если у вас возникли вопросы или вы хотите понять,
+            подходит ли вам процедура банкротства —
+            просто напишите нам.
+          </p>
+        </div>
+      </section>
+
+      <section className="pb-28">
+        <div className="mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-2">
+          {/* Левая колонка */}
+
+          <div className="rounded-[36px] border border-[#E8DED5] bg-white p-10 shadow-xl">
+            <h2 className="text-3xl font-bold text-[#2B2B2B]">
+              Наши контакты
+            </h2>
+
+            <div className="mt-10 space-y-8">
+              <div className="flex gap-5">
+                <Phone className="h-7 w-7 text-[#7B2330]" />
+
+                <div>
+                  <p className="font-semibold">
+                    Телефоны
+                  </p>
+
+                  <a
+                    href="tel:+78432145640"
+                    className="block text-[#666] transition hover:text-[#7B2330]"
+                  >
+                    +7 (843) 214-56-40
+                  </a>
+
+                  <a
+                    href="tel:+79520397884"
+                    className="block text-[#666] transition hover:text-[#7B2330]"
+                  >
+                    +7 (952) 039-78-84
+                  </a>
+                </div>
+              </div>
+
+              <div className="flex gap-5">
+                <Mail className="h-7 w-7 text-[#7B2330]" />
+
+                <div>
+                  <p className="font-semibold">
+                    Электронная почта
+                  </p>
+
+                  <a
+                    href="mailto:127pro@mail.ru"
+                    className="block text-[#666] transition hover:text-[#7B2330]"
+                  >
+                    127pro@mail.ru
+                  </a>
+
+                  <a
+                    href="mailto:SRO.GAU@mail.ru"
+                    className="block text-[#666] transition hover:text-[#7B2330]"
+                  >
+                    SRO.GAU@mail.ru
+                  </a>
+
+                  <a
+                    href="mailto:Bconsalt@internet.ru"
+                    className="block text-[#666] transition hover:text-[#7B2330]"
+                  >
+                    Bconsalt@internet.ru
+                  </a>
+                </div>
+              </div>
+
+              <div className="flex gap-5">
+                <MessageCircle className="h-7 w-7 text-[#7B2330]" />
+
+                <div>
+                  <p className="font-semibold">
+                    Telegram
+                  </p>
+
+                  <a
+                    href="https://t.me/iburo127"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#666] transition hover:text-[#7B2330]"
+                  >
+                    @iburo127
+                  </a>
+                </div>
+              </div>
+
+              <div className="flex gap-5">
+                <MapPin className="h-7 w-7 text-[#7B2330]" />
+
+                <div>
+                  <p className="font-semibold">
+                    Адрес
+                  </p>
+
+                  <p className="text-[#666]">
+                    г. Казань
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-5">
+                <Clock className="h-7 w-7 text-[#7B2330]" />
+
+                <div>
+                  <p className="font-semibold">
+                    Режим работы
+                  </p>
+
+                  <p className="text-[#666]">
+                    Пн–Пт • 09:00–18:00
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Правая колонка */}
+
+          <div className="rounded-[36px] border border-[#E8DED5] bg-white p-10 shadow-xl">
+            <h2 className="text-3xl font-bold text-[#2B2B2B]">
+              Напишите нам
+            </h2>
+
+            <p className="mt-4 text-[#666] leading-8">
+              Оставьте сообщение, и мы свяжемся с вами
+              в ближайшее время.
+            </p>
+
+            <ContactRequestForm />
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
