@@ -27,12 +27,18 @@ test("signature bootstrap avoids Docker stdout logfile recursion and restart per
     "recursive chown is unsafe after capabilities are reduced and the bind mount is already clamav-owned",
   );
 
-  const freshclamCalls = entrypoint
-    .split(/\r?\n/)
-    .filter((line) => line.includes("gosu clamav freshclam"));
-
-  assert.equal(freshclamCalls.length, 2);
-  for (const line of freshclamCalls) {
-    assert.match(line, /freshclam\s+--stdout\s+--config-file=\/etc\/clamav\/freshclam\.conf/);
-  }
+  assert.match(entrypoint, /initial_freshclam_config="\/tmp\/freshclam\.initial\.conf"/);
+  assert.match(
+    entrypoint,
+    /sed '\/\^\[\[:space:\]\]\*NotifyClamd\[\[:space:\]\]\/[d]' \/etc\/clamav\/freshclam\.conf > "\$initial_freshclam_config"/,
+    "initial signature download must not try to notify clamd before clamd exists",
+  );
+  assert.match(
+    entrypoint,
+    /freshclam\s+--stdout\s+--config-file="\$initial_freshclam_config"/,
+  );
+  assert.match(
+    entrypoint,
+    /freshclam\s+--stdout\s+--config-file=\/etc\/clamav\/freshclam\.conf\s+--daemon/,
+  );
 });
