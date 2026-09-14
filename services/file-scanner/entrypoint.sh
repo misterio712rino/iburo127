@@ -49,7 +49,7 @@ printf '%s\n' "STAGING_FILE_SCANNER_SIGNATURE_BOOTSTRAP_PASS"
 
 gosu clamav clamd --config-file=/etc/clamav/clamd.conf &
 clamd_pid=$!
-gosu clamav freshclam --stdout --config-file=/etc/clamav/freshclam.conf --daemon &
+gosu clamav freshclam --config-file=/etc/clamav/freshclam.conf --daemon --stdout &
 freshclam_pid=$!
 gosu clamav node /service/src/server.mjs &
 service_pid=$!
