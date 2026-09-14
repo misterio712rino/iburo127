@@ -178,7 +178,8 @@ assert.match(imageWorkflow, /cr\.yandex\/\$\{REGISTRY_ID\}\/iburo-file-scanner/)
 assert.match(imageWorkflow, /docker build --pull=false --tag "\$image_tag" services\/file-scanner/);
 assert.match(imageWorkflow, /docker login cr\.yandex --username iam --password-stdin/);
 assert.match(imageWorkflow, /docker push "\$image_tag"/);
-assert.match(imageWorkflow, /docker buildx imagetools inspect "\$image_tag" --format '\{\{\.Digest\}\}'/);
+assert.match(imageWorkflow, /docker buildx imagetools inspect "\$image_tag" --raw \| sha256sum \| awk '\{print \$1\}'/);
+assert.doesNotMatch(imageWorkflow, /docker buildx imagetools inspect "\$image_tag" --format '\{\{\.Digest\}\}'/);
 assert.match(imageWorkflow, /\^sha256:\[a-f0-9\]\{64\}\$/);
 assert.match(imageWorkflow, /STAGING_FILE_SCANNER_IMMUTABLE_IMAGE/);
 assert.match(imageWorkflow, /STAGING_FILE_SCANNER_IMAGE_PUBLISHED_NOT_DEPLOYED/);
