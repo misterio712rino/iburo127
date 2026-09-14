@@ -7,7 +7,7 @@ locals {
 
   resolved_image_id          = var.image_id != "" ? var.image_id : data.yandex_compute_image.ubuntu_2404[0].id
   ssh_enabled                = var.allow_operator_ssh && var.operator_ssh_cidr != "" && var.ssh_public_key != ""
-  scanner_activation_enabled = var.tls_activation_enabled && var.scanner_hostname != "" && var.scanner_lockbox_secret_id != ""
+  scanner_activation_enabled = var.tls_activation_enabled && var.scanner_hostname != "" && var.scanner_lockbox_id != ""
   scanner_compose_b64        = filebase64("${path.module}/../../services/file-scanner/deploy/docker-compose.staging.yml")
   scanner_activate_b64       = filebase64("${path.module}/../../services/file-scanner/deploy/activate-staging.sh")
   scanner_bootstrap_b64      = filebase64("${path.module}/../../services/file-scanner/deploy/bootstrap-staging-runtime.sh")
@@ -166,7 +166,7 @@ resource "yandex_compute_instance" "scanner" {
         scanner_activate_b64       = local.scanner_activate_b64
         scanner_bootstrap_b64      = local.scanner_bootstrap_b64
         scanner_hostname           = var.scanner_hostname
-        scanner_lockbox_secret_id  = var.scanner_lockbox_secret_id
+        scanner_lockbox_secret_id  = var.scanner_lockbox_id
         scanner_activation_enabled = local.scanner_activation_enabled
       })
     },
@@ -184,9 +184,9 @@ resource "yandex_compute_instance" "scanner" {
     precondition {
       condition = (
         !var.tls_activation_enabled ||
-        (var.scanner_hostname != "" && var.scanner_lockbox_secret_id != "")
+        (var.scanner_hostname != "" && var.scanner_lockbox_id != "")
       )
-      error_message = "TLS activation requires both a separately approved staging hostname and a Lockbox secret ID."
+      error_message = "TLS activation requires both a separately approved staging hostname and a Lockbox object ID."
     }
   }
 }
