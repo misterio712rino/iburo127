@@ -421,8 +421,14 @@ test("container contract keeps ClamAV persistent, refreshed and processes non-ro
   assert.match(dockerfile, /VOLUME \["\/var\/lib\/clamav"\]/);
   assert.match(dockerfile, /ENTRYPOINT \["\/usr\/bin\/tini"/);
   assert.doesNotMatch(dockerfile, /IB_FILE_SCANNER_SECRET=/);
-  assert.match(entrypoint, /timeout 120s gosu clamav freshclam/);
+  assert.match(entrypoint, /while \[ "\$attempt" -le 3 \]; do/);
+  assert.match(entrypoint, /timeout 420s gosu clamav freshclam/);
+  assert.match(entrypoint, /STAGING_FILE_SCANNER_SIGNATURE_BOOTSTRAP_FAIL/);
+  assert.match(entrypoint, /has_signature_database main/);
+  assert.match(entrypoint, /has_signature_database daily/);
+  assert.doesNotMatch(entrypoint, /timeout 420s gosu clamav freshclam[^\n]*\|\| true/);
   assert.match(entrypoint, /gosu clamav clamd/);
+  assert.match(entrypoint, /gosu clamav freshclam --config-file=\/etc\/clamav\/freshclam\.conf --daemon/);
   assert.match(entrypoint, /gosu clamav node/);
   assert.match(clamd, /StreamMaxLength 50M/);
   assert.match(clamd, /LogClean false/);
