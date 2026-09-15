@@ -8,12 +8,18 @@ const read = (path) => readFileSync(resolve(root, path), "utf8");
 
 const entrypoint = read("services/file-scanner/entrypoint.sh");
 const freshclam = read("services/file-scanner/config/freshclam.conf");
+const clamd = read("services/file-scanner/config/clamd.conf");
 
 test("signature bootstrap avoids Docker stdout logfile recursion and restart permission traps", () => {
   assert.doesNotMatch(
     freshclam,
     /^UpdateLogFile\s+\/dev\/(?:stdout|stderr|fd\/\d+)$/m,
     "freshclam must not configure /dev stdout/stderr as a logfile inside the container",
+  );
+  assert.doesNotMatch(
+    clamd,
+    /^LogFile\s+\/dev\/(?:stdout|stderr|fd\/\d+)$/m,
+    "clamd must not configure /dev stdout/stderr as a logfile because hardened ClamAV rejects those symlink targets",
   );
 
   assert.match(
@@ -40,5 +46,15 @@ test("signature bootstrap avoids Docker stdout logfile recursion and restart per
   assert.match(
     entrypoint,
     /freshclam\s+--config-file=\/etc\/clamav\/freshclam\.conf\s+--daemon\s+--stdout/,
+  );
+  assert.match(
+    entrypoint,
+    /gosu clamav test -s "\/var\/lib\/clamav\/\$\{base\}\.cvd"/,
+    "signature readiness must be checked as the clamav runtime user after the bind mount is transferred to clamav ownership",
+  );
+  assert.match(
+    entrypoint,
+    /gosu clamav test -s "\/var\/lib\/clamav\/\$\{base\}\.cld"/,
+    "signature readiness must accept cld databases as the clamav runtime user",
   );
 });
