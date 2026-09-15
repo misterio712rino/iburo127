@@ -175,7 +175,7 @@ assert.match(imageWorkflow, /--data-urlencode 'subject_token@-'/);
 assert.match(imageWorkflow, /jq -er '\.access_token \| strings \| select\(length > 0\)'/);
 assert.match(imageWorkflow, /::add-mask::\$iam_token/);
 assert.match(imageWorkflow, /cr\.yandex\/\$\{REGISTRY_ID\}\/iburo-file-scanner/);
-assert.match(imageWorkflow, /docker build --pull=false --tag "\$image_tag" services\/file-scanner/);
+assert.match(imageWorkflow, /docker build --pull=false --build-arg IB_SCANNER_SEED_SIGNATURES=1 --tag "\$image_tag" services\/file-scanner/);
 assert.match(imageWorkflow, /docker login cr\.yandex --username iam --password-stdin/);
 assert.match(imageWorkflow, /docker push "\$image_tag"/);
 assert.match(imageWorkflow, /docker buildx imagetools inspect "\$image_tag" --raw \| sha256sum \| awk '\{print \$1\}'/);
