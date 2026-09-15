@@ -20,13 +20,13 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: 2c2187c8025a4ebedd302788f46c7aa37f6f1416
+          ref: d976f2a77b3354d49b90a7907640082d507e6bd0
 
       - name: Enforce exact candidate
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "2c2187c8025a4ebedd302788f46c7aa37f6f1416"
+          test "$(git rev-parse HEAD)" = "d976f2a77b3354d49b90a7907640082d507e6bd0"
           echo "SCANNER_RUNTIME_REPRO_CANDIDATE_PASS"
 
       - name: Build candidate image
@@ -45,7 +45,6 @@ jobs:
 
           echo "=== NETWORK PREFLIGHT ==="
           getent ahostsv4 database.clamav.net | head -n 10 || true
-          curl -fsSIL --connect-timeout 10 --max-time 30 https://database.clamav.net/main.cvd | head -n 20 || true
 
           docker run -d \
             --name iburo-scanner-runtime-repro \
