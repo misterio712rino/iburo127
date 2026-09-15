@@ -1,0 +1,90 @@
+name: Scanner Runtime Repro One Shot
+
+on:
+  push:
+    branches:
+      - audit/production-readiness
+    paths:
+      - .github/workflows/scanner-runtime-repro-one-shot.yml
+
+permissions:
+  contents: read
+
+jobs:
+  reproduce:
+    if: github.ref == 'refs/heads/audit/production-readiness'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout reviewed scanner candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: 2c2187c8025a4ebedd302788f46c7aa37f6f1416
+
+      - name: Enforce exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "2c2187c8025a4ebedd302788f46c7aa37f6f1416"
+          echo "SCANNER_RUNTIME_REPRO_CANDIDATE_PASS"
+
+      - name: Build candidate image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --pull=false -t iburo-scanner-runtime-repro:candidate services/file-scanner
+
+      - name: Reproduce hardened staging runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          trap 'docker logs iburo-scanner-runtime-repro 2>&1 | tail -n 400 || true; docker rm -f iburo-scanner-runtime-repro >/dev/null 2>&1 || true; sudo rm -rf /tmp/iburo-scanner-runtime-repro' EXIT
+
+          sudo install -d -m 0750 -o root -g root /tmp/iburo-scanner-runtime-repro
+
+          echo "=== NETWORK PREFLIGHT ==="
+          getent ahostsv4 database.clamav.net | head -n 10 || true
+          curl -fsSIL --connect-timeout 10 --max-time 30 https://database.clamav.net/main.cvd | head -n 20 || true
+
+          docker run -d \
+            --name iburo-scanner-runtime-repro \
+            --read-only \
+            --tmpfs /run/clamav:rw,nosuid,nodev,noexec,size=16m \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m \
+            --mount type=bind,source=/tmp/iburo-scanner-runtime-repro,target=/var/lib/clamav \
+            --security-opt no-new-privileges:true \
+            --cap-drop ALL \
+            --cap-add CHOWN \
+            --cap-add SETGID \
+            --cap-add SETUID \
+            --pids-limit 128 \
+            --cpus 2.0 \
+            --memory 6g \
+            -e IB_FILE_SCANNER_SECRET='RuntimeReproOnly-2026-Scanner-Secret-0123456789' \
+            -p 127.0.0.1:18080:8080 \
+            iburo-scanner-runtime-repro:candidate
+
+          for attempt in $(seq 1 120); do
+            if ! docker inspect -f '{{.State.Running}}' iburo-scanner-runtime-repro 2>/dev/null | grep -qx true; then
+              echo "SCANNER_RUNTIME_REPRO_CONTAINER_EXITED:${attempt}"
+              docker inspect iburo-scanner-runtime-repro --format 'exit={{.State.ExitCode}} error={{.State.Error}} oom={{.State.OOMKilled}}'
+              exit 1
+            fi
+
+            code="$(curl -sS --connect-timeout 2 --max-time 5 -o /tmp/health-body -w '%{http_code}' -H 'Authorization: Bearer RuntimeReproOnly-2026-Scanner-Secret-0123456789' http://127.0.0.1:18080/health 2>/dev/null || true)"
+            if [ "$code" = "200" ] && jq -e '.status == "ok"' /tmp/health-body >/dev/null 2>&1; then
+              echo "SCANNER_RUNTIME_REPRO_HEALTH_PASS"
+              docker logs iburo-scanner-runtime-repro 2>&1 | tail -n 400
+              exit 0
+            fi
+
+            if [ $((attempt % 10)) -eq 0 ]; then
+              echo "SCANNER_RUNTIME_REPRO_PENDING:${attempt}:HTTP=${code:-000}"
+              docker logs iburo-scanner-runtime-repro 2>&1 | tail -n 80 || true
+            fi
+            sleep 5
+          done
+
+          echo "SCANNER_RUNTIME_REPRO_TIMEOUT"
+          exit 1
