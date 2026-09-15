@@ -4,6 +4,9 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates clamav-daemon clamav-freshclam gosu tini \
   && rm -rf /var/lib/apt/lists/*
 
+COPY config/clamd.conf /etc/clamav/clamd.conf
+COPY config/freshclam.conf /etc/clamav/freshclam.conf
+
 ARG IB_SCANNER_SEED_SIGNATURES=0
 RUN case "$IB_SCANNER_SEED_SIGNATURES" in 0|1) ;; *) exit 64 ;; esac \
   && if [ "$IB_SCANNER_SEED_SIGNATURES" = "1" ]; then \
@@ -21,8 +24,6 @@ RUN case "$IB_SCANNER_SEED_SIGNATURES" in 0|1) ;; *) exit 64 ;; esac \
 WORKDIR /service
 COPY package.json ./package.json
 COPY src ./src
-COPY config/clamd.conf /etc/clamav/clamd.conf
-COPY config/freshclam.conf /etc/clamav/freshclam.conf
 COPY entrypoint.sh /usr/local/bin/file-scanner-entrypoint
 RUN chmod 0755 /usr/local/bin/file-scanner-entrypoint \
   && chown -R clamav:clamav /service
