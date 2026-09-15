@@ -20,6 +20,11 @@ signature_file_path() {
   return 1
 }
 
+has_signature_database() {
+  base="$1"
+  signature_file_path "$SIGNATURE_DIRECTORY" "$base" >/dev/null
+}
+
 signature_set_is_fresh() {
   directory="$1"
   main_path="$(signature_file_path "$directory" main)" || return 1
@@ -88,12 +93,12 @@ rm -f "$initial_freshclam_config"
   exit 1
 }
 
-signature_file_path "$SIGNATURE_DIRECTORY" main >/dev/null || {
+has_signature_database main || {
   printf '%s\n' "STAGING_FILE_SCANNER_SIGNATURE_BOOTSTRAP_FAIL:main" >&2
   exit 1
 }
 
-signature_file_path "$SIGNATURE_DIRECTORY" daily >/dev/null || {
+has_signature_database daily || {
   printf '%s\n' "STAGING_FILE_SCANNER_SIGNATURE_BOOTSTRAP_FAIL:daily" >&2
   exit 1
 }
