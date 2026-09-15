@@ -6,6 +6,7 @@ import test from "node:test";
 const root = process.cwd();
 const read = (path) => readFileSync(resolve(root, path), "utf8");
 
+const dockerfile = read("services/file-scanner/Dockerfile");
 const entrypoint = read("services/file-scanner/entrypoint.sh");
 const freshclam = read("services/file-scanner/config/freshclam.conf");
 const clamd = read("services/file-scanner/config/clamd.conf");
@@ -24,12 +25,12 @@ test("signature bootstrap avoids Docker stdout logfile recursion and restart per
 
   assert.match(
     entrypoint,
-    /chown clamav:clamav \/var\/lib\/clamav \/run\/clamav/,
+    /chown clamav:clamav "\$SIGNATURE_DIRECTORY" \/run\/clamav/,
     "bootstrap should transfer ownership of the writable directories without recursively traversing prior clamav-owned signature data",
   );
   assert.doesNotMatch(
     entrypoint,
-    /chown\s+-R\s+clamav:clamav\s+\/var\/lib\/clamav/,
+    /chown\s+-R\s+clamav:clamav\s+(?:"?\$SIGNATURE_DIRECTORY"?|\/var\/lib\/clamav)/,
     "recursive chown is unsafe after capabilities are reduced and the bind mount is already clamav-owned",
   );
 
@@ -49,12 +50,25 @@ test("signature bootstrap avoids Docker stdout logfile recursion and restart per
   );
   assert.match(
     entrypoint,
-    /gosu clamav test -s "\/var\/lib\/clamav\/\$\{base\}\.cvd"/,
-    "signature readiness must be checked as the clamav runtime user after the bind mount is transferred to clamav ownership",
+    /gosu clamav test -s "\$candidate"/,
+    "signature readiness must be checked as the clamav runtime user",
   );
-  assert.match(
-    entrypoint,
-    /gosu clamav test -s "\/var\/lib\/clamav\/\$\{base\}\.cld"/,
-    "signature readiness must accept cld databases as the clamav runtime user",
-  );
+});
+
+test("publication can embed a fresh official signature seed without weakening runtime freshness", () => {
+  assert.match(dockerfile, /ARG IB_SCANNER_SEED_SIGNATURES=0/);
+  assert.match(dockerfile, /DatabaseDirectory \/opt\/clamav-seed/);
+  assert.match(dockerfile, /freshclam --stdout --config-file=\/tmp\/freshclam\.seed\.conf/);
+  assert.match(dockerfile, /gosu clamav test -s \/opt\/clamav-seed\/main\.cvd/);
+  assert.match(dockerfile, /gosu clamav test -s \/opt\/clamav-seed\/daily\.cvd/);
+
+  assert.match(entrypoint, /SIGNATURE_SEED_DIRECTORY="\/opt\/clamav-seed"/);
+  assert.match(entrypoint, /signature_set_is_fresh "\$SIGNATURE_SEED_DIRECTORY"/);
+  assert.match(entrypoint, /cp -p "\$main_seed" "\$daily_seed" "\$SIGNATURE_DIRECTORY\/"/);
+  assert.match(entrypoint, /IB_SCANNER_SIGNATURE_MAX_AGE_HOURS:-24/);
+  assert.match(entrypoint, /\[ "\$max_age_hours" -ge 1 \] && \[ "\$max_age_hours" -le 168 \]/);
+  assert.match(entrypoint, /STAGING_FILE_SCANNER_SIGNATURE_SEED_INSTALLED/);
+  assert.match(entrypoint, /STAGING_FILE_SCANNER_SIGNATURE_BOOTSTRAP_FRESH_LOCAL_PASS/);
+  assert.match(entrypoint, /STAGING_FILE_SCANNER_SIGNATURE_BOOTSTRAP_FAIL:stale/);
+  assert.doesNotMatch(entrypoint, /touch .*daily\.(?:cvd|cld)/);
 });
