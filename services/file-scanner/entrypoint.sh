@@ -32,7 +32,8 @@ rm -f "$initial_freshclam_config"
 
 has_signature_database() {
   base="$1"
-  [ -s "/var/lib/clamav/${base}.cvd" ] || [ -s "/var/lib/clamav/${base}.cld" ]
+  gosu clamav test -s "/var/lib/clamav/${base}.cvd" \
+    || gosu clamav test -s "/var/lib/clamav/${base}.cld"
 }
 
 has_signature_database main || {
