@@ -33,24 +33,20 @@ export async function getCaseProgressSummaryForActor(
     caseStatus: clientCase.status,
     stageCode: clientCase.stageCode,
     humanSupportAvailable: clientPlanHasHumanSupport(clientCase.planCode),
-    questionnaire: questionnaire
-      ? {
-          status: questionnaire.status,
-          completedSectionCount: questionnaire.completedSectionIds.length,
-          totalSectionCount: QUESTIONNAIRE_SECTIONS.length,
-        }
-      : null,
-    practicum: practicum
-      ? {
-          status: practicum.completedAt
-            ? "COMPLETED"
-            : practicum.completedLessonIds.length > 0
-              ? "IN_PROGRESS"
-              : "NOT_STARTED",
-          completedLessonCount: practicum.completedLessonIds.length,
-          totalLessonCount: PRACTICUM_LESSONS.length,
-        }
-      : null,
+    questionnaire: {
+      status: questionnaire?.status ?? "NOT_STARTED",
+      completedSectionCount: questionnaire?.completedSectionIds.length ?? 0,
+      totalSectionCount: QUESTIONNAIRE_SECTIONS.length,
+    },
+    practicum: {
+      status: practicum?.completedAt
+        ? "COMPLETED"
+        : (practicum?.completedLessonIds.length ?? 0) > 0
+          ? "IN_PROGRESS"
+          : "NOT_STARTED",
+      completedLessonCount: practicum?.completedLessonIds.length ?? 0,
+      totalLessonCount: PRACTICUM_LESSONS.length,
+    },
     documents: documents.map((document) => ({ status: document.status })),
     readyFileCount: visibleFiles.filter((file) => file.status === "READY").length,
   });
