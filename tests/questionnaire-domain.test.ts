@@ -15,6 +15,7 @@ import type {
 } from "@/server/domain/questionnaire/contracts";
 import { createQuestionnaireDefinition } from "@/server/domain/questionnaire/definition";
 import { QuestionnaireService } from "@/server/domain/questionnaire/service";
+import { QUESTIONNAIRE_SECTIONS, isQuestionnaireFieldVisible } from "@/lib/platform/questionnaire-content";
 import type { QuestionnaireSection } from "@/lib/platform/types";
 
 const now = new Date("2026-08-28T00:00:00.000Z");
@@ -246,5 +247,45 @@ async function run() {
   );
 }
 
+async function runPropertyVisibilityRegression() {
+  const realEstate = QUESTIONNAIRE_SECTIONS.find((section) => section.id === "real-estate");
+  const mortgage = QUESTIONNAIRE_SECTIONS.find((section) => section.id === "mortgage");
+  assert.ok(realEstate);
+  assert.ok(mortgage);
+
+  const noPropertyAnswers = { hasRealEstate: false, hasMortgage: true };
+  assert.ok(realEstate.fields.every((field) => !isQuestionnaireFieldVisible(field, noPropertyAnswers)));
+  assert.ok(mortgage.fields.every((field) => !isQuestionnaireFieldVisible(field, noPropertyAnswers)));
+  assert.ok(realEstate.fields.every((field) => isQuestionnaireFieldVisible(field, { hasRealEstate: true })));
+  assert.ok(mortgage.fields.every((field) => isQuestionnaireFieldVisible(field, { hasRealEstate: true, hasMortgage: true })));
+
+  const service = new QuestionnaireService(
+    new ClientCaseService(new InMemoryCaseRepository()),
+    new InMemoryQuestionnaireRepository(),
+    createQuestionnaireDefinition(QUESTIONNAIRE_SECTIONS, 1),
+  );
+  let current = await service.getOrCreateForClient(client, clientCase.id);
+  current = await service.saveAnswer(client, { clientCaseId: clientCase.id, fieldId: "hasRealEstate", value: false, expectedVersion: current.version });
+  // Existing answers may retain a mortgage=true value after the parent answer changes.
+  current = await service.saveAnswer(client, { clientCaseId: clientCase.id, fieldId: "hasMortgage", value: true, expectedVersion: current.version });
+  current = await service.completeSection(client, { clientCaseId: clientCase.id, sectionId: "real-estate", expectedVersion: current.version });
+  current = await service.completeSection(client, { clientCaseId: clientCase.id, sectionId: "mortgage", expectedVersion: current.version });
+  assert.ok(current.completedSectionIds.includes("real-estate"));
+  assert.ok(current.completedSectionIds.includes("mortgage"));
+
+  const positiveService = new QuestionnaireService(
+    new ClientCaseService(new InMemoryCaseRepository()),
+    new InMemoryQuestionnaireRepository(),
+    createQuestionnaireDefinition(QUESTIONNAIRE_SECTIONS, 1),
+  );
+  let positive = await positiveService.getOrCreateForClient(client, clientCase.id);
+  positive = await positiveService.saveAnswer(client, { clientCaseId: clientCase.id, fieldId: "hasRealEstate", value: true, expectedVersion: positive.version });
+  await assert.rejects(
+    positiveService.completeSection(client, { clientCaseId: clientCase.id, sectionId: "real-estate", expectedVersion: positive.version }),
+    /QUESTIONNAIRE_INCOMPLETE_SECTION/,
+  );
+}
+
 await run();
+await runPropertyVisibilityRegression();
 console.log("questionnaire domain tests: PASS");
