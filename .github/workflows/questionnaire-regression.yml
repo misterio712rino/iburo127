@@ -1,0 +1,44 @@
+name: Questionnaire Regression
+
+on:
+  push:
+    branches:
+      - audit/production-readiness
+    paths:
+      - "lib/platform/questionnaire-content.ts"
+      - "lib/platform/case-progress.ts"
+      - "server/case-progress/operations.ts"
+      - "server/domain/questionnaire/**"
+      - "components/platform/questionnaire/**"
+      - "tests/questionnaire-domain.test.ts"
+      - ".github/workflows/questionnaire-regression.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: questionnaire-regression-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify questionnaire domain regression
+        run: npx --no-install tsx tests/questionnaire-domain.test.ts
+      - name: Lint affected domain and UI
+        run: npx --no-install eslint lib/platform/questionnaire-content.ts server/domain/questionnaire/service.ts server/case-progress/operations.ts components/platform/questionnaire/IBuroQuestionnaireV2.tsx tests/questionnaire-domain.test.ts --max-warnings=0
