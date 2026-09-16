@@ -73,11 +73,11 @@ export const QUESTIONNAIRE_SECTIONS: readonly QuestionnaireSection[] = [
     title: "Недвижимость",
     description: "Сведения нужны для последующего анализа специалистом.",
     fields: [
-      { id: "realEstateType", label: "Тип объекта", type: "select", required: true, options: ["Квартира", "Дом", "Земельный участок", "Коммерческая недвижимость"] },
-      { id: "ownershipShare", label: "Доля собственности", type: "text", required: true, placeholder: "Например, 1/1 или 1/2" },
-      { id: "realEstateValue", label: "Ориентировочная стоимость", type: "currency", required: true },
-      { id: "onlyHousing", label: "Это единственное жильё?", type: "yes-no", required: true, options: yesNo },
-      { id: "hasMortgage", label: "Объект находится в ипотеке?", type: "yes-no", required: true, options: yesNo },
+      { id: "realEstateType", label: "Тип объекта", type: "select", required: true, options: ["Квартира", "Дом", "Земельный участок", "Коммерческая недвижимость"], visibleWhen: { fieldId: "hasRealEstate", equals: true } },
+      { id: "ownershipShare", label: "Доля собственности", type: "text", required: true, placeholder: "Например, 1/1 или 1/2", visibleWhen: { fieldId: "hasRealEstate", equals: true } },
+      { id: "realEstateValue", label: "Ориентировочная стоимость", type: "currency", required: true, visibleWhen: { fieldId: "hasRealEstate", equals: true } },
+      { id: "onlyHousing", label: "Это единственное жильё?", type: "yes-no", required: true, options: yesNo, visibleWhen: { fieldId: "hasRealEstate", equals: true } },
+      { id: "hasMortgage", label: "Объект находится в ипотеке?", type: "yes-no", required: true, options: yesNo, visibleWhen: { fieldId: "hasRealEstate", equals: true } },
     ],
   },
   {
@@ -129,5 +129,8 @@ export function isQuestionnaireFieldVisible(
   field: QuestionnaireField,
   answers: QuestionnaireAnswers,
 ) {
+  // A previously saved mortgage answer must not re-enable mortgage fields after
+  // the user changes the parent answer to "no real estate".
+  if (field.visibleWhen?.fieldId === "hasMortgage" && answers.hasRealEstate !== true) return false;
   return !field.visibleWhen || answers[field.visibleWhen.fieldId] === field.visibleWhen.equals;
 }
