@@ -52,11 +52,29 @@ export function ProductionQuestionnaire({
       : QUESTIONNAIRE_SECTIONS[0].id,
   );
 
-  const visibleAnswers = useMemo(() => state?.answers ?? {}, [state?.answers]);
+  // Local yes/no edits should immediately show or hide dependent fields.
+  const visibleAnswers = useMemo(() => {
+    const answers: QuestionnaireAnswers = { ...(state?.answers ?? {}) };
+    for (const [fieldId, draft] of Object.entries(drafts)) {
+      if (typeof draft === "boolean") answers[fieldId] = draft;
+    }
+    return answers;
+  }, [state?.answers, drafts]);
 
   function applyState(next: QuestionnaireState) {
     setState(next);
     setDrafts(toDrafts(next.answers));
+  }
+
+  function applySavedField(next: QuestionnaireState, fieldId: string) {
+    setState(next);
+    setDrafts((previous) => {
+      const updated = { ...previous };
+      const saved = next.answers[fieldId];
+      if (saved === undefined) delete updated[fieldId];
+      else updated[fieldId] = toDraftValue(saved);
+      return updated;
+    });
   }
 
   function goTo(id: string) {
@@ -65,14 +83,24 @@ export function ProductionQuestionnaire({
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function refresh() {
+  async function refreshPreservingDrafts() {
     const response = await fetch(`/api/platform/cases/${caseId}/questionnaire`, {
       method: "GET",
       cache: "no-store",
     });
     const result = (await response.json()) as ApiResult;
     if (!result.ok) throw new Error(result.error.code);
-    applyState(result.data);
+    const previousSaved = toDrafts(state?.answers ?? {});
+    setState(result.data);
+    setDrafts((previous) => {
+      const refreshed = toDrafts(result.data.answers);
+      for (const [fieldId, draft] of Object.entries(previous)) {
+        if (draft !== previousSaved[fieldId] && !(draft === "" && previousSaved[fieldId] === undefined)) {
+          refreshed[fieldId] = draft;
+        }
+      }
+      return refreshed;
+    });
   }
 
   async function start() {
@@ -96,18 +124,49 @@ export function ProductionQuestionnaire({
   }
 
   async function handleConflict(result: ApiFailure) {
-    await refresh();
+    await refreshPreservingDrafts();
     setError(
       result.error.code === "VERSION_CONFLICT"
-        ? "Анкета изменилась в другой вкладке. Данные обновлены — повторите действие."
+        ? "Анкета изменилась в другой вкладке. Данные обновлены, несохранённые ответы остались на экране. Проверьте их и повторите действие."
         : "Действие невозможно для текущего состояния анкеты. Проверьте обязательные поля и завершённые разделы.",
     );
+  }
+
+  async function persistField(
+    field: QuestionnaireField,
+    current: QuestionnaireState,
+    draftSnapshot: Record<string, DraftValue>,
+  ): Promise<QuestionnaireState | null> {
+    if (!hasUnsavedDraft(draftSnapshot[field.id], current.answers[field.id])) return current;
+    const value = parseDraft(field, draftSnapshot[field.id]);
+    if (value === undefined || (typeof value === "string" && value.trim() === "")) {
+      setError(`Проверьте поле «${field.label}»: пустое или некорректное значение нельзя сохранить.`);
+      return null;
+    }
+    try {
+      const response = await fetch(`/api/platform/cases/${caseId}/questionnaire/answers`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ fieldId: field.id, value, expectedVersion: current.version }),
+      });
+      const result = (await response.json()) as ApiResult;
+      if (!result.ok) {
+        if (response.status === 409) await handleConflict(result);
+        else setError(`Не удалось сохранить поле «${field.label}». Проверьте значение и повторите попытку.`);
+        return null;
+      }
+      applySavedField(result.data, field.id);
+      return result.data;
+    } catch {
+      setError(`Не удалось сохранить поле «${field.label}». Повторите попытку.`);
+      return null;
+    }
   }
 
   async function saveField(field: QuestionnaireField) {
     if (!state || !canEdit || state.status === "COMPLETED" || pendingKey) return;
     const value = parseDraft(field, drafts[field.id]);
-    if (value === undefined) {
+    if (value === undefined || (typeof value === "string" && value.trim() === "")) {
       setError("Проверьте значение поля перед сохранением.");
       return;
     }
@@ -115,26 +174,7 @@ export function ProductionQuestionnaire({
     setPendingKey(`field:${field.id}`);
     setError(null);
     try {
-      const response = await fetch(`/api/platform/cases/${caseId}/questionnaire/answers`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ fieldId: field.id, value, expectedVersion: state.version }),
-      });
-      const result = (await response.json()) as ApiResult;
-      if (!result.ok) {
-        if (response.status === 409) {
-          await handleConflict(result);
-          return;
-        }
-        if (result.error.code === "INVALID_INPUT") {
-          setError("Не удалось сохранить значение. Проверьте формат данных.");
-          return;
-        }
-        throw new Error(result.error.code);
-      }
-      applyState(result.data);
-    } catch {
-      setError("Не удалось сохранить ответ. Повторите попытку.");
+      await persistField(field, state, { ...drafts });
     } finally {
       setPendingKey(null);
     }
@@ -142,28 +182,40 @@ export function ProductionQuestionnaire({
 
   async function completeSection(sectionId: string) {
     if (!state || !canEdit || state.status === "COMPLETED" || pendingKey) return;
+    const section = QUESTIONNAIRE_SECTIONS.find((item) => item.id === sectionId);
+    if (!section || section.review) return;
     setPendingKey(`section:${sectionId}`);
     setError(null);
     try {
+      let current = state;
+      const draftSnapshot = { ...drafts };
+      const visibilitySnapshot = { ...visibleAnswers };
+      // Saving one answer advances the optimistic version. Never complete the
+      // section until every changed visible field has been persisted in order.
+      for (const field of section.fields) {
+        if (!isQuestionnaireFieldVisible(field, visibilitySnapshot)) continue;
+        const next = await persistField(field, current, draftSnapshot);
+        if (!next) return;
+        current = next;
+      }
       const response = await fetch(`/api/platform/cases/${caseId}/questionnaire/sections/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ sectionId, expectedVersion: state.version }),
+        body: JSON.stringify({ sectionId, expectedVersion: current.version }),
       });
       const result = (await response.json()) as ApiResult;
       if (!result.ok) {
-        if (response.status === 409) {
-          await handleConflict(result);
-          return;
-        }
-        throw new Error(result.error.code);
+        if (response.status === 409) await handleConflict(result);
+        else setError("Не удалось завершить раздел. Проверьте обязательные поля и сохранённые ответы.");
+        return;
       }
-      applyState(result.data);
-      const index = QUESTIONNAIRE_SECTIONS.findIndex((section) => section.id === sectionId);
+      // Section completion should not discard edits made in other sections.
+      setState(result.data);
+      const index = QUESTIONNAIRE_SECTIONS.findIndex((item) => item.id === sectionId);
       const next = QUESTIONNAIRE_SECTIONS[index + 1];
       if (next) goTo(next.id);
     } catch {
-      setError("Не удалось завершить раздел. Проверьте обязательные поля и сохраните изменённые ответы.");
+      setError("Не удалось завершить раздел. Проверьте обязательные поля и повторите попытку.");
     } finally {
       setPendingKey(null);
     }
@@ -171,6 +223,13 @@ export function ProductionQuestionnaire({
 
   async function completeQuestionnaire() {
     if (!state || !canEdit || state.status === "COMPLETED" || pendingKey) return;
+    const dirtySection = QUESTIONNAIRE_SECTIONS.find((item) => item.fields.some((field) =>
+      isQuestionnaireFieldVisible(field, visibleAnswers) && hasUnsavedDraft(drafts[field.id], state.answers[field.id])));
+    if (dirtySection) {
+      setCurrentId(dirtySection.id);
+      setError("Есть несохранённые ответы. Сохраните изменения в указанном разделе перед завершением анкеты.");
+      return;
+    }
     setPendingKey("complete");
     setError(null);
     try {
@@ -181,10 +240,7 @@ export function ProductionQuestionnaire({
       });
       const result = (await response.json()) as ApiResult;
       if (!result.ok) {
-        if (response.status === 409) {
-          await handleConflict(result);
-          return;
-        }
+        if (response.status === 409) { await handleConflict(result); return; }
         throw new Error(result.error.code);
       }
       applyState(result.data);
@@ -229,6 +285,8 @@ export function ProductionQuestionnaire({
   const visibleFields = section.fields.filter((field) => isQuestionnaireFieldVisible(field, visibleAnswers));
   const index = QUESTIONNAIRE_SECTIONS.findIndex((item) => item.id === section.id);
   const isReview = Boolean(section.review);
+  const hasUnsaved = QUESTIONNAIRE_SECTIONS.some((item) => item.fields.some((field) =>
+    isQuestionnaireFieldVisible(field, visibleAnswers) && hasUnsavedDraft(drafts[field.id], state.answers[field.id])));
 
   if (!canEdit) {
     return (
@@ -262,7 +320,7 @@ export function ProductionQuestionnaire({
         </div>
         <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
           <CheckCircle2 className="size-4 shrink-0 text-primary" aria-hidden="true" />
-          {pendingKey ? <span role="status">Сохраняем изменения…</span> : "Изменения сохранены"}
+          {pendingKey ? <span role="status">Сохраняем изменения…</span> : hasUnsaved ? "Есть несохранённые ответы" : "Изменения сохранены"}
         </span>
       </div>
 
@@ -274,7 +332,7 @@ export function ProductionQuestionnaire({
           completedCount={completedCount}
           progress={progress}
           isCompleted={(id) => completedSet.has(id)}
-          onSelect={goTo}
+          onSelect={(id) => { if (!pendingKey) goTo(id); }}
         />
 
         <div className="min-w-0">
@@ -290,7 +348,7 @@ export function ProductionQuestionnaire({
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {QUESTIONNAIRE_SECTIONS.filter((item) => !item.review).map((item) => (
-                    <button key={item.id} type="button" onClick={() => goTo(item.id)} className="min-h-11 rounded-xl border border-border bg-background px-4 py-3 text-left text-sm transition hover:bg-muted">
+                    <button key={item.id} type="button" disabled={Boolean(pendingKey)} onClick={() => goTo(item.id)} className="min-h-11 rounded-xl border border-border bg-background px-4 py-3 text-left text-sm transition hover:bg-muted">
                       <span className="font-semibold">{item.number}. {item.title}</span>
                       <span className="mt-1 block text-xs text-muted-foreground">{completedSet.has(item.id) ? "Раздел подтверждён" : "Требует подтверждения"}</span>
                     </button>
@@ -310,7 +368,7 @@ export function ProductionQuestionnaire({
                     onSave={() => saveField(field)}
                   />
                 ))}
-                {section.id === "mortgage" && state.answers.hasMortgage === true ? <MortgageCapability plan={planCode} /> : null}
+                {section.id === "mortgage" && visibleAnswers.hasRealEstate === true && visibleAnswers.hasMortgage === true ? <MortgageCapability plan={planCode} /> : null}
               </div>
             ) : (
               <div className="mt-6 rounded-2xl bg-muted p-4 sm:mt-8 sm:p-5"><p className="font-medium">Этот раздел не применяется</p><p className="mt-2 text-sm text-muted-foreground">По предыдущим ответам дополнительные сведения здесь не требуются.</p></div>
@@ -327,7 +385,7 @@ export function ProductionQuestionnaire({
                 ) : (
                   <Button className="h-auto min-h-11 w-full whitespace-normal rounded-full px-5 py-3 text-center sm:w-auto" onClick={() => completeSection(section.id)} disabled={Boolean(pendingKey)} aria-busy={pendingKey === `section:${section.id}`}>
                     {pendingKey === `section:${section.id}` ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
-                    {pendingKey === `section:${section.id}` ? <span role="status">Проверяем…</span> : completedSet.has(section.id) ? "Проверить и продолжить" : "Сохранить и продолжить"}
+                    {pendingKey === `section:${section.id}` ? <span role="status">Сохраняем и проверяем…</span> : completedSet.has(section.id) ? "Проверить и продолжить" : "Сохранить и продолжить"}
                     {pendingKey !== `section:${section.id}` ? <ArrowRight data-icon="inline-end" /> : null}
                   </Button>
                 )}
@@ -411,10 +469,19 @@ function ReadOnlyField({ field, value }: { field: QuestionnaireField; value: Que
   return <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-400">{field.label}</p><p className="mt-2 break-words text-sm font-semibold text-slate-800">{display}</p></div>;
 }
 
+function toDraftValue(answer: QuestionnaireAnswer): DraftValue {
+  return typeof answer === "number" ? String(answer) : answer;
+}
+
 function toDrafts(answers: QuestionnaireAnswers): Record<string, DraftValue> {
   const drafts: Record<string, DraftValue> = {};
-  for (const [fieldId, answer] of Object.entries(answers)) drafts[fieldId] = typeof answer === "number" ? String(answer) : answer;
+  for (const [fieldId, answer] of Object.entries(answers)) drafts[fieldId] = toDraftValue(answer);
   return drafts;
+}
+
+function hasUnsavedDraft(draft: DraftValue | undefined, saved: QuestionnaireAnswer | undefined) {
+  if (draft === undefined || (draft === "" && saved === undefined)) return false;
+  return saved === undefined || draft !== toDraftValue(saved);
 }
 
 function parseDraft(field: QuestionnaireField, value: DraftValue | undefined): QuestionnaireAnswer | undefined {
