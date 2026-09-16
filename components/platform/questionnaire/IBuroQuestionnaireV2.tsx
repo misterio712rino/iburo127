@@ -38,12 +38,19 @@ type ApiSuccess = { ok: true; data: QuestionnaireState };
 type ApiResult = ApiSuccess | ApiFailure;
 type DraftValue = string | boolean;
 
+function toDraftValue(answer: QuestionnaireAnswer): DraftValue {
+  return typeof answer === "number" ? String(answer) : answer;
+}
+
 function toDrafts(answers: QuestionnaireAnswers): Record<string, DraftValue> {
   const drafts: Record<string, DraftValue> = {};
-  for (const [fieldId, answer] of Object.entries(answers)) {
-    drafts[fieldId] = typeof answer === "number" ? String(answer) : answer;
-  }
+  for (const [fieldId, answer] of Object.entries(answers)) drafts[fieldId] = toDraftValue(answer);
   return drafts;
+}
+
+function hasUnsavedDraft(draft: DraftValue | undefined, saved: QuestionnaireAnswer | undefined) {
+  if (draft === undefined || (draft === "" && saved === undefined)) return false;
+  return saved === undefined || draft !== toDraftValue(saved);
 }
 
 function parseDraft(field: QuestionnaireField, value: DraftValue | undefined): QuestionnaireAnswer | undefined {
@@ -91,11 +98,30 @@ export function IBuroQuestionnaireV2({
       : QUESTIONNAIRE_SECTIONS[0].id,
   );
 
-  const visibleAnswers = useMemo(() => state?.answers ?? {}, [state?.answers]);
+  // Unsaved yes/no answers must immediately control dependent field visibility.
+  const visibleAnswers = useMemo(() => {
+    const answers: QuestionnaireAnswers = { ...(state?.answers ?? {}) };
+    for (const [fieldId, value] of Object.entries(drafts)) {
+      if (typeof value === "boolean") answers[fieldId] = value;
+    }
+    return answers;
+  }, [state?.answers, drafts]);
 
   function applyState(next: QuestionnaireState) {
     setState(next);
     setDrafts(toDrafts(next.answers));
+  }
+
+  // Saving one field must never discard edits to other fields or other sections.
+  function applySavedField(next: QuestionnaireState, fieldId: string) {
+    setState(next);
+    setDrafts((previous) => {
+      const updated = { ...previous };
+      const saved = next.answers[fieldId];
+      if (saved === undefined) delete updated[fieldId];
+      else updated[fieldId] = toDraftValue(saved);
+      return updated;
+    });
   }
 
   function goTo(id: string) {
@@ -104,11 +130,21 @@ export function IBuroQuestionnaireV2({
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function refresh() {
+  async function refreshPreservingDrafts() {
     const response = await fetch(`/api/platform/cases/${caseId}/questionnaire`, { method: "GET", cache: "no-store" });
     const result = (await response.json()) as ApiResult;
     if (!result.ok) throw new Error(result.error.code);
-    applyState(result.data);
+    const previousSaved = toDrafts(state?.answers ?? {});
+    setState(result.data);
+    setDrafts((previous) => {
+      const refreshed = toDrafts(result.data.answers);
+      for (const [fieldId, value] of Object.entries(previous)) {
+        if (value !== previousSaved[fieldId] && !(value === "" && previousSaved[fieldId] === undefined)) {
+          refreshed[fieldId] = value;
+        }
+      }
+      return refreshed;
+    });
   }
 
   async function start() {
@@ -129,36 +165,54 @@ export function IBuroQuestionnaireV2({
   }
 
   async function handleConflict(result: ApiFailure) {
-    await refresh();
+    await refreshPreservingDrafts();
     setError(result.error.code === "VERSION_CONFLICT"
-      ? "Анкета изменилась в другой вкладке. Мы обновили данные — повторите действие."
+      ? "Анкета изменилась в другой вкладке. Данные обновлены, ваши несохранённые ответы сохранены на экране. Проверьте их и повторите действие."
       : "Действие невозможно для текущего состояния анкеты. Проверьте обязательные поля.");
+  }
+
+  async function persistField(
+    field: QuestionnaireField,
+    current: QuestionnaireState,
+    draftSnapshot: Record<string, DraftValue>,
+  ): Promise<QuestionnaireState | null> {
+    if (!hasUnsavedDraft(draftSnapshot[field.id], current.answers[field.id])) return current;
+    const value = parseDraft(field, draftSnapshot[field.id]);
+    if (value === undefined || (typeof value === "string" && value.trim() === "")) {
+      setError(`Проверьте поле «${field.label}»: пустое или некорректное значение нельзя сохранить.`);
+      return null;
+    }
+    try {
+      const response = await fetch(`/api/platform/cases/${caseId}/questionnaire/answers`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ fieldId: field.id, value, expectedVersion: current.version }),
+      });
+      const result = (await response.json()) as ApiResult;
+      if (!result.ok) {
+        if (response.status === 409) await handleConflict(result);
+        else setError(`Не удалось сохранить поле «${field.label}». Проверьте значение и повторите попытку.`);
+        return null;
+      }
+      applySavedField(result.data, field.id);
+      return result.data;
+    } catch {
+      setError(`Не удалось сохранить поле «${field.label}». Повторите попытку.`);
+      return null;
+    }
   }
 
   async function saveField(field: QuestionnaireField) {
     if (!state || state.status === "COMPLETED" || pendingKey) return;
     const value = parseDraft(field, drafts[field.id]);
-    if (value === undefined) {
+    if (value === undefined || (typeof value === "string" && value.trim() === "")) {
       setError("Проверьте значение поля перед сохранением.");
       return;
     }
     setPendingKey(`field:${field.id}`);
     setError(null);
     try {
-      const response = await fetch(`/api/platform/cases/${caseId}/questionnaire/answers`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ fieldId: field.id, value, expectedVersion: state.version }),
-      });
-      const result = (await response.json()) as ApiResult;
-      if (!result.ok) {
-        if (response.status === 409) { await handleConflict(result); return; }
-        if (result.error.code === "INVALID_INPUT") { setError("Не удалось сохранить значение. Проверьте формат данных."); return; }
-        throw new Error(result.error.code);
-      }
-      applyState(result.data);
-    } catch {
-      setError("Не удалось сохранить ответ. Повторите попытку.");
+      await persistField(field, state, { ...drafts });
     } finally {
       setPendingKey(null);
     }
@@ -166,25 +220,40 @@ export function IBuroQuestionnaireV2({
 
   async function completeSection(sectionId: string) {
     if (!state || state.status === "COMPLETED" || pendingKey) return;
+    const section = QUESTIONNAIRE_SECTIONS.find((item) => item.id === sectionId);
+    if (!section || section.review) return;
     setPendingKey(`section:${sectionId}`);
     setError(null);
     try {
+      let current = state;
+      const draftSnapshot = { ...drafts };
+      const visibilitySnapshot = { ...visibleAnswers };
+      // The API saves one field at a time with optimistic concurrency. Use each
+      // returned version for the next PATCH and only complete after every save.
+      for (const field of section.fields) {
+        if (!isQuestionnaireFieldVisible(field, visibilitySnapshot)) continue;
+        const next = await persistField(field, current, draftSnapshot);
+        if (!next) return;
+        current = next;
+      }
       const response = await fetch(`/api/platform/cases/${caseId}/questionnaire/sections/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ sectionId, expectedVersion: state.version }),
+        body: JSON.stringify({ sectionId, expectedVersion: current.version }),
       });
       const result = (await response.json()) as ApiResult;
       if (!result.ok) {
-        if (response.status === 409) { await handleConflict(result); return; }
-        throw new Error(result.error.code);
+        if (response.status === 409) await handleConflict(result);
+        else setError("Не удалось завершить раздел. Проверьте обязательные поля и сохранённые ответы.");
+        return;
       }
-      applyState(result.data);
-      const index = QUESTIONNAIRE_SECTIONS.findIndex((section) => section.id === sectionId);
+      // Other sections may still have edits; a section completion changes only server state.
+      setState(result.data);
+      const index = QUESTIONNAIRE_SECTIONS.findIndex((item) => item.id === sectionId);
       const next = QUESTIONNAIRE_SECTIONS[index + 1];
       if (next) goTo(next.id);
     } catch {
-      setError("Не удалось завершить раздел. Проверьте обязательные поля и сохраните изменённые ответы.");
+      setError("Не удалось завершить раздел. Проверьте обязательные поля и повторите попытку.");
     } finally {
       setPendingKey(null);
     }
@@ -192,6 +261,13 @@ export function IBuroQuestionnaireV2({
 
   async function completeQuestionnaire() {
     if (!state || state.status === "COMPLETED" || pendingKey) return;
+    const dirtySection = QUESTIONNAIRE_SECTIONS.find((item) => item.fields.some((field) =>
+      isQuestionnaireFieldVisible(field, visibleAnswers) && hasUnsavedDraft(drafts[field.id], state.answers[field.id])));
+    if (dirtySection) {
+      setCurrentId(dirtySection.id);
+      setError("Есть несохранённые ответы. Сохраните изменения в указанном разделе перед завершением анкеты.");
+      return;
+    }
     setPendingKey("complete");
     setError(null);
     try {
@@ -243,6 +319,8 @@ export function IBuroQuestionnaireV2({
   const visibleFields = section.fields.filter((field) => isQuestionnaireFieldVisible(field, visibleAnswers));
   const index = QUESTIONNAIRE_SECTIONS.findIndex((item) => item.id === section.id);
   const isReview = Boolean(section.review);
+  const hasUnsaved = QUESTIONNAIRE_SECTIONS.some((item) => item.fields.some((field) =>
+    isQuestionnaireFieldVisible(field, visibleAnswers) && hasUnsavedDraft(drafts[field.id], state.answers[field.id])));
 
   return (
     <div className={styles.page}>
@@ -252,7 +330,7 @@ export function IBuroQuestionnaireV2({
       </header>
 
       <section className={styles.progressCard}>
-        <div><strong>{state.status === "COMPLETED" ? "Анкета завершена" : `Раздел ${section.number}: ${section.title}`}</strong><span>{pendingKey ? "Сохраняем изменения…" : "Все сохранённые данные синхронизированы с делом"}</span></div>
+        <div><strong>{state.status === "COMPLETED" ? "Анкета завершена" : `Раздел ${section.number}: ${section.title}`}</strong><span>{pendingKey ? "Сохраняем изменения…" : hasUnsaved ? "Есть несохранённые ответы" : "Все сохранённые данные синхронизированы с делом"}</span></div>
         <div className={styles.progressTrack} role="progressbar" aria-label="Прогресс анкеты" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div>
       </section>
 
@@ -265,7 +343,7 @@ export function IBuroQuestionnaireV2({
             const done = completedSet.has(item.id);
             const active = item.id === section.id;
             return (
-              <button key={item.id} type="button" className={`${styles.railItem} ${active ? styles.railItemActive : ""}`} onClick={() => goTo(item.id)} aria-current={active ? "step" : undefined}>
+              <button key={item.id} type="button" disabled={Boolean(pendingKey)} className={`${styles.railItem} ${active ? styles.railItemActive : ""}`} onClick={() => goTo(item.id)} aria-current={active ? "step" : undefined}>
                 <span className={`${styles.railNumber} ${done ? styles.railDone : ""}`}>{done ? <Check aria-hidden="true" /> : item.number}</span>
                 <span><strong>{item.title}</strong><small>{done ? "Подтверждено" : active ? "Текущий раздел" : "Не завершено"}</small></span>
               </button>
@@ -285,7 +363,7 @@ export function IBuroQuestionnaireV2({
               <div className={styles.reviewNotice}><CheckCircle2 aria-hidden="true" /><div><strong>Проверьте заполненные разделы</strong><p>Анкета завершится только после серверной проверки обязательных полей и подтверждения всех разделов.</p></div></div>
               <div className={styles.reviewGrid}>
                 {QUESTIONNAIRE_SECTIONS.filter((item) => !item.review).map((item) => (
-                  <button key={item.id} type="button" onClick={() => goTo(item.id)}>
+                  <button key={item.id} type="button" disabled={Boolean(pendingKey)} onClick={() => goTo(item.id)}>
                     <span>{item.number}</span><div><strong>{item.title}</strong><small>{completedSet.has(item.id) ? "Раздел подтверждён" : "Требует подтверждения"}</small></div><ArrowRight aria-hidden="true" />
                   </button>
                 ))}
@@ -304,7 +382,7 @@ export function IBuroQuestionnaireV2({
                   onSave={() => saveField(field)}
                 />
               ))}
-              {section.id === "mortgage" && state.answers.hasMortgage === true ? <MortgageNotice plan={planCode} /> : null}
+              {section.id === "mortgage" && visibleAnswers.hasRealEstate === true && visibleAnswers.hasMortgage === true ? <MortgageNotice plan={planCode} /> : null}
             </div>
           ) : (
             <div className={styles.notApplicable}><strong>Этот раздел не применяется</strong><p>По предыдущим ответам дополнительные сведения здесь не требуются.</p></div>
@@ -321,7 +399,7 @@ export function IBuroQuestionnaireV2({
               ) : (
                 <button type="button" className={styles.primaryButton} onClick={() => completeSection(section.id)} disabled={Boolean(pendingKey)} aria-busy={pendingKey === `section:${section.id}`}>
                   {pendingKey === `section:${section.id}` ? <Loader2 className={styles.spin} aria-hidden="true" /> : null}
-                  {pendingKey === `section:${section.id}` ? "Проверяем…" : completedSet.has(section.id) ? "Проверить и продолжить" : "Сохранить и продолжить"}
+                  {pendingKey === `section:${section.id}` ? "Сохраняем и проверяем…" : completedSet.has(section.id) ? "Проверить и продолжить" : "Сохранить и продолжить"}
                   {pendingKey !== `section:${section.id}` ? <ArrowRight aria-hidden="true" /> : null}
                 </button>
               )}
