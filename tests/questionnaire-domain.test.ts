@@ -71,15 +71,17 @@ class InMemoryQuestionnaireRepository implements QuestionnaireRepository {
 
   private assertVersion(expectedVersion: number) {
     assert.ok(this.current);
-    assert.equal(expectedVersion, this.current.version);
+    if (expectedVersion !== this.current.version) throw new Error("QUESTIONNAIRE_VERSION_CONFLICT");
   }
 
   async saveAnswer(input: SaveQuestionnaireAnswerInput) {
     this.assertVersion(input.expectedVersion);
+    const invalidated = new Set(input.invalidatedSectionIds ?? []);
     this.current = {
       ...this.current!,
       status: "IN_PROGRESS",
       answers: { ...this.current!.answers, [input.fieldId]: input.value },
+      completedSectionIds: this.current!.completedSectionIds.filter((id) => !invalidated.has(id)),
       startedAt: this.current!.startedAt ?? now,
       version: this.current!.version + 1,
       updatedAt: now,
@@ -108,6 +110,7 @@ class InMemoryQuestionnaireRepository implements QuestionnaireRepository {
     this.current = {
       ...this.current!,
       status: "COMPLETED",
+      completedSectionIds: [...new Set([...this.current!.completedSectionIds, ...input.reviewSectionIds])],
       completedAt: now,
       version: this.current!.version + 1,
       updatedAt: now,
@@ -146,13 +149,17 @@ const sections = [
   },
 ] satisfies QuestionnaireSection[];
 
-async function run() {
-  const repository = new InMemoryQuestionnaireRepository();
-  const service = new QuestionnaireService(
+function createTestService(repository: InMemoryQuestionnaireRepository) {
+  return new QuestionnaireService(
     new ClientCaseService(new InMemoryCaseRepository()),
     repository,
     createQuestionnaireDefinition(sections, 1),
   );
+}
+
+async function run() {
+  const repository = new InMemoryQuestionnaireRepository();
+  const service = createTestService(repository);
 
   const created = await service.getOrCreateForClient(client, clientCase.id);
   assert.equal(created.version, 1);
@@ -209,18 +216,12 @@ async function run() {
     expectedVersion: current.version,
   });
 
-  current = await service.completeSection(client, {
-    clientCaseId: clientCase.id,
-    sectionId: "review",
-    expectedVersion: current.version,
-  });
-
   await assert.rejects(
     service.markCompleted(client, {
       clientCaseId: clientCase.id,
       expectedVersion: current.version,
     }),
-    /QUESTIONNAIRE_INCOMPLETE_SECTION/,
+    /QUESTIONNAIRE_INCOMPLETE/,
   );
 
   current = await service.saveAnswer(client, {
@@ -230,11 +231,22 @@ async function run() {
     expectedVersion: current.version,
   });
 
-  const completed = await service.markCompleted(client, {
+  current = await service.completeSection(client, {
     clientCaseId: clientCase.id,
+    sectionId: "basics",
     expectedVersion: current.version,
   });
+  const beforeFinalVersion = current.version;
+
+  // The final UI action is a single POST /complete: no separate review POST.
+  const completed = await service.markCompleted(client, {
+    clientCaseId: clientCase.id,
+    expectedVersion: beforeFinalVersion,
+  });
   assert.equal(completed.status, "COMPLETED");
+  assert.deepEqual(completed.completedSectionIds, ["basics", "review"]);
+  assert.equal(completed.version, beforeFinalVersion + 1);
+  assert.equal((await service.get(client, clientCase.id))?.status, "COMPLETED");
 
   await assert.rejects(
     service.saveAnswer(client, {
@@ -245,6 +257,27 @@ async function run() {
     }),
     /QUESTIONNAIRE_ALREADY_COMPLETED/,
   );
+}
+
+async function runVersionConflictAndReviewIdempotence() {
+  const service = createTestService(new InMemoryQuestionnaireRepository());
+  let current = await service.getOrCreateForClient(client, clientCase.id);
+  for (const [fieldId, value] of [
+    ["name", "Клиент"],
+    ["income", 10000],
+    ["employed", false],
+  ] as const) {
+    current = await service.saveAnswer(client, { clientCaseId: clientCase.id, fieldId, value, expectedVersion: current.version });
+  }
+  current = await service.completeSection(client, { clientCaseId: clientCase.id, sectionId: "basics", expectedVersion: current.version });
+  await assert.rejects(
+    service.markCompleted(client, { clientCaseId: clientCase.id, expectedVersion: current.version - 1 }),
+    /QUESTIONNAIRE_VERSION_CONFLICT/,
+  );
+  assert.equal((await service.get(client, clientCase.id))?.status, "IN_PROGRESS");
+  current = await service.completeSection(client, { clientCaseId: clientCase.id, sectionId: "review", expectedVersion: current.version });
+  const completed = await service.markCompleted(client, { clientCaseId: clientCase.id, expectedVersion: current.version });
+  assert.equal(completed.completedSectionIds.filter((id) => id === "review").length, 1);
 }
 
 async function runPropertyVisibilityRegression() {
@@ -287,5 +320,6 @@ async function runPropertyVisibilityRegression() {
 }
 
 await run();
+await runVersionConflictAndReviewIdempotence();
 await runPropertyVisibilityRegression();
 console.log("questionnaire domain tests: PASS");
