@@ -168,26 +168,6 @@ jobs:
           done
           exit 1
 
-      - name: Seed prerequisite questionnaire fields over authenticated HTTP
-        env:
-          IB_STAGING_VERCEL_AUTOMATION_BYPASS: "1"
-          NODE_OPTIONS: --import=./scripts/staging-vercel-protection-bypass.mjs
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-          IB_STAGING_CLIENT_PASSWORD: ${{ secrets.IB_STAGING_CLIENT_PASSWORD }}
-          IB_STAGING_LAWYER_EMAIL: lawyer.demo@example.test
-          IB_STAGING_LAWYER_PASSWORD: ${{ secrets.IB_STAGING_LAWYER_PASSWORD }}
-          IB_STAGING_LAWYER_TOTP_SECRET: ${{ secrets.IB_STAGING_LAWYER_TOTP_SECRET }}
-          IB_STAGING_MANAGER_EMAIL: manager.demo@example.test
-          IB_STAGING_MANAGER_PASSWORD: ${{ secrets.IB_STAGING_MANAGER_PASSWORD }}
-          IB_STAGING_MANAGER_TOTP_SECRET: ${{ secrets.IB_STAGING_MANAGER_TOTP_SECRET }}
-          IB_STAGING_MUTATION_TARGET: staging
-          IB_STAGING_MUTATION_CONFIRM: MUTATE:iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
-          IB_STAGING_MUTATION_CASE_NUMBER: IBR-2026-009901
-          IB_STAGING_MUTATION_TASK_ID: 12700000-9901-4000-8000-000000000001
-          IB_STAGING_FILES_E2E: "0"
-          IB_STAGING_FILE_SCAN_E2E: "0"
-        run: node --import tsx scripts/verify-staging-http-mutations.ts
-
       - name: Install pinned Chromium browser runtime
         run: |
           npm install --no-save --package-lock=false --ignore-scripts playwright@1.55.0
