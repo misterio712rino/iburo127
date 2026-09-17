@@ -37,6 +37,7 @@ assert.equal(buildDocumentSourceDraft({ ...base, answers: reordered }).sha256, d
 assert.notEqual(buildDocumentSourceDraft({ ...base, questionnaireVersion: 8 }).sha256, draft.sha256);
 assert.notEqual(buildDocumentSourceDraft({ ...base, answers: { ...answers, fullName: "Другой Клиент" } }).sha256, draft.sha256);
 const { sha256, courtReady, ...digestPayload } = draft;
+assert.equal(courtReady, false);
 assert.equal(createHash("sha256").update(JSON.stringify(digestPayload), "utf8").digest("hex"), sha256);
 
 const missing = buildDocumentSourceDraft({ ...base, answers: { fullName: " ", hasRealEstate: true, hasVehicle: true, hasValuables: false } });
