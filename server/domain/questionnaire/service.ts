@@ -148,9 +148,19 @@ export class QuestionnaireService {
     if (!field || !sectionId) throw new Error(QUESTIONNAIRE_INVALID_FIELD);
     assertFieldAnswer(field, input.value);
 
+    // A parent answer can activate previously hidden required fields in OTHER
+    // sections. Reopen those sections on both true→false and false→true, so
+    // progress never claims they remain reviewed under a different condition.
+    const nextAnswers = { ...current.answers, [input.fieldId]: input.value };
+    const visibilityChangedSectionIds = this.definition.sections
+      .filter((section) => section.fields.some((dependentField) =>
+        isQuestionnaireFieldVisible(dependentField, current.answers) !==
+        isQuestionnaireFieldVisible(dependentField, nextAnswers)))
+      .map((section) => section.id);
+
     return this.repository.saveAnswer({
       ...input,
-      invalidatedSectionIds: [sectionId, ...this.definition.reviewSectionIds],
+      invalidatedSectionIds: [sectionId, ...visibilityChangedSectionIds, ...this.definition.reviewSectionIds],
       auditActorUserId: actor.userId,
     });
   }
