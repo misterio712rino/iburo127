@@ -28,6 +28,8 @@ export type CaseDocumentRevisionRecord = {
   sourceDataHash: string;
   sourceData: DocumentSourceValue;
   status: CaseDocumentRevisionStatus;
+  createdByUserId: string;
+  submittedByUserId: string | null;
   submittedAt: Date | null;
   reviewedByUserId: string | null;
   reviewNote: string | null;
@@ -39,8 +41,10 @@ export type CaseDocumentRevisionRecord = {
 
 export interface CaseDocumentRevisionRepository {
   getLatest(caseDocumentId: string): Promise<CaseDocumentRevisionRecord | null>;
+  getById(revisionId: string): Promise<CaseDocumentRevisionRecord | null>;
   createDraft(input: {
     caseDocumentId: string;
+    createdByUserId: string;
     templateCode: string;
     templateVersion: number;
     templateSourceHash: string;
@@ -50,7 +54,7 @@ export interface CaseDocumentRevisionRepository {
   }): Promise<CaseDocumentRevisionRecord>;
   submitForReview(input: {
     revisionId: string;
-    reviewerUserId: string;
+    submittedByUserId: string;
   }): Promise<CaseDocumentRevisionRecord>;
   requestChanges(input: {
     revisionId: string;
