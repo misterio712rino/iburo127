@@ -31,7 +31,9 @@ function supplied(value: unknown): value is string | number | boolean {
 
 function display(value: string | number | boolean): string {
   if (typeof value === "boolean") return value ? "Да" : "Нет";
-  return String(value);
+  // Answer text is untrusted. Never allow CR/LF or other control characters to
+  // forge another summary line or an apparent review statement.
+  return String(value).replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, " ");
 }
 
 export type DocumentSourceDraft = {
@@ -107,4 +109,26 @@ export function buildDocumentSourceDraft(input: {
     sha256: createHash("sha256").update(JSON.stringify(payload), "utf8").digest("hex"),
     courtReady: false,
   };
+}
+
+// Integrity is a consistency check, not an authenticity signature. Callers
+// must independently enforce case ownership and read the source from the DB.
+export function verifyDocumentSourceDraftIntegrity(draft: DocumentSourceDraft): boolean {
+  if (!draft || draft.formatVersion !== 1 || draft.courtReady !== false ||
+      typeof draft.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(draft.sha256)) return false;
+  try {
+    const reconstructed = buildDocumentSourceDraft({
+      documentCode: draft.documentCode,
+      questionnaireSchemaVersion: draft.questionnaireSchemaVersion,
+      questionnaireVersion: draft.questionnaireVersion,
+      answers: draft.answerSnapshot,
+    });
+    return reconstructed.sha256 === draft.sha256 &&
+      reconstructed.previewText === draft.previewText &&
+      JSON.stringify(reconstructed.answerSnapshot) === JSON.stringify(draft.answerSnapshot) &&
+      JSON.stringify(reconstructed.missingFieldIds) === JSON.stringify(draft.missingFieldIds) &&
+      JSON.stringify(reconstructed.uncollectedDetails) === JSON.stringify(draft.uncollectedDetails);
+  } catch {
+    return false;
+  }
 }
