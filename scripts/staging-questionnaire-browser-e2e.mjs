@@ -157,8 +157,18 @@ try {
 
   const answersPattern = `**/api/platform/cases/${caseId}/questionnaire/answers`;
   let patchCount = 0;
+  const patchFields = [];
+  const patchStatuses = [];
+  const onAnswerResponse = (response) => {
+    if (response.request().method() === "PATCH" && response.url().endsWith(`/questionnaire/answers`)) {
+      patchStatuses.push(response.status());
+    }
+  };
+  page.on("response", onAnswerResponse);
   await page.route(answersPattern, async (route) => {
     patchCount += 1;
+    const payload = route.request().postDataJSON();
+    patchFields.push(typeof payload?.fieldId === "string" ? payload.fieldId : "unknown");
     if (patchCount === 2) {
       await route.fulfill({
         status: 503,
@@ -172,7 +182,11 @@ try {
 
   await page.getByRole("button", { name: /Сохранить и продолжить|Проверить и продолжить/u }).last().click();
   await page.getByRole("alert").waitFor({ state: "visible", timeout: 12_000 });
-  assert(patchCount === 2, `partial-failure scenario expected 2 PATCH attempts, got ${patchCount}`);
+  assert(
+    patchCount === 2,
+    `partial-failure expected 2 PATCH attempts; got ${patchCount}; fields=${JSON.stringify(patchFields)}; statuses=${JSON.stringify(patchStatuses)}; alert=${JSON.stringify(await page.getByRole("alert").innerText())}`,
+  );
+  page.off("response", onAnswerResponse);
   assert(
     (await page.getByRole("alert").innerText()).includes("Семейное положение"),
     "partial failure did not identify the failed field",
