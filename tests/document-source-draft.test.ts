@@ -10,6 +10,7 @@ const answers: QuestionnaireAnswers = {
   hasVehicle: false, hasValuables: false, hasOverdue: false,
   hasMortgage: true, mortgageBank: "НЕ ДОЛЖЕН ПОПАСТЬ В СВОДКУ",
 };
+const originalAnswers = { ...answers };
 const base = {
   documentCode: "property-inventory",
   questionnaireSchemaVersion: 1,
@@ -29,7 +30,7 @@ assert.ok(!Object.hasOwn(draft.answerSnapshot, "mortgageBank"));
 assert.match(draft.previewText, /Не судебный документ/);
 assert.match(draft.previewText, /проверка и подготовка документа специалистом/);
 assert.equal(draft.sha256.length, 64);
-assert.deepEqual(answers, base.answers);
+assert.deepEqual(answers, originalAnswers);
 
 const reordered = Object.fromEntries(Object.entries(answers).reverse()) as QuestionnaireAnswers;
 assert.equal(buildDocumentSourceDraft({ ...base, answers: reordered }).sha256, draft.sha256);
@@ -48,7 +49,7 @@ assert.match(missing.previewText, /Не заполнены поля/);
 
 const creditors = buildDocumentSourceDraft({
   documentCode: "creditors-list", questionnaireSchemaVersion: 1, questionnaireVersion: 2,
-  answers: { fullName: "Тестовый Клиент", creditorCount: 2, totalDebt: 500000, hasOverdue: true },
+  answers: { fullName: "Тестовый Клиент", creditorCount: 2, totalDebt: 500000, hasOverdue: true, hasEnforcement: false },
 });
 assert.deepEqual(creditors.missingFieldIds, []);
 assert.match(creditors.previewText, /не содержит поимённого перечня кредиторов/);
