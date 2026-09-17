@@ -10,6 +10,10 @@ import {
   type DocumentSourceValue,
 } from "@/server/domain/documents/revision-contracts";
 import { assertSha256, hashDocumentSource } from "@/server/domain/documents/revision-source";
+import {
+  DOCUMENT_TEMPLATE_NOT_REGISTERED,
+  type DocumentTemplateRegistry,
+} from "@/server/domain/documents/template-contracts";
 
 export const DOCUMENT_REVISION_FORBIDDEN = "DOCUMENT_REVISION_FORBIDDEN";
 export const DOCUMENT_REVISION_CASE_NOT_FOUND = "DOCUMENT_REVISION_CASE_NOT_FOUND";
@@ -19,6 +23,7 @@ export class CaseDocumentRevisionService {
     private readonly cases: ClientCaseService,
     private readonly documents: CaseDocumentRepository,
     private readonly revisions: CaseDocumentRevisionRepository,
+    private readonly templates: DocumentTemplateRegistry,
   ) {}
 
   private async requireClientEditor(actor: AuthenticatedActor, clientCaseId: string) {
@@ -65,28 +70,31 @@ export class CaseDocumentRevisionService {
     input: {
       clientCaseId: string;
       documentCode: string;
-      templateVersion: number;
-      templateSourceHash: string;
       questionnaireVersion: number;
       sourceData: DocumentSourceValue;
     },
   ) {
     await this.requireClientEditor(actor, input.clientCaseId);
     const document = await this.requireDocument(actor, input.clientCaseId, input.documentCode);
-    if (!Number.isInteger(input.templateVersion) || input.templateVersion < 1) {
-      throw new Error(DOCUMENT_REVISION_INVALID_SOURCE);
-    }
     if (!Number.isInteger(input.questionnaireVersion) || input.questionnaireVersion < 1) {
       throw new Error(DOCUMENT_REVISION_INVALID_SOURCE);
     }
-    assertSha256(input.templateSourceHash);
+
+    const template = await this.templates.getActive(input.documentCode);
+    if (!template || template.documentCode !== input.documentCode) {
+      throw new Error(DOCUMENT_TEMPLATE_NOT_REGISTERED);
+    }
+    if (!Number.isInteger(template.version) || template.version < 1) {
+      throw new Error(DOCUMENT_REVISION_INVALID_SOURCE);
+    }
+    assertSha256(template.sourceSha256);
 
     return this.revisions.createDraft({
       caseDocumentId: document.id,
       createdByUserId: actor.userId,
-      templateCode: input.documentCode,
-      templateVersion: input.templateVersion,
-      templateSourceHash: input.templateSourceHash,
+      templateCode: template.documentCode,
+      templateVersion: template.version,
+      templateSourceHash: template.sourceSha256,
       questionnaireVersion: input.questionnaireVersion,
       sourceDataHash: hashDocumentSource(input.sourceData),
       sourceData: input.sourceData,
@@ -109,6 +117,14 @@ export class CaseDocumentRevisionService {
     }
     if (hashDocumentSource(revision.sourceData) !== revision.sourceDataHash) {
       throw new Error(DOCUMENT_REVISION_INVALID_SOURCE);
+    }
+    const activeTemplate = await this.templates.getActive(input.documentCode);
+    if (
+      !activeTemplate ||
+      activeTemplate.version !== revision.templateVersion ||
+      activeTemplate.sourceSha256 !== revision.templateSourceHash
+    ) {
+      throw new Error(DOCUMENT_TEMPLATE_NOT_REGISTERED);
     }
     return this.revisions.submitForReview({
       revisionId: revision.id,
@@ -156,6 +172,7 @@ export class CaseDocumentRevisionService {
     if (hashDocumentSource(revision.sourceData) !== revision.sourceDataHash) {
       throw new Error(DOCUMENT_REVISION_INVALID_SOURCE);
     }
+    assertSha256(revision.templateSourceHash);
     const reviewNote = input.reviewNote?.trim() || null;
     if (reviewNote && reviewNote.length > 4000) throw new Error(DOCUMENT_REVISION_INVALID_SOURCE);
     return this.revisions.approve({
