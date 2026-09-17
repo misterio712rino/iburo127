@@ -25,7 +25,10 @@ export const runtime = "nodejs";
 
 const SCHEMA = "public";
 const PROVIDER = "better-auth";
-const ADVISORY_LOCK_KEY = "iburo127:staging:client-plan-auth-fixtures:v1";
+// The v1 session lock can remain on a pooled PostgreSQL backend after its
+// HTTP request ends. A distinct v2 key plus an explicit transaction prevents
+// future fixture runs from inheriting that orphaned session lock.
+const ADVISORY_LOCK_KEY = "iburo127:staging:client-plan-auth-fixtures:v2";
 const EXACT_GIT_SHA_PATTERN = /^[a-f0-9]{40}$/i;
 const FIXTURES = [
   { label: "CLIENT_LITE", email: "client.lite@example.test", displayName: "Клиент LITE" },
@@ -397,7 +400,7 @@ export async function POST(request: Request) {
     max: 3,
   });
   let lockClient: PoolClient | null = null;
-  let lockHeld = false;
+  let lockTransactionOpen = false;
   let failureStage: FailureStage = "connect";
   try {
     lockClient = await pool.connect();
@@ -412,13 +415,16 @@ export async function POST(request: Request) {
       throw new Error("staging database identity mismatch");
     }
 
+    // BEGIN pins a PostgreSQL backend even through a transaction pooler.
+    // A transaction advisory lock cannot outlive ROLLBACK or connection loss.
     failureStage = "lock";
+    await lockClient.query("BEGIN");
+    lockTransactionOpen = true;
     const lock = await lockClient.query<{ acquired: boolean }>(
-      "select pg_try_advisory_lock(hashtext($1)) as acquired",
+      "select pg_try_advisory_xact_lock(hashtext($1)) as acquired",
       [ADVISORY_LOCK_KEY],
     );
     if (lock.rows[0]?.acquired !== true) return fail("lock");
-    lockHeld = true;
 
     const auth = betterAuth({
       appName: "iБюро staging client plan fixtures",
@@ -462,11 +468,14 @@ export async function POST(request: Request) {
   } catch {
     return fail(failureStage);
   } finally {
-    if (lockHeld && lockClient) {
+    if (lockTransactionOpen && lockClient) {
       try {
-        await lockClient.query("select pg_advisory_unlock(hashtext($1))", [ADVISORY_LOCK_KEY]);
+        await lockClient.query("ROLLBACK");
       } catch {
-        // Session teardown releases the lock if explicit unlock fails.
+        // Destroy the client if rollback failed: never return an open lock
+        // transaction to the pool for another request to inherit.
+        lockClient.release(true);
+        lockClient = null;
       }
     }
     lockClient?.release();
