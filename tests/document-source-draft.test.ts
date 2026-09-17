@@ -25,6 +25,8 @@ assert.equal(draft.answerSnapshot.hasRealEstate, false);
 assert.equal(draft.answerSnapshot.hasVehicle, false);
 assert.equal(draft.answerSnapshot.hasValuables, false);
 assert.ok(!draft.missingFieldIds.includes("hasRealEstate"));
+assert.ok(!draft.missingFieldIds.includes("hasVehicle"));
+assert.ok(!draft.missingFieldIds.includes("hasValuables"));
 assert.ok(!draft.previewText.includes("НЕ ДОЛЖЕН ПОПАСТЬ"));
 assert.ok(!Object.hasOwn(draft.answerSnapshot, "mortgageBank"));
 assert.match(draft.previewText, /Не судебный документ/);
@@ -77,4 +79,6 @@ assert.equal(spoofed.answerSnapshot.fullName, "Иванов\r\nПроверен�
 assert.throws(() => buildDocumentSourceDraft({ ...base, documentCode: "unknown" }), /DOCUMENT_INVALID_CODE/);
 assert.throws(() => buildDocumentSourceDraft({ ...base, questionnaireVersion: 0 }), /DOCUMENT_INVALID_SOURCE_VERSION/);
 assert.throws(() => buildDocumentSourceDraft({ ...base, questionnaireSchemaVersion: 1.5 }), /DOCUMENT_INVALID_SOURCE_VERSION/);
+
+await import("./document-revision-foundation.test.ts");
 console.log("DOCUMENT_SOURCE_DRAFT_CONTRACT_PASS");
