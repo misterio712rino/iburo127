@@ -39,6 +39,9 @@ export type CompleteQuestionnaireInput = {
   clientCaseId: string;
   expectedVersion: number;
   auditActorUserId: string;
+  // Final review is a confirmation step in the client UI. Persist it together
+  // with COMPLETED in one version-checked database transaction.
+  reviewSectionIds: readonly string[];
 };
 
 export interface QuestionnaireRepository {
