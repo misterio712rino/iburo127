@@ -241,6 +241,13 @@ jobs:
                 process.stdout.write("unavailable");
               }
             ')"
+
+            if [ "$http_status" = "503" ] && [ "$failure_stage" = "lock" ] && [ "$attempt" -lt "$max_attempts" ]; then
+              echo "STAGING_FIXTURE_LOCK_RETRY_WAIT: operation=client-plan-auth attempt=$attempt/$max_attempts"
+              sleep "$delay_seconds"
+              continue
+            fi
+
             echo "STAGING_CLIENT_PLAN_AUTH_FIXTURE_FAIL: http_status=$http_status failure_stage=$failure_stage" >&2
             exit 1
           done
