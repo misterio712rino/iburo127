@@ -98,14 +98,24 @@ assert.doesNotMatch(
   "staging reset must never use an unbounded Prisma rate-limit delete",
 );
 
-const nonBlockingLockIndex = clientPlanAuthFixtureSource.indexOf("pg_try_advisory_lock");
+const transactionBeginIndex = clientPlanAuthFixtureSource.indexOf('lockClient.query("BEGIN")');
+const nonBlockingLockIndex = clientPlanAuthFixtureSource.indexOf("pg_try_advisory_xact_lock");
 const authContextIndex = clientPlanAuthFixtureSource.indexOf("const context = await auth.$context");
 const passwordHashIndex = clientPlanAuthFixtureSource.indexOf("context.password.hash(password)");
 const updatePasswordIndex = clientPlanAuthFixtureSource.indexOf("context.internalAdapter.updatePassword(subject, hashedPassword)");
-assert.ok(nonBlockingLockIndex >= 0, "client-plan auth bootstrap must acquire its staging advisory lock");
+const rollbackIndex = clientPlanAuthFixtureSource.indexOf('lockClient.query("ROLLBACK")');
+assert.ok(transactionBeginIndex >= 0, "client-plan auth bootstrap must open its lock transaction");
+assert.ok(
+  nonBlockingLockIndex > transactionBeginIndex,
+  "client-plan auth bootstrap must acquire its transaction-scoped staging advisory lock",
+);
 assert.ok(
   authContextIndex > nonBlockingLockIndex && passwordHashIndex > authContextIndex && updatePasswordIndex > passwordHashIndex,
   "tariff password synchronization must occur only inside the guarded advisory-lock mutation path",
+);
+assert.ok(
+  rollbackIndex > nonBlockingLockIndex,
+  "client-plan auth bootstrap must release its transaction-scoped advisory lock by rollback",
 );
 assert.match(
   clientPlanAuthFixtureSource,
@@ -129,8 +139,8 @@ assert.match(
 );
 assert.match(
   clientPlanAuthFixtureSource,
-  /select pg_try_advisory_lock\(hashtext\(\$1\)\) as acquired/,
-  "client-plan auth bootstrap must use non-blocking advisory-lock acquisition",
+  /select pg_try_advisory_xact_lock\(hashtext\(\$1\)\) as acquired/,
+  "client-plan auth bootstrap must use non-blocking transaction-scoped advisory-lock acquisition",
 );
 assert.match(
   clientPlanAuthFixtureSource,
@@ -142,6 +152,10 @@ assert.doesNotMatch(
   /\bpg_advisory_lock\(/,
   "client-plan auth bootstrap must never wait indefinitely for an advisory lock",
 );
-assert.match(clientPlanAuthFixtureSource, /pg_advisory_unlock\(hashtext\(\$1\)\)/);
+assert.doesNotMatch(
+  clientPlanAuthFixtureSource,
+  /pg_advisory_unlock\(/,
+  "transaction-scoped advisory lock must not depend on an explicit session unlock",
+);
 
 console.log("STAGING_ACCESS_GATE_RATE_LIMIT_RESET_CONTRACT_PASS");
