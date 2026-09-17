@@ -392,6 +392,50 @@ jobs:
           IB_STAGING_MANAGER_TOTP_SECRET: ${{ secrets.IB_STAGING_MANAGER_TOTP_SECRET }}
         run: node scripts/staging-browser-visual-qa.mjs
 
+      # HTTP E2E and role QA may write the dedicated fixture. Reset it again
+      # before the questionnaire-specific browser proof, within this same queue.
+      - name: Reset questionnaire-only browser fixture
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          response_file="$RUNNER_TEMP/staging-questionnaire-e2e-fixture.json"
+          trap 'rm -f "$response_file"' EXIT
+          for attempt in $(seq 1 6); do
+            http_status="$(curl --silent --show-error --connect-timeout 5 --max-time 20 \
+              --output "$response_file" --write-out '%{http_code}' -X POST \
+              -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+              -H "x-iburo-staging-control: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+              -H "Origin: $IB_STAGING_BASE_URL" \
+              -H "Content-Type: application/x-www-form-urlencoded" \
+              --data-urlencode "confirm=RESET_APPLICATION_E2E:${IB_STAGING_DATABASE_NAME}:public:${GITHUB_SHA}" \
+              "$IB_STAGING_BASE_URL/_iburo/staging-application-e2e-fixtures" || true)"
+            if [ "$http_status" = "200" ] && RESPONSE_FILE="$response_file" node --input-type=module -e '
+              import { readFileSync } from "node:fs";
+              const body = JSON.parse(readFileSync(process.env.RESPONSE_FILE, "utf8"));
+              if (body.pass !== true || body.commitSha !== process.env.GITHUB_SHA || body.runtimeTarget !== "staging" || body.database !== process.env.IB_STAGING_DATABASE_NAME || body.schema !== "public") process.exit(1);
+            '; then
+              echo "STAGING_QUESTIONNAIRE_E2E_FIXTURE_RESET_PASS"
+              exit 0
+            fi
+            if [ "$attempt" -lt 6 ] && { [ "$http_status" = "000" ] || [ "$http_status" = "403" ] || [ "$http_status" = "503" ]; }; then
+              sleep 2
+              continue
+            fi
+            echo "STAGING_QUESTIONNAIRE_E2E_FIXTURE_RESET_FAIL: http_status=$http_status" >&2
+            exit 1
+          done
+          echo "STAGING_QUESTIONNAIRE_E2E_FIXTURE_RESET_FAIL: retry budget exhausted" >&2
+          exit 1
+
+      - name: Dedicated questionnaire Chromium E2E
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          IB_STAGING_CLIENT_PASSWORD: ${{ secrets.IB_STAGING_CLIENT_PASSWORD }}
+        run: node scripts/staging-questionnaire-browser-e2e.mjs
+
       - name: Upload browser visual evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
