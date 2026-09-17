@@ -27,18 +27,43 @@ function assert(condition, message) {
 async function settle(page) {
   await page.waitForLoadState("domcontentloaded");
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(700);
 }
 
 async function login(page) {
   await page.goto(new URL("/auth/sign-in", baseUrl).href, { waitUntil: "domcontentloaded", timeout: 35_000 });
-  await page.locator("#identifier").fill(email);
+  const identifier = page.locator("#identifier");
   const continueButton = page.getByRole("button", { name: "Продолжить" });
-  await continueButton.waitFor({ state: "visible", timeout: 10_000 });
+  await identifier.waitFor({ state: "visible", timeout: 15_000 });
+  await settle(page);
+
+  let identifierReady = false;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    await identifier.click();
+    await identifier.fill("");
+    await identifier.pressSequentially(email, { delay: 18 });
+    await page.waitForTimeout(250);
+    if ((await identifier.inputValue()) === email && await continueButton.isEnabled()) {
+      identifierReady = true;
+      break;
+    }
+    await page.waitForTimeout(450);
+  }
+  assert(identifierReady, `identifier step did not enable Continue; valueLength=${(await identifier.inputValue()).length}`);
   await continueButton.click();
-  await page.locator("#password").waitFor({ state: "visible", timeout: 15_000 });
-  await page.locator("#password").fill(password);
-  await page.getByRole("button", { name: "Войти" }).click();
+
+  const passwordInput = page.locator("#password");
+  const signInButton = page.getByRole("button", { name: "Войти" });
+  await passwordInput.waitFor({ state: "visible", timeout: 15_000 });
+  await settle(page);
+  await passwordInput.click();
+  await passwordInput.pressSequentially(password, { delay: 12 });
+  await signInButton.waitFor({ state: "visible", timeout: 10_000 });
+  await page.waitForFunction(() => {
+    const button = [...document.querySelectorAll("button")].find((item) => item.textContent?.trim() === "Войти");
+    return button instanceof HTMLButtonElement && !button.disabled;
+  }, null, { timeout: 10_000 });
+  await signInButton.click();
   await page.waitForURL(/\/portal(?:\/|$)/u, { timeout: 30_000 });
   await settle(page);
 }
@@ -115,9 +140,6 @@ try {
   await login(page);
   const caseId = await resolveCaseId(page);
 
-  // Seed only this dedicated questionnaire through the authenticated client.
-  // No practicum, documents, tasks, files, tariff demo accounts or staff data
-  // are mutated by this browser-specific proof.
   let seeded = await ensureQuestionnaire(page, caseId);
   seeded = await saveDirect(page, caseId, "fullName", "IBURO STAGING E2E", seeded.version);
   seeded = await saveDirect(page, caseId, "city", "IBURO STAGING E2E", seeded.version);
