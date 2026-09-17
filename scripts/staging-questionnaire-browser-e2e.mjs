@@ -30,6 +30,13 @@ async function settle(page) {
   await page.waitForTimeout(700);
 }
 
+async function waitForAlertContaining(page, expected) {
+  await page.waitForFunction((message) =>
+    [...document.querySelectorAll('[role="alert"]')].some((element) => element.textContent?.includes(message)),
+  expected, { timeout: 15_000 });
+  return page.getByRole("alert").filter({ hasText: expected }).first();
+}
+
 async function login(page) {
   await page.goto(new URL("/auth/sign-in", baseUrl).href, { waitUntil: "domcontentloaded", timeout: 35_000 });
   const identifier = page.locator("#identifier");
@@ -181,16 +188,13 @@ try {
   });
 
   await page.getByRole("button", { name: /Сохранить и продолжить|Проверить и продолжить/u }).last().click();
-  await page.getByRole("alert").waitFor({ state: "visible", timeout: 12_000 });
-  assert(
-    patchCount === 2,
-    `partial-failure expected 2 PATCH attempts; got ${patchCount}; fields=${JSON.stringify(patchFields)}; statuses=${JSON.stringify(patchStatuses)}; alert=${JSON.stringify(await page.getByRole("alert").innerText())}`,
-  );
+  try {
+    await waitForAlertContaining(page, "Семейное положение");
+  } catch {
+    throw new Error(`partial-save second-field error absent; fields=${JSON.stringify(patchFields)} statuses=${JSON.stringify(patchStatuses)}`);
+  }
+  assert(patchCount === 2, `partial-failure expected 2 PATCH attempts; got ${patchCount}; fields=${JSON.stringify(patchFields)}; statuses=${JSON.stringify(patchStatuses)}`);
   page.off("response", onAnswerResponse);
-  assert(
-    (await page.getByRole("alert").innerText()).includes("Семейное положение"),
-    "partial failure did not identify the failed field",
-  );
   assert(await page.getByText("Есть несохранённые ответы", { exact: true }).isVisible(), "partial failure incorrectly reports all data saved");
   assert((await maritalStatus.inputValue()) === "Не состою в браке", "failed field draft was lost after partial failure");
 
@@ -224,11 +228,7 @@ try {
 
   const childrenSave = await saveButtonForInput(children);
   await childrenSave.click();
-  await page.getByRole("alert").waitFor({ state: "visible", timeout: 12_000 });
-  assert(
-    (await page.getByRole("alert").innerText()).includes("другой вкладке"),
-    "stale UI mutation did not surface version-conflict guidance",
-  );
+  await waitForAlertContaining(page, "другой вкладке");
   assert((await children.inputValue()) === "2", "local draft was lost while resolving version conflict");
   assert(await page.getByText("Есть несохранённые ответы", { exact: true }).isVisible(), "conflict incorrectly reports all data saved");
 
@@ -262,8 +262,7 @@ try {
     await route.continue();
   });
   await completeButton.click();
-  await page.getByRole("alert").waitFor({ state: "visible", timeout: 10_000 });
-  assert((await page.getByRole("alert").innerText()).includes("несохранённые ответы"), "final guard did not report unsaved answers");
+  await waitForAlertContaining(page, "несохранённые ответы");
   assert(completeRequests === 0, "final guard sent a completion request with unsaved required data");
   await page.unroute(`**/api/platform/cases/${caseId}/questionnaire/complete`);
 
