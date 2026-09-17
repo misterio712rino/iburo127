@@ -1,9 +1,6 @@
 name: Staging Questionnaire Browser E2E
 
 on:
-  push:
-    branches:
-      - audit/production-readiness
   workflow_dispatch:
     inputs:
       candidate_sha:
@@ -18,8 +15,8 @@ on:
 permissions:
   contents: read
 
-# Share the application-E2E queue because both workflows reset and mutate the
-# same dedicated staging fixture. Never cancel an in-flight mutation.
+# This manual replay uses the same fixture as the application E2E. Avoid a
+# second automatic push run: GitHub cancels older pending runs in one group.
 concurrency:
   group: staging-application-e2e-audit-production-readiness
   cancel-in-progress: false
