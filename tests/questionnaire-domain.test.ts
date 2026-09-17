@@ -306,6 +306,16 @@ async function runPropertyVisibilityRegression() {
   assert.ok(current.completedSectionIds.includes("real-estate"));
   assert.ok(current.completedSectionIds.includes("mortgage"));
 
+  // Changing the parent answer reopens BOTH previously completed dependent
+  // sections when a saved mortgage=true now becomes relevant again.
+  current = await service.saveAnswer(client, { clientCaseId: clientCase.id, fieldId: "hasRealEstate", value: true, expectedVersion: current.version });
+  assert.ok(!current.completedSectionIds.includes("real-estate"));
+  assert.ok(!current.completedSectionIds.includes("mortgage"));
+  await assert.rejects(
+    service.completeSection(client, { clientCaseId: clientCase.id, sectionId: "mortgage", expectedVersion: current.version }),
+    /QUESTIONNAIRE_INCOMPLETE_SECTION/,
+  );
+
   const positiveService = new QuestionnaireService(
     new ClientCaseService(new InMemoryCaseRepository()),
     new InMemoryQuestionnaireRepository(),
@@ -315,6 +325,16 @@ async function runPropertyVisibilityRegression() {
   positive = await positiveService.saveAnswer(client, { clientCaseId: clientCase.id, fieldId: "hasRealEstate", value: true, expectedVersion: positive.version });
   await assert.rejects(
     positiveService.completeSection(client, { clientCaseId: clientCase.id, sectionId: "real-estate", expectedVersion: positive.version }),
+    /QUESTIONNAIRE_INCOMPLETE_SECTION/,
+  );
+
+  positive = await positiveService.saveAnswer(client, { clientCaseId: clientCase.id, fieldId: "hasMortgage", value: false, expectedVersion: positive.version });
+  positive = await positiveService.completeSection(client, { clientCaseId: clientCase.id, sectionId: "mortgage", expectedVersion: positive.version });
+  assert.ok(positive.completedSectionIds.includes("mortgage"));
+  positive = await positiveService.saveAnswer(client, { clientCaseId: clientCase.id, fieldId: "hasMortgage", value: true, expectedVersion: positive.version });
+  assert.ok(!positive.completedSectionIds.includes("mortgage"));
+  await assert.rejects(
+    positiveService.completeSection(client, { clientCaseId: clientCase.id, sectionId: "mortgage", expectedVersion: positive.version }),
     /QUESTIONNAIRE_INCOMPLETE_SECTION/,
   );
 }
