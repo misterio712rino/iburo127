@@ -1,5 +1,6 @@
 import "server-only";
 
+import { Prisma } from "@/generated/prisma/client";
 import { getPrismaClient } from "@/server/database/prisma";
 import {
   DOCUMENT_REVISION_INVALID_TRANSITION,
@@ -31,6 +32,11 @@ function toRecord(row: {
   updatedAt: Date;
 }): CaseDocumentRevisionRecord {
   return { ...row, sourceData: row.sourceData as DocumentSourceValue };
+}
+
+function toPrismaJson(value: DocumentSourceValue): Prisma.InputJsonValue | typeof Prisma.JsonNull {
+  if (value === null) return Prisma.JsonNull;
+  return value as Prisma.InputJsonValue;
 }
 
 export class PrismaCaseDocumentRevisionRepository implements CaseDocumentRevisionRepository {
@@ -76,7 +82,7 @@ export class PrismaCaseDocumentRevisionRepository implements CaseDocumentRevisio
       const row = await tx.caseDocumentRevision.create({
         data: {
           ...input,
-          sourceData: input.sourceData,
+          sourceData: toPrismaJson(input.sourceData),
           revisionNumber: (latest?.revisionNumber ?? 0) + 1,
           status: "DRAFT",
         },
