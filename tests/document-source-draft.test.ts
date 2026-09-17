@@ -80,5 +80,5 @@ assert.throws(() => buildDocumentSourceDraft({ ...base, documentCode: "unknown" 
 assert.throws(() => buildDocumentSourceDraft({ ...base, questionnaireVersion: 0 }), /DOCUMENT_INVALID_SOURCE_VERSION/);
 assert.throws(() => buildDocumentSourceDraft({ ...base, questionnaireSchemaVersion: 1.5 }), /DOCUMENT_INVALID_SOURCE_VERSION/);
 
-await import("./document-revision-foundation.test.ts");
+await import("./document-revision-foundation.test");
 console.log("DOCUMENT_SOURCE_DRAFT_CONTRACT_PASS");
