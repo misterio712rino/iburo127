@@ -10,13 +10,19 @@ import {
   type DocumentSourceValue,
 } from "@/server/domain/documents/revision-contracts";
 import { assertSha256, hashDocumentSource } from "@/server/domain/documents/revision-source";
+import { buildDocumentSourceDraft } from "@/server/domain/documents/source-draft";
 import {
   DOCUMENT_TEMPLATE_NOT_REGISTERED,
   type DocumentTemplateRegistry,
 } from "@/server/domain/documents/template-contracts";
+import type { QuestionnaireRepository } from "@/server/domain/questionnaire/contracts";
 
 export const DOCUMENT_REVISION_FORBIDDEN = "DOCUMENT_REVISION_FORBIDDEN";
 export const DOCUMENT_REVISION_CASE_NOT_FOUND = "DOCUMENT_REVISION_CASE_NOT_FOUND";
+
+function toDocumentSourceValue(value: unknown): DocumentSourceValue {
+  return JSON.parse(JSON.stringify(value)) as DocumentSourceValue;
+}
 
 export class CaseDocumentRevisionService {
   constructor(
@@ -24,6 +30,7 @@ export class CaseDocumentRevisionService {
     private readonly documents: CaseDocumentRepository,
     private readonly revisions: CaseDocumentRevisionRepository,
     private readonly templates: DocumentTemplateRegistry,
+    private readonly questionnaires: QuestionnaireRepository,
   ) {}
 
   private async requireClientEditor(actor: AuthenticatedActor, clientCaseId: string) {
@@ -70,13 +77,12 @@ export class CaseDocumentRevisionService {
     input: {
       clientCaseId: string;
       documentCode: string;
-      questionnaireVersion: number;
-      sourceData: DocumentSourceValue;
     },
   ) {
     await this.requireClientEditor(actor, input.clientCaseId);
     const document = await this.requireDocument(actor, input.clientCaseId, input.documentCode);
-    if (!Number.isInteger(input.questionnaireVersion) || input.questionnaireVersion < 1) {
+    const questionnaire = await this.questionnaires.getByClientCaseId(input.clientCaseId, actor);
+    if (!questionnaire || !Number.isSafeInteger(questionnaire.version) || questionnaire.version < 1) {
       throw new Error(DOCUMENT_REVISION_INVALID_SOURCE);
     }
 
@@ -89,15 +95,23 @@ export class CaseDocumentRevisionService {
     }
     assertSha256(template.sourceSha256);
 
+    const sourceDraft = buildDocumentSourceDraft({
+      documentCode: input.documentCode,
+      questionnaireSchemaVersion: questionnaire.schemaVersion,
+      questionnaireVersion: questionnaire.version,
+      answers: questionnaire.answers,
+    });
+    const sourceData = toDocumentSourceValue(sourceDraft);
+
     return this.revisions.createDraft({
       caseDocumentId: document.id,
       createdByUserId: actor.userId,
       templateCode: template.documentCode,
       templateVersion: template.version,
       templateSourceHash: template.sourceSha256,
-      questionnaireVersion: input.questionnaireVersion,
-      sourceDataHash: hashDocumentSource(input.sourceData),
-      sourceData: input.sourceData,
+      questionnaireVersion: questionnaire.version,
+      sourceDataHash: hashDocumentSource(sourceData),
+      sourceData,
     });
   }
 
