@@ -7,25 +7,29 @@ enum CaseDocumentRevisionStatus {
 }
 
 model CaseDocumentRevision {
-  id                 String                     @id @default(uuid()) @db.Uuid
-  caseDocumentId     String                     @db.Uuid
-  revisionNumber     Int
-  templateCode       String
-  templateVersion    Int
-  templateSourceHash String
+  id                   String                     @id @default(uuid()) @db.Uuid
+  caseDocumentId       String                     @db.Uuid
+  revisionNumber       Int
+  templateCode         String
+  templateVersion      Int
+  templateSourceHash   String
   questionnaireVersion Int
-  sourceDataHash     String
-  sourceData         Json
-  status             CaseDocumentRevisionStatus @default(DRAFT)
-  submittedAt        DateTime?
-  reviewedByUserId   String?                    @db.Uuid
-  reviewNote         String?
-  reviewedAt         DateTime?
-  approvedAt         DateTime?
-  createdAt          DateTime                   @default(now())
-  updatedAt          DateTime                   @updatedAt
+  sourceDataHash       String
+  sourceData           Json
+  status               CaseDocumentRevisionStatus @default(DRAFT)
+  createdByUserId      String                     @db.Uuid
+  submittedByUserId    String?                    @db.Uuid
+  submittedAt          DateTime?
+  reviewedByUserId     String?                    @db.Uuid
+  reviewNote           String?
+  reviewedAt           DateTime?
+  approvedAt           DateTime?
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
 
   @@unique([caseDocumentId, revisionNumber])
   @@index([caseDocumentId, status, createdAt])
+  @@index([createdByUserId, createdAt])
+  @@index([submittedByUserId, submittedAt])
   @@index([reviewedByUserId, reviewedAt])
 }
