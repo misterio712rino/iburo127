@@ -67,6 +67,12 @@ async function apiJson(page, path, options = {}) {
   }, { path, options });
 }
 
+async function ensureQuestionnaire(page, caseId) {
+  const result = await apiJson(page, `/api/platform/cases/${encodeURIComponent(caseId)}/questionnaire`, { method: "POST" });
+  assert(result.status === 200 && result.body?.ok === true, `questionnaire create failed: ${result.status}`);
+  return result.body.data;
+}
+
 async function questionnaireState(page, caseId) {
   const result = await apiJson(page, `/api/platform/cases/${encodeURIComponent(caseId)}/questionnaire`);
   assert(result.status === 200 && result.body?.ok === true, `questionnaire GET failed: ${result.status}`);
@@ -108,13 +114,20 @@ const page = await context.newPage();
 try {
   await login(page);
   const caseId = await resolveCaseId(page);
+
+  // Seed only this dedicated questionnaire through the authenticated client.
+  // No practicum, documents, tasks, files, tariff demo accounts or staff data
+  // are mutated by this browser-specific proof.
+  let seeded = await ensureQuestionnaire(page, caseId);
+  seeded = await saveDirect(page, caseId, "fullName", "IBURO STAGING E2E", seeded.version);
+  seeded = await saveDirect(page, caseId, "city", "IBURO STAGING E2E", seeded.version);
+  assert(seeded.answers.fullName === "IBURO STAGING E2E" && seeded.answers.city === "IBURO STAGING E2E", "questionnaire seed did not persist");
+
   const questionnaireUrl = new URL(`/portal/cases/${caseId}/questionnaire`, baseUrl).href;
   await page.goto(questionnaireUrl, { waitUntil: "domcontentloaded", timeout: 35_000 });
   await settle(page);
   await page.getByRole("heading", { name: "Анкета" }).first().waitFor({ state: "visible", timeout: 15_000 });
 
-  // The preceding HTTP E2E intentionally leaves fullName and city persisted on
-  // this resettable fixture. Complete the remaining Basics drafts in one UI action.
   const birthDate = page.getByLabel("Дата рождения");
   const maritalStatus = page.getByLabel("Семейное положение");
   await birthDate.fill("1990-01-02");
@@ -157,15 +170,12 @@ try {
   assert(afterRetry.answers.maritalStatus === "Не состою в браке", "maritalStatus did not persist after retry");
   assert(afterRetry.completedSectionIds?.includes("basics"), "Basics section was not completed after retry");
 
-  // Reload must reconstruct UI drafts from the authoritative database state.
   await page.reload({ waitUntil: "domcontentloaded", timeout: 35_000 });
   await settle(page);
   await clickSection(page, "Основные сведения");
   assert((await page.getByLabel("Дата рождения").inputValue()) === "1990-01-02", "birthDate did not survive reload");
   assert((await page.getByLabel("Семейное положение").inputValue()) === "Не состою в браке", "maritalStatus did not survive reload");
 
-  // Two-tab optimistic concurrency: tab B advances server version while tab A
-  // keeps a local unsaved draft. Tab A must refresh server state without losing it.
   await clickSection(page, "Семья");
   const children = page.getByLabel("Количество детей");
   await children.fill("2");
@@ -191,12 +201,9 @@ try {
   assert(afterConflictRetry.answers.hasSpouse === false, "other-tab committed value was lost after conflict refresh");
   assert(afterConflictRetry.answers.childrenCount === 2, "preserved local draft did not save after conflict retry");
 
-  // Duplicate-click protection: while the first PATCH is deliberately delayed,
-  // a second click must not create a second mutation request.
   const dependentsYes = page.getByRole("button", { name: "Да" }).last();
   await dependentsYes.click();
-  const fieldsets = page.locator("fieldset");
-  const dependentsFieldset = fieldsets.filter({ hasText: "Есть другие иждивенцы?" }).first();
+  const dependentsFieldset = page.locator("fieldset").filter({ hasText: "Есть другие иждивенцы?" }).first();
   const dependentsSave = dependentsFieldset.getByRole("button", { name: "Сохранить поле" });
   let duplicatePatchCount = 0;
   await page.route(answersPattern, async (route) => {
@@ -209,8 +216,6 @@ try {
   await page.unroute(answersPattern);
   assert(duplicatePatchCount === 1, `duplicate click emitted ${duplicatePatchCount} PATCH requests`);
 
-  // Final completion must refuse genuinely unsaved required data. We verify the
-  // client guard without needing to finish the entire questionnaire fixture.
   await clickSection(page, "Основные сведения");
   await page.getByLabel("ФИО").fill("IBURO STAGING E2E UNSAVED");
   await clickSection(page, "Итоговая проверка");
