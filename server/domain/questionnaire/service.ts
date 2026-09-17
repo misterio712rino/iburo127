@@ -185,13 +185,20 @@ export class QuestionnaireService {
     const current = await this.requireQuestionnaire(actor, input.clientCaseId);
     assertMutable(current);
 
+    // The review UI has one final confirmation button; the review section is
+    // recorded atomically with COMPLETED, rather than requiring an invisible
+    // separate HTTP request that the client cannot issue safely.
     for (const section of this.definition.sections) {
-      if (!current.completedSectionIds.includes(section.id)) {
+      if (!section.review && !current.completedSectionIds.includes(section.id)) {
         throw new Error(QUESTIONNAIRE_INCOMPLETE);
       }
       assertSectionComplete(section, current.answers);
     }
 
-    return this.repository.markCompleted({ ...input, auditActorUserId: actor.userId });
+    return this.repository.markCompleted({
+      ...input,
+      reviewSectionIds: this.definition.reviewSectionIds,
+      auditActorUserId: actor.userId,
+    });
   }
 }
