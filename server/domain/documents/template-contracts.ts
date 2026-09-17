@@ -12,7 +12,8 @@ export interface DocumentTemplateRegistry {
 }
 
 export class EmptyDocumentTemplateRegistry implements DocumentTemplateRegistry {
-  async getActive(_documentCode: string): Promise<RegisteredDocumentTemplate | null> {
+  async getActive(documentCode: string): Promise<RegisteredDocumentTemplate | null> {
+    void documentCode;
     return null;
   }
 }
