@@ -279,6 +279,9 @@ export class PrismaQuestionnaireRepository implements QuestionnaireRepository {
           clientCase: { clientId: input.auditActorUserId },
         },
         data: {
+          // The client's final confirmation marks review and completion in the
+          // same version-checked transaction, with no intermediate 100% state.
+          completedSectionIds: [...new Set([...current.completedSectionIds, ...input.reviewSectionIds])],
           status: "COMPLETED",
           startedAt: current.startedAt ?? new Date(),
           completedAt: current.completedAt ?? new Date(),
