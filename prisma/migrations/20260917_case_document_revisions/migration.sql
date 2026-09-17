@@ -13,6 +13,8 @@ CREATE TABLE "CaseDocumentRevision" (
     "sourceDataHash" TEXT NOT NULL,
     "sourceData" JSONB NOT NULL,
     "status" "CaseDocumentRevisionStatus" NOT NULL DEFAULT 'DRAFT',
+    "createdByUserId" UUID NOT NULL,
+    "submittedByUserId" UUID,
     "submittedAt" TIMESTAMP(3),
     "reviewedByUserId" UUID,
     "reviewNote" TEXT,
@@ -31,10 +33,22 @@ CREATE UNIQUE INDEX "CaseDocumentRevision_caseDocumentId_revisionNumber_key" ON 
 CREATE INDEX "CaseDocumentRevision_caseDocumentId_status_createdAt_idx" ON "CaseDocumentRevision"("caseDocumentId", "status", "createdAt");
 
 -- CreateIndex
+CREATE INDEX "CaseDocumentRevision_createdByUserId_createdAt_idx" ON "CaseDocumentRevision"("createdByUserId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "CaseDocumentRevision_submittedByUserId_submittedAt_idx" ON "CaseDocumentRevision"("submittedByUserId", "submittedAt");
+
+-- CreateIndex
 CREATE INDEX "CaseDocumentRevision_reviewedByUserId_reviewedAt_idx" ON "CaseDocumentRevision"("reviewedByUserId", "reviewedAt");
 
 -- AddForeignKey
 ALTER TABLE "CaseDocumentRevision" ADD CONSTRAINT "CaseDocumentRevision_caseDocumentId_fkey" FOREIGN KEY ("caseDocumentId") REFERENCES "CaseDocument"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CaseDocumentRevision" ADD CONSTRAINT "CaseDocumentRevision_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CaseDocumentRevision" ADD CONSTRAINT "CaseDocumentRevision_submittedByUserId_fkey" FOREIGN KEY ("submittedByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "CaseDocumentRevision" ADD CONSTRAINT "CaseDocumentRevision_reviewedByUserId_fkey" FOREIGN KEY ("reviewedByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
