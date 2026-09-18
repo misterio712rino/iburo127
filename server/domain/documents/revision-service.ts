@@ -2,15 +2,21 @@ import { clientPlanHasHumanSupport } from "@/lib/platform/client-plan-entitlemen
 import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
 import { ClientCaseService } from "@/server/domain/client-cases/service";
 import type { CaseDocumentRepository } from "@/server/domain/documents/contracts";
+import { assertRenderedArtifactReadyForApproval } from "@/server/domain/documents/revision-approval-guard";
 import {
   DOCUMENT_REVISION_INVALID_SOURCE,
   DOCUMENT_REVISION_INVALID_TRANSITION,
   DOCUMENT_REVISION_NOT_FOUND,
+  type CaseDocumentRevisionRecord,
   type CaseDocumentRevisionRepository,
   type DocumentSourceValue,
 } from "@/server/domain/documents/revision-contracts";
 import { assertSha256, hashDocumentSource } from "@/server/domain/documents/revision-source";
-import { buildDocumentSourceDraft } from "@/server/domain/documents/source-draft";
+import {
+  buildDocumentSourceDraft,
+  verifyDocumentSourceDraftIntegrity,
+  type DocumentSourceDraft,
+} from "@/server/domain/documents/source-draft";
 import {
   DOCUMENT_TEMPLATE_NOT_REGISTERED,
   type DocumentTemplateRegistry,
@@ -22,6 +28,20 @@ export const DOCUMENT_REVISION_CASE_NOT_FOUND = "DOCUMENT_REVISION_CASE_NOT_FOUN
 
 function toDocumentSourceValue(value: unknown): DocumentSourceValue {
   return JSON.parse(JSON.stringify(value)) as DocumentSourceValue;
+}
+
+function assertRevisionSourceIntegrity(revision: CaseDocumentRevisionRecord) {
+  if (hashDocumentSource(revision.sourceData) !== revision.sourceDataHash) {
+    throw new Error(DOCUMENT_REVISION_INVALID_SOURCE);
+  }
+  const draft = revision.sourceData as unknown as DocumentSourceDraft;
+  if (
+    !verifyDocumentSourceDraftIntegrity(draft) ||
+    draft.documentCode !== revision.templateCode ||
+    draft.questionnaireVersion !== revision.questionnaireVersion
+  ) {
+    throw new Error(DOCUMENT_REVISION_INVALID_SOURCE);
+  }
 }
 
 export class CaseDocumentRevisionService {
@@ -63,6 +83,21 @@ export class CaseDocumentRevisionService {
     const document = await this.documents.getByCaseAndCode(clientCaseId, documentCode, actor);
     if (!document) throw new Error(DOCUMENT_REVISION_NOT_FOUND);
     return document;
+  }
+
+  private async requireLatestRevision(
+    caseDocumentId: string,
+    revisionId: string,
+  ) {
+    const revision = await this.revisions.getById(revisionId);
+    if (!revision || revision.caseDocumentId !== caseDocumentId) {
+      throw new Error(DOCUMENT_REVISION_NOT_FOUND);
+    }
+    const latest = await this.revisions.getLatest(caseDocumentId);
+    if (!latest || latest.id !== revision.id) {
+      throw new Error(DOCUMENT_REVISION_INVALID_TRANSITION);
+    }
+    return revision;
   }
 
   async getLatest(actor: AuthenticatedActor, clientCaseId: string, documentCode: string) {
@@ -124,12 +159,13 @@ export class CaseDocumentRevisionService {
       throw new Error(DOCUMENT_REVISION_FORBIDDEN);
     }
     const document = await this.requireDocument(actor, input.clientCaseId, input.documentCode);
-    const revision = await this.revisions.getById(input.revisionId);
-    if (!revision || revision.caseDocumentId !== document.id) throw new Error(DOCUMENT_REVISION_NOT_FOUND);
+    const revision = await this.requireLatestRevision(document.id, input.revisionId);
     if (revision.status !== "DRAFT" && revision.status !== "CHANGES_REQUESTED") {
       throw new Error(DOCUMENT_REVISION_INVALID_TRANSITION);
     }
-    if (hashDocumentSource(revision.sourceData) !== revision.sourceDataHash) {
+    assertRevisionSourceIntegrity(revision);
+    const latestQuestionnaire = await this.questionnaires.getByClientCaseId(input.clientCaseId, actor);
+    if (!latestQuestionnaire || latestQuestionnaire.version !== revision.questionnaireVersion) {
       throw new Error(DOCUMENT_REVISION_INVALID_SOURCE);
     }
     const activeTemplate = await this.templates.getActive(input.documentCode);
@@ -157,9 +193,9 @@ export class CaseDocumentRevisionService {
   ) {
     await this.requireReviewer(actor, input.clientCaseId);
     const document = await this.requireDocument(actor, input.clientCaseId, input.documentCode);
-    const revision = await this.revisions.getById(input.revisionId);
-    if (!revision || revision.caseDocumentId !== document.id) throw new Error(DOCUMENT_REVISION_NOT_FOUND);
+    const revision = await this.requireLatestRevision(document.id, input.revisionId);
     if (revision.status !== "IN_REVIEW") throw new Error(DOCUMENT_REVISION_INVALID_TRANSITION);
+    assertRevisionSourceIntegrity(revision);
     const reviewNote = input.reviewNote.trim();
     if (!reviewNote || reviewNote.length > 4000) throw new Error(DOCUMENT_REVISION_INVALID_SOURCE);
     return this.revisions.requestChanges({
@@ -180,19 +216,15 @@ export class CaseDocumentRevisionService {
   ) {
     await this.requireReviewer(actor, input.clientCaseId);
     const document = await this.requireDocument(actor, input.clientCaseId, input.documentCode);
-    const revision = await this.revisions.getById(input.revisionId);
-    if (!revision || revision.caseDocumentId !== document.id) throw new Error(DOCUMENT_REVISION_NOT_FOUND);
+    const revision = await this.requireLatestRevision(document.id, input.revisionId);
     if (revision.status !== "IN_REVIEW") throw new Error(DOCUMENT_REVISION_INVALID_TRANSITION);
-    if (hashDocumentSource(revision.sourceData) !== revision.sourceDataHash) {
-      throw new Error(DOCUMENT_REVISION_INVALID_SOURCE);
-    }
+    assertRevisionSourceIntegrity(revision);
     assertSha256(revision.templateSourceHash);
     const reviewNote = input.reviewNote?.trim() || null;
     if (reviewNote && reviewNote.length > 4000) throw new Error(DOCUMENT_REVISION_INVALID_SOURCE);
-    return this.revisions.approve({
-      revisionId: revision.id,
-      reviewerUserId: actor.userId,
-      reviewNote,
-    });
+
+    // No PDF/DOCX has been rendered and bound to this revision yet. A human
+    // decision on a source summary must never be recorded as court-document approval.
+    return assertRenderedArtifactReadyForApproval(revision, null);
   }
 }
