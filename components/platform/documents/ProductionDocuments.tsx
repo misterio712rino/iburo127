@@ -45,7 +45,7 @@ const STATUS_LABELS: Record<DocumentStatus, string> = {
   DRAFT: "Черновик",
   READY_FOR_REVIEW: "Готов к проверке",
   SENT_FOR_REVIEW: "Передан на проверку",
-  REVIEWED: "Проверен",
+  REVIEWED: "Историческая отметка (без файла)",
 };
 
 function staffReviewPriority(status: DocumentStatus | undefined) {
@@ -58,7 +58,7 @@ function staffReviewPriority(status: DocumentStatus | undefined) {
 }
 
 function clientStatusClass(status: DocumentStatus | undefined) {
-  if (status === "REVIEWED") return "bg-emerald-50 text-emerald-700";
+  if (status === "REVIEWED") return "bg-amber-50 text-amber-800";
   if (status === "SENT_FOR_REVIEW") return "bg-sky-50 text-sky-700";
   if (status === "READY_FOR_REVIEW") return "bg-primary/10 text-primary";
   if (status === "WAITING_DATA") return "bg-amber-50 text-amber-700";
@@ -176,8 +176,7 @@ export function ProductionDocuments({
   if (canClientEdit) {
     const prepared = documents.filter((document) =>
       document.status === "READY_FOR_REVIEW" ||
-      document.status === "SENT_FOR_REVIEW" ||
-      document.status === "REVIEWED",
+      document.status === "SENT_FOR_REVIEW",
     ).length;
     const drafts = documents.filter((document) => document.status === "DRAFT").length;
     const reviewed = documents.filter((document) => document.status === "REVIEWED").length;
@@ -189,8 +188,8 @@ export function ProductionDocuments({
     const description = questionnaire.percent < 100
       ? `Анкета заполнена на ${questionnaire.percent}%. По мере заполнения данных комплект документов будет становиться полнее.`
       : prepared > 0
-        ? "Данные анкеты заполнены. Проверьте подготовленные материалы и передайте готовые документы специалисту."
-        : "Данные анкеты заполнены. Можно начать формирование черновиков документов.";
+        ? "Данные анкеты заполнены. Проверьте сведения и передайте их специалисту. Судебные файлы пока не сформированы."
+        : "Данные анкеты заполнены. Можно начать подготовку черновиков данных документов.";
 
     return (
       <div className="mt-8 flex min-w-0 flex-col gap-7 sm:gap-9">
@@ -204,6 +203,7 @@ export function ProductionDocuments({
             <p className="text-xs font-bold uppercase tracking-[.16em] opacity-75">Подготовка документов</p>
             <h2 className="mt-5 max-w-3xl break-words text-3xl font-semibold tracking-[-.045em] sm:text-4xl">{title}</h2>
             <p className="mt-4 max-w-2xl text-sm leading-6 opacity-80 sm:text-base">{description}</p>
+            <p className="mt-3 max-w-2xl text-sm leading-6 opacity-90">В разделе отображаются статусы подготовки данных, а не готовые судебные PDF/DOCX. Утверждённые файлы для скачивания отсутствуют.</p>
             {documents.length === 0 && questionnaire.percent > 0 ? (
               <p className="mt-7 inline-flex items-center gap-2 text-sm font-semibold"><ArrowRight className="size-4" aria-hidden="true" />Создайте первый черновик в комплекте ниже</p>
             ) : null}
@@ -216,7 +216,7 @@ export function ProductionDocuments({
               <h2 id="document-list-title" className="text-2xl font-semibold tracking-[-.04em] sm:text-3xl">Комплект документов</h2>
               <p className="mt-2 text-sm text-muted-foreground">{drafts ? `${drafts} черновика подготовлены по имеющимся сведениям.` : "Статусы обновляются вместе с данными анкеты."}</p>
             </div>
-            <p className="text-xs text-muted-foreground">{reviewed ? `Проверено специалистом: ${reviewed}` : "Черновики документов"}</p>
+            <p className="text-xs text-muted-foreground">{reviewed ? `Исторических отметок без файла: ${reviewed}` : "Черновики документов"}</p>
           </div>
 
           <div className="mt-5 grid min-w-0 gap-4 md:grid-cols-2">
@@ -258,8 +258,8 @@ export function ProductionDocuments({
                     ) : null}
                   </div>
                   {document?.status === "WAITING_DATA" ? <p className="mt-4 text-xs leading-5 text-amber-700">Для подготовки документа пока недостаточно данных анкеты.</p> : null}
-                  {document?.status === "SENT_FOR_REVIEW" ? <p className="mt-4 text-xs font-semibold text-sky-700">Документ находится у специалиста на проверке.</p> : null}
-                  {document?.status === "REVIEWED" ? <p className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-emerald-700"><CheckCircle2 className="size-4" aria-hidden="true" />Проверка специалистом завершена.</p> : null}
+                  {document?.status === "SENT_FOR_REVIEW" ? <p className="mt-4 text-xs font-semibold text-sky-700">Данные переданы специалисту. Проверенный файл ещё не сформирован.</p> : null}
+                  {document?.status === "REVIEWED" ? <p className="mt-4 text-xs font-semibold leading-5 text-amber-800">Нет утверждённого файла. Это исторический статус старой системы, который не подтверждает проверку конкретного PDF/DOCX и не даёт права скачивания.</p> : null}
                   {pendingForDocument ? <span className="sr-only" role="status">Выполняется действие с документом</span> : null}
                 </article>
               );
@@ -274,8 +274,8 @@ export function ProductionDocuments({
             <Link href={`/portal/cases/${caseId}/questionnaire`} className={cn(buttonVariants({ variant: "outline" }), "mt-5 min-h-11 w-full rounded-full px-4 py-3 sm:w-auto")}>Открыть анкету<ArrowRight data-icon="inline-end" /></Link>
           </PlatformCard>
           <PlatformCard className="min-w-0 p-5 sm:p-6">
-            <div className="flex gap-4"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-primary"><ShieldCheck className="size-5" aria-hidden="true" /></span><div className="min-w-0"><h2 className="font-semibold">Проверка специалистом</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">Специалист iБюро проверит содержание перед использованием документов. Автоматически подготовленный черновик не является готовым судебным документом.</p></div></div>
-            <div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground"><FileCheck2 className="size-4 text-primary" aria-hidden="true" />Следующий этап после вашей проверки</div>
+            <div className="flex gap-4"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-primary"><ShieldCheck className="size-5" aria-hidden="true" /></span><div className="min-w-0"><h2 className="font-semibold">Проверка специалистом</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">Специалист iБюро сможет проверить конкретный документ только после формирования файла и привязки его к версии исходных данных. Статусы подготовки не означают утверждение судебного документа.</p></div></div>
+            <div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground"><FileCheck2 className="size-4 text-primary" aria-hidden="true" />Проверка файлов пока недоступна</div>
           </PlatformCard>
         </section>
       </div>
@@ -287,7 +287,7 @@ export function ProductionDocuments({
       {error ? <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
       {canReview ? (
         <div className={`rounded-2xl border px-4 py-4 ${reviewCount > 0 ? "border-[#7B2330]/20 bg-[#7B2330]/[0.04]" : "border-emerald-200 bg-emerald-50/70"}`}>
-          <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Очередь проверки</p><p className="mt-1 text-lg font-bold text-slate-900">Ожидают проверки: {reviewCount}</p><p className="mt-1 text-sm leading-6 text-slate-600">{reviewCount > 0 ? "Переданные клиентом документы показаны первыми. Подтверждайте проверку после фактического просмотра документа." : "Новых документов, переданных клиентом на проверку, сейчас нет."}</p>
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Очередь проверки</p><p className="mt-1 text-lg font-bold text-slate-900">Ожидают проверки: {reviewCount}</p><p className="mt-1 text-sm leading-6 text-slate-600">Подтверждение проверки недоступно: старые статусы не привязаны к конкретному сформированному PDF/DOCX. Данные и исторические записи сохраняются; дождитесь механизма проверки версии файла.</p>
         </div>
       ) : null}
       <div className="grid gap-4 md:grid-cols-2">
@@ -299,9 +299,9 @@ export function ProductionDocuments({
             <article key={definition.id} className={`rounded-[28px] border bg-white/80 p-6 ${requiresReview ? "border-[#7B2330]/30 shadow-[0_12px_40px_rgba(123,35,48,0.08)]" : "border-slate-200"}`}>
               <div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-slate-100 text-slate-600"><FileText className="size-5" aria-hidden="true" /></span><div className="min-w-0"><p className="text-lg font-bold leading-6 text-slate-900">{definition.title}</p><p className="mt-2 text-sm leading-6 text-slate-500">{definition.description}</p></div></div>
               <div className="mt-5 flex flex-wrap items-center gap-2">{document ? <><span className={`rounded-full px-3 py-1.5 text-xs font-semibold ${requiresReview ? "bg-[#7B2330]/10 text-[#7B2330]" : "bg-slate-100 text-slate-700"}`}>{STATUS_LABELS[document.status]}</span></> : <span className="rounded-full border border-dashed border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-400">Не создан</span>}</div>
-              <div className="mt-5 flex flex-wrap gap-2">{document && canReview && document.status === "SENT_FOR_REVIEW" ? <ActionButton pending={pendingKey === `${definition.id}:review`} disabled={Boolean(pendingKey)} onClick={() => mutate(definition.id, "review")} label="Подтвердить проверку" icon="review" /> : null}</div>
+              <div className="mt-5 flex flex-wrap gap-2">{document && canReview && document.status === "SENT_FOR_REVIEW" ? <ActionButton pending={false} disabled onClick={() => mutate(definition.id, "review")} label="Подтверждение проверки недоступно" icon="review" /> : null}</div>
               {document?.status === "WAITING_DATA" ? <p className="mt-4 text-xs leading-5 text-amber-700">Для подготовки документа пока недостаточно данных анкеты.</p> : null}
-              {document?.status === "REVIEWED" ? <p className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-emerald-700"><CheckCircle2 className="size-4" aria-hidden="true" />Проверка специалистом завершена.</p> : null}
+              {document?.status === "REVIEWED" ? <p className="mt-4 text-xs font-semibold leading-5 text-amber-800">Нет утверждённого файла. Историческая отметка старой системы не подтверждает проверку конкретного PDF/DOCX.</p> : null}
               {pendingForDocument ? <span className="sr-only" aria-live="polite">Выполняется действие</span> : null}
             </article>
           );
