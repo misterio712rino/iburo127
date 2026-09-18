@@ -1,5 +1,6 @@
 import "server-only";
 
+import { PRACTICUM_LESSON_IDS } from "@/lib/platform/practicum-content";
 import { getPrismaClient } from "@/server/database/prisma";
 import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
 import { computePracticumCompletion } from "@/server/domain/practicum/completion";
@@ -52,7 +53,12 @@ function toRecord(row: {
   createdAt: Date;
   updatedAt: Date;
 }): PracticumProgressRecord {
-  return row;
+  // Historical writes could mark the program complete upon lesson 12 alone.
+  // Do not expose those false positives as a completed program. A later valid
+  // lesson mutation corrects the persisted timestamp with an optimistic lock.
+  const completed = new Set(row.completedLessonIds);
+  const allLessonsComplete = PRACTICUM_LESSON_IDS.every((id) => completed.has(id));
+  return { ...row, completedAt: allLessonsComplete ? row.completedAt : null };
 }
 
 export class PrismaPracticumProgressRepository implements PracticumProgressRepository {
