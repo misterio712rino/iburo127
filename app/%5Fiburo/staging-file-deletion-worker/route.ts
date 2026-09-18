@@ -4,9 +4,15 @@ import {
   VERCEL_STAGING_BRANCH,
   isVercelPreviewBackendAllowed,
 } from "@/server/config/vercel-preview-boundary";
+import { getPrismaClient } from "@/server/database/prisma";
 import { readStoredFileDeletionMode } from "@/server/files/deletion-mode";
 import { getStoredFileDeletionWorker } from "@/server/files/deletion-worker-runtime";
+import { getPrivateObjectStorage } from "@/server/files/object-storage-runtime";
 import { PrismaStoredFileDeletionRepository } from "@/server/repositories/prisma/stored-file-deletion-repository";
+import {
+  TECHNICAL_E2E_CLIENT,
+  TECHNICAL_E2E_MUTATION_CASE_NUMBER,
+} from "@/server/staging/technical-e2e-fixture";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -50,6 +56,40 @@ function unavailable(status = 404, errorCode?: string) {
   );
 }
 
+// This destructive proof must never accept an arbitrary staging file UUID. The
+// deletion intent persists the immutable case, requester, provider and object
+// key even after StoredFile has been removed, so verify all of them before the
+// worker can claim a deletion. No user or object identifiers are returned.
+async function isDedicatedTechnicalDeletion(target: {
+  clientCaseId: string;
+  requestedByUserId: string;
+  storageProvider: string;
+  objectKey: string;
+}): Promise<boolean> {
+  const prisma = getPrismaClient();
+  const [technicalClient, technicalCase] = await Promise.all([
+    prisma.user.findUnique({
+      where: { email: TECHNICAL_E2E_CLIENT.email },
+      select: { id: true },
+    }),
+    prisma.clientCase.findUnique({
+      where: { caseNumber: TECHNICAL_E2E_MUTATION_CASE_NUMBER },
+      select: { id: true, clientId: true },
+    }),
+  ]);
+  if (
+    !technicalClient ||
+    !technicalCase ||
+    technicalCase.clientId !== technicalClient.id ||
+    target.clientCaseId !== technicalCase.id ||
+    target.requestedByUserId !== technicalClient.id ||
+    !target.objectKey.startsWith(`cases/${technicalCase.id}/`)
+  ) {
+    return false;
+  }
+  return target.storageProvider === getPrivateObjectStorage().providerCode;
+}
+
 export async function POST(request: Request) {
   const env = process.env;
   const commitSha = exactPreviewCommitSha(env);
@@ -79,7 +119,9 @@ export async function POST(request: Request) {
 
     const repository = new PrismaStoredFileDeletionRepository();
     let target = await repository.getByFileId(fileId);
-    if (!target) return unavailable(404, "STAGING_FILE_DELETION_NOT_FOUND");
+    if (!target || !(await isDedicatedTechnicalDeletion(target))) {
+      return unavailable(404, "STAGING_FILE_DELETION_NOT_FOUND");
+    }
 
     const totals = {
       claimed: 0,
