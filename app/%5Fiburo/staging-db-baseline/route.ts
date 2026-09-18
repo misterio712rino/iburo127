@@ -5,6 +5,7 @@ import {
   REQUIRED_STAGING_ENUMS,
   REQUIRED_STORED_FILE_SCAN_COLUMNS,
   REQUIRED_STORED_FILE_STATUS_VALUES,
+  assertDocumentRevisionSchemaContract,
   assertStagingSchemaContract,
 } from "@/scripts/staging-schema-contract";
 import { requireStagingDatabaseTarget } from "@/scripts/staging-target-guard";
@@ -29,6 +30,7 @@ const EXPECTED_PRISMA_MIGRATIONS = [
   "20260905_practicum_homework_lesson_chat",
   "20260906_stored_file_deletion_foundation",
 ] as const;
+const DOCUMENT_REVISION_MIGRATION = "20260917_case_document_revisions";
 const BETTER_AUTH_TABLES = [
   "user",
   "session",
@@ -82,10 +84,19 @@ function unavailable(status = 404, failureStage?: ProbeFailureStage) {
   );
 }
 
-function matchesExpectedMigrationHistory(appliedMigrations: readonly MigrationRow[]) {
-  if (appliedMigrations.length !== EXPECTED_PRISMA_MIGRATIONS.length) return false;
+// Accept only the reviewed legacy baseline or that baseline plus the single
+// optional document-revision migration. A partial, unknown or duplicated history
+// fails closed; legacy PASS must never be mistaken for revision readiness.
+function documentRevisionMigrationApplied(appliedMigrations: readonly MigrationRow[]): boolean | null {
   const appliedNames = new Set(appliedMigrations.map((row) => row.migration_name));
-  return EXPECTED_PRISMA_MIGRATIONS.every((name) => appliedNames.has(name));
+  if (appliedNames.size !== appliedMigrations.length) return null;
+  if (!EXPECTED_PRISMA_MIGRATIONS.every((name) => appliedNames.has(name))) return null;
+  if (appliedMigrations.length === EXPECTED_PRISMA_MIGRATIONS.length) return false;
+  if (
+    appliedMigrations.length === EXPECTED_PRISMA_MIGRATIONS.length + 1 &&
+    appliedNames.has(DOCUMENT_REVISION_MIGRATION)
+  ) return true;
+  return null;
 }
 
 export async function GET() {
@@ -212,8 +223,16 @@ export async function GET() {
       });
 
       failureStage = "prisma-history";
-      if (unfinishedMigrations.length !== 0 || !matchesExpectedMigrationHistory(appliedMigrations)) {
+      const revisionMigrationApplied = documentRevisionMigrationApplied(appliedMigrations);
+      if (unfinishedMigrations.length !== 0 || revisionMigrationApplied === null) {
         throw new Error("staging Prisma migration history does not match the reviewed migration set");
+      }
+      const revisionTablePresent = tableSet.has("CaseDocumentRevision");
+      const revisionEnumPresent = enumNames.includes("CaseDocumentRevisionStatus");
+      if (revisionMigrationApplied) {
+        assertDocumentRevisionSchemaContract({ tables: tableNames, enums: enumNames });
+      } else if (revisionTablePresent || revisionEnumPresent) {
+        throw new Error("untracked document revision schema drift");
       }
 
       const presentDomainTables = REQUIRED_STAGING_DOMAIN_TABLES.filter((name) => tableSet.has(name));
@@ -271,6 +290,10 @@ export async function GET() {
             appliedCount: appliedMigrations.length,
             unfinishedCount: unfinishedMigrations.length,
             expectedCount: EXPECTED_PRISMA_MIGRATIONS.length,
+            documentRevision: {
+              migrationApplied: revisionMigrationApplied,
+              schemaReady: revisionMigrationApplied,
+            },
             pass: true,
           },
           betterAuth: {
