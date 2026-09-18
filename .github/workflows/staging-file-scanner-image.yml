@@ -88,7 +88,7 @@ jobs:
           docker build --pull=false --build-arg IB_SCANNER_SEED_SIGNATURES=1 --tag "$image_tag" services/file-scanner
           printf '%s' "$iam_token" | docker login cr.yandex --username iam --password-stdin
           docker push "$image_tag"
-          image_digest="sha256:$(docker buildx imagetools inspect "$image_tag" --raw | sha256sum | awk '{print $1}')"
+          image_digest="$(docker buildx imagetools inspect "$image_tag" --format '{{.Digest}}')"
           [[ "$image_digest" =~ ^sha256:[a-f0-9]{64}$ ]]
           immutable_image="${image_repository}@${image_digest}"
           echo "STAGING_FILE_SCANNER_IMAGE_CANDIDATE_SHA=$GITHUB_SHA"
