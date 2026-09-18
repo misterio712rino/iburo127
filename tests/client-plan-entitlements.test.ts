@@ -20,6 +20,7 @@ import type {
 import {
   CaseDocumentService,
   DOCUMENT_FORBIDDEN,
+  DOCUMENT_INVALID_TRANSITION,
 } from "@/server/domain/documents/service";
 import type { QuestionnaireService } from "@/server/domain/questionnaire/service";
 import { STAGING_PLAN_FEATURE_CODES } from "@/server/staging/domain-fixtures";
@@ -214,15 +215,19 @@ const sent = await documentService.sendForReview(client, {
   expectedVersion: documentRepository.current.version,
 });
 assert.equal(sent.status, "SENT_FOR_REVIEW");
-assert.equal(documentRepository.sendCalls, 1, "PRO must retain human document review");
+assert.equal(documentRepository.sendCalls, 1, "PRO must retain access to the human review queue");
 
-const reviewed = await documentService.markReviewed(assignedLawyer, {
-  clientCaseId: proCase.id,
-  documentCode: "petition",
-  expectedVersion: documentRepository.current.version,
-});
-assert.equal(reviewed.status, "REVIEWED");
-assert.equal(documentRepository.reviewCalls, 1);
+await assert.rejects(
+  documentService.markReviewed(assignedLawyer, {
+    clientCaseId: proCase.id,
+    documentCode: "petition",
+    expectedVersion: documentRepository.current.version,
+  }),
+  new RegExp(DOCUMENT_INVALID_TRANSITION),
+  "PRO entitlement must not override the immutable artifact approval requirement",
+);
+assert.equal(documentRepository.reviewCalls, 0, "legacy approval must never persist without a rendered file");
+assert.equal(documentRepository.current.status, "SENT_FOR_REVIEW");
 
 caseRepository.current = liteCase;
 documentRepository.current = {
@@ -240,6 +245,6 @@ await assert.rejects(
   /DOCUMENT_(?:CASE_NOT_FOUND|FORBIDDEN)/,
   "LITE must reject lawyer review even if stale data still carries an assignment",
 );
-assert.equal(documentRepository.reviewCalls, 1);
+assert.equal(documentRepository.reviewCalls, 0);
 
 console.log("CLIENT_PLAN_ENTITLEMENTS_TEST_PASS");
