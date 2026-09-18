@@ -132,4 +132,39 @@ assert.match(
   "Postbox verifier must not expose configured credential values",
 );
 
+const maintenanceHealthRoute = await readFile(
+  resolve(stagingRoot, "staging-maintenance-health", "route.ts"),
+  "utf8",
+);
+assert.match(
+  maintenanceHealthRoute,
+  /const inventory = buildStagingEnvironmentInventory\(env\);/,
+  "aggregate health must check the real staging environment, not only queue counts",
+);
+assert.match(
+  maintenanceHealthRoute,
+  /maintenance:\s*inventory\.phases\.maintenance\.ready/,
+  "missing maintenance worker credentials and origin must block readiness",
+);
+assert.match(
+  maintenanceHealthRoute,
+  /scanner:\s*inventory\.phases\.scanner\.ready/,
+  "an inactive or unconfigured scanner must block readiness even if the queue is empty",
+);
+assert.match(
+  maintenanceHealthRoute,
+  /fileDeletion:\s*durableDeletionMode && inventory\.phases\.maintenance\.ready/,
+  "durable deletion readiness must require both the deletion mode and maintenance configuration",
+);
+assert.match(
+  maintenanceHealthRoute,
+  /Object\.values\(configuration\)\.every\(\(ready\) => ready === true\)/,
+  "the final pass result must fail closed on any missing configuration",
+);
+assert.match(
+  maintenanceHealthRoute,
+  /status: pass \? 200 : 503/,
+  "the health endpoint must return non-success HTTP status for incomplete readiness",
+);
+
 console.log("STAGING_INTERNAL_ROUTE_BOUNDARY_CONTRACT_PASS");
