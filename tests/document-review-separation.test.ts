@@ -17,6 +17,7 @@ import type {
 import {
   CaseDocumentService,
   DOCUMENT_FORBIDDEN,
+  DOCUMENT_INVALID_TRANSITION,
 } from "@/server/domain/documents/service";
 import type { QuestionnaireService } from "@/server/domain/questionnaire/service";
 
@@ -233,13 +234,17 @@ const assignedLawyer: AuthenticatedActor = {
   userId: "lawyer-1",
   roles: ["LAWYER"],
 };
-const reviewed = await service.markReviewed(assignedLawyer, {
-  clientCaseId: clientCase.id,
-  documentCode: "petition",
-  expectedVersion: repository.current.version,
-});
-assert.equal(reviewed.status, "REVIEWED");
-assert.equal(repository.reviewCalls, 1, "the assigned LAWYER must retain review capability");
+await assert.rejects(
+  service.markReviewed(assignedLawyer, {
+    clientCaseId: clientCase.id,
+    documentCode: "petition",
+    expectedVersion: repository.current.version,
+  }),
+  new RegExp(DOCUMENT_INVALID_TRANSITION),
+  "a legacy review without a verified immutable artifact must fail closed even for the assigned lawyer",
+);
+assert.equal(repository.reviewCalls, 0, "legacy review must not mutate the database or notify clients");
+assert.equal(repository.current.status, "SENT_FOR_REVIEW", "review denial must preserve case history");
 
 const documentsUiSource = await readFile(
   resolve("components/platform/documents/ProductionDocuments.tsx"),
@@ -252,7 +257,10 @@ assert.match(
 );
 assert.match(documentsUiSource, /document\.status === "SENT_FOR_REVIEW"/);
 assert.match(documentsUiSource, /Ожидают проверки: \{reviewCount\}/);
-assert.match(documentsUiSource, /Подтвердить проверку/);
+assert.match(documentsUiSource, /Подтверждение проверки недоступно/);
+assert.doesNotMatch(documentsUiSource, /Подтвердить проверку/);
+assert.doesNotMatch(documentsUiSource, /Проверка специалистом завершена/);
+assert.match(documentsUiSource, /Нет утверждённого файла/);
 assert.match(
   documentsUiSource,
   /canClientEdit \? \(/,
