@@ -150,7 +150,7 @@ requireEventType(newEvents, "questionnaire.answer.updated");
 requireEventType(newEvents, "practicum.lesson.completed");
 requireEventType(newEvents, "document.regenerated");
 requireEventType(newEvents, "document.sent_for_review");
-requireEventType(newEvents, "document.reviewed");
+rejectEventType(newEvents, "document.reviewed");
 requireEventType(newEvents, "task.status.changed");
 
 if (process.env.IB_STAGING_FILES_E2E?.trim() === "1") {
@@ -165,5 +165,5 @@ if (process.env.IB_STAGING_FILES_E2E?.trim() === "1") {
   }
 }
 
-console.log("AUDIT: expected cross-workflow events, quarantine boundary and metadata redaction verified");
+console.log("AUDIT: expected cross-workflow events, denied legacy document approval, quarantine boundary and metadata redaction verified");
 console.log("STAGING_HTTP_MUTATION_AUDIT_PASS");
