@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 
 import {
+  assertDocumentRevisionSchemaContract,
   assertStagingSchemaContract,
+  REQUIRED_DOCUMENT_REVISION_ENUMS,
+  REQUIRED_DOCUMENT_REVISION_TABLES,
   REQUIRED_STAGING_DOMAIN_TABLES,
   REQUIRED_STAGING_ENUMS,
   REQUIRED_STORED_FILE_SCAN_COLUMNS,
@@ -26,12 +29,29 @@ const validInput = {
 
 assert.ok(REQUIRED_STAGING_DOMAIN_TABLES.includes("UserSecurityEvent"));
 assert.ok(REQUIRED_STAGING_DOMAIN_TABLES.includes("StoredFileDeletion"));
-assert.ok(REQUIRED_STAGING_DOMAIN_TABLES.includes("CaseDocumentRevision"));
+assert.ok(!REQUIRED_STAGING_DOMAIN_TABLES.some((name) => name === "CaseDocumentRevision"));
 assert.ok(REQUIRED_STAGING_ENUMS.includes("StoredFileDeletionStatus"));
-assert.ok(REQUIRED_STAGING_ENUMS.includes("CaseDocumentRevisionStatus"));
+assert.ok(!REQUIRED_STAGING_ENUMS.some((name) => name === "CaseDocumentRevisionStatus"));
+assert.deepEqual([...REQUIRED_DOCUMENT_REVISION_TABLES], ["CaseDocumentRevision"]);
+assert.deepEqual([...REQUIRED_DOCUMENT_REVISION_ENUMS], ["CaseDocumentRevisionStatus"]);
 assert.ok(REQUIRED_STORED_FILE_STATUS_VALUES.includes("QUARANTINED"));
 assert.ok(REQUIRED_STORED_FILE_SCAN_COLUMNS.includes("scanLeaseToken"));
 assert.doesNotThrow(() => assertStagingSchemaContract(validInput));
+assert.throws(
+  () => assertDocumentRevisionSchemaContract(validInput),
+  /document revision schema not ready: tables=CaseDocumentRevision; enums=CaseDocumentRevisionStatus/,
+);
+assert.throws(
+  () => assertDocumentRevisionSchemaContract({
+    tables: [...validInput.tables, ...REQUIRED_DOCUMENT_REVISION_TABLES],
+    enums: validInput.enums,
+  }),
+  /document revision schema not ready: tables=none; enums=CaseDocumentRevisionStatus/,
+);
+assert.doesNotThrow(() => assertDocumentRevisionSchemaContract({
+  tables: [...validInput.tables, ...REQUIRED_DOCUMENT_REVISION_TABLES],
+  enums: [...validInput.enums, ...REQUIRED_DOCUMENT_REVISION_ENUMS],
+}));
 
 const stagingTargetEnv = {
   IB_DB_TARGET: "staging",
@@ -92,15 +112,6 @@ assert.throws(
   () =>
     assertStagingSchemaContract({
       ...validInput,
-      tables: validInput.tables.filter((tableName) => tableName !== "CaseDocumentRevision"),
-    }),
-  /missing required domain tables: CaseDocumentRevision/,
-);
-
-assert.throws(
-  () =>
-    assertStagingSchemaContract({
-      ...validInput,
       enums: validInput.enums.filter((enumName) => enumName !== "ClientCaseStatus"),
     }),
   /missing required domain enums: ClientCaseStatus/,
@@ -115,17 +126,6 @@ assert.throws(
       ),
     }),
   /missing required domain enums: StoredFileDeletionStatus/,
-);
-
-assert.throws(
-  () =>
-    assertStagingSchemaContract({
-      ...validInput,
-      enums: validInput.enums.filter(
-        (enumName) => enumName !== "CaseDocumentRevisionStatus",
-      ),
-    }),
-  /missing required domain enums: CaseDocumentRevisionStatus/,
 );
 
 assert.throws(
