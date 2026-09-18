@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 
 import {
   assertDocumentRevisionSchemaContract,
@@ -203,5 +205,19 @@ assert.throws(
     }),
   /applied migration count must be a non-negative integer/,
 );
+
+const stagingBaselineSource = await readFile(
+  resolve("app/%5Fiburo/staging-db-baseline/route.ts"),
+  "utf8",
+);
+assert.match(stagingBaselineSource, /client\.query\("BEGIN READ ONLY"\)/);
+assert.match(stagingBaselineSource, /DOCUMENT_REVISION_MIGRATION = "20260917_case_document_revisions"/);
+assert.match(stagingBaselineSource, /appliedNames\.size !== appliedMigrations\.length/);
+assert.match(stagingBaselineSource, /EXPECTED_PRISMA_MIGRATIONS\.every\(\(name\) => appliedNames\.has\(name\)\)/);
+assert.match(stagingBaselineSource, /revisionMigrationApplied === null/);
+assert.match(stagingBaselineSource, /assertDocumentRevisionSchemaContract\(\{ tables: tableNames, enums: enumNames \}\)/);
+assert.match(stagingBaselineSource, /else if \(revisionTablePresent \|\| revisionEnumPresent\)/);
+assert.match(stagingBaselineSource, /documentRevision: \{\s*migrationApplied: revisionMigrationApplied,\s*schemaReady: revisionMigrationApplied,/);
+assert.doesNotMatch(stagingBaselineSource, /expectedCount: EXPECTED_PRISMA_MIGRATIONS\.length \+ 1/);
 
 console.log("STAGING_SCHEMA_CONTRACT_TEST_PASS");
