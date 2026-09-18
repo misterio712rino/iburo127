@@ -29,9 +29,9 @@ const validInput = {
 
 assert.ok(REQUIRED_STAGING_DOMAIN_TABLES.includes("UserSecurityEvent"));
 assert.ok(REQUIRED_STAGING_DOMAIN_TABLES.includes("StoredFileDeletion"));
-assert.ok(!REQUIRED_STAGING_DOMAIN_TABLES.some((name) => name === "CaseDocumentRevision"));
+assert.ok(!new Set<string>(REQUIRED_STAGING_DOMAIN_TABLES).has("CaseDocumentRevision"));
 assert.ok(REQUIRED_STAGING_ENUMS.includes("StoredFileDeletionStatus"));
-assert.ok(!REQUIRED_STAGING_ENUMS.some((name) => name === "CaseDocumentRevisionStatus"));
+assert.ok(!new Set<string>(REQUIRED_STAGING_ENUMS).has("CaseDocumentRevisionStatus"));
 assert.deepEqual([...REQUIRED_DOCUMENT_REVISION_TABLES], ["CaseDocumentRevision"]);
 assert.deepEqual([...REQUIRED_DOCUMENT_REVISION_ENUMS], ["CaseDocumentRevisionStatus"]);
 assert.ok(REQUIRED_STORED_FILE_STATUS_VALUES.includes("QUARANTINED"));
