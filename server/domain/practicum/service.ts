@@ -55,10 +55,9 @@ export class PracticumService {
       throw new Error(PRACTICUM_INVALID_LESSON);
     }
 
-    const finalLessonId = this.definition.lessonIds.at(-1);
     return this.repository.completeLesson({
       ...input,
-      isFinalLesson: input.lessonId === finalLessonId,
+      requiredLessonIds: this.definition.lessonIds,
       auditActorUserId: actor.userId,
     });
   }
