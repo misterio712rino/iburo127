@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { PRACTICUM_LESSON_IDS } from "@/lib/platform/practicum-content";
+import {
+  PRACTICUM_COMPLETION_INVALID_DEFINITION,
+  computePracticumCompletion,
+} from "@/server/domain/practicum/completion";
 
 const progressSource = await readFile(
   resolve("server/repositories/prisma/practicum-progress-repository.ts"),
@@ -67,6 +72,11 @@ assert.match(
   /const HUMAN_SUPPORT_PLAN_CODES = \["PRO", "INDIVIDUAL"\] as const;/,
   "LITE must never enter the practicum lawyer-notification path",
 );
+assert.match(completeLessonSource, /if \(transition\.programJustCompleted\)/);
+assert.match(completeLessonSource, /if \(transition\.lessonJustCompleted\)/);
+assert.doesNotMatch(completeLessonSource, /input\.isFinalLesson/);
+assert.match(practicumServiceSource, /requiredLessonIds: this\.definition\.lessonIds/);
+assert.match(progressSource, /PRACTICUM_LESSON_IDS\.every/);
 
 const workspaceServiceSource = await readFile(
   resolve("server/domain/practicum/workspace-service.ts"),
@@ -148,4 +158,63 @@ assert.match(reviewSource, /updateMany\([\s\S]*plan: \{ code: \{ in: \[\.\.\.HUM
 assert.match(messageSource, /clientCase\.findFirst\([\s\S]*plan: \{ code: \{ in: \[\.\.\.HUMAN_SUPPORT_PLAN_CODES\] \} \}/);
 assert.match(messageSource, /OR: \[[\s\S]*clientId: input\.actorUserId[\s\S]*assignedLawyerId: input\.actorUserId/);
 
+const now = new Date("2026-09-18T00:00:00.000Z");
+const lesson12 = PRACTICUM_LESSON_IDS.at(-1);
+assert.ok(lesson12);
+assert.equal(PRACTICUM_LESSON_IDS.length, 12);
+const earlyFinal = computePracticumCompletion({
+  completedLessonIds: [], lessonId: lesson12,
+  requiredLessonIds: PRACTICUM_LESSON_IDS, completedAt: null, now,
+});
+assert.deepEqual(earlyFinal.completedLessonIds, [lesson12]);
+assert.equal(earlyFinal.programJustCompleted, false);
+assert.equal(earlyFinal.completedAt, null);
+const retry = computePracticumCompletion({
+  completedLessonIds: [lesson12], lessonId: lesson12,
+  requiredLessonIds: PRACTICUM_LESSON_IDS, completedAt: null, now,
+});
+assert.equal(retry.lessonJustCompleted, false);
+assert.equal(retry.programJustCompleted, false);
+assert.equal(retry.completedAt, null);
+const actualFinish = computePracticumCompletion({
+  completedLessonIds: PRACTICUM_LESSON_IDS.slice(1), lessonId: PRACTICUM_LESSON_IDS[0],
+  requiredLessonIds: PRACTICUM_LESSON_IDS, completedAt: null, now,
+});
+assert.equal(actualFinish.programJustCompleted, true);
+assert.equal(actualFinish.completedAt, now);
+assert.equal(new Set(actualFinish.completedLessonIds).size, PRACTICUM_LESSON_IDS.length);
+const legacyEarly = computePracticumCompletion({
+  completedLessonIds: [lesson12], lessonId: lesson12,
+  requiredLessonIds: PRACTICUM_LESSON_IDS, completedAt: new Date("2026-09-01"), now,
+});
+assert.equal(legacyEarly.completedAt, null);
+assert.equal(legacyEarly.programJustCompleted, false);
+const legacyCorrected = computePracticumCompletion({
+  completedLessonIds: PRACTICUM_LESSON_IDS.slice(1), lessonId: PRACTICUM_LESSON_IDS[0],
+  requiredLessonIds: PRACTICUM_LESSON_IDS, completedAt: new Date("2026-09-01"), now,
+});
+assert.equal(legacyCorrected.programJustCompleted, true);
+assert.equal(legacyCorrected.completedAt, now);
+const fullyCompletedRetry = computePracticumCompletion({
+  completedLessonIds: PRACTICUM_LESSON_IDS, lessonId: lesson12,
+  requiredLessonIds: PRACTICUM_LESSON_IDS, completedAt: now, now: new Date("2026-09-19"),
+});
+assert.equal(fullyCompletedRetry.programJustCompleted, false);
+assert.equal(fullyCompletedRetry.lessonJustCompleted, false);
+assert.equal(fullyCompletedRetry.completedAt, now);
+assert.throws(
+  () => computePracticumCompletion({
+    completedLessonIds: [], lessonId: lesson12,
+    requiredLessonIds: [], completedAt: null, now,
+  }),
+  new RegExp(PRACTICUM_COMPLETION_INVALID_DEFINITION),
+);
+assert.throws(
+  () => computePracticumCompletion({
+    completedLessonIds: [], lessonId: "unknown",
+    requiredLessonIds: PRACTICUM_LESSON_IDS, completedAt: null, now,
+  }),
+  new RegExp(PRACTICUM_COMPLETION_INVALID_DEFINITION),
+);
+console.log("PRACTICUM_COMPLETION_REGRESSION_PASS");
 console.log("PRACTICUM_PERSISTENCE_BOUNDARY_PASS");
