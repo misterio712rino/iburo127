@@ -283,7 +283,11 @@ const aiHttpAuthzSource = await readFile(resolve("scripts/verify-staging-ai-http
 const httpMutationsSource = await readFile(resolve("scripts/verify-staging-http-mutations-impl.ts"), "utf8");
 
 assert.match(httpMutationsSource, /"MANAGER document review"[\s\S]*403,[\s\S]*"FORBIDDEN"/);
-assert.match(httpMutationsSource, /"LAWYER document review after manager denial"/);
+assert.match(
+  httpMutationsSource,
+  /"LAWYER legacy document review without immutable artifact"[\s\S]*409,[\s\S]*"INVALID_TRANSITION"/,
+  "application E2E must deny artifactless legacy approval rather than accepting a false REVIEWED status",
+);
 assert.match(httpMutationsSource, /"MANAGER task create"[\s\S]*403,[\s\S]*"FORBIDDEN"/);
 assert.match(httpMutationsSource, /"MANAGER task status mutation"[\s\S]*403,[\s\S]*"FORBIDDEN"/);
 assert.match(httpMutationsSource, /"LAWYER task NEW to WORKING"/);
