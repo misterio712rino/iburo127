@@ -1,0 +1,73 @@
+name: Staging Revision Migration Proof
+
+on:
+  push:
+    branches:
+      - audit/production-readiness
+
+permissions:
+  contents: read
+
+jobs:
+  read-only-revision-proof:
+    if: github.ref == 'refs/heads/audit/production-readiness'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - name: Verify exact audit commit
+        shell: bash
+        env:
+          CANDIDATE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/audit/production-readiness'
+          [[ "$CANDIDATE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$GITHUB_SHA" = "$CANDIDATE_SHA"
+          echo "STAGING_REVISION_PROOF_GUARD_PASS: $CANDIDATE_SHA"
+
+      - name: Read exact protected staging migration state
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          STAGING_URL: https://iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          http_status=000
+          for attempt in $(seq 1 18); do
+            http_status="$(curl --silent --show-error --connect-timeout 5 --max-time 20 \
+              --output "$response_file" --write-out '%{http_code}' \
+              -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+              "$STAGING_URL/_iburo/staging-db-baseline" || true)"
+            if [ "$http_status" = 200 ] && RESPONSE_FILE="$response_file" node --input-type=module -e '
+              import {readFileSync} from "node:fs";
+              try {
+                const b=JSON.parse(readFileSync(process.env.RESPONSE_FILE,"utf8"));
+                const p=b.prisma;
+                if(b.service==="iburo127" && b.probe==="staging-db-baseline" &&
+                   b.environment==="preview" && b.branch==="audit/production-readiness" &&
+                   b.commitSha===process.env.GITHUB_SHA && b.runtimeTarget==="staging" &&
+                   b.readOnly===true && b.database?.name==="neondb" && b.database?.schema==="public" &&
+                   b.domain?.tables?.pass===true && b.domain?.enums?.pass===true &&
+                   p?.migrationTablePresent===true && p.unfinishedCount===0 && p.pass===true &&
+                   p.expectedCount===4 && [4,5].includes(p.appliedCount) &&
+                   typeof p.documentRevision?.migrationApplied==="boolean" &&
+                   p.documentRevision.schemaReady===p.documentRevision.migrationApplied &&
+                   p.appliedCount===(p.documentRevision.migrationApplied?5:4) && b.pass===true) {
+                  console.log(`STAGING_REVISION_MIGRATION_APPLIED=${p.documentRevision.migrationApplied}`);
+                  console.log(`STAGING_REVISION_MIGRATION_SCHEMA_READY=${p.documentRevision.schemaReady}`);
+                  console.log(`STAGING_BASELINE_APPLIED_COUNT=${p.appliedCount}`);
+                  console.log("STAGING_REVISION_READ_ONLY_PROOF_PASS");
+                  process.exit(0);
+                }
+              } catch {}
+              process.exit(1);
+            '; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 18 ]; then sleep 5; fi
+          done
+          echo "STAGING_REVISION_READ_ONLY_PROOF_FAIL: http_status=$http_status" >&2
+          exit 1
