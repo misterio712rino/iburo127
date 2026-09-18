@@ -1,3 +1,5 @@
+// Active staging features only. Court-document revision storage is deliberately
+// excluded until its reviewed migration and actual source templates are enabled.
 export const REQUIRED_STAGING_DOMAIN_TABLES = [
   "User",
   "Role",
@@ -14,7 +16,6 @@ export const REQUIRED_STAGING_DOMAIN_TABLES = [
   "CaseTask",
   "TaskStatusEvent",
   "CaseDocument",
-  "CaseDocumentRevision",
   "CaseActivityEvent",
   "Notification",
   "NotificationDelivery",
@@ -30,7 +31,6 @@ export const REQUIRED_STAGING_ENUMS = [
   "PracticumProgressStatus",
   "TaskStatus",
   "CaseDocumentStatus",
-  "CaseDocumentRevisionStatus",
   "StoredFileStatus",
   "StoredFileDeletionStatus",
   "NotificationDeliveryChannel",
@@ -38,6 +38,11 @@ export const REQUIRED_STAGING_ENUMS = [
   "PotentialClientLeadContactType",
   "PotentialClientLeadStatus",
 ] as const;
+
+// Mandatory before enabling revision create/review/approval or court-document
+// download. Do not treat the active baseline passing as revision readiness.
+export const REQUIRED_DOCUMENT_REVISION_TABLES = ["CaseDocumentRevision"] as const;
+export const REQUIRED_DOCUMENT_REVISION_ENUMS = ["CaseDocumentRevisionStatus"] as const;
 
 export const REQUIRED_STORED_FILE_STATUS_VALUES = [
   "PENDING_UPLOAD",
@@ -152,6 +157,18 @@ export function assertStagingSchemaContract(input: StagingSchemaContractInput): 
   if (input.prismaMigrationHistory.unfinishedCount > 0) {
     throw new StagingSchemaContractError(
       `Prisma migration history contains ${input.prismaMigrationHistory.unfinishedCount} unfinished migration(s)`,
+    );
+  }
+}
+
+export function assertDocumentRevisionSchemaContract(input: Pick<StagingSchemaContractInput, "tables" | "enums">): void {
+  const tables = new Set(input.tables);
+  const enums = new Set(input.enums);
+  const missingTables = REQUIRED_DOCUMENT_REVISION_TABLES.filter((name) => !tables.has(name));
+  const missingEnums = REQUIRED_DOCUMENT_REVISION_ENUMS.filter((name) => !enums.has(name));
+  if (missingTables.length || missingEnums.length) {
+    throw new StagingSchemaContractError(
+      `document revision schema not ready: tables=${missingTables.join(",") || "none"}; enums=${missingEnums.join(",") || "none"}`,
     );
   }
 }
