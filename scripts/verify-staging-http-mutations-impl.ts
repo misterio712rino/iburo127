@@ -411,60 +411,35 @@ async function documentsE2e(clientCaseId: string) {
     403,
     "FORBIDDEN",
   );
-
-  const lawyerReviewed = await expectOk<DocumentData>(
-    "LAWYER document review",
+  await expectError(
+    "LAWYER legacy document review without immutable artifact",
     "POST",
     reviewedPath,
     lawyerCookie,
     { expectedVersion: sent.version },
-  );
-  assertVersionAdvance(sent.version, lawyerReviewed.version, "LAWYER document review");
-  if (lawyerReviewed.status !== "REVIEWED") fail("LAWYER review did not enter REVIEWED");
-
-  const regeneratedForManagerCheck = await expectOk<DocumentData>(
-    "document regenerate for manager read-only check",
-    "POST",
-    regeneratePath,
-    clientCookie,
-    { expectedVersion: lawyerReviewed.version },
-  );
-  if (regeneratedForManagerCheck.status !== "READY_FOR_REVIEW") fail("document did not return to READY_FOR_REVIEW");
-  const sentForManagerCheck = await expectOk<DocumentData>(
-    "document send for manager read-only check",
-    "POST",
-    sendPath,
-    clientCookie,
-    { expectedVersion: regeneratedForManagerCheck.version },
+    409,
+    "INVALID_TRANSITION",
   );
   await expectError(
     "MANAGER document review",
     "POST",
     reviewedPath,
     managerCookie,
-    { expectedVersion: sentForManagerCheck.version },
+    { expectedVersion: sent.version },
     403,
     "FORBIDDEN",
   );
-  const lawyerReviewedAfterManagerDenial = await expectOk<DocumentData>(
-    "LAWYER document review after manager denial",
-    "POST",
-    reviewedPath,
-    lawyerCookie,
-    { expectedVersion: sentForManagerCheck.version },
-  );
-  if (lawyerReviewedAfterManagerDenial.status !== "REVIEWED") fail("LAWYER review did not enter REVIEWED");
 
   const [clientRead, lawyerRead, managerRead] = await Promise.all([
     expectOk<DocumentData>("CLIENT document authoritative GET", "GET", basePath, clientCookie),
     expectOk<DocumentData>("LAWYER document authoritative GET", "GET", basePath, lawyerCookie),
     expectOk<DocumentData>("MANAGER document authoritative GET", "GET", basePath, managerCookie),
   ]);
-  if (clientRead.version !== lawyerReviewedAfterManagerDenial.version || lawyerRead.version !== lawyerReviewedAfterManagerDenial.version || managerRead.version !== lawyerReviewedAfterManagerDenial.version) {
-    fail("document authoritative reads disagree after review");
+  if ([clientRead, lawyerRead, managerRead].some((record) => record.version !== sent.version || record.status !== "SENT_FOR_REVIEW")) {
+    fail("document authoritative reads changed after denied artifactless review");
   }
 
-  console.log("DOCUMENTS: lifecycle, invalid transition, stale version, assigned LAWYER review and CLIENT/MANAGER denial verified");
+  console.log("DOCUMENTS: lifecycle, invalid transition, stale version, legacy LAWYER approval blocked, CLIENT/MANAGER denial and unchanged state verified");
 }
 
 async function tasksE2e(clientCaseId: string) {
