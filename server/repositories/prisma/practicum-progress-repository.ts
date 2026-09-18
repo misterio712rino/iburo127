@@ -2,6 +2,7 @@ import "server-only";
 
 import { getPrismaClient } from "@/server/database/prisma";
 import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
+import { computePracticumCompletion } from "@/server/domain/practicum/completion";
 import {
   PRACTICUM_NOT_FOUND,
   PRACTICUM_VERSION_CONFLICT,
@@ -88,8 +89,8 @@ export class PrismaPracticumProgressRepository implements PracticumProgressRepos
   async completeLesson(input: {
     clientCaseId: string;
     lessonId: string;
+    requiredLessonIds: readonly string[];
     expectedVersion: number;
-    isFinalLesson?: boolean;
     auditActorUserId: string;
   }) {
     const prisma = getPrismaClient();
@@ -102,11 +103,24 @@ export class PrismaPracticumProgressRepository implements PracticumProgressRepos
         },
       });
       if (!current) throw new Error(PRACTICUM_NOT_FOUND);
+      if (current.version !== input.expectedVersion) throw new Error(PRACTICUM_VERSION_CONFLICT);
 
-      const completedLessonIds = current.completedLessonIds.includes(input.lessonId)
-        ? current.completedLessonIds
-        : [...current.completedLessonIds, input.lessonId];
       const now = new Date();
+      const transition = computePracticumCompletion({
+        completedLessonIds: current.completedLessonIds,
+        lessonId: input.lessonId,
+        requiredLessonIds: input.requiredLessonIds,
+        completedAt: current.completedAt,
+        now,
+      });
+      // Idempotent retry: no extra version increment, activity or notification.
+      // An invalid legacy completedAt may still need correction even on a retry.
+      if (
+        !transition.lessonJustCompleted &&
+        current.completedAt?.getTime() === transition.completedAt?.getTime()
+      ) {
+        return toRecord(current);
+      }
 
       const updated = await tx.casePracticumProgress.updateMany({
         where: {
@@ -115,24 +129,26 @@ export class PrismaPracticumProgressRepository implements PracticumProgressRepos
           clientCase: { clientId: input.auditActorUserId },
         },
         data: {
-          completedLessonIds,
+          completedLessonIds: transition.completedLessonIds,
           startedAt: current.startedAt ?? now,
-          completedAt: input.isFinalLesson ? current.completedAt ?? now : current.completedAt,
+          completedAt: transition.completedAt,
           version: { increment: 1 },
         },
       });
 
       if (updated.count !== 1) throw new Error(PRACTICUM_VERSION_CONFLICT);
 
-      await tx.caseActivityEvent.create({
-        data: buildCaseActivityWrite({
-          clientCaseId: input.clientCaseId,
-          actorUserId: input.auditActorUserId,
-          type: "practicum.lesson.completed",
-          metadata: { lessonId: input.lessonId },
-        }),
-      });
-      if (input.isFinalLesson) {
+      if (transition.lessonJustCompleted) {
+        await tx.caseActivityEvent.create({
+          data: buildCaseActivityWrite({
+            clientCaseId: input.clientCaseId,
+            actorUserId: input.auditActorUserId,
+            type: "practicum.lesson.completed",
+            metadata: { lessonId: input.lessonId },
+          }),
+        });
+      }
+      if (transition.programJustCompleted) {
         await tx.caseActivityEvent.create({
           data: buildCaseActivityWrite({
             clientCaseId: input.clientCaseId,
@@ -155,7 +171,7 @@ export class PrismaPracticumProgressRepository implements PracticumProgressRepos
           await createCaseNotificationInTransaction(tx, {
             userId: clientCase.assignedLawyerId,
             clientCaseId: input.clientCaseId,
-            dedupeKey: `practicum.completed:${input.clientCaseId}`,
+            dedupeKey: `practicum.completed:all-lessons:${input.clientCaseId}`,
             type: "practicum.completed",
             title: "Практикум завершён",
             body: `Клиент по делу ${clientCase.caseNumber} завершил практикум.`,
