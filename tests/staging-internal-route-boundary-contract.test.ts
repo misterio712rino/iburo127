@@ -167,4 +167,54 @@ assert.match(
   "the health endpoint must return non-success HTTP status for incomplete readiness",
 );
 
+const deletionProofRoute = await readFile(
+  resolve(stagingRoot, "staging-file-deletion-worker", "route.ts"),
+  "utf8",
+);
+assert.match(
+  deletionProofRoute,
+  /where: \{ email: TECHNICAL_E2E_CLIENT\.email \}/,
+  "deletion proof must resolve only the dedicated technical client",
+);
+assert.match(
+  deletionProofRoute,
+  /where: \{ caseNumber: TECHNICAL_E2E_MUTATION_CASE_NUMBER \}/,
+  "deletion proof must resolve only the dedicated technical case",
+);
+assert.match(
+  deletionProofRoute,
+  /technicalCase\.clientId !== technicalClient\.id/,
+  "deletion proof must reject invalid technical fixture ownership",
+);
+assert.match(
+  deletionProofRoute,
+  /target\.clientCaseId !== technicalCase\.id/,
+  "deletion proof must reject other clients' deletion intents",
+);
+assert.match(
+  deletionProofRoute,
+  /target\.requestedByUserId !== technicalClient\.id/,
+  "deletion proof must reject nontechnical requesters",
+);
+assert.match(
+  deletionProofRoute,
+  /!target\.objectKey\.startsWith\(`cases\/\$\{technicalCase\.id\}\/`\)/,
+  "deletion proof must reject object keys outside the technical case prefix",
+);
+assert.match(
+  deletionProofRoute,
+  /target\.storageProvider === getPrivateObjectStorage\(\)\.providerCode/,
+  "deletion proof must require the configured private storage provider",
+);
+assert.match(
+  deletionProofRoute,
+  /!target \|\| !\(await isDedicatedTechnicalDeletion\(target\)\)/,
+  "the fixture guard must execute before any deletion worker runBatch call",
+);
+assert.ok(
+  deletionProofRoute.indexOf("isDedicatedTechnicalDeletion(target)") <
+    deletionProofRoute.indexOf("getStoredFileDeletionWorker().runBatch"),
+  "deletion proof must validate the fixture before processing a deletion",
+);
+
 console.log("STAGING_INTERNAL_ROUTE_BOUNDARY_CONTRACT_PASS");
