@@ -232,7 +232,24 @@ try {
   assert((await children.inputValue()) === "2", "local draft was lost while resolving version conflict");
   assert(await page.getByText("Есть несохранённые ответы", { exact: true }).isVisible(), "conflict incorrectly reports all data saved");
 
-  await (await saveButtonForInput(children)).click();
+  // A Playwright click resolves before the async PATCH finishes. Observe the
+  // exact retry response and its rendered success state before reading the DB;
+  // otherwise this assertion races with the write and can report a false fail.
+  const [conflictRetryResponse] = await Promise.all([
+    page.waitForResponse((response) =>
+      response.request().method() === "PATCH" &&
+      response.url().endsWith(`/questionnaire/answers`) &&
+      response.request().postDataJSON()?.fieldId === "childrenCount",
+    { timeout: 15_000 }),
+    (await saveButtonForInput(children)).click(),
+  ]);
+  const conflictRetryBody = await conflictRetryResponse.json();
+  assert(
+    conflictRetryResponse.status() === 200 && conflictRetryBody?.ok === true,
+    `preserved local draft retry PATCH failed: ${conflictRetryResponse.status()}`,
+  );
+  await page.getByText("Все сохранённые данные синхронизированы с делом", { exact: true })
+    .waitFor({ state: "visible", timeout: 15_000 });
   const afterConflictRetry = await questionnaireState(page, caseId);
   assert(afterConflictRetry.answers.hasSpouse === false, "other-tab committed value was lost after conflict refresh");
   assert(afterConflictRetry.answers.childrenCount === 2, "preserved local draft did not save after conflict retry");
