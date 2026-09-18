@@ -2,6 +2,7 @@ import "server-only";
 
 import { Prisma } from "@/generated/prisma/client";
 import { getPrismaClient } from "@/server/database/prisma";
+import { DOCUMENT_REVISION_ARTIFACT_MISSING } from "@/server/domain/documents/revision-approval-guard";
 import {
   DOCUMENT_REVISION_INVALID_TRANSITION,
   DOCUMENT_REVISION_NOT_FOUND,
@@ -133,24 +134,10 @@ export class PrismaCaseDocumentRevisionRepository implements CaseDocumentRevisio
     });
   }
 
-  async approve(input: { revisionId: string; reviewerUserId: string; reviewNote: string | null }) {
-    const prisma = getPrismaClient();
-    return prisma.$transaction(async (tx) => {
-      const now = new Date();
-      const updated = await tx.caseDocumentRevision.updateMany({
-        where: { id: input.revisionId, status: "IN_REVIEW" },
-        data: {
-          status: "APPROVED",
-          reviewedByUserId: input.reviewerUserId,
-          reviewNote: input.reviewNote,
-          reviewedAt: now,
-          approvedAt: now,
-        },
-      });
-      if (updated.count !== 1) throw new Error(DOCUMENT_REVISION_INVALID_TRANSITION);
-      const row = await tx.caseDocumentRevision.findUnique({ where: { id: input.revisionId } });
-      if (!row) throw new Error(DOCUMENT_REVISION_NOT_FOUND);
-      return toRecord(row);
-    });
+  async approve(_input: { revisionId: string; reviewerUserId: string; reviewNote: string | null }): Promise<CaseDocumentRevisionRecord> {
+    // No rendered artifact reference or digest exists in the revision schema.
+    // Do not allow even a direct repository caller to approve source-only data.
+    void _input;
+    throw new Error(DOCUMENT_REVISION_ARTIFACT_MISSING);
   }
 }
