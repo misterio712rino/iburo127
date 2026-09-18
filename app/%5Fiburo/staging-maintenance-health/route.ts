@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { buildStagingEnvironmentInventory } from "@/scripts/staging-environment-inventory";
 import { getAiAuditHealthService } from "@/server/ai/audit-health-runtime";
 import { readMaintenanceRuntimeConfig } from "@/server/config/production";
 import {
@@ -8,6 +9,7 @@ import {
 } from "@/server/config/vercel-preview-boundary";
 import { readStoredFileDeletionHealthConfig } from "@/server/files/deletion-health-config";
 import { getStoredFileDeletionHealthService } from "@/server/files/deletion-health-runtime";
+import { readStoredFileDeletionMode } from "@/server/files/deletion-mode";
 import { getStoredFileScanHealthService } from "@/server/files/scan-health-runtime";
 import { getStaleUploadHealthService } from "@/server/files/stale-upload-health-runtime";
 import { getNotificationDeliveryHealthService } from "@/server/notifications/delivery-health-runtime";
@@ -72,6 +74,18 @@ export async function POST(request: Request) {
       ...env,
       IB_MAINTENANCE_SECRET: CONFIG_ONLY_SECRET,
     });
+    const inventory = buildStagingEnvironmentInventory(env);
+    let durableDeletionMode = false;
+    try {
+      durableDeletionMode = readStoredFileDeletionMode(env) === "durable";
+    } catch {
+      // An invalid deletion mode must never satisfy the staging release gate.
+    }
+    const configuration = {
+      maintenance: inventory.phases.maintenance.ready,
+      scanner: inventory.phases.scanner.ready,
+      fileDeletion: durableDeletionMode && inventory.phases.maintenance.ready,
+    };
     const deletionConfig = readStoredFileDeletionHealthConfig(env);
     const now = new Date();
 
@@ -137,7 +151,9 @@ export async function POST(request: Request) {
         orphanCount: aiAudit.orphanCount,
       },
     };
-    const pass = Object.values(jobs).every((job) => job.healthy === true);
+    const pass =
+      Object.values(jobs).every((job) => job.healthy === true) &&
+      Object.values(configuration).every((ready) => ready === true);
 
     return NextResponse.json(
       {
@@ -150,6 +166,7 @@ export async function POST(request: Request) {
         pass,
         aggregateOnly: true,
         valuesPrinted: false,
+        configuration,
         jobs,
       },
       { status: pass ? 200 : 503, headers: NO_STORE_HEADERS },
