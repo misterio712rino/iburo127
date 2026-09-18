@@ -108,6 +108,10 @@ function homeworkCanBeEdited(status: PracticumHomeworkRecord["status"]) {
   return status === "NOT_STARTED" || status === "DRAFT" || status === "CHANGES_REQUESTED";
 }
 
+function isUniqueConstraintViolation(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
+}
+
 export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRepository {
   async getLessonWorkspace(
     input: { clientCaseId: string; lessonId: string },
@@ -145,20 +149,27 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
       }
 
       if (!current) {
-        const created = await tx.casePracticumHomework.create({
-          data: {
-            clientCaseId: input.clientCaseId,
-            lessonId: input.lessonId,
-            status: "DRAFT",
-            draftText: input.answerText,
-          },
-        });
-        return toHomeworkRecord(created);
+        try {
+          const created = await tx.casePracticumHomework.create({
+            data: {
+              clientCaseId: input.clientCaseId,
+              lessonId: input.lessonId,
+              status: "DRAFT",
+              draftText: input.answerText,
+            },
+          });
+          return toHomeworkRecord(created);
+        } catch (error) {
+          if (isUniqueConstraintViolation(error)) throw new Error(PRACTICUM_WORKSPACE_STATE_CONFLICT);
+          throw error;
+        }
       }
 
       const updated = await tx.casePracticumHomework.updateMany({
         where: {
           id: current.id,
+          version: current.version,
+          status: current.status,
           clientCase: { clientId: input.actorUserId },
         },
         data: {
@@ -167,7 +178,7 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
           version: { increment: 1 },
         },
       });
-      if (updated.count !== 1) throw new Error(PRACTICUM_WORKSPACE_NOT_FOUND);
+      if (updated.count !== 1) throw new Error(PRACTICUM_WORKSPACE_STATE_CONFLICT);
 
       const row = await tx.casePracticumHomework.findFirst({
         where: {
@@ -208,14 +219,19 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
       }
 
       if (!homework) {
-        homework = await tx.casePracticumHomework.create({
-          data: {
-            clientCaseId: input.clientCaseId,
-            lessonId: input.lessonId,
-            status: "DRAFT",
-            draftText: input.answerText,
-          },
-        });
+        try {
+          homework = await tx.casePracticumHomework.create({
+            data: {
+              clientCaseId: input.clientCaseId,
+              lessonId: input.lessonId,
+              status: "DRAFT",
+              draftText: input.answerText,
+            },
+          });
+        } catch (error) {
+          if (isUniqueConstraintViolation(error)) throw new Error(PRACTICUM_WORKSPACE_STATE_CONFLICT);
+          throw error;
+        }
       }
 
       const revisionAggregate = await tx.casePracticumHomeworkRevision.aggregate({
@@ -225,19 +241,26 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
       const revisionNumber = (revisionAggregate._max.revisionNumber ?? 0) + 1;
       const now = new Date();
 
-      await tx.casePracticumHomeworkRevision.create({
-        data: {
-          homeworkId: homework.id,
-          revisionNumber,
-          submittedByUserId: input.actorUserId,
-          answerText: input.answerText,
-          submittedAt: now,
-        },
-      });
+      try {
+        await tx.casePracticumHomeworkRevision.create({
+          data: {
+            homeworkId: homework.id,
+            revisionNumber,
+            submittedByUserId: input.actorUserId,
+            answerText: input.answerText,
+            submittedAt: now,
+          },
+        });
+      } catch (error) {
+        if (isUniqueConstraintViolation(error)) throw new Error(PRACTICUM_WORKSPACE_STATE_CONFLICT);
+        throw error;
+      }
 
       const updated = await tx.casePracticumHomework.updateMany({
         where: {
           id: homework.id,
+          version: homework.version,
+          status: homework.status,
           clientCase: { clientId: input.actorUserId },
         },
         data: {
@@ -248,7 +271,7 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
           version: { increment: 1 },
         },
       });
-      if (updated.count !== 1) throw new Error(PRACTICUM_WORKSPACE_NOT_FOUND);
+      if (updated.count !== 1) throw new Error(PRACTICUM_WORKSPACE_STATE_CONFLICT);
 
       await tx.caseActivityEvent.create({
         data: buildCaseActivityWrite({
@@ -328,6 +351,8 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
       const updatedHomework = await tx.casePracticumHomework.updateMany({
         where: {
           id: homework.id,
+          version: homework.version,
+          status: homework.status,
           clientCase: {
             assignedLawyerId: input.actorUserId,
             plan: { code: { in: [...HUMAN_SUPPORT_PLAN_CODES] } },
@@ -339,10 +364,15 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
           version: { increment: 1 },
         },
       });
-      if (updatedHomework.count !== 1) throw new Error(PRACTICUM_WORKSPACE_NOT_FOUND);
+      if (updatedHomework.count !== 1) throw new Error(PRACTICUM_WORKSPACE_STATE_CONFLICT);
 
-      await tx.casePracticumHomeworkRevision.update({
-        where: { id: revision.id },
+      const updatedRevision = await tx.casePracticumHomeworkRevision.updateMany({
+        where: {
+          id: revision.id,
+          homeworkId: homework.id,
+          reviewDecision: null,
+          reviewedAt: null,
+        },
         data: {
           reviewedByUserId: input.actorUserId,
           reviewDecision: input.decision,
@@ -350,6 +380,7 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
           reviewedAt: now,
         },
       });
+      if (updatedRevision.count !== 1) throw new Error(PRACTICUM_WORKSPACE_STATE_CONFLICT);
 
       await tx.caseActivityEvent.create({
         data: buildCaseActivityWrite({
