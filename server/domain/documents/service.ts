@@ -154,6 +154,8 @@ export class CaseDocumentService {
     if (!current || current.status !== "SENT_FOR_REVIEW") {
       throw new Error(DOCUMENT_INVALID_TRANSITION);
     }
-    return this.repository.markReviewed({ ...input, auditActorUserId: actor.userId });
+    // Legacy CaseDocument has no immutable, scan-cleared PDF/DOCX artifact or source digest.
+    // Never acknowledge review or notify a client until revision-specific approval exists.
+    throw new Error(DOCUMENT_INVALID_TRANSITION);
   }
 }
