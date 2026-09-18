@@ -158,6 +158,19 @@ assert.match(reviewSource, /updateMany\([\s\S]*plan: \{ code: \{ in: \[\.\.\.HUM
 assert.match(messageSource, /clientCase\.findFirst\([\s\S]*plan: \{ code: \{ in: \[\.\.\.HUMAN_SUPPORT_PLAN_CODES\] \} \}/);
 assert.match(messageSource, /OR: \[[\s\S]*clientId: input\.actorUserId[\s\S]*assignedLawyerId: input\.actorUserId/);
 
+// These are source-level CAS regressions, NOT proof of real PostgreSQL interleaving.
+assert.match(saveSource, /casePracticumHomework\.updateMany\(\{[\s\S]*version: current\.version,[\s\S]*status: current\.status,/);
+assert.match(submitSource, /casePracticumHomework\.updateMany\(\{[\s\S]*version: homework\.version,[\s\S]*status: homework\.status,/);
+assert.match(reviewSource, /casePracticumHomework\.updateMany\(\{[\s\S]*version: homework\.version,[\s\S]*status: homework\.status,/);
+for (const source of [saveSource, submitSource, reviewSource]) {
+  assert.match(source, /updated(?:Homework)?\.count !== 1\) throw new Error\(PRACTICUM_WORKSPACE_STATE_CONFLICT\)/);
+}
+assert.match(saveSource, /isUniqueConstraintViolation\(error\)\) throw new Error\(PRACTICUM_WORKSPACE_STATE_CONFLICT\)/);
+assert.match(submitSource, /isUniqueConstraintViolation\(error\)\) throw new Error\(PRACTICUM_WORKSPACE_STATE_CONFLICT\)/);
+assert.match(reviewSource, /casePracticumHomeworkRevision\.updateMany\(\{[\s\S]*homeworkId: homework\.id,[\s\S]*reviewDecision: null,[\s\S]*reviewedAt: null,/);
+assert.match(reviewSource, /updatedRevision\.count !== 1\) throw new Error\(PRACTICUM_WORKSPACE_STATE_CONFLICT\)/);
+assert.doesNotMatch(reviewSource, /casePracticumHomeworkRevision\.update\(/);
+
 const now = new Date("2026-09-18T00:00:00.000Z");
 const lesson12 = PRACTICUM_LESSON_IDS.at(-1);
 assert.ok(lesson12);
