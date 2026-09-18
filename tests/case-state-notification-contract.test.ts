@@ -47,6 +47,10 @@ const practicumSource = await readFile(
   resolve("server/repositories/prisma/practicum-progress-repository.ts"),
   "utf8",
 );
+const practicumCompletionSource = await readFile(
+  resolve("server/domain/practicum/completion.ts"),
+  "utf8",
+);
 
 function notificationCallFor(source: string, type: string) {
   const callMarker = "createCaseNotificationInTransaction(tx, {";
@@ -111,7 +115,10 @@ assert.match(
 );
 assert.doesNotMatch(reviewedNotification, /auditActorUserId|input\.documentCode/);
 
-assert.match(practicumSource, /if \(input\.isFinalLesson\)/);
+assert.match(practicumSource, /if \(transition\.programJustCompleted\)/);
+assert.match(practicumCompletionSource, /input\.requiredLessonIds\.every\(\(id\) => next\.has\(id\)\)/);
+assert.match(practicumCompletionSource, /!wasProgramComplete && isProgramComplete/);
+assert.doesNotMatch(practicumSource, /input\.isFinalLesson/);
 assert.match(
   practicumSource,
   /select:\s*\{\s*caseNumber:\s*true,\s*assignedLawyerId:\s*true\s*\}/,
@@ -120,7 +127,7 @@ const practicumNotification = notificationCallFor(practicumSource, "practicum.co
 assert.match(practicumNotification, /userId:\s*clientCase\.assignedLawyerId/);
 assert.match(
   practicumNotification,
-  /dedupeKey:\s*`practicum\.completed:\$\{input\.clientCaseId\}`/,
+  /dedupeKey:\s*`practicum\.completed:all-lessons:\$\{input\.clientCaseId\}`/,
 );
 assert.doesNotMatch(practicumNotification, /auditActorUserId|lessonId/);
 
