@@ -131,4 +131,39 @@ assert.doesNotMatch(
   "core maintenance scheduler must not embed a production confirmation value",
 );
 
+const scannerImageWorkflow = await readFile(
+  resolve(".github/workflows/staging-file-scanner-image.yml"),
+  "utf8",
+);
+assert.match(
+  scannerImageWorkflow,
+  /test "\$GITHUB_REF" = "refs\/heads\/audit\/production-readiness"/,
+  "image publication must be restricted to the audited staging branch",
+);
+assert.match(
+  scannerImageWorkflow,
+  /test "\$CONFIRMATION" = "PUBLISH_STAGING_FILE_SCANNER_IMAGE_ONLY"/,
+  "image publication must require explicit image-only confirmation",
+);
+assert.match(
+  scannerImageWorkflow,
+  /docker build --pull=false --build-arg IB_SCANNER_SEED_SIGNATURES=1/,
+  "staging scanner image must seed real antivirus signatures before publication",
+);
+assert.match(
+  scannerImageWorkflow,
+  /docker buildx imagetools inspect "\$image_tag" --format '\{\{\.Digest\}\}'/,
+  "immutable scanner image must use the digest reported by the registry",
+);
+assert.doesNotMatch(
+  scannerImageWorkflow,
+  /imagetools inspect "\$image_tag" --raw \| sha256sum/,
+  "do not hash formatted CLI output as an immutable registry digest",
+);
+assert.doesNotMatch(
+  scannerImageWorkflow,
+  /terraform\s+apply|docker\s+run|maintenance:run:file-scans/,
+  "image publication must not deploy infrastructure or process unverified files",
+);
+
 console.log("FILE_SCAN_MAINTENANCE_SCHEDULER_CONTRACT_PASS");
