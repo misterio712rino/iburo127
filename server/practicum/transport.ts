@@ -42,6 +42,11 @@ export type PracticumOperationResult<T> =
     };
 
 export function classifyPracticumError(error: unknown) {
+  // Prisma reports deadlocks and write conflicts as P2034, not via Error.message.
+  if (typeof error === "object" && error !== null && "code" in error && error.code === "P2034") {
+    return { code: "STATE_CONFLICT" as const, status: 409 as const };
+  }
+
   const code = error instanceof Error ? error.message : "";
   switch (code) {
     case UNAUTHENTICATED:
