@@ -171,6 +171,10 @@ assert.match(reviewSource, /casePracticumHomeworkRevision\.updateMany\(\{[\s\S]*
 assert.match(reviewSource, /updatedRevision\.count !== 1\) throw new Error\(PRACTICUM_WORKSPACE_STATE_CONFLICT\)/);
 assert.doesNotMatch(reviewSource, /casePracticumHomeworkRevision\.update\(/);
 
+const transportSource = await readFile(resolve("server/practicum/transport.ts"), "utf8");
+assert.match(transportSource, /"code" in error && error\.code === "P2034"/);
+assert.match(transportSource, /error\.code === "P2034"\) \{\s*return \{ code: "STATE_CONFLICT" as const, status: 409 as const \}/);
+
 const now = new Date("2026-09-18T00:00:00.000Z");
 const lesson12 = PRACTICUM_LESSON_IDS.at(-1);
 assert.ok(lesson12);
