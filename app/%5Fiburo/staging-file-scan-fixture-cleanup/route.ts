@@ -67,10 +67,10 @@ export async function POST(request: Request) {
   }
 
   const prisma = getPrismaClient();
-  const storage = getPrivateObjectStorage();
   const cutoff = new Date(Date.now() - MIN_AGE_MINUTES * 60_000);
 
   try {
+    const storage = getPrivateObjectStorage();
     const [client, clientCase] = await Promise.all([
       prisma.user.findUnique({
         where: { email: TECHNICAL_E2E_CLIENT.email },
