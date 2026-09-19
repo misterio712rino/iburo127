@@ -40,9 +40,11 @@ assert.match(route, /iburo127:staging:better-auth:1\.7\.3/);
 assert.doesNotMatch(route, /"issuer" text not null/);
 assert.doesNotMatch(route, /account_issuer_accountId_uidx/);
 
-const reviewedSql = /const REVIEWED_SQL = `([\s\S]*?)`;/u.exec(route)?.[1] ?? "";
+const reviewedSqlSource = /const REVIEWED_SQL = `([\s\S]*?)`;/u.exec(route)?.[1] ?? "";
+// JavaScript normalizes CRLF in template literals to LF before REVIEWED_SQL is executed.
+const reviewedSql = reviewedSqlSource.replace(/\r\n/g, "\n");
 const expectedSqlSha256 = /const EXPECTED_SQL_SHA256 = "([a-f0-9]{64})";/u.exec(route)?.[1] ?? "";
-assert.ok(reviewedSql, "staging Better Auth route must embed reviewed SQL");
+assert.ok(reviewedSqlSource, "staging Better Auth route must embed reviewed SQL");
 assert.ok(expectedSqlSha256, "staging Better Auth route must pin reviewed SQL SHA-256");
 assert.equal(
   createHash("sha256").update(reviewedSql).digest("hex"),
