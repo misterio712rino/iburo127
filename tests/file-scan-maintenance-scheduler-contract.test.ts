@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-const workflow = await readFile(
+const workflow = (await readFile(
   resolve(".github/workflows/file-scan-maintenance-scheduler.yml"),
   "utf8",
-);
+)).replace(/\r\n/g, "\n");
 
 assert.match(workflow, /cron: "\*\/5 \* \* \* \*"/);
 assert.match(workflow, /^permissions:\n\s{2}contents: read$/m);
@@ -64,10 +64,10 @@ assert.doesNotMatch(
   "file scan scheduler must not embed a production confirmation value",
 );
 
-const coreWorkflow = await readFile(
+const coreWorkflow = (await readFile(
   resolve(".github/workflows/core-maintenance-scheduler.yml"),
   "utf8",
-);
+)).replace(/\r\n/g, "\n");
 
 const coreJobs = [
   "notification-deliveries",
@@ -147,13 +147,53 @@ assert.match(
 );
 assert.match(
   scannerImageWorkflow,
+  /test "\$REQUESTED_SHA" = "\$GITHUB_SHA"/,
+  "image publication must require the requested exact candidate SHA",
+);
+assert.match(
+  scannerImageWorkflow,
+  /git rev-parse HEAD/,
+  "image publication must verify the checked-out exact candidate SHA",
+);
+assert.match(
+  scannerImageWorkflow,
+  /permissions:\s*\n\s+contents: read\s*\n\s+id-token: write/,
+  "image publication must retain its scoped OIDC permission",
+);
+assert.match(
+  scannerImageWorkflow,
+  /ACTIONS_ID_TOKEN_REQUEST_URL/,
+  "image publication must obtain its token through GitHub OIDC",
+);
+assert.match(
+  scannerImageWorkflow,
   /docker build --pull=false --build-arg IB_SCANNER_SEED_SIGNATURES=1/,
   "staging scanner image must seed real antivirus signatures before publication",
 );
 assert.match(
   scannerImageWorkflow,
-  /docker buildx imagetools inspect "\$image_tag" --format '\{\{\.Digest\}\}'/,
-  "immutable scanner image must use the digest reported by the registry",
+  /image_manifest="\$\(docker buildx imagetools inspect "\$image_tag" --format '\{\{json \.Manifest\}\}'\)"/,
+  "immutable scanner image must read the registry manifest descriptor as structured JSON",
+);
+assert.match(
+  scannerImageWorkflow,
+  /image_digest="\$\(printf '%s' "\$image_manifest" \| jq -er '\.digest \| strings \| select\(test\("\^sha256:\[a-f0-9\]\{64\}\$"\)\)'\)"/,
+  "immutable scanner image must extract only the manifest descriptor's top-level digest",
+);
+assert.match(
+  scannerImageWorkflow,
+  /\[\[ "\$image_digest" =~ \^sha256:\[a-f0-9\]\{64\}\$ \]\]/,
+  "immutable scanner image must retain its SHA-256 digest guard",
+);
+assert.match(
+  scannerImageWorkflow,
+  /immutable_image="\$\{image_repository\}@\$\{image_digest\}"/,
+  "immutable scanner image must use an image@digest reference",
+);
+assert.doesNotMatch(
+  scannerImageWorkflow,
+  /--format '\{\{(?:\.Digest|\.Manifest\.Digest)\}\}'/,
+  "do not use unstructured Buildx digest templates",
 );
 assert.doesNotMatch(
   scannerImageWorkflow,
