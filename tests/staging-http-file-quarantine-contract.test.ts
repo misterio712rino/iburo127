@@ -52,10 +52,11 @@ assert.match(auditSource, /rejectEventType\(newEvents, "file\.download\.authoriz
 assert.match(auditSource, /"objectKey"/);
 assert.match(auditSource, /"signedUrl"/);
 
-const cleanupGuardIndex = cleanupRoute.indexOf("if (\n    !isExactStagingPreview(env)");
-const cleanupTryIndex = cleanupRoute.indexOf("  try {", cleanupGuardIndex);
-const cleanupStorageIndex = cleanupRoute.indexOf("getPrivateObjectStorage();", cleanupTryIndex);
-const cleanupCatchIndex = cleanupRoute.indexOf("  } catch {", cleanupStorageIndex);
+const cleanupRouteForContract = cleanupRoute.replace(/\r\n/g, "\n");
+const cleanupGuardIndex = cleanupRouteForContract.indexOf("if (\n    !isExactStagingPreview(env)");
+const cleanupTryIndex = cleanupRouteForContract.indexOf("  try {", cleanupGuardIndex);
+const cleanupStorageIndex = cleanupRouteForContract.indexOf("getPrivateObjectStorage();", cleanupTryIndex);
+const cleanupCatchIndex = cleanupRouteForContract.indexOf("  } catch {", cleanupStorageIndex);
 assert.ok(cleanupGuardIndex >= 0, "fixture cleanup must require exact protected Preview identity");
 assert.ok(cleanupTryIndex > cleanupGuardIndex, "fixture cleanup must guard identity before execution");
 assert.ok(
@@ -63,7 +64,7 @@ assert.ok(
   "storage initialization must remain inside fixture cleanup's error boundary",
 );
 assert.match(
-  cleanupRoute.slice(cleanupCatchIndex),
+  cleanupRouteForContract.slice(cleanupCatchIndex),
   /return unavailable\(502, "STAGING_FILE_SCAN_FIXTURE_CLEANUP_FAILED"\)/,
   "storage initialization failure must return a controlled response instead of an unhandled 500",
 );
