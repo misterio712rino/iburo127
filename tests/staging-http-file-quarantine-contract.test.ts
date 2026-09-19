@@ -18,6 +18,10 @@ const auditWrapper = await readFile(
   resolve("scripts/verify-staging-http-mutation-audit.ts"),
   "utf8",
 );
+const cleanupRoute = await readFile(
+  resolve("app/%5Fiburo/staging-file-scan-fixture-cleanup/route.ts"),
+  "utf8",
+);
 
 assert.match(source, /\| "PENDING_SCAN"/);
 assert.match(source, /\| "SCANNING"/);
@@ -48,12 +52,28 @@ assert.match(auditSource, /rejectEventType\(newEvents, "file\.download\.authoriz
 assert.match(auditSource, /"objectKey"/);
 assert.match(auditSource, /"signedUrl"/);
 
+const cleanupGuardIndex = cleanupRoute.indexOf("if (\n    !isExactStagingPreview(env)");
+const cleanupTryIndex = cleanupRoute.indexOf("  try {", cleanupGuardIndex);
+const cleanupStorageIndex = cleanupRoute.indexOf("getPrivateObjectStorage();", cleanupTryIndex);
+const cleanupCatchIndex = cleanupRoute.indexOf("  } catch {", cleanupStorageIndex);
+assert.ok(cleanupGuardIndex >= 0, "fixture cleanup must require exact protected Preview identity");
+assert.ok(cleanupTryIndex > cleanupGuardIndex, "fixture cleanup must guard identity before execution");
+assert.ok(
+  cleanupStorageIndex > cleanupTryIndex && cleanupCatchIndex > cleanupStorageIndex,
+  "storage initialization must remain inside fixture cleanup's error boundary",
+);
+assert.match(
+  cleanupRoute.slice(cleanupCatchIndex),
+  /return unavailable\(502, "STAGING_FILE_SCAN_FIXTURE_CLEANUP_FAILED"\)/,
+  "storage initialization failure must return a controlled response instead of an unhandled 500",
+);
+
 for (const [label, wrapper, implementation] of [
   ["mutation", mutationWrapper, "./verify-staging-http-mutations-impl"],
   ["audit", auditWrapper, "./verify-staging-http-mutation-audit-impl"],
 ] as const) {
   const preflightIndex = wrapper.indexOf("requireStagingHttpMutationPreflight(process.env)");
-  const importIndex = wrapper.indexOf(`await import(\"${implementation}\")`);
+  const importIndex = wrapper.indexOf(`await import("${implementation}")`);
   assert.ok(preflightIndex >= 0, `${label} wrapper must run the network-free preflight`);
   assert.ok(importIndex > preflightIndex, `${label} wrapper must preflight before importing active verifier`);
   assert.doesNotMatch(wrapper, /\bfetch\s*\(/);
