@@ -58,10 +58,10 @@ assert.ok(
   "production maintenance confirmation must be validated before the maintenance secret is used",
 );
 
-const schedulerWorkflow = await readFile(
+const schedulerWorkflow = (await readFile(
   resolve(".github/workflows/file-deletion-maintenance-scheduler.yml"),
   "utf8",
-);
+)).replace(/\r\n/g, "\n");
 assert.match(schedulerWorkflow, /cron: "\*\/5 \* \* \* \*"/);
 assert.match(schedulerWorkflow, /^  file-deletions:$/m);
 assert.match(schedulerWorkflow, /^  file-deletion-health:$/m);
