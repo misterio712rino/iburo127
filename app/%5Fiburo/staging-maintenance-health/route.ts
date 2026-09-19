@@ -7,12 +7,17 @@ import {
   VERCEL_STAGING_BRANCH,
   isVercelPreviewBackendAllowed,
 } from "@/server/config/vercel-preview-boundary";
+import { getPrismaClient } from "@/server/database/prisma";
 import { readStoredFileDeletionHealthConfig } from "@/server/files/deletion-health-config";
 import { getStoredFileDeletionHealthService } from "@/server/files/deletion-health-runtime";
 import { readStoredFileDeletionMode } from "@/server/files/deletion-mode";
 import { getStoredFileScanHealthService } from "@/server/files/scan-health-runtime";
 import { getStaleUploadHealthService } from "@/server/files/stale-upload-health-runtime";
 import { getNotificationDeliveryHealthService } from "@/server/notifications/delivery-health-runtime";
+import {
+  TECHNICAL_E2E_CLIENT,
+  TECHNICAL_E2E_MUTATION_CASE_NUMBER,
+} from "@/server/staging/technical-e2e-fixture";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -20,6 +25,10 @@ export const runtime = "nodejs";
 const EXACT_GIT_SHA_PATTERN = /^[a-f0-9]{40}$/i;
 const CONFIRM_HEADER = "x-iburo-staging-maintenance-health-confirm";
 const CONFIG_ONLY_SECRET = "x".repeat(32);
+const TECHNICAL_FILE_NAMES = new Set([
+  "iburo-staging-e2e.pdf",
+  "iburo-staging-file-lifecycle.pdf",
+]);
 
 const NO_STORE_HEADERS = {
   "Cache-Control": "private, no-store, max-age=0",
@@ -53,6 +62,16 @@ function unavailable(status = 404, errorCode?: string) {
     },
     { status, headers: NO_STORE_HEADERS },
   );
+}
+
+function ageMinutes(now: Date, value: Date | null) {
+  if (!value) return null;
+  return Math.max(0, Math.floor((now.getTime() - value.getTime()) / 60_000));
+}
+
+function safeErrorCode(value: string | null) {
+  if (!value) return null;
+  return /^[A-Z0-9_:-]{1,80}$/.test(value) ? value : "REDACTED";
 }
 
 export async function POST(request: Request) {
@@ -119,6 +138,102 @@ export async function POST(request: Request) {
         }),
       ]);
 
+    // Read-only, redacted diagnosis for the two singleton backlog counters. The
+    // response deliberately omits record ids, object keys, names, user data and URLs.
+    const prisma = getPrismaClient();
+    const staleUploadOverdueBefore = new Date(
+      now.getTime() -
+        (config.staleUploadMaxAgeMinutes + config.staleUploadHealthGraceMinutes) * 60_000,
+    );
+    const deletionOverdueBefore = new Date(
+      now.getTime() - deletionConfig.graceMinutes * 60_000,
+    );
+
+    const [staleUploadRow, deletionRow] = await Promise.all([
+      prisma.storedFile.findFirst({
+        where: {
+          status: "PENDING_UPLOAD",
+          createdAt: { lte: staleUploadOverdueBefore },
+        },
+        select: {
+          storageProvider: true,
+          fileName: true,
+          checksumSha256: true,
+          createdAt: true,
+          uploadedBy: { select: { email: true } },
+          clientCase: { select: { caseNumber: true } },
+        },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      }),
+      prisma.storedFileDeletion.findFirst({
+        where: {
+          status: "PENDING",
+          nextAttemptAt: { lte: deletionOverdueBefore },
+        },
+        select: {
+          clientCaseId: true,
+          requestedByUserId: true,
+          storageProvider: true,
+          originalFileStatus: true,
+          attemptCount: true,
+          nextAttemptAt: true,
+          leaseUntil: true,
+          lastErrorCode: true,
+          requestedAt: true,
+          storageConfirmedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: [{ nextAttemptAt: "asc" }, { createdAt: "asc" }],
+      }),
+    ]);
+
+    const deletionContext = deletionRow
+      ? await Promise.all([
+          prisma.clientCase.findUnique({
+            where: { id: deletionRow.clientCaseId },
+            select: { caseNumber: true },
+          }),
+          prisma.user.findUnique({
+            where: { id: deletionRow.requestedByUserId },
+            select: { email: true },
+          }),
+        ])
+      : null;
+
+    const staleUploadDiagnostic = staleUploadRow
+      ? {
+          present: true,
+          technicalFixture:
+            staleUploadRow.clientCase.caseNumber === TECHNICAL_E2E_MUTATION_CASE_NUMBER &&
+            staleUploadRow.uploadedBy?.email === TECHNICAL_E2E_CLIENT.email &&
+            TECHNICAL_FILE_NAMES.has(staleUploadRow.fileName),
+          technicalFileName: TECHNICAL_FILE_NAMES.has(staleUploadRow.fileName),
+          provider: staleUploadRow.storageProvider,
+          ageMinutes: ageMinutes(now, staleUploadRow.createdAt),
+          checksumPresent: staleUploadRow.checksumSha256 !== null,
+        }
+      : { present: false };
+
+    const deletionDiagnostic = deletionRow
+      ? {
+          present: true,
+          technicalFixture:
+            deletionContext?.[0]?.caseNumber === TECHNICAL_E2E_MUTATION_CASE_NUMBER &&
+            deletionContext?.[1]?.email === TECHNICAL_E2E_CLIENT.email,
+          provider: deletionRow.storageProvider,
+          originalFileStatus: deletionRow.originalFileStatus,
+          attemptCount: deletionRow.attemptCount,
+          nextAttemptOverdueMinutes: ageMinutes(now, deletionRow.nextAttemptAt),
+          requestedAgeMinutes: ageMinutes(now, deletionRow.requestedAt),
+          createdAgeMinutes: ageMinutes(now, deletionRow.createdAt),
+          updatedAgeMinutes: ageMinutes(now, deletionRow.updatedAt),
+          leasePresent: deletionRow.leaseUntil !== null,
+          storageConfirmed: deletionRow.storageConfirmedAt !== null,
+          lastErrorCode: safeErrorCode(deletionRow.lastErrorCode),
+        }
+      : { present: false };
+
     const jobs = {
       notificationDelivery: {
         healthy: notificationDelivery.healthy,
@@ -131,6 +246,7 @@ export async function POST(request: Request) {
         healthy: staleUploads.healthy,
         overdue: staleUploads.overdue,
         saturated: staleUploads.saturated,
+        diagnostic: staleUploadDiagnostic,
       },
       fileScans: {
         healthy: fileScans.healthy,
@@ -145,6 +261,7 @@ export async function POST(request: Request) {
         expiredLeases: fileDeletion.expiredLeases,
         attentionRequired: fileDeletion.attentionRequired,
         saturated: fileDeletion.saturated,
+        diagnostic: deletionDiagnostic,
       },
       aiAudit: {
         healthy: aiAudit.orphanCount === 0,
