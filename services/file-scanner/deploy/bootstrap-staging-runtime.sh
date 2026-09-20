@@ -118,9 +118,8 @@ for _attempt in $(seq 1 360); do
 done
 
 if [ "$health_ok" != "1" ]; then
-  printf '%s\n' "STAGING_FILE_SCANNER_CONTAINER_DIAGNOSTICS_BEGIN" >&2
-  docker logs --tail 200 iburo-file-scanner-staging 2>&1 || true
-  printf '%s\n' "STAGING_FILE_SCANNER_CONTAINER_DIAGNOSTICS_END" >&2
+  # Never emit arbitrary container logs: they have not been proved safe for operator output.
+  printf '%s\n' "STAGING_FILE_SCANNER_LOCAL_HEALTH_TIMEOUT" >&2
   fail "local scanner health timeout"
 fi
 
