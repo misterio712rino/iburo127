@@ -63,7 +63,7 @@ jobs:
           REGISTRY_ID: ${{ inputs.registry_id }}
         run: |
           set -euo pipefail
-          trap 'docker logout cr.yandex >/dev/null 2>&1 || true; unset oidc_jwt iam_token oidc_response exchange_response image_repository image_tag image_manifest image_digest immutable_image' EXIT
+          trap 'docker logout cr.yandex >/dev/null 2>&1 || true; unset oidc_jwt iam_token oidc_response exchange_response image_repository image_tag push_log image_digest immutable_image' EXIT
 
           oidc_response="$(curl --fail --silent --show-error \
             --header "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
@@ -87,11 +87,10 @@ jobs:
           image_tag="${image_repository}:${GITHUB_SHA}"
           docker build --pull=false --build-arg IB_SCANNER_SEED_SIGNATURES=1 --tag "$image_tag" services/file-scanner
           printf '%s' "$iam_token" | docker login cr.yandex --username iam --password-stdin
-          docker push "$image_tag"
+          # Trust the digest reported by the successful push, not a second Buildx template request.
+          push_log="$(docker push "$image_tag")"
           echo "STAGING_FILE_SCANNER_IMAGE_PUSH_CONFIRMED: $GITHUB_SHA"
-          # Extract only the registry manifest descriptor digest, never config or layer digests.
-          image_manifest="$(docker buildx imagetools inspect "$image_tag" --format '{{json .Manifest}}')"
-          image_digest="$(printf '%s' "$image_manifest" | jq -er '.digest | strings | select(test("^sha256:[a-f0-9]{64}$"))')"
+          image_digest="$(printf '%s\n' "$push_log" | awk -v tag="${GITHUB_SHA}:" '$1 == tag && $2 == "digest:" && $4 == "size:" && $5 ~ /^[0-9]+$/ { print $3 }')"
           [[ "$image_digest" =~ ^sha256:[a-f0-9]{64}$ ]]
           immutable_image="${image_repository}@${image_digest}"
           echo "STAGING_FILE_SCANNER_IMAGE_CANDIDATE_SHA=$GITHUB_SHA"

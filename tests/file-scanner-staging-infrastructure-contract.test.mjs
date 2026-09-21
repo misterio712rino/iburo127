@@ -178,14 +178,9 @@ assert.match(imageWorkflow, /cr\.yandex\/\$\{REGISTRY_ID\}\/iburo-file-scanner/)
 assert.match(imageWorkflow, /docker build --pull=false --build-arg IB_SCANNER_SEED_SIGNATURES=1 --tag "\$image_tag" services\/file-scanner/);
 assert.match(imageWorkflow, /docker login cr\.yandex --username iam --password-stdin/);
 assert.match(imageWorkflow, /docker push "\$image_tag"/);
-assert.match(
-  imageWorkflow,
-  /image_manifest="\$\(docker buildx imagetools inspect "\$image_tag" --format '\{\{json \.Manifest\}\}'\)"/,
-);
-assert.match(
-  imageWorkflow,
-  /image_digest="\$\(printf '%s' "\$image_manifest" \| jq -er '\.digest \| strings \| select\(test\("\^sha256:\[a-f0-9\]\{64\}\$"\)\)'\)"/,
-);
+assert.match(imageWorkflow, /push_log="\$\(docker push "\$image_tag"\)"/);
+assert.match(imageWorkflow, /awk -v tag="\$\{GITHUB_SHA\}:"/);
+assert.doesNotMatch(imageWorkflow, /docker buildx imagetools inspect/);
 assert.match(imageWorkflow, /\[\[ "\$image_digest" =~ \^sha256:\[a-f0-9\]\{64\}\$ \]\]/);
 assert.match(imageWorkflow, /immutable_image="\$\{image_repository\}@\$\{image_digest\}"/);
 assert.doesNotMatch(imageWorkflow, /--format '\{\{(?:\.Digest|\.Manifest\.Digest)\}\}'/);
