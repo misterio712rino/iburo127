@@ -208,6 +208,38 @@ jobs:
             test -x /usr/local/bin/file-scanner-entrypoint
           '
 
+      - name: Isolated real ClamAV CLEAN and EICAR smoke
+        if: github.event_name == 'push' && github.ref == 'refs/heads/audit/production-readiness' && contains(github.event.head_commit.message, '[isolated-scanner-smoke]')
+        shell: bash
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          image="iburo-scanner-isolated-smoke:${GITHUB_SHA}"
+          container="iburo-scanner-isolated-${GITHUB_RUN_ID}"
+          trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+          # Ephemeral GitHub runner only. No Yandex VM, registry push, client files, Blob token or database.
+          docker build --pull=false --build-arg IB_SCANNER_SEED_SIGNATURES=1 --tag "$image" services/file-scanner
+          docker run --detach --name "$container" --network none \
+            --security-opt no-new-privileges \
+            --tmpfs /var/lib/clamav:rw,nosuid,nodev,size=768m \
+            -e IB_FILE_SCANNER_SECRET=ISOLATED_TEST_ONLY_000000000000000000000000 \
+            "$image" >/dev/null
+          ready=0
+          for attempt in $(seq 1 90); do
+            if docker exec "$container" node --input-type=module -e '
+              import {readScannerConfig} from "./src/config.mjs";
+              import {checkHealth} from "./src/health.mjs";
+              await checkHealth(readScannerConfig());
+            ' >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" = 1 || { echo "ISOLATED_CLAMD_HEALTH_FAIL" >&2; exit 1; }
+          docker exec --interactive "$container" node --input-type=module - \
+            < services/file-scanner/isolated-clamd-smoke.mjs
+          echo "ISOLATED_SCANNER_NO_CLOUD_RESOURCES_CREATED_PASS"
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
