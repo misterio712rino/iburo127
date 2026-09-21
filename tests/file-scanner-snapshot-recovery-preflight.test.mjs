@@ -15,30 +15,30 @@ const expected = {
 };
 const sourceVm = {
   id: expected.sourceVmId,
-  folderId: expected.folderId,
+  folder_id: expected.folderId,
   status: "STOPPED",
-  bootDisk: { diskId: expected.sourceDiskId },
+  boot_disk: { disk_id: expected.sourceDiskId },
 };
 const sourceDisk = {
   id: expected.sourceDiskId,
-  folderId: expected.folderId,
+  folder_id: expected.folderId,
   status: "READY",
-  zoneId: expected.zone,
-  instanceIds: [expected.sourceVmId],
+  zone_id: expected.zone,
+  instance_ids: [expected.sourceVmId],
 };
 const snapshot = {
   id: expected.snapshotId,
-  folderId: expected.folderId,
+  folder_id: expected.folderId,
   status: "READY",
-  sourceDiskId: expected.sourceDiskId,
+  source_disk_id: expected.sourceDiskId,
 };
 const helperVm = {
   id: expected.helperVmId,
-  folderId: expected.folderId,
-  zoneId: expected.zone,
+  folder_id: expected.folderId,
+  zone_id: expected.zone,
   status: "STOPPED",
-  bootDisk: { diskId: "fv4j7cvfquitb287mo92" },
-  secondaryDisks: [],
+  boot_disk: { disk_id: "fv4j7cvfquitb287mo92" },
+  secondary_disks: [],
 };
 
 assert.equal(
@@ -47,10 +47,10 @@ assert.equal(
 );
 for (const [change, code] of [
   [{ sourceVm: { ...sourceVm, status: "RUNNING" } }, "SOURCE_VM_NOT_STOPPED"],
-  [{ sourceDisk: { ...sourceDisk, instanceIds: [] } }, "SOURCE_DISK_ATTACHMENT_MISMATCH"],
-  [{ snapshot: { ...snapshot, sourceDiskId: helperVm.bootDisk.diskId } }, "SNAPSHOT_SOURCE_DISK_MISMATCH"],
-  [{ helperVm: { ...helperVm, secondaryDisks: [{ diskId: expected.sourceDiskId }] } }, "ORIGINAL_DISK_ATTACHED_TO_HELPER"],
-  [{ helperVm: { ...helperVm, zoneId: "ru-central1-a" } }, "HELPER_VM_ZONE_MISMATCH"],
+  [{ sourceDisk: { ...sourceDisk, instance_ids: [] } }, "SOURCE_DISK_ATTACHMENT_MISMATCH"],
+  [{ snapshot: { ...snapshot, source_disk_id: helperVm.boot_disk.disk_id } }, "SNAPSHOT_SOURCE_DISK_MISMATCH"],
+  [{ helperVm: { ...helperVm, secondary_disks: [{ disk_id: expected.sourceDiskId }] } }, "ORIGINAL_DISK_ATTACHED_TO_HELPER"],
+  [{ helperVm: { ...helperVm, zone_id: "ru-central1-a" } }, "HELPER_VM_ZONE_MISMATCH"],
 ]) {
   assert.throws(
     () => evaluateRecoveryPreflight({ sourceVm, sourceDisk, snapshot, helperVm, expected, ...change }),
@@ -58,6 +58,21 @@ for (const [change, code] of [
   );
 }
 
+// Yandex CLI omits empty repeated fields rather than emitting an empty array.
+const { secondary_disks: unusedSecondary, ...helperWithoutSecondary } = helperVm;
+assert.equal(
+  evaluateRecoveryPreflight({ sourceVm, sourceDisk, snapshot, helperVm: helperWithoutSecondary, expected }).mode,
+  "READ_ONLY_PREFLIGHT_ONLY",
+);
+assert.throws(
+  () => evaluateRecoveryPreflight({ sourceVm, sourceDisk, snapshot, helperVm: { ...helperVm, secondary_disks: {} }, expected }),
+  /FILE_SCANNER_SNAPSHOT_RECOVERY_PREFLIGHT:INVALID_HELPER_SECONDARY_DISKS/,
+);
+const { folder_id: unusedFolder, ...sourceWithoutFolder } = sourceVm;
+assert.throws(
+  () => evaluateRecoveryPreflight({ sourceVm: { ...sourceWithoutFolder, folderId: expected.folderId }, sourceDisk, snapshot, helperVm, expected }),
+  /FILE_SCANNER_SNAPSHOT_RECOVERY_PREFLIGHT:SOURCE_VM_FOLDER_MISMATCH/,
+);
 const commands = readOnlyCommands({ ycPath: "fake-yc", ...expected });
 assert.equal(commands.length, 4);
 for (const command of commands) {

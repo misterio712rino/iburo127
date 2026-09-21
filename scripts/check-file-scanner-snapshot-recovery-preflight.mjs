@@ -18,19 +18,19 @@ function requireExact(actual, expected, code) {
 }
 
 function getBootDiskId(instance, code) {
-  const diskId = instance?.bootDisk?.diskId;
+  const diskId = instance?.boot_disk?.disk_id;
   if (typeof diskId !== "string" || !SAFE_ID.test(diskId)) fail(code);
   return diskId;
 }
 
 function getAttachedDiskIds(instance) {
   const ids = [getBootDiskId(instance, "INVALID_HELPER_BOOT_DISK")];
-  if (!Array.isArray(instance?.secondaryDisks)) fail("INVALID_HELPER_SECONDARY_DISKS");
-  for (const disk of instance.secondaryDisks) {
-    if (typeof disk?.diskId !== "string" || !SAFE_ID.test(disk.diskId)) {
+  if (instance?.secondary_disks != null && !Array.isArray(instance.secondary_disks)) fail("INVALID_HELPER_SECONDARY_DISKS");
+  for (const disk of (instance.secondary_disks ?? [])) {
+    if (typeof disk?.disk_id !== "string" || !SAFE_ID.test(disk.disk_id)) {
       fail("INVALID_HELPER_SECONDARY_DISK");
     }
-    ids.push(disk.diskId);
+    ids.push(disk.disk_id);
   }
   return ids;
 }
@@ -53,25 +53,25 @@ export function evaluateRecoveryPreflight({ sourceVm, sourceDisk, snapshot, help
   const { sourceVmId, sourceDiskId, snapshotId, helperVmId, folderId, zone } = validateExpected(expected);
 
   requireExact(sourceVm?.id, sourceVmId, "SOURCE_VM_ID_MISMATCH");
-  requireExact(sourceVm?.folderId, folderId, "SOURCE_VM_FOLDER_MISMATCH");
+  requireExact(sourceVm?.folder_id, folderId, "SOURCE_VM_FOLDER_MISMATCH");
   requireExact(sourceVm?.status, "STOPPED", "SOURCE_VM_NOT_STOPPED");
   requireExact(getBootDiskId(sourceVm, "INVALID_SOURCE_BOOT_DISK"), sourceDiskId, "SOURCE_BOOT_DISK_MISMATCH");
 
   requireExact(sourceDisk?.id, sourceDiskId, "SOURCE_DISK_ID_MISMATCH");
-  requireExact(sourceDisk?.folderId, folderId, "SOURCE_DISK_FOLDER_MISMATCH");
+  requireExact(sourceDisk?.folder_id, folderId, "SOURCE_DISK_FOLDER_MISMATCH");
   requireExact(sourceDisk?.status, "READY", "SOURCE_DISK_NOT_READY");
-  requireExact(sourceDisk?.zoneId, zone, "SOURCE_DISK_ZONE_MISMATCH");
-  if (!Array.isArray(sourceDisk?.instanceIds) || sourceDisk.instanceIds.length !== 1
-    || sourceDisk.instanceIds[0] !== sourceVmId) fail("SOURCE_DISK_ATTACHMENT_MISMATCH");
+  requireExact(sourceDisk?.zone_id, zone, "SOURCE_DISK_ZONE_MISMATCH");
+  if (!Array.isArray(sourceDisk?.instance_ids) || sourceDisk.instance_ids.length !== 1
+    || sourceDisk.instance_ids[0] !== sourceVmId) fail("SOURCE_DISK_ATTACHMENT_MISMATCH");
 
   requireExact(snapshot?.id, snapshotId, "SNAPSHOT_ID_MISMATCH");
-  requireExact(snapshot?.folderId, folderId, "SNAPSHOT_FOLDER_MISMATCH");
+  requireExact(snapshot?.folder_id, folderId, "SNAPSHOT_FOLDER_MISMATCH");
   requireExact(snapshot?.status, "READY", "SNAPSHOT_NOT_READY");
-  requireExact(snapshot?.sourceDiskId, sourceDiskId, "SNAPSHOT_SOURCE_DISK_MISMATCH");
+  requireExact(snapshot?.source_disk_id, sourceDiskId, "SNAPSHOT_SOURCE_DISK_MISMATCH");
 
   requireExact(helperVm?.id, helperVmId, "HELPER_VM_ID_MISMATCH");
-  requireExact(helperVm?.folderId, folderId, "HELPER_VM_FOLDER_MISMATCH");
-  requireExact(helperVm?.zoneId, zone, "HELPER_VM_ZONE_MISMATCH");
+  requireExact(helperVm?.folder_id, folderId, "HELPER_VM_FOLDER_MISMATCH");
+  requireExact(helperVm?.zone_id, zone, "HELPER_VM_ZONE_MISMATCH");
   requireExact(helperVm?.status, "STOPPED", "HELPER_VM_NOT_STOPPED");
   if (getAttachedDiskIds(helperVm).includes(sourceDiskId)) fail("ORIGINAL_DISK_ATTACHED_TO_HELPER");
 
