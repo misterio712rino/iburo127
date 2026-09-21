@@ -98,7 +98,7 @@ assert.doesNotMatch(
 const maintenanceHealthStep =
   externalReadinessWorkflow
     .split("- name: Verify aggregate maintenance backlog health")[1]
-    ?.split("- name: Verify private staging storage")[0] ?? "";
+    ?.split("\n      - name:")[0] ?? "";
 assert.ok(maintenanceHealthStep, "external readiness must keep the maintenance health step");
 assert.match(
   maintenanceHealthStep,

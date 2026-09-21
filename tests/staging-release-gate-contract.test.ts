@@ -122,7 +122,14 @@ assert.ok(
   maintenanceStepStart > cleanupStepStart,
   "guarded fixture cleanup must remain before aggregate maintenance health",
 );
-const cleanupStep = externalReadinessWorkflow.slice(cleanupStepStart, maintenanceStepStart);
+const storageStepStart = externalReadinessWorkflow.indexOf(
+  "- name: Verify private staging storage",
+);
+assert.ok(
+  storageStepStart > cleanupStepStart && maintenanceStepStart > storageStepStart,
+  "private storage proof must run after guarded cleanup but before unhealthy maintenance can stop the job",
+);
+const cleanupStep = externalReadinessWorkflow.slice(cleanupStepStart, storageStepStart);
 assert.match(cleanupStep, /max_attempts=6/);
 assert.match(cleanupStep, /delay_seconds=3/);
 assert.match(cleanupStep, /for attempt in \$\(seq 1 "\$max_attempts"\); do/);
