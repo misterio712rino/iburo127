@@ -172,13 +172,18 @@ assert.match(
 );
 assert.match(
   scannerImageWorkflow,
-  /image_manifest="\$\(docker buildx imagetools inspect "\$image_tag" --format '\{\{json \.Manifest\}\}'\)"/,
-  "immutable scanner image must read the registry manifest descriptor as structured JSON",
+  /push_log="\$\(docker push "\$image_tag"\)"/,
+  "immutable scanner image must capture the successful registry push output",
 );
 assert.match(
   scannerImageWorkflow,
-  /image_digest="\$\(printf '%s' "\$image_manifest" \| jq -er '\.digest \| strings \| select\(test\("\^sha256:\[a-f0-9\]\{64\}\$"\)\)'\)"/,
-  "immutable scanner image must extract only the manifest descriptor's top-level digest",
+  /awk -v tag="\$\{GITHUB_SHA\}:"/,
+  "immutable scanner image must read the digest for the exact candidate tag",
+);
+assert.doesNotMatch(
+  scannerImageWorkflow,
+  /docker buildx imagetools inspect/,
+  "successful publication must not depend on a second Buildx inspection",
 );
 assert.match(
   scannerImageWorkflow,
