@@ -81,4 +81,11 @@ assert.match(
   "the OIDC permission must remain in place",
 );
 
+const pushPosition = workflow.indexOf('docker push "$image_tag"');
+const pushEvidencePosition = workflow.indexOf('echo "STAGING_FILE_SCANNER_IMAGE_PUSH_CONFIRMED: $GITHUB_SHA"');
+const digestPosition = workflow.indexOf('image_manifest="$(docker buildx imagetools inspect');
+assert.ok(pushPosition >= 0 && pushEvidencePosition > pushPosition && digestPosition > pushEvidencePosition,
+  "successful registry push must be recorded before optional digest-inspection failures");
+assert.match(workflow, /name: Authenticate, build, push and verify immutable scanner image/,
+  "the publication job step must describe all operations it performs, not just OIDC exchange");
 console.log("STAGING_FILE_SCANNER_IMAGE_DIGEST_WORKFLOW_TEST_PASS");

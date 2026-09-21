@@ -56,7 +56,7 @@ jobs:
           [[ "$PUBLISHER_SERVICE_ACCOUNT_ID" =~ ^[a-z0-9]+$ ]]
           echo "STAGING_FILE_SCANNER_IMAGE_PUBLICATION_TARGET_PASS: $REQUESTED_SHA"
 
-      - name: Request GitHub OIDC token and exchange for Yandex IAM token
+      - name: Authenticate, build, push and verify immutable scanner image
         shell: bash
         env:
           PUBLISHER_SERVICE_ACCOUNT_ID: ${{ inputs.publisher_service_account_id }}
@@ -88,6 +88,7 @@ jobs:
           docker build --pull=false --build-arg IB_SCANNER_SEED_SIGNATURES=1 --tag "$image_tag" services/file-scanner
           printf '%s' "$iam_token" | docker login cr.yandex --username iam --password-stdin
           docker push "$image_tag"
+          echo "STAGING_FILE_SCANNER_IMAGE_PUSH_CONFIRMED: $GITHUB_SHA"
           # Extract only the registry manifest descriptor digest, never config or layer digests.
           image_manifest="$(docker buildx imagetools inspect "$image_tag" --format '{{json .Manifest}}')"
           image_digest="$(printf '%s' "$image_manifest" | jq -er '.digest | strings | select(test("^sha256:[a-f0-9]{64}$"))')"
