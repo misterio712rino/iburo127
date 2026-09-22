@@ -189,6 +189,18 @@ jobs:
       - name: Staging scanner GitHub OIDC boundary tests
         run: npx tsx tests/scanner-fixture-github-oidc.test.ts
 
+      - name: Staging scanner delegated fixture issuer and cleanup tests (offline)
+        shell: bash
+        run: |
+          npx tsx tests/scanner-fixture-signed-issuer.test.ts
+          npx tsx tests/staging-scanner-blob-oidc-storage.test.ts
+          npx tsx tests/staging-scanner-fixture-ownership.test.ts
+          npx tsx tests/staging-file-scanner-target-guard.test.ts
+          npx tsx tests/staging-file-scanner-verifier-contract.test.ts
+
+      - name: Vercel Blob native signed-URL constraints (offline)
+        run: node --conditions=react-server --import tsx tests/vercel-blob-native-signed-url.test.ts
+
       - name: File scanner Docker build
         shell: bash
         run: |

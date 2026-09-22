@@ -23,8 +23,9 @@ assert.match(source, /GetObjectCommand/);
 assert.match(source, /getSignedUrl/);
 assert.match(source, /scanWithHttpMalwareScanner/);
 assert.match(source, /target\.providerCode === VERCEL_BLOB_STORAGE_PROVIDER/);
-assert.match(source, /createVercelBlobSignedUrlDriver/);
-assert.match(source, /createVercelBlobNativeSignedUrlDependencies/);
+assert.match(source, /createOidcScopedScannerSmokeStorage/);
+assert.doesNotMatch(source, /readVercelBlobAuthConfig|createVercelBlobSignedUrlDriver|BLOB_READ_WRITE_TOKEN/);
+
 assert.match(source, /createPrivateUploadUrl/);
 assert.match(source, /createPrivateDownloadUrl/);
 assert.match(source, /statPrivateBlob/);
@@ -40,7 +41,7 @@ assert.match(source, /await verifyVercelFixture\([\s\S]*target\.maliciousObjectK
 assert.match(source, /finally\s*\{\s*await cleanupVercelFixtures\(storage, confirmedUploads\)/);
 assert.match(source, /VERCEL_BLOB_FIXTURE_CLEANUP_FAILED/);
 assert.match(source, /FIXTURE_URL_TTL_SECONDS = 300/);
-assert.match(source, /MAX_FIXTURE_BYTES = 1024 \* 1024/);
+assert.match(source, /MAX_FIXTURE_BYTES = 1024;/);
 assert.match(source, /Vercel Blob staging host verified before fixture mutation/);
 assert.match(source, /Fixture object keys or signed URLs logged: 0/);
 assert.match(source, /STAGING_FILE_SCANNER_VERIFY_PASS/);
@@ -142,9 +143,11 @@ const scannerOriginGate = smokeWorkflow.indexOf('if [ "$REQUESTED_SCANNER_ORIGIN
 const previewSecretStep = smokeWorkflow.indexOf('VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}');
 assert.ok(scannerOriginGate > 0 && scannerOriginGate < previewSecretStep, "scanner origin must be pinned before any credential-bearing step");
 assert.match(smokeWorkflow, /refs\/heads\/audit\/production-readiness/);
-assert.match(smokeWorkflow, /test -n "\$BLOB_READ_WRITE_TOKEN"/);
+assert.match(smokeWorkflow, /test -n "\$ACTIONS_ID_TOKEN_REQUEST_TOKEN"/);
 assert.match(smokeWorkflow, /test -n "\$IB_FILE_SCANNER_SECRET"/);
-assert.match(smokeWorkflow, /secrets\.IB_STAGING_BLOB_READ_WRITE_TOKEN/);
+assert.doesNotMatch(smokeWorkflow, /IB_STAGING_BLOB_READ_WRITE_TOKEN|BLOB_READ_WRITE_TOKEN/);
+assert.match(smokeWorkflow, /id-token: write/);
+assert.match(smokeWorkflow, /IB_STAGING_SCANNER_FIXTURE_AUTH_MODE: github-oidc/);
 assert.match(smokeWorkflow, /secrets\.IB_STAGING_FILE_SCANNER_SECRET/);
 assert.match(smokeWorkflow, /IB_STAGING_VERCEL_BLOB_PRIVATE_HOST: \$\{\{ inputs\.blob_private_host \}\}/);
 assert.match(smokeWorkflow, /security-fixtures\/file-scanner\/\$GITHUB_SHA\/\$GITHUB_RUN_ID-\$GITHUB_RUN_ATTEMPT\/clean\.txt/);

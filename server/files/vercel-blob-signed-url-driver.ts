@@ -35,6 +35,7 @@ type PresignUrlInput = {
   maximumSizeInBytes?: number;
   addRandomSuffix?: boolean;
   allowOverwrite?: boolean;
+  ifMatch?: string;
 };
 
 type Awaitable<T> = T | Promise<T>;
@@ -62,6 +63,7 @@ async function signOperation(
     maximumSizeInBytes?: number;
     addRandomSuffix?: boolean;
     allowOverwrite?: boolean;
+  ifMatch?: string;
   },
 ) {
   const now = dependencies.now ?? Date.now;
