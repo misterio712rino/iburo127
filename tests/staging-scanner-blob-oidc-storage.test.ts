@@ -6,6 +6,7 @@ const sha = "a".repeat(40);
 const pathname = `security-fixtures/file-scanner/${sha}/12345-1/clean.txt`;
 const host = "teststore123.private.blob.vercel-storage.com";
 const env = {
+  NODE_ENV: "test" as const,
   IB_STAGING_BASE_URL: "https://iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app",
   IB_STAGING_SCANNER_FIXTURE_AUTH_MODE: "github-oidc",
   IB_STAGING_VERCEL_BLOB_PRIVATE_HOST: host,
@@ -113,7 +114,7 @@ test("deletes only after valid metadata and binds delete to the matching ETag", 
   await assert.rejects(storage.deletePrivateBlob(pathname), denied);
   assert.deepEqual(h.events, []);
   assert.deepEqual(await storage.statPrivateBlob(pathname), {
-    sizeBytes: 35n, mimeType: "application/octet-stream",
+    sizeBytes: BigInt(35), mimeType: "application/octet-stream",
   });
   await storage.deletePrivateBlob(pathname);
   assert.deepEqual(h.events, [
