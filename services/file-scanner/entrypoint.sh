@@ -37,7 +37,7 @@ signature_set_is_fresh() {
   esac
   [ "$max_age_hours" -ge 1 ] && [ "$max_age_hours" -le 168 ] || return 1
 
-  daily_mtime="$(stat -c '%Y' "$daily_path")" || return 1
+  daily_mtime="$(gosu clamav stat -c '%Y' "$daily_path")" || return 1
   now="$(date +%s)"
   [ "$daily_mtime" -le "$now" ] || return 1
   [ $((now - daily_mtime)) -le $((max_age_hours * 3600)) ] || return 1

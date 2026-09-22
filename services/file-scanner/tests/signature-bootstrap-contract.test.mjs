@@ -68,6 +68,8 @@ test("publication can embed a fresh official signature seed without weakening ru
   assert.match(entrypoint, /gosu clamav cp -p "\$bytecode_seed" "\$SIGNATURE_DIRECTORY\/" \|\| return 1/);
   assert.match(entrypoint, /signature_set_is_fresh "\$SIGNATURE_DIRECTORY" \|\| return 1/);
   assert.doesNotMatch(entrypoint, /^\s*cp -p "\$(?:main_seed|bytecode_seed)"/m);
+  assert.match(entrypoint, /gosu clamav stat -c '%Y' "\$daily_path"/, "signature timestamps must be read as clamav since hardened root lacks DAC_OVERRIDE");
+  assert.doesNotMatch(entrypoint, /daily_mtime="\$\(stat -c/, "root must not stat the clamav-only signature directory");
   assert.match(entrypoint, /IB_SCANNER_SIGNATURE_MAX_AGE_HOURS:-24/);
   assert.match(entrypoint, /\[ "\$max_age_hours" -ge 1 \] && \[ "\$max_age_hours" -le 168 \]/);
   assert.match(entrypoint, /STAGING_FILE_SCANNER_SIGNATURE_SEED_INSTALLED/);
