@@ -118,7 +118,7 @@ jobs:
 
           for attempt in $(seq 1 "$max_attempts"); do
             http_status="$(
-              curl --silent --show-error \
+              curl --silent --show-error --connect-timeout 5 --max-time 12 --max-filesize 4096 \
                 --output "$identity_file" \
                 --write-out '%{http_code}' \
                 -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \

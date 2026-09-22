@@ -160,6 +160,13 @@ assert.match(smokeWorkflow, /security-fixtures\/file-scanner\/\$GITHUB_SHA\/\$GI
 assert.match(smokeWorkflow, /security-fixtures\/file-scanner\/\$GITHUB_SHA\/\$GITHUB_RUN_ID-\$GITHUB_RUN_ATTEMPT\/eicar\.txt/);
 assert.match(smokeWorkflow, /npm run check:staging:file-scanner/);
 assert.match(smokeWorkflow, /_iburo\/staging-identity/);
+// Protected Preview identity response must never consume unbounded network/disk resources.
+const identityCurl = smokeWorkflow.match(/curl --silent --show-error[^\r\n]+/)?.[0];
+assert.ok(identityCurl, "protected Preview identity curl must be present");
+assert.match(identityCurl, /--connect-timeout 5/);
+assert.match(identityCurl, /--max-time 12/);
+assert.match(identityCurl, /--max-filesize 4096/);
+assert.doesNotMatch(identityCurl, /--location(?:\s|$)/);
 assert.doesNotMatch(smokeWorkflow, /secrets\.BLOB_READ_WRITE_TOKEN/);
 assert.doesNotMatch(smokeWorkflow, /secrets\.IB_FILE_SCANNER_SECRET(?![A-Z_])/);
 assert.doesNotMatch(smokeWorkflow, /terraform\s+(apply|destroy)|\byc\s|kubectl|vercel\s+(deploy|promote)|target:\s*production/i);
