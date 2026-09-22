@@ -21,6 +21,7 @@ const expectedRoutes = [
   "staging-identity",
   "staging-maintenance-health",
   "staging-postbox-verify",
+  "staging-scanner-fixture-url",
   "staging-storage-verify",
 ] as const;
 
