@@ -31,13 +31,13 @@ assert.match(source, /statPrivateBlob/);
 assert.match(source, /deletePrivateBlob/);
 assert.match(source, /verifyVercelBlobTargetBeforeMutation/);
 assert.match(source, /assertStagingScannerFixtureKeysAbsent/);
-assert.match(source, /attemptedKeys\.push\(target\.cleanObjectKey\)/);
-assert.match(source, /attemptedKeys\.push\(target\.maliciousObjectKey\)/);
+assert.match(source, /recordConfirmedUpload\(objectKey\)/);
+assert.match(source, /const confirmedUploads: string\[\] = \[\]/);
 assert.match(source, /parsed\.hostname\.toLowerCase\(\) !== target\.expectedPrivateBlobHost/);
 assert.match(source, /VERCEL_BLOB_PRIVATE_HOST_MISMATCH/);
 assert.match(source, /await verifyVercelFixture\([\s\S]*target\.cleanObjectKey,[\s\S]*"CLEAN"/);
 assert.match(source, /await verifyVercelFixture\([\s\S]*target\.maliciousObjectKey,[\s\S]*"MALICIOUS"/);
-assert.match(source, /finally\s*\{\s*await cleanupVercelFixtures\(storage, attemptedKeys\)/);
+assert.match(source, /finally\s*\{\s*await cleanupVercelFixtures\(storage, confirmedUploads\)/);
 assert.match(source, /VERCEL_BLOB_FIXTURE_CLEANUP_FAILED/);
 assert.match(source, /FIXTURE_URL_TTL_SECONDS = 300/);
 assert.match(source, /MAX_FIXTURE_BYTES = 1024 \* 1024/);
@@ -53,22 +53,34 @@ const preflightIndex = vercelFixtureFunction.indexOf(
   "await verifyVercelBlobTargetBeforeMutation(target, storage);",
 );
 const absentIndex = vercelFixtureFunction.indexOf("await assertStagingScannerFixtureKeysAbsent(");
-const firstAttemptIndex = vercelFixtureFunction.indexOf("attemptedKeys.push(target.cleanObjectKey);");
+const recordCallbackIndex = vercelFixtureFunction.indexOf("const recordConfirmedUpload =");
 const mutationTryIndex = vercelFixtureFunction.indexOf("try {", preflightIndex);
 const firstCleanupIndex = vercelFixtureFunction.indexOf(
-  "await cleanupVercelFixtures(storage, attemptedKeys);",
+  "await cleanupVercelFixtures(storage, confirmedUploads);",
 );
 assert.ok(preflightIndex >= 0, "private Blob target preflight must execute");
 assert.ok(absentIndex > preflightIndex, "occupied fixtures must fail before uploads or deletions");
-assert.ok(firstAttemptIndex > absentIndex, "only post-preflight attempts may become cleanup targets");
+assert.ok(recordCallbackIndex > absentIndex, "only post-preflight confirmed uploads may become cleanup targets");
 assert.ok(
   mutationTryIndex > preflightIndex,
   "private Blob target preflight must execute before the mutation/cleanup try-finally block",
 );
 assert.ok(
-  firstCleanupIndex > firstAttemptIndex,
+  firstCleanupIndex > recordCallbackIndex,
   "private Blob target preflight must execute before any fixture cleanup mutation",
 );
+
+const uploadFixtureFunction = source.match(
+  /async function uploadVercelFixture[\s\S]*?(?=\nasync function verifyVercelFixture)/,
+)?.[0];
+assert.ok(uploadFixtureFunction, "upload function must exist");
+const uploadGuardIndex = uploadFixtureFunction.indexOf(
+  'if (!response.ok) throw new Error("VERCEL_BLOB_UPLOAD_FAILED");',
+);
+const confirmUploadIndex = uploadFixtureFunction.indexOf("recordConfirmedUpload(objectKey);");
+assert.ok(uploadGuardIndex >= 0 && confirmUploadIndex > uploadGuardIndex,
+  "a failed upload must not mark an object for cleanup");
+assert.doesNotMatch(vercelFixtureFunction, /attemptedKeys\.push/);
 
 for (const forbidden of [
   "PutObjectCommand",
