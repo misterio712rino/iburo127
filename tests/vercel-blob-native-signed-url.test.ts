@@ -29,7 +29,11 @@ const issuedToken = {
 
 globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
   calls.push({ input: String(input), init });
-  return new Response(JSON.stringify(issuedToken), {
+  const requested = JSON.parse(String(init?.body)) as { operations: string[] };
+  const responseToken = requested.operations.includes("head")
+    ? { ...issuedToken, delegationToken: delegationToken({ ...tokenPayload, operations: ["head"] }) }
+    : issuedToken;
+  return new Response(JSON.stringify(responseToken), {
     status: 200,
     headers: { "content-type": "application/json" },
   });
@@ -78,6 +82,25 @@ try {
   } finally {
     globalThis.fetch = originalTokenFetch;
   }
+  // A successfully signed URL must never target a different store, a wildcard
+  // pathname, an extra operation, or a longer-lived grant than requested.
+  const baselineFetch = globalThis.fetch;
+  for (const unsafeGrant of [
+    { storeId: "unrelatedstore" },
+    { pathname: "*" },
+    { operations: ["put", "delete"] },
+    { validUntil: tokenPayload.validUntil + 60_000 },
+  ]) {
+    globalThis.fetch = (async () => Response.json({
+      ...issuedToken,
+      delegationToken: delegationToken({ ...tokenPayload, ...unsafeGrant }),
+    })) as typeof fetch;
+    await assert.rejects(dependencies.issueSignedToken({
+      token: "vercel_blob_rw_teststore123_secret", pathname,
+      operations: ["put"], validUntil: tokenPayload.validUntil,
+    }), /delegation-scope-mismatch/);
+  }
+  globalThis.fetch = baselineFetch;
   const { presignedUrl } = await dependencies.presignUrl(token, {
     operation: "put",
     pathname,
