@@ -194,6 +194,7 @@ jobs:
         run: |
           npx tsx tests/scanner-fixture-signed-issuer.test.ts
           npx tsx tests/staging-scanner-blob-oidc-storage.test.ts
+          npx tsx tests/staging-scanner-bounded-json.test.ts
           npx tsx tests/staging-scanner-fixture-ownership.test.ts
           npx tsx tests/staging-file-scanner-target-guard.test.ts
           npx tsx tests/staging-file-scanner-verifier-contract.test.ts

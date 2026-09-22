@@ -150,3 +150,28 @@ test("OIDC request URL cannot redirect token to an arbitrary host", async () => 
   await assert.rejects(storage.createPrivateDownloadUrl({ pathname, expiresInSeconds: 120 }), denied);
   assert.deepEqual(h.events, []);
 });
+
+test("oversized GitHub OIDC response denies before calling the Preview issuer", async () => {
+  const calls: string[] = [];
+  const request = (async (input: RequestInfo | URL) => {
+    calls.push(String(input));
+    return new Response("{}", { headers: { "content-length": "20000" } });
+  }) as typeof fetch;
+  const storage = createOidcScopedScannerSmokeStorage(env, request);
+  await assert.rejects(storage.createPrivateDownloadUrl({ pathname, expiresInSeconds: 120 }), denied);
+  assert.equal(calls.length, 1);
+  assert.match(calls[0], /^https:\/\/token\.actions\.githubusercontent\.com\//);
+});
+
+test("oversized Preview issuer response denies before any Blob request", async () => {
+  const calls: string[] = [];
+  const request = (async (input: RequestInfo | URL) => {
+    calls.push(String(input));
+    if (calls.length === 1) return Response.json({ value: "a".repeat(200) });
+    return new Response("x".repeat(9000));
+  }) as typeof fetch;
+  const storage = createOidcScopedScannerSmokeStorage(env, request);
+  await assert.rejects(storage.createPrivateDownloadUrl({ pathname, expiresInSeconds: 120 }), denied);
+  assert.equal(calls.length, 2);
+  assert.ok(calls[1].endsWith("/_iburo/staging-scanner-fixture-url"));
+});

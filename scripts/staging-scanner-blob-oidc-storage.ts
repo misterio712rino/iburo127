@@ -2,12 +2,16 @@ import type { VercelBlobStorageDriver } from "../server/files/vercel-blob-object
 import { SCANNER_FIXTURE_AUDIENCE } from "../server/staging/scanner-fixture-github-oidc";
 import type { ScannerFixtureRequest } from "../server/staging/scanner-fixture-signed-issuer";
 import { isVercelBlobDeleteSuccessStatus } from "../server/files/vercel-blob-delete-semantics";
+import { readBoundedScannerJson } from "./staging-scanner-bounded-json";
 
 const EXACT_PREVIEW_ORIGIN = "https://iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app";
 const ROUTE = "/_iburo/staging-scanner-fixture-url";
 const MIME = "application/octet-stream";
 const MAX_BYTES = 1024;
 const fail = (): never => { throw new Error("STAGING_SCANNER_OIDC_STORAGE_DENIED"); };
+async function boundedControlJson(response: Response, limit: number): Promise<unknown> {
+  try { return await readBoundedScannerJson(response, limit); } catch { return fail(); }
+}
 const required = (env: NodeJS.ProcessEnv, key: string) => {
   const value = env[key];
   if (!value || /[\r\n\0]/.test(value)) return fail();
@@ -33,7 +37,7 @@ async function githubIdentityToken(env: NodeJS.ProcessEnv, request: typeof fetch
     redirect: "error", cache: "no-store", signal: AbortSignal.timeout(10_000),
   });
   if (!response.ok) fail();
-  const payload = await response.json() as { value?: unknown };
+  const payload = await boundedControlJson(response, 16_384) as { value?: unknown };
   if (typeof payload.value !== "string" || payload.value.length < 100 || payload.value.length > 12_288) fail();
   return payload.value;
 }
@@ -52,7 +56,7 @@ export function createOidcScopedScannerSmokeStorage(
       body: JSON.stringify({ fixture, operation, ...(etag ? { etag } : {}) }),
     });
     if (!response.ok) fail();
-    const payload = await response.json() as { url?: unknown; expiresInSeconds?: unknown };
+    const payload = await boundedControlJson(response, 8_192) as { url?: unknown; expiresInSeconds?: unknown };
     if (typeof payload.url !== "string" || payload.expiresInSeconds !== 120) fail();
     return payload.url as string;
   }
