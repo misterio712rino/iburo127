@@ -175,3 +175,26 @@ test("oversized Preview issuer response denies before any Blob request", async (
   assert.equal(calls.length, 2);
   assert.ok(calls[1].endsWith("/_iburo/staging-scanner-fixture-url"));
 });
+
+test("null GitHub OIDC JSON rejects with generic marker before Preview", async () => {
+  const calls: string[] = [];
+  const request = (async (input: RequestInfo | URL) => {
+    calls.push(String(input));
+    return Response.json(null);
+  }) as typeof fetch;
+  const storage = createOidcScopedScannerSmokeStorage(env, request);
+  await assert.rejects(storage.createPrivateDownloadUrl({ pathname, expiresInSeconds: 120 }), denied);
+  assert.equal(calls.length, 1);
+});
+
+test("null Preview issuer JSON rejects with generic marker before Blob", async () => {
+  const calls: string[] = [];
+  const request = (async (input: RequestInfo | URL) => {
+    calls.push(String(input));
+    if (calls.length === 1) return Response.json({ value: "a".repeat(200) });
+    return Response.json(null);
+  }) as typeof fetch;
+  const storage = createOidcScopedScannerSmokeStorage(env, request);
+  await assert.rejects(storage.createPrivateDownloadUrl({ pathname, expiresInSeconds: 120 }), denied);
+  assert.equal(calls.length, 2);
+});

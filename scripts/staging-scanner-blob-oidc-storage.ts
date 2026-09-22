@@ -10,7 +10,11 @@ const MIME = "application/octet-stream";
 const MAX_BYTES = 1024;
 const fail = (): never => { throw new Error("STAGING_SCANNER_OIDC_STORAGE_DENIED"); };
 async function boundedControlJson(response: Response, limit: number): Promise<unknown> {
-  try { return await readBoundedScannerJson(response, limit); } catch { return fail(); }
+  try {
+    const payload = await readBoundedScannerJson(response, limit);
+    if (payload === null || typeof payload !== "object" || Array.isArray(payload)) fail();
+    return payload;
+  } catch { return fail(); }
 }
 const required = (env: NodeJS.ProcessEnv, key: string) => {
   const value = env[key];
