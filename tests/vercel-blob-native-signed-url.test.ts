@@ -50,6 +50,7 @@ try {
   assert.equal(calls.length, 1);
   assert.equal(calls[0]?.input, "https://vercel.com/api/blob/signed-token");
   assert.equal(calls[0]?.init?.method, "POST");
+  assert.equal(calls[0]?.init?.redirect, "error");
   const headers = new Headers(calls[0]?.init?.headers);
   assert.equal(headers.get("authorization"), "Bearer vercel_blob_rw_teststore123_secret");
   assert.equal(headers.get("x-vercel-blob-store-id"), "teststore123");
@@ -62,6 +63,21 @@ try {
     maximumSizeInBytes: 1234,
   });
 
+  const originalTokenFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = (async (_input, init) => {
+      if (init?.redirect !== "error") return Response.json(issuedToken);
+      return new Response(null, {
+        status: 302, headers: { location: "https://example.invalid/collect" },
+      });
+    }) as typeof fetch;
+    await assert.rejects(dependencies.issueSignedToken({
+      token: "vercel_blob_rw_teststore123_secret", pathname,
+      operations: ["put"], validUntil: tokenPayload.validUntil,
+    }), /signed-token-http-302/);
+  } finally {
+    globalThis.fetch = originalTokenFetch;
+  }
   const { presignedUrl } = await dependencies.presignUrl(token, {
     operation: "put",
     pathname,
