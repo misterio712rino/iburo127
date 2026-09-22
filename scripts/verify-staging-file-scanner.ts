@@ -11,6 +11,7 @@ import {
   STAGING_FILE_SCANNER_TARGET_GUARD,
   type StagingFileScannerTarget,
 } from "@/scripts/staging-file-scanner-target-guard";
+import { assertStagingScannerFixtureKeysAbsent } from "@/scripts/staging-scanner-fixture-ownership";
 import { scanWithHttpMalwareScanner } from "@/server/files/http-malware-scanner-core";
 import { VERCEL_BLOB_STORAGE_PROVIDER } from "@/server/files/object-storage-provider";
 import { readVercelBlobAuthConfig } from "@/server/files/vercel-blob-config";
@@ -228,17 +229,17 @@ async function verifyVercelFixture(
 
 async function cleanupVercelFixtures(
   storage: ReturnType<typeof createVercelBlobSmokeStorage>,
-  target: Extract<StagingFileScannerTarget, { providerCode: typeof VERCEL_BLOB_STORAGE_PROVIDER }>,
+  objectKeys: readonly string[],
 ) {
   let cleanupFailed = false;
-  for (const objectKey of [target.cleanObjectKey, target.maliciousObjectKey]) {
+  for (const objectKey of objectKeys) {
     try {
       await storage.deletePrivateBlob(objectKey);
     } catch {
       cleanupFailed = true;
     }
   }
-  for (const objectKey of [target.cleanObjectKey, target.maliciousObjectKey]) {
+  for (const objectKey of objectKeys) {
     try {
       if (await storage.statPrivateBlob(objectKey)) cleanupFailed = true;
     } catch {
@@ -254,9 +255,14 @@ async function verifyVercelBlobFixtures(
 ) {
   const storage = createVercelBlobSmokeStorage();
   await verifyVercelBlobTargetBeforeMutation(target, storage);
+  await assertStagingScannerFixtureKeysAbsent(
+    [target.cleanObjectKey, target.maliciousObjectKey],
+    (key) => storage.statPrivateBlob(key),
+  );
 
+  const attemptedKeys: string[] = [];
   try {
-    await cleanupVercelFixtures(storage, target);
+    attemptedKeys.push(target.cleanObjectKey);
     await verifyVercelFixture(
       target,
       scannerTimeoutMs,
@@ -265,6 +271,7 @@ async function verifyVercelBlobFixtures(
       CLEAN_FIXTURE,
       "CLEAN",
     );
+    attemptedKeys.push(target.maliciousObjectKey);
     await verifyVercelFixture(
       target,
       scannerTimeoutMs,
@@ -274,7 +281,7 @@ async function verifyVercelBlobFixtures(
       "MALICIOUS",
     );
   } finally {
-    await cleanupVercelFixtures(storage, target);
+    await cleanupVercelFixtures(storage, attemptedKeys);
   }
 }
 

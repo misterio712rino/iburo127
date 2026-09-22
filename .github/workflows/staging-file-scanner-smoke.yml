@@ -178,6 +178,6 @@ jobs:
           test -n "$confirmation"
 
           export IB_STAGING_FILE_SCANNER_CONFIRM="$confirmation"
-          export IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY="security-fixtures/file-scanner/$GITHUB_SHA/clean.txt"
-          export IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY="security-fixtures/file-scanner/$GITHUB_SHA/eicar.txt"
+          export IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY="security-fixtures/file-scanner/$GITHUB_SHA/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/clean.txt"
+          export IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY="security-fixtures/file-scanner/$GITHUB_SHA/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/eicar.txt"
           npm run check:staging:file-scanner

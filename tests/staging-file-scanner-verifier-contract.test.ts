@@ -30,11 +30,14 @@ assert.match(source, /createPrivateDownloadUrl/);
 assert.match(source, /statPrivateBlob/);
 assert.match(source, /deletePrivateBlob/);
 assert.match(source, /verifyVercelBlobTargetBeforeMutation/);
+assert.match(source, /assertStagingScannerFixtureKeysAbsent/);
+assert.match(source, /attemptedKeys\.push\(target\.cleanObjectKey\)/);
+assert.match(source, /attemptedKeys\.push\(target\.maliciousObjectKey\)/);
 assert.match(source, /parsed\.hostname\.toLowerCase\(\) !== target\.expectedPrivateBlobHost/);
 assert.match(source, /VERCEL_BLOB_PRIVATE_HOST_MISMATCH/);
 assert.match(source, /await verifyVercelFixture\([\s\S]*target\.cleanObjectKey,[\s\S]*"CLEAN"/);
 assert.match(source, /await verifyVercelFixture\([\s\S]*target\.maliciousObjectKey,[\s\S]*"MALICIOUS"/);
-assert.match(source, /finally\s*\{\s*await cleanupVercelFixtures\(storage, target\)/);
+assert.match(source, /finally\s*\{\s*await cleanupVercelFixtures\(storage, attemptedKeys\)/);
 assert.match(source, /VERCEL_BLOB_FIXTURE_CLEANUP_FAILED/);
 assert.match(source, /FIXTURE_URL_TTL_SECONDS = 300/);
 assert.match(source, /MAX_FIXTURE_BYTES = 1024 \* 1024/);
@@ -49,17 +52,21 @@ assert.ok(vercelFixtureFunction, "Vercel Blob scanner fixture function must exis
 const preflightIndex = vercelFixtureFunction.indexOf(
   "await verifyVercelBlobTargetBeforeMutation(target, storage);",
 );
+const absentIndex = vercelFixtureFunction.indexOf("await assertStagingScannerFixtureKeysAbsent(");
+const firstAttemptIndex = vercelFixtureFunction.indexOf("attemptedKeys.push(target.cleanObjectKey);");
 const mutationTryIndex = vercelFixtureFunction.indexOf("try {", preflightIndex);
 const firstCleanupIndex = vercelFixtureFunction.indexOf(
-  "await cleanupVercelFixtures(storage, target);",
+  "await cleanupVercelFixtures(storage, attemptedKeys);",
 );
 assert.ok(preflightIndex >= 0, "private Blob target preflight must execute");
+assert.ok(absentIndex > preflightIndex, "occupied fixtures must fail before uploads or deletions");
+assert.ok(firstAttemptIndex > absentIndex, "only post-preflight attempts may become cleanup targets");
 assert.ok(
   mutationTryIndex > preflightIndex,
   "private Blob target preflight must execute before the mutation/cleanup try-finally block",
 );
 assert.ok(
-  firstCleanupIndex > preflightIndex,
+  firstCleanupIndex > firstAttemptIndex,
   "private Blob target preflight must execute before any fixture cleanup mutation",
 );
 
@@ -119,8 +126,8 @@ assert.match(smokeWorkflow, /test -n "\$IB_FILE_SCANNER_SECRET"/);
 assert.match(smokeWorkflow, /secrets\.IB_STAGING_BLOB_READ_WRITE_TOKEN/);
 assert.match(smokeWorkflow, /secrets\.IB_STAGING_FILE_SCANNER_SECRET/);
 assert.match(smokeWorkflow, /IB_STAGING_VERCEL_BLOB_PRIVATE_HOST: \$\{\{ inputs\.blob_private_host \}\}/);
-assert.match(smokeWorkflow, /security-fixtures\/file-scanner\/\$GITHUB_SHA\/clean\.txt/);
-assert.match(smokeWorkflow, /security-fixtures\/file-scanner\/\$GITHUB_SHA\/eicar\.txt/);
+assert.match(smokeWorkflow, /security-fixtures\/file-scanner\/\$GITHUB_SHA\/\$GITHUB_RUN_ID-\$GITHUB_RUN_ATTEMPT\/clean\.txt/);
+assert.match(smokeWorkflow, /security-fixtures\/file-scanner\/\$GITHUB_SHA\/\$GITHUB_RUN_ID-\$GITHUB_RUN_ATTEMPT\/eicar\.txt/);
 assert.match(smokeWorkflow, /npm run check:staging:file-scanner/);
 assert.match(smokeWorkflow, /_iburo\/staging-identity/);
 assert.doesNotMatch(smokeWorkflow, /secrets\.BLOB_READ_WRITE_TOKEN/);
