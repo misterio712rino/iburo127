@@ -211,6 +211,7 @@ async function nativeIssueSignedToken(
       "x-vercel-blob-store-id": auth.storeId,
     },
     body: JSON.stringify(body),
+    redirect: "error",
     signal: AbortSignal.timeout(ISSUE_TIMEOUT_MS),
     cache: "no-store",
   });
