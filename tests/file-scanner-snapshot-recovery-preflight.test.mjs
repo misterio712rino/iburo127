@@ -59,7 +59,8 @@ for (const [change, code] of [
 }
 
 // Yandex CLI omits empty repeated fields rather than emitting an empty array.
-const { secondary_disks: unusedSecondary, ...helperWithoutSecondary } = helperVm;
+const helperWithoutSecondary = { ...helperVm };
+delete helperWithoutSecondary.secondary_disks;
 assert.equal(
   evaluateRecoveryPreflight({ sourceVm, sourceDisk, snapshot, helperVm: helperWithoutSecondary, expected }).mode,
   "READ_ONLY_PREFLIGHT_ONLY",
@@ -68,7 +69,8 @@ assert.throws(
   () => evaluateRecoveryPreflight({ sourceVm, sourceDisk, snapshot, helperVm: { ...helperVm, secondary_disks: {} }, expected }),
   /FILE_SCANNER_SNAPSHOT_RECOVERY_PREFLIGHT:INVALID_HELPER_SECONDARY_DISKS/,
 );
-const { folder_id: unusedFolder, ...sourceWithoutFolder } = sourceVm;
+const sourceWithoutFolder = { ...sourceVm };
+delete sourceWithoutFolder.folder_id;
 assert.throws(
   () => evaluateRecoveryPreflight({ sourceVm: { ...sourceWithoutFolder, folderId: expected.folderId }, sourceDisk, snapshot, helperVm, expected }),
   /FILE_SCANNER_SNAPSHOT_RECOVERY_PREFLIGHT:SOURCE_VM_FOLDER_MISMATCH/,
