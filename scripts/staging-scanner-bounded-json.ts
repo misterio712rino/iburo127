@@ -8,7 +8,7 @@ export async function readBoundedScannerJson(response: Response, maxBytes: numbe
   if (declared !== null &&
       (!/^(0|[1-9]\d*)$/.test(declared) || Number(declared) > maxBytes)) deny();
   const stream = response.body;
-  if (stream === null) deny();
+  if (stream === null) throw new Error(STAGING_SCANNER_RESPONSE_DENIED);
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
