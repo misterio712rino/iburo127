@@ -185,6 +185,7 @@ async function uploadVercelFixture(
   storage: ReturnType<typeof createVercelBlobSmokeStorage>,
   objectKey: string,
   bytes: Uint8Array,
+  recordConfirmedUpload: (key: string) => void,
 ) {
   assertFixtureBytes(bytes);
   const uploadUrl = await storage.createPrivateUploadUrl({
@@ -201,6 +202,7 @@ async function uploadVercelFixture(
     signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok) throw new Error("VERCEL_BLOB_UPLOAD_FAILED");
+  recordConfirmedUpload(objectKey);
 }
 
 async function verifyVercelFixture(
@@ -210,8 +212,9 @@ async function verifyVercelFixture(
   objectKey: string,
   bytes: Uint8Array,
   expectedVerdict: MalwareScanVerdict,
+  recordConfirmedUpload: (key: string) => void,
 ) {
-  await uploadVercelFixture(storage, objectKey, bytes);
+  await uploadVercelFixture(storage, objectKey, bytes, recordConfirmedUpload);
   const metadata = await storage.statPrivateBlob(objectKey);
   if (
     !metadata ||
@@ -260,9 +263,9 @@ async function verifyVercelBlobFixtures(
     (key) => storage.statPrivateBlob(key),
   );
 
-  const attemptedKeys: string[] = [];
+  const confirmedUploads: string[] = [];
+  const recordConfirmedUpload = (key: string) => { confirmedUploads.push(key); };
   try {
-    attemptedKeys.push(target.cleanObjectKey);
     await verifyVercelFixture(
       target,
       scannerTimeoutMs,
@@ -270,8 +273,8 @@ async function verifyVercelBlobFixtures(
       target.cleanObjectKey,
       CLEAN_FIXTURE,
       "CLEAN",
+      recordConfirmedUpload,
     );
-    attemptedKeys.push(target.maliciousObjectKey);
     await verifyVercelFixture(
       target,
       scannerTimeoutMs,
@@ -279,9 +282,10 @@ async function verifyVercelBlobFixtures(
       target.maliciousObjectKey,
       MALICIOUS_TEST_FIXTURE,
       "MALICIOUS",
+      recordConfirmedUpload,
     );
   } finally {
-    await cleanupVercelFixtures(storage, attemptedKeys);
+    await cleanupVercelFixtures(storage, confirmedUploads);
   }
 }
 
