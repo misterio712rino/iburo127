@@ -21,8 +21,9 @@ export async function verifyAuthorizedStagingScannerHealth(
         response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json") fail();
     const advertised = response.headers.get("content-length");
     if (advertised !== null && (!/^\d{1,3}$/.test(advertised) || Number(advertised) > MAX_HEALTH_BYTES)) fail();
-    if (!response.body) fail();
-    const reader = response.body.getReader();
+    const healthStream = response.body;
+    if (!healthStream) fail();
+    const reader = healthStream.getReader();
     const chunks: Uint8Array[] = [];
     let bytes = 0;
     try {
