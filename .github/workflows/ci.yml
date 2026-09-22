@@ -183,6 +183,9 @@ jobs:
       - name: File scanner service tests
         run: node --test services/file-scanner/tests/*.test.mjs
 
+      - name: Staging scanner GitHub OIDC boundary tests
+        run: npx tsx tests/scanner-fixture-github-oidc.test.ts
+
       - name: File scanner Docker build
         shell: bash
         run: |

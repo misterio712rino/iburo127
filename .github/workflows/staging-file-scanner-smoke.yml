@@ -57,6 +57,7 @@ jobs:
         shell: bash
         env:
           REQUESTED_SHA: ${{ inputs.candidate_sha }}
+          REQUESTED_SCANNER_ORIGIN: ${{ inputs.scanner_origin }}
           CONFIRMATION: ${{ inputs.confirmation }}
         run: |
           if [ "$CONFIRMATION" != "RUN_STAGING_FILE_SCANNER_SMOKE" ]; then
@@ -65,6 +66,10 @@ jobs:
           fi
           if [ "$GITHUB_REF" != "refs/heads/audit/production-readiness" ]; then
             echo "STAGING_FILE_SCANNER_SMOKE_GATE_FAIL: branch mismatch" >&2
+            exit 1
+          fi
+          if [ "$REQUESTED_SCANNER_ORIGIN" != "https://scanner-v2-staging.iburo127.online" ]; then
+            echo "STAGING_FILE_SCANNER_SMOKE_GATE_FAIL: scanner origin not pinned staging-v2" >&2
             exit 1
           fi
           if ! printf '%s' "$REQUESTED_SHA" | grep -Eq '^[a-f0-9]{40}$'; then
@@ -155,8 +160,8 @@ jobs:
         env:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.IB_STAGING_BLOB_READ_WRITE_TOKEN }}
           IB_FILE_SCANNER_SECRET: ${{ secrets.IB_STAGING_FILE_SCANNER_SECRET }}
-          IB_FILE_SCANNER_ORIGIN: ${{ inputs.scanner_origin }}
-          IB_STAGING_FILE_SCANNER_ORIGIN: ${{ inputs.scanner_origin }}
+          IB_FILE_SCANNER_ORIGIN: https://scanner-v2-staging.iburo127.online
+          IB_STAGING_FILE_SCANNER_ORIGIN: https://scanner-v2-staging.iburo127.online
           IB_STAGING_VERCEL_BLOB_PRIVATE_HOST: ${{ inputs.blob_private_host }}
           IB_STAGING_FILE_SCANNER_SECRET_SHA256: ${{ inputs.scanner_secret_sha256 }}
         run: |
@@ -178,6 +183,6 @@ jobs:
           test -n "$confirmation"
 
           export IB_STAGING_FILE_SCANNER_CONFIRM="$confirmation"
-          export IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY="security-fixtures/file-scanner/$GITHUB_SHA/clean.txt"
-          export IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY="security-fixtures/file-scanner/$GITHUB_SHA/eicar.txt"
+          export IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY="security-fixtures/file-scanner/$GITHUB_SHA/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/clean.txt"
+          export IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY="security-fixtures/file-scanner/$GITHUB_SHA/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/eicar.txt"
           npm run check:staging:file-scanner
