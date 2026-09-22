@@ -195,6 +195,7 @@ async function uploadVercelFixture(
     signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok) throw new Error("VERCEL_BLOB_UPLOAD_FAILED");
+  storage.confirmUploadedFixture(objectKey);
   recordConfirmedUpload(objectKey);
 }
 

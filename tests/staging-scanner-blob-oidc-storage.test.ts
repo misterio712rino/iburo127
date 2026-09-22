@@ -108,7 +108,7 @@ test("404 metadata is absence and never authorizes deletion", async () => {
   assert.deepEqual(h.events, ["oidc", "issue:head", "head"]);
 });
 
-test("deletes only after valid metadata and binds delete to the matching ETag", async () => {
+test("deletes only after acknowledged upload and matching ETag", async () => {
   const h = harness(200);
   const storage = createOidcScopedScannerSmokeStorage(env, h.request);
   await assert.rejects(storage.deletePrivateBlob(pathname), denied);
@@ -116,11 +116,22 @@ test("deletes only after valid metadata and binds delete to the matching ETag", 
   assert.deepEqual(await storage.statPrivateBlob(pathname), {
     sizeBytes: BigInt(35), mimeType: "application/octet-stream",
   });
+  await assert.rejects(storage.deletePrivateBlob(pathname), denied);
+  storage.confirmUploadedFixture(pathname);
   await storage.deletePrivateBlob(pathname);
   assert.deepEqual(h.events, [
     "oidc", "issue:head", "head", "oidc", "issue:delete", `delete-etag:${etag}`, "delete",
   ]);
   await assert.rejects(storage.deletePrivateBlob(pathname), denied);
+});
+
+test("preexisting fixture metadata never authorizes cleanup without this run upload", async () => {
+  const h = harness(200);
+  const storage = createOidcScopedScannerSmokeStorage(env, h.request);
+  await storage.statPrivateBlob(pathname);
+  await assert.rejects(storage.deletePrivateBlob(pathname), denied);
+  assert.throws(() => storage.confirmUploadedFixture("cases/actual-client/document.pdf"), denied);
+  assert.deepEqual(h.events, ["oidc", "issue:head", "head"]);
 });
 
 test("invalid metadata must not authorize deletion", async () => {

@@ -78,9 +78,10 @@ assert.ok(uploadFixtureFunction, "upload function must exist");
 const uploadGuardIndex = uploadFixtureFunction.indexOf(
   'if (!response.ok) throw new Error("VERCEL_BLOB_UPLOAD_FAILED");',
 );
+const ownershipIndex = uploadFixtureFunction.indexOf("storage.confirmUploadedFixture(objectKey);");
 const confirmUploadIndex = uploadFixtureFunction.indexOf("recordConfirmedUpload(objectKey);");
-assert.ok(uploadGuardIndex >= 0 && confirmUploadIndex > uploadGuardIndex,
-  "a failed upload must not mark an object for cleanup");
+assert.ok(uploadGuardIndex >= 0 && ownershipIndex > uploadGuardIndex && confirmUploadIndex > ownershipIndex,
+  "only acknowledged uploads may authorize ETag-bound cleanup");
 assert.doesNotMatch(vercelFixtureFunction, /attemptedKeys\.push/);
 
 for (const forbidden of [
