@@ -50,11 +50,12 @@ install_fresh_seed_if_available() {
   main_seed="$(signature_file_path "$SIGNATURE_SEED_DIRECTORY" main)" || return 1
   daily_seed="$(signature_file_path "$SIGNATURE_SEED_DIRECTORY" daily)" || return 1
 
-  cp -p "$main_seed" "$daily_seed" "$SIGNATURE_DIRECTORY/"
+  # The hardened root process lacks DAC_OVERRIDE; copy as the directory owner.
+  gosu clamav cp -p "$main_seed" "$daily_seed" "$SIGNATURE_DIRECTORY/" || return 1
   if bytecode_seed="$(signature_file_path "$SIGNATURE_SEED_DIRECTORY" bytecode 2>/dev/null)"; then
-    cp -p "$bytecode_seed" "$SIGNATURE_DIRECTORY/"
+    gosu clamav cp -p "$bytecode_seed" "$SIGNATURE_DIRECTORY/" || return 1
   fi
-  chown clamav:clamav "$SIGNATURE_DIRECTORY"/*.cvd "$SIGNATURE_DIRECTORY"/*.cld 2>/dev/null || true
+  signature_set_is_fresh "$SIGNATURE_DIRECTORY" || return 1
   printf '%s\n' "STAGING_FILE_SCANNER_SIGNATURE_SEED_INSTALLED"
 }
 

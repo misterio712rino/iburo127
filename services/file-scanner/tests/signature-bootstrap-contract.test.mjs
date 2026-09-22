@@ -64,7 +64,10 @@ test("publication can embed a fresh official signature seed without weakening ru
 
   assert.match(entrypoint, /SIGNATURE_SEED_DIRECTORY="\/opt\/clamav-seed"/);
   assert.match(entrypoint, /signature_set_is_fresh "\$SIGNATURE_SEED_DIRECTORY"/);
-  assert.match(entrypoint, /cp -p "\$main_seed" "\$daily_seed" "\$SIGNATURE_DIRECTORY\/"/);
+  assert.match(entrypoint, /gosu clamav cp -p "\$main_seed" "\$daily_seed" "\$SIGNATURE_DIRECTORY\/" \|\| return 1/);
+  assert.match(entrypoint, /gosu clamav cp -p "\$bytecode_seed" "\$SIGNATURE_DIRECTORY\/" \|\| return 1/);
+  assert.match(entrypoint, /signature_set_is_fresh "\$SIGNATURE_DIRECTORY" \|\| return 1/);
+  assert.doesNotMatch(entrypoint, /^\s*cp -p "\$(?:main_seed|bytecode_seed)"/m);
   assert.match(entrypoint, /IB_SCANNER_SIGNATURE_MAX_AGE_HOURS:-24/);
   assert.match(entrypoint, /\[ "\$max_age_hours" -ge 1 \] && \[ "\$max_age_hours" -le 168 \]/);
   assert.match(entrypoint, /STAGING_FILE_SCANNER_SIGNATURE_SEED_INSTALLED/);
