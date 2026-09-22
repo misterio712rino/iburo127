@@ -26,6 +26,8 @@ An expired, invalid, unreachable, unexpected, or within-30-days certificate prod
 
 Certificate Manager can renew its managed certificate, but an exported PEM/key on a VM does **not** automatically follow renewals. The installed copy must be refreshed before expiration. The earlier single-use installer must **not** be rerun: its backup and destination already exist by design.
 
+The source now also contains an offline candidate-pair validator, `scripts/validate-staging-scanner-cert-pair.mjs`. It is intended only for newly downloaded files in a temporary root-owned staging directory. It verifies the exact staging hostname, more than 30 days of remaining lifetime, a strictly newer expiry than the installed certificate, certificate/private-key public-key match, and private-key permissions. It does **not** install files, reload Caddy, obtain cloud credentials, or read the currently installed private key.
+
 Preferred future design, subject to a separate IAM, secret-handling and scheduling review:
 
 1. Grant `certificate-manager.certificates.downloader` **on this certificate only**, not the whole production DNS zone or folder, to an approved VM identity. Inspect existing role bindings first; never grant broad editor/admin rights to make the download work.

@@ -204,7 +204,7 @@ jobs:
         run: node --conditions=react-server --import tsx tests/vercel-blob-native-signed-url.test.ts
 
       - name: Staging scanner TLS checker unit tests (offline)
-        run: node --test tests/staging-scanner-tls-check.test.mjs
+        run: node --test tests/staging-scanner-tls-check.test.mjs tests/staging-scanner-cert-pair.test.mjs
 
       - name: File scanner Docker build
         shell: bash
