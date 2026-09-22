@@ -1,5 +1,17 @@
+import type { Metadata } from "next";
 import { Geist, Geist_Mono, Onest } from "next/font/google";
 import "./globals.css";
+
+export const metadata: Metadata = {
+  applicationName: "iБюро",
+  title: "iБюро — личный кабинет",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "iБюро",
+    statusBarStyle: "default",
+  },
+};
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
