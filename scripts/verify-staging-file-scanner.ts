@@ -189,6 +189,7 @@ async function uploadVercelFixture(
   });
   const response = await fetch(uploadUrl, {
     method: "PUT",
+    redirect: "error",
     headers: { "content-type": FIXTURE_MIME_TYPE },
     body: new TextDecoder().decode(bytes),
     cache: "no-store",

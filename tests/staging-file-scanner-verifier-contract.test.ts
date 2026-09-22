@@ -75,6 +75,7 @@ const uploadFixtureFunction = source.match(
   /async function uploadVercelFixture[\s\S]*?(?=\nasync function verifyVercelFixture)/,
 )?.[0];
 assert.ok(uploadFixtureFunction, "upload function must exist");
+assert.match(uploadFixtureFunction, /fetch\(uploadUrl,\s*\{[\s\S]*?method:\s*"PUT",\s*redirect:\s*"error",/, "signed fixture PUT must not follow redirects");
 const uploadGuardIndex = uploadFixtureFunction.indexOf(
   'if (!response.ok) throw new Error("VERCEL_BLOB_UPLOAD_FAILED");',
 );
