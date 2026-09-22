@@ -1,0 +1,40 @@
+{
+  "name": "iburo-windows",
+  "version": "0.1.0",
+  "private": true,
+  "description": "iБюро Windows desktop client (online-only)",
+  "main": "main.cjs",
+  "author": "iБюро",
+  "license": "UNLICENSED",
+  "scripts": {
+    "check": "node --check main.cjs",
+    "icon": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/make-icon.ps1",
+    "dist:win": "npm run icon && electron-builder --win nsis --x64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "44.4.3",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "ru.iburo.desktop",
+    "productName": "iБюро",
+    "asar": true,
+    "files": ["main.cjs", "package.json", "assets/icon.ico"],
+    "directories": { "output": "dist" },
+    "win": {
+      "icon": "assets/icon.ico",
+      "executableName": "iBuro",
+      "target": [{ "target": "nsis", "arch": ["x64"] }]
+    },
+    "nsis": {
+      "artifactName": "iBuro-Setup-${version}-${arch}.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "iБюро",
+      "uninstallDisplayName": "iБюро"
+    }
+  }
+}
