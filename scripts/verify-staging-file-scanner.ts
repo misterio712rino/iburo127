@@ -14,10 +14,7 @@ import {
 import { assertStagingScannerFixtureKeysAbsent } from "@/scripts/staging-scanner-fixture-ownership";
 import { scanWithHttpMalwareScanner } from "@/server/files/http-malware-scanner-core";
 import { VERCEL_BLOB_STORAGE_PROVIDER } from "@/server/files/object-storage-provider";
-import { readVercelBlobAuthConfig } from "@/server/files/vercel-blob-config";
-import { toVercelBlobSdkCredentialOptions } from "@/server/files/vercel-blob-driver-auth";
-import { createVercelBlobNativeSignedUrlDependencies } from "@/server/files/vercel-blob-native-signed-url";
-import { createVercelBlobSignedUrlDriver } from "@/server/files/vercel-blob-signed-url-driver";
+import { createOidcScopedScannerSmokeStorage } from "@/scripts/staging-scanner-blob-oidc-storage";
 import {
   MalwareScannerError,
   type MalwareScanVerdict,
@@ -25,7 +22,7 @@ import {
 
 const STAGING_FILE_SCANNER_VERIFY_FAIL = "STAGING_FILE_SCANNER_VERIFY_FAIL";
 const FIXTURE_URL_TTL_SECONDS = 300;
-const MAX_FIXTURE_BYTES = 1024 * 1024;
+const MAX_FIXTURE_BYTES = 1024;
 const FIXTURE_MIME_TYPE = "application/octet-stream";
 const CLEAN_FIXTURE = new TextEncoder().encode("iburo scanner smoke fixture: clean\n");
 // EICAR is the industry-standard inert antivirus test string, never executable malware.
@@ -147,11 +144,7 @@ async function verifyYandexFixture(
 }
 
 function createVercelBlobSmokeStorage() {
-  const credentials = toVercelBlobSdkCredentialOptions(readVercelBlobAuthConfig());
-  return createVercelBlobSignedUrlDriver(
-    createVercelBlobNativeSignedUrlDependencies(),
-    credentials,
-  );
+  return createOidcScopedScannerSmokeStorage();
 }
 
 async function verifyVercelBlobTargetBeforeMutation(

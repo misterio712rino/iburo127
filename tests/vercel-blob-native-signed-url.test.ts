@@ -118,6 +118,26 @@ try {
   assert.equal(getUrl.searchParams.get("cache"), "0");
   assert.equal(getUrl.searchParams.get("vercel-blob-delegation"), getToken.delegationToken);
 
+  const deletePayload = { ...getPayload, operations: ["delete"] };
+  const deleteToken = { ...getToken, delegationToken: delegationToken(deletePayload) };
+  const etag = '"1234567890abcdef1234567890abcdef"';
+  const { presignedUrl: conditionalUrl } = await dependencies.presignUrl(deleteToken, {
+    operation: "delete", pathname, access: "private",
+    validUntil: tokenPayload.validUntil, ifMatch: etag,
+  });
+  const conditional = new URL(conditionalUrl);
+  assert.equal(conditional.searchParams.get("vercel-blob-if-match"), etag);
+  const deleteCanonical = ["operation=delete", `pathname=${pathname}`, `vercel-blob-if-match=${etag}`].sort().join("\n");
+  assert.equal(conditional.searchParams.get("vercel-blob-signature"),
+    createHmac("sha256", signingKey).update(deleteCanonical, "utf8").digest("base64url"));
+  await assert.rejects(async () => dependencies.presignUrl(deleteToken, {
+    operation: "delete", pathname, access: "private", validUntil: tokenPayload.validUntil,
+    ifMatch: "bad\r\netag",
+  }), /invalid-conditional-etag/);
+  await assert.rejects(async () => dependencies.presignUrl(getToken, {
+    operation: "get", pathname, access: "private", validUntil: tokenPayload.validUntil,
+    ifMatch: etag,
+  }), /invalid-conditional-etag/);
   calls.length = 0;
   await dependencies.issueSignedToken({
     oidcToken: "oidc-foundation-token",

@@ -143,9 +143,14 @@ export function assertStagingFileScannerTarget(
   );
   if (safeEqual(cleanObjectKey, maliciousObjectKey)) fail("FIXTURE_KEYS_MUST_DIFFER");
 
-  const providerCode = inferStagingVercelBlobProvider(env);
   const explicitProvider = env.IB_OBJECT_STORAGE_PROVIDER?.trim();
   const vercelEnvironment = env.VERCEL_ENV?.trim();
+  const authMode = env.IB_STAGING_SCANNER_FIXTURE_AUTH_MODE?.trim();
+  if (authMode && authMode !== "github-oidc") fail("UNSUPPORTED_FIXTURE_AUTH_MODE");
+  const delegated = authMode === "github-oidc";
+  if (delegated && (vercelEnvironment !== "preview" || explicitProvider !== VERCEL_BLOB_STORAGE_PROVIDER ||
+      scannerOrigin !== "https://scanner-v2-staging.iburo127.online")) fail("INVALID_DELEGATED_STAGING_TARGET");
+  const providerCode = delegated ? VERCEL_BLOB_STORAGE_PROVIDER : inferStagingVercelBlobProvider(env);
   if (vercelEnvironment && vercelEnvironment !== "preview") {
     fail("VERCEL_ENV_NOT_PREVIEW");
   }

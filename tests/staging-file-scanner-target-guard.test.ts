@@ -169,4 +169,20 @@ expectVercelGuardFailure(
   "VERCEL_PROVIDER_NOT_EXACT_STAGING_PREVIEW",
 );
 
+const delegated = {
+  ...vercelBase,
+  BLOB_READ_WRITE_TOKEN: undefined,
+  IB_OBJECT_STORAGE_PROVIDER: "vercel-blob",
+  IB_STAGING_SCANNER_FIXTURE_AUTH_MODE: "github-oidc",
+  IB_FILE_SCANNER_ORIGIN: "https://scanner-v2-staging.iburo127.online",
+  IB_STAGING_FILE_SCANNER_ORIGIN: "https://scanner-v2-staging.iburo127.online",
+  IB_STAGING_FILE_SCANNER_CONFIRM: `FILE-SCANNER-SMOKE:scanner-v2-staging.iburo127.online:vercel-blob:${scannerSecretFingerprint}`,
+};
+assert.equal(assertStagingFileScannerTarget(delegated).providerCode, "vercel-blob");
+for (const override of [
+  { IB_OBJECT_STORAGE_PROVIDER: "yandex-object-storage" },
+  { VERCEL_ENV: "production" },
+  { IB_FILE_SCANNER_ORIGIN: "https://attacker-staging.example.com", IB_STAGING_FILE_SCANNER_ORIGIN: "https://attacker-staging.example.com" },
+]) assert.throws(() => assertStagingFileScannerTarget({ ...delegated, ...override }),
+  new RegExp(`${STAGING_FILE_SCANNER_TARGET_GUARD}:INVALID_DELEGATED_STAGING_TARGET`));
 console.log("STAGING_FILE_SCANNER_TARGET_GUARD_TEST_PASS");
