@@ -87,6 +87,8 @@ test("rejects weakened guards and permissions", () => {
     positive.replace("https://scanner-v2-staging.iburo127.online", "https://example.org"),
     positive.replace("IB_STAGING_SCANNER_FIXTURE_AUTH_MODE: github-oidc", "IB_STAGING_SCANNER_FIXTURE_AUTH_MODE: token"),
     positive.replace("  workflow_dispatch:\n", "  workflow_dispatch:\n  push:\n"),
+    positive.replace("  workflow_dispatch:\n", "  workflow_dispatch:\n  push: [audit/production-readiness]\n"),
+    positive.replace("  workflow_dispatch:\n", "  workflow_dispatch:\n  schedule: [{ cron: '0 8 * * *' }]\n"),
     positive.replace("permissions:\n  contents: read\njobs:", "permissions:\n  contents: read\n  id-token: write\njobs:"),
     positive.replace("      - name: Exact staging gate", "      - name: Missing staging gate"),
     positive.replace("      - name: Verify exact protected Preview identity", "      - name: Other identity"),
