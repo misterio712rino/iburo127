@@ -132,6 +132,15 @@ assert.match(smokeWorkflow, /runs-on: ubuntu-24\.04/);
 assert.match(smokeWorkflow, /persist-credentials: false/);
 assert.match(smokeWorkflow, /ref: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/);
 assert.match(smokeWorkflow, /RUN_STAGING_FILE_SCANNER_SMOKE/);
+// Dispatch inputs must never redirect a staging scanner bearer credential to an arbitrary host.
+assert.match(smokeWorkflow, /REQUESTED_SCANNER_ORIGIN: \$\{\{ inputs\.scanner_origin \}\}/);
+assert.match(smokeWorkflow, /if \[ "\$REQUESTED_SCANNER_ORIGIN" != "https:\/\/scanner-v2-staging\.iburo127\.online" \]; then/);
+assert.match(smokeWorkflow, /IB_FILE_SCANNER_ORIGIN: https:\/\/scanner-v2-staging\.iburo127\.online/);
+assert.match(smokeWorkflow, /IB_STAGING_FILE_SCANNER_ORIGIN: https:\/\/scanner-v2-staging\.iburo127\.online/);
+assert.doesNotMatch(smokeWorkflow, /IB_(?:STAGING_)?FILE_SCANNER_ORIGIN: \$\{\{ inputs\.scanner_origin \}\}/);
+const scannerOriginGate = smokeWorkflow.indexOf('if [ "$REQUESTED_SCANNER_ORIGIN" != "https://scanner-v2-staging.iburo127.online" ]; then');
+const previewSecretStep = smokeWorkflow.indexOf('VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}');
+assert.ok(scannerOriginGate > 0 && scannerOriginGate < previewSecretStep, "scanner origin must be pinned before any credential-bearing step");
 assert.match(smokeWorkflow, /refs\/heads\/audit\/production-readiness/);
 assert.match(smokeWorkflow, /test -n "\$BLOB_READ_WRITE_TOKEN"/);
 assert.match(smokeWorkflow, /test -n "\$IB_FILE_SCANNER_SECRET"/);
