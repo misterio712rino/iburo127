@@ -129,6 +129,7 @@ function buildConstraintEntries(
     maximumSizeInBytes?: number;
     addRandomSuffix?: boolean;
     allowOverwrite?: boolean;
+    ifMatch?: string;
   },
 ) {
   const now = Date.now();
@@ -138,6 +139,10 @@ function buildConstraintEntries(
   const entries: Array<[string, string]> = [];
   if (resolvedUntil < Math.trunc(delegation.validUntil)) {
     entries.push(["vercel-blob-valid-until", String(resolvedUntil)]);
+  }
+  if (input.ifMatch !== undefined) {
+    if (!/^[!-~]{1,256}$/.test(input.ifMatch) || input.operation !== "delete") fail("invalid-conditional-etag");
+    entries.push(["vercel-blob-if-match", input.ifMatch]);
   }
   if (input.operation !== "put") return entries;
 
