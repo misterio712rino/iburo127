@@ -40,8 +40,9 @@ async function githubIdentityToken(env: NodeJS.ProcessEnv, request: typeof fetch
 
 export function createOidcScopedScannerSmokeStorage(
   env: NodeJS.ProcessEnv = process.env, request: typeof fetch = fetch,
-): VercelBlobStorageDriver {
+): VercelBlobStorageDriver & { confirmUploadedFixture(pathname: string): void } {
   const knownEtags = new Map<string, string>();
+  const confirmedUploads = new Set<string>();
   async function issue(pathname: string, operation: ScannerFixtureRequest["operation"], etag?: string) {
     const fixture = target(env, pathname);
     const jwt = await githubIdentityToken(env, request);
@@ -71,6 +72,10 @@ export function createOidcScopedScannerSmokeStorage(
     return assertIssuedUrl(await issue(pathname, operation, etag), pathname, operation);
   }
   return {
+    confirmUploadedFixture(pathname: string) {
+      target(env, pathname);
+      confirmedUploads.add(pathname);
+    },
     async createPrivateUploadUrl(input) {
       if (input.mimeType !== MIME || input.maximumSizeInBytes < 1 ||
           input.maximumSizeInBytes > MAX_BYTES || input.allowOverwrite) fail();
@@ -92,12 +97,14 @@ export function createOidcScopedScannerSmokeStorage(
     },
     async deletePrivateBlob(pathname) {
       target(env, pathname);
+      if (!confirmedUploads.has(pathname)) fail();
       const etag = knownEtags.get(pathname);
       if (!etag) fail();
       const url = await signed(pathname, "delete", etag);
       const response = await request(url, { method: "DELETE", redirect: "error", cache: "no-store", signal: AbortSignal.timeout(15_000) });
       if (!isVercelBlobDeleteSuccessStatus(response.status)) fail();
       knownEtags.delete(pathname);
+      confirmedUploads.delete(pathname);
     },
   };
 }
