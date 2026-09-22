@@ -50,6 +50,10 @@ const vercelFixtureFunction = source.match(
   /async function verifyVercelBlobFixtures[\s\S]*?(?=\nasync function verifyYandexFixtures)/,
 )?.[0];
 assert.ok(vercelFixtureFunction, "Vercel Blob scanner fixture function must exist");
+const healthIndex = vercelFixtureFunction.indexOf("await verifyAuthorizedStagingScannerHealth(target.scannerOrigin, target.scannerSecret);");
+const storageIndex = vercelFixtureFunction.indexOf("const storage = createVercelBlobSmokeStorage();");
+assert.ok(healthIndex >= 0 && storageIndex > healthIndex,
+  "authorized staging health must pass before any signed Blob capability or fixture operation");
 const preflightIndex = vercelFixtureFunction.indexOf(
   "await verifyVercelBlobTargetBeforeMutation(target, storage);",
 );

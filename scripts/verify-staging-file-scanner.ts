@@ -15,6 +15,7 @@ import { assertStagingScannerFixtureKeysAbsent } from "@/scripts/staging-scanner
 import { scanWithHttpMalwareScanner } from "@/server/files/http-malware-scanner-core";
 import { VERCEL_BLOB_STORAGE_PROVIDER } from "@/server/files/object-storage-provider";
 import { createOidcScopedScannerSmokeStorage } from "@/scripts/staging-scanner-blob-oidc-storage";
+import { verifyAuthorizedStagingScannerHealth } from "@/scripts/staging-scanner-health-preflight";
 import {
   MalwareScannerError,
   type MalwareScanVerdict,
@@ -251,6 +252,7 @@ async function verifyVercelBlobFixtures(
   target: Extract<StagingFileScannerTarget, { providerCode: typeof VERCEL_BLOB_STORAGE_PROVIDER }>,
   scannerTimeoutMs: number,
 ) {
+  await verifyAuthorizedStagingScannerHealth(target.scannerOrigin, target.scannerSecret);
   const storage = createVercelBlobSmokeStorage();
   await verifyVercelBlobTargetBeforeMutation(target, storage);
   await assertStagingScannerFixtureKeysAbsent(
