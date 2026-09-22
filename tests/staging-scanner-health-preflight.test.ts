@@ -52,3 +52,25 @@ test("rejects fetch exceptions without exposing the credential", async () => {
     return true;
   });
 });
+
+test("refuses declared oversized or invalid length before consuming health body", async () => {
+  for (const length of ["129", "not-a-number", "9999999999999999"]) {
+    const fake = (async () => new Response('{"status":"ok"}', {
+      status: 200, headers: { "content-type": "application/json", "content-length": length },
+    })) as typeof fetch;
+    await assert.rejects(verifyAuthorizedStagingScannerHealth(origin, secret, fake), denied);
+  }
+});
+
+test("rejects a streaming body above 128 bytes even with a false small length", async () => {
+  let cancelled = false;
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) { controller.enqueue(new Uint8Array(129).fill(32)); },
+    cancel() { cancelled = true; },
+  }, { highWaterMark: 0 });
+  const fake = (async () => new Response(stream, {
+    status: 200, headers: { "content-type": "application/json", "content-length": "1" },
+  })) as typeof fetch;
+  await assert.rejects(verifyAuthorizedStagingScannerHealth(origin, secret, fake), denied);
+  assert.equal(cancelled, true, "oversized health stream must be cancelled immediately");
+});
