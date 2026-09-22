@@ -67,7 +67,8 @@ function isBoundedManualSmokeOidcWorkflow(source, displayPath) {
   if (jobs.length !== 1 || jobs[0].name !== "verify") return false;
   const job = jobs[0].source;
   const eventBlock = source.match(/^on:\s*\n([\s\S]*?)(?=^permissions:)/m)?.[1] ?? "";
-  const triggers = eventBlock.match(/^ {2}[a-z_-]+:\s*(?:#.*)?$/gm) ?? [];
+  // Count every top-level event key, including valid inline YAML values such as push: [branch].
+  const triggers = eventBlock.match(/^ {2}[a-z_-]+:/gm) ?? [];
   const gate = job.indexOf("      - name: Exact staging gate");
   const identity = job.indexOf("      - name: Verify exact protected Preview identity");
   const smoke = job.indexOf("      - name: Verify live staging scanner CLEAN and MALICIOUS verdicts");
@@ -208,14 +209,10 @@ for (const file of collectWorkflowFiles(WORKFLOWS_ROOT)) {
       }
     }
     if (!persistCredentialsFound) {
-      violations.push(
-        `${displayPath}:${index + 1}: checkout must explicitly set persist-credentials: false`,
-      );
+      violations.push(`${displayPath}:${index + 1}: checkout must explicitly set persist-credentials: false`);
     }
     if (!checkoutRefFound) {
-      violations.push(
-        `${displayPath}:${index + 1}: checkout must explicitly set ref to the exact candidate SHA expression`,
-      );
+      violations.push(`${displayPath}:${index + 1}: checkout must explicitly set ref to the exact candidate SHA expression`);
     }
   });
 }
