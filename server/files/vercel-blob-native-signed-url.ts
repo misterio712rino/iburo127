@@ -227,6 +227,18 @@ async function nativeIssueSignedToken(
   ) {
     return fail("invalid-signed-token-response");
   }
+  // Validate the issued grant before signing: PUT/DELETE URLs use vercel.com,
+  // so checking their origin alone cannot establish the target Blob store.
+  const delegation = decodeDelegationPayload(token.delegationToken);
+  if (normalizeStoreId(delegation.storeId) !== auth.storeId ||
+      delegation.pathname !== body.pathname ||
+      delegation.operations.length !== body.operations.length ||
+      delegation.operations.some((operation) => !body.operations.includes(operation as DelegationOperation)) ||
+      !Number.isSafeInteger(delegation.validUntil) ||
+      delegation.validUntil <= Date.now() || delegation.validUntil > body.validUntil ||
+      token.validUntil < delegation.validUntil || token.validUntil > body.validUntil) {
+    fail("delegation-scope-mismatch");
+  }
   return token as IssuedSignedToken;
 }
 
