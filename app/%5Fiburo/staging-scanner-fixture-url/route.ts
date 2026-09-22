@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { VERCEL_STAGING_BRANCH, isVercelPreviewBackendAllowed } from "@/server/config/vercel-preview-boundary";
 import { readVercelBlobAuthConfig } from "@/server/files/vercel-blob-config";
 import { toVercelBlobSdkCredentialOptions } from "@/server/files/vercel-blob-driver-auth";
 import { createVercelBlobNativeSignedUrlDependencies } from "@/server/files/vercel-blob-native-signed-url";
@@ -13,6 +14,16 @@ const HEADERS = {
   "Cache-Control": "private, no-store, max-age=0", Pragma: "no-cache",
   "X-Content-Type-Options": "nosniff", "X-Robots-Tag": "noindex",
 };
+function isExactStagingPreview(env: NodeJS.ProcessEnv) {
+  const sha = env.VERCEL_GIT_COMMIT_SHA?.trim() ?? "";
+  return (
+    env.VERCEL_ENV?.trim() === "preview" &&
+    env.VERCEL_GIT_COMMIT_REF?.trim() === VERCEL_STAGING_BRANCH &&
+    env.IB_RUNTIME_TARGET?.trim() === "staging" &&
+    /^[a-f0-9]{40}$/i.test(sha) &&
+    isVercelPreviewBackendAllowed(env)
+  );
+}
 function unavailable() {
   return NextResponse.json({ available: false }, { status: 404, headers: HEADERS });
 }
@@ -45,12 +56,14 @@ async function readBoundedJson(request: Request): Promise<ScannerFixtureRequest>
 
 export async function POST(request: Request) {
   try {
-    assertScannerFixtureIssuerPreview(process.env);
+    const env = process.env;
+    if (!isExactStagingPreview(env)) return unavailable();
+    assertScannerFixtureIssuerPreview(env);
     const authorization = request.headers.get("authorization") ?? "";
     if (!authorization.startsWith("Bearer ") || authorization.length > 12_300) return unavailable();
     const input = await readBoundedJson(request);
     const result = await issueScannerFixtureSignedUrl(input, authorization.slice(7),
-      process.env, () => toVercelBlobSdkCredentialOptions(readVercelBlobAuthConfig()),
+      env, () => toVercelBlobSdkCredentialOptions(readVercelBlobAuthConfig()),
       createVercelBlobNativeSignedUrlDependencies());
     return NextResponse.json(result, { status: 200, headers: HEADERS });
   } catch { return unavailable(); }
