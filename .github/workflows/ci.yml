@@ -47,6 +47,9 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
+      - name: Staging scanner smoke OIDC permission policy regression
+        run: node --test tests/staging-scanner-smoke-oidc-policy.test.mjs
+
       - name: Toolchain policy
         run: node scripts/check-toolchain.mjs
 
