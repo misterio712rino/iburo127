@@ -33,7 +33,8 @@ function target(env: NodeJS.ProcessEnv, pathname: string): "clean" | "eicar" {
 }
 async function githubIdentityToken(env: NodeJS.ProcessEnv, request: typeof fetch) {
   const origin = new URL(required(env, "ACTIONS_ID_TOKEN_REQUEST_URL"));
-  if (origin.protocol !== "https:" || !["token.actions.githubusercontent.com", "pipelines.actions.githubusercontent.com"].includes(origin.hostname) ||
+  const githubActionsOidcHost = /^[a-z0-9-]+\.actions\.githubusercontent\.com$/.test(origin.hostname);
+  if (origin.protocol !== "https:" || !githubActionsOidcHost ||
       origin.username || origin.password || origin.port) fail();
   origin.searchParams.set("audience", SCANNER_FIXTURE_AUDIENCE);
   const response = await request(origin.toString(), {
