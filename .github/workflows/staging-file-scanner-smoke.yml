@@ -171,6 +171,45 @@ jobs:
           echo "STAGING_FILE_SCANNER_IDENTITY_FAIL" >&2
           exit 1
 
+      - name: Verify authorized staging scanner health
+        shell: bash
+        env:
+          IB_FILE_SCANNER_SECRET: ${{ secrets.IB_STAGING_FILE_SCANNER_SECRET }}
+          IB_FILE_SCANNER_ORIGIN: https://scanner-v2-staging.iburo127.online
+        run: |
+          node --import tsx --input-type=module <<'NODE'
+          import { verifyAuthorizedStagingScannerHealth } from "./scripts/staging-scanner-health-preflight.ts";
+          await verifyAuthorizedStagingScannerHealth(
+            process.env.IB_FILE_SCANNER_ORIGIN ?? "",
+            process.env.IB_FILE_SCANNER_SECRET ?? "",
+          );
+          console.log("STAGING_SCANNER_AUTH_HEALTH_PASS");
+          NODE
+
+      - name: Verify delegated fixture access read-only
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          IB_STAGING_VERCEL_BLOB_PRIVATE_HOST: ${{ inputs.blob_private_host }}
+        run: |
+          export IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY="security-fixtures/file-scanner/$GITHUB_SHA/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/clean.txt"
+          export IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY="security-fixtures/file-scanner/$GITHUB_SHA/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/eicar.txt"
+          node --import tsx --input-type=module <<'NODE'
+          import { createOidcScopedScannerSmokeStorage } from "./scripts/staging-scanner-blob-oidc-storage.ts";
+          const keys = [
+            process.env.IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY,
+            process.env.IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY,
+          ];
+          if (keys.some((key) => !key)) throw new Error("STAGING_SCANNER_READ_ONLY_PREFLIGHT_DENIED");
+          const storage = createOidcScopedScannerSmokeStorage();
+          for (const key of keys) {
+            if (await storage.statPrivateBlob(key) !== null) {
+              throw new Error("STAGING_SCANNER_READ_ONLY_PREFLIGHT_OCCUPIED");
+            }
+          }
+          console.log("STAGING_SCANNER_DELEGATED_HEAD_PASS: 2");
+          NODE
+
       - name: Verify live staging scanner CLEAN and MALICIOUS verdicts
         shell: bash
         env:
