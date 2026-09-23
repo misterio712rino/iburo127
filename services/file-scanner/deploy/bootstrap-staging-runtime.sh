@@ -9,6 +9,8 @@ ACTIVATE_SCRIPT="/usr/local/sbin/iburo-file-scanner-activate"
 METADATA_TOKEN_URL="http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token"
 LOCKBOX_PAYLOAD_BASE="https://payload.lockbox.api.cloud.yandex.net/lockbox/v1/secrets"
 CADDYFILE="/etc/caddy/Caddyfile"
+TLS_CERT_FILE="/srv/iburo-file-scanner/caddy/certs/chain.pem"
+TLS_KEY_FILE="/srv/iburo-file-scanner/caddy/certs/key.pem"
 
 fail() {
   printf '%s\n' "STAGING_FILE_SCANNER_BOOTSTRAP_FAIL: $1" >&2
@@ -125,8 +127,25 @@ fi
 
 printf '%s\n' "STAGING_FILE_SCANNER_LOCAL_HEALTH_PASS"
 
-cat > "$CADDYFILE" <<EOF
+[ -f "$TLS_CERT_FILE" ] || fail "TLS certificate missing"
+[ -f "$TLS_KEY_FILE" ] || fail "TLS private key missing"
+[ "$(stat -c '%U:%G' "$TLS_CERT_FILE")" = "root:caddy" ] || fail "TLS certificate owner invalid"
+[ "$(stat -c '%a' "$TLS_CERT_FILE")" = "644" ] || fail "TLS certificate mode invalid"
+[ "$(stat -c '%U:%G' "$TLS_KEY_FILE")" = "root:caddy" ] || fail "TLS private key owner invalid"
+[ "$(stat -c '%a' "$TLS_KEY_FILE")" = "640" ] || fail "TLS private key mode invalid"
+
+CADDYFILE_TMP="$(mktemp /etc/caddy/Caddyfile.XXXXXX)"
+CADDYFILE_BACKUP="$(mktemp /etc/caddy/Caddyfile.backup.XXXXXX)"
+had_caddyfile=0
+
+cat > "$CADDYFILE_TMP" <<EOF
 ${SCANNER_HOSTNAME} {
+  tls ${TLS_CERT_FILE} ${TLS_KEY_FILE}
+
+  request_body {
+    max_size 8KB
+  }
+
   reverse_proxy 127.0.0.1:8080 {
     transport http {
       dial_timeout 5s
@@ -138,12 +157,40 @@ ${SCANNER_HOSTNAME} {
 }
 EOF
 
-chown root:root "$CADDYFILE"
-chmod 0644 "$CADDYFILE"
+chown root:root "$CADDYFILE_TMP"
+chmod 0644 "$CADDYFILE_TMP"
+caddy validate --config "$CADDYFILE_TMP" >/dev/null
 
-caddy validate --config "$CADDYFILE" >/dev/null
+if [ -f "$CADDYFILE" ]; then
+  cp -p "$CADDYFILE" "$CADDYFILE_BACKUP"
+  had_caddyfile=1
+fi
+
+mv -f "$CADDYFILE_TMP" "$CADDYFILE"
 systemctl enable caddy >/dev/null
-systemctl restart caddy
 
+if systemctl is-active --quiet caddy; then
+  if ! systemctl reload caddy; then
+    if [ "$had_caddyfile" = "1" ]; then
+      mv -f "$CADDYFILE_BACKUP" "$CADDYFILE"
+      caddy validate --config "$CADDYFILE" >/dev/null 2>&1 || true
+      systemctl reload caddy >/dev/null 2>&1 || true
+    else
+      rm -f "$CADDYFILE"
+    fi
+    fail "caddy reload failed"
+  fi
+else
+  if ! systemctl start caddy; then
+    if [ "$had_caddyfile" = "1" ]; then
+      mv -f "$CADDYFILE_BACKUP" "$CADDYFILE"
+    else
+      rm -f "$CADDYFILE"
+    fi
+    fail "caddy start failed"
+  fi
+fi
+
+rm -f "$CADDYFILE_BACKUP"
 printf '%s\n' "STAGING_FILE_SCANNER_CADDY_STARTED"
 printf '%s\n' "STAGING_FILE_SCANNER_BOOTSTRAP_PASS"

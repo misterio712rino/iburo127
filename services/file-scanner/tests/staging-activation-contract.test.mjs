@@ -62,8 +62,14 @@ test("staging bootstrap retrieves one bounded scanner secret from Lockbox withou
   assert.match(bootstrap, /chmod 0600 "\$SCANNER_ENV_TMP"/);
   assert.match(bootstrap, /"\$ACTIVATE_SCRIPT"/);
   assert.match(bootstrap, /http:\/\/127\.0\.0\.1:8080\/health/);
-  assert.match(bootstrap, /caddy validate --config "\$CADDYFILE"/);
-  assert.match(bootstrap, /systemctl restart caddy/);
+  assert.match(bootstrap, /TLS_CERT_FILE="\/srv\/iburo-file-scanner\/caddy\/certs\/chain\.pem"/);
+  assert.match(bootstrap, /TLS_KEY_FILE="\/srv\/iburo-file-scanner\/caddy\/certs\/key\.pem"/);
+  assert.match(bootstrap, /tls \$\{TLS_CERT_FILE\} \$\{TLS_KEY_FILE\}/);
+  assert.match(bootstrap, /request_body \{\s+max_size 8KB\s+\}/);
+  assert.match(bootstrap, /caddy validate --config "\$CADDYFILE_TMP"/);
+  assert.match(bootstrap, /systemctl reload caddy/);
+  assert.doesNotMatch(bootstrap, /systemctl restart caddy/);
+  assert.match(bootstrap, /fail "caddy reload failed"/);
   assert.match(bootstrap, /unset iam_token payload scanner_secret entry_count/);
   assert.doesNotMatch(bootstrap, /echo\s+"?\$scanner_secret|printf[^\n]*\$scanner_secret[^\n]*stdout/i);
   assert.doesNotMatch(bootstrap, /:latest|docker push|terraform|kubectl/i);
