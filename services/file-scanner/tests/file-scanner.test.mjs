@@ -417,7 +417,14 @@ test("container contract keeps ClamAV persistent, refreshed and processes non-ro
     readFile(new URL("config/clamd.conf", serviceRoot), "utf8"),
     readFile(new URL("config/freshclam.conf", serviceRoot), "utf8"),
   ]);
-  assert.match(dockerfile, /FROM node:24-bookworm-slim/);
+  assert.match(dockerfile, /FROM node:24-bookworm-slim AS node-runtime/);
+  assert.match(
+    dockerfile,
+    /FROM clamav\/clamav-debian:1\.4\.6_base@sha256:9245cc23e6d080de80bfd2bf0eb84650db0465de1ebcba9fd408e10b65503854 AS runtime/,
+  );
+  assert.match(dockerfile, /COPY --from=node-runtime \/usr\/local\/bin\/node \/usr\/local\/bin\/node/);
+  assert.match(dockerfile, /HEALTHCHECK NONE/);
+  assert.doesNotMatch(dockerfile, /apt-get install[^\n]*(?:clamav-daemon|clamav-freshclam)/);
   assert.match(dockerfile, /VOLUME \["\/var\/lib\/clamav"\]/);
   assert.match(dockerfile, /ENTRYPOINT \["\/usr\/bin\/tini"/);
   assert.doesNotMatch(dockerfile, /IB_FILE_SCANNER_SECRET=/);

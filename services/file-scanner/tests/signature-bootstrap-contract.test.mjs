@@ -33,6 +33,11 @@ test("signature bootstrap avoids Docker stdout logfile recursion and restart per
     /chown\s+-R\s+clamav:clamav\s+(?:"?\$SIGNATURE_DIRECTORY"?|\/var\/lib\/clamav)/,
     "recursive chown is unsafe after capabilities are reduced and the bind mount is already clamav-owned",
   );
+  assert.match(entrypoint, /main\.cvd main\.cld/);
+  assert.match(entrypoint, /daily\.cvd daily\.cld/);
+  assert.match(entrypoint, /bytecode\.cvd bytecode\.cld/);
+  assert.match(entrypoint, /freshclam\.dat/);
+  assert.match(entrypoint, /chown clamav:clamav "\$candidate"/);
 
   assert.match(entrypoint, /initial_freshclam_config="\/tmp\/freshclam\.initial\.conf"/);
   assert.match(
@@ -56,6 +61,10 @@ test("signature bootstrap avoids Docker stdout logfile recursion and restart per
 });
 
 test("publication can embed a fresh official signature seed without weakening runtime freshness", () => {
+  assert.match(
+    dockerfile,
+    /FROM clamav\/clamav-debian:1\.4\.6_base@sha256:9245cc23e6d080de80bfd2bf0eb84650db0465de1ebcba9fd408e10b65503854 AS runtime/,
+  );
   assert.match(dockerfile, /ARG IB_SCANNER_SEED_SIGNATURES=0/);
   assert.match(dockerfile, /DatabaseDirectory \/opt\/clamav-seed/);
   assert.match(dockerfile, /freshclam --stdout --config-file=\/tmp\/freshclam\.seed\.conf/);

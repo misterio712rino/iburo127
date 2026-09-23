@@ -7,6 +7,21 @@ SIGNATURE_SEED_DIRECTORY="/opt/clamav-seed"
 mkdir -p "$SIGNATURE_DIRECTORY" /run/clamav
 chown clamav:clamav "$SIGNATURE_DIRECTORY" /run/clamav
 
+# The reviewed ClamAV 1.4.6 runtime uses a different numeric clamav UID/GID
+# than the previous Debian package image. Migrate only the known ClamAV
+# database/state files so the persistent volume remains writable without
+# recursively changing ownership of unexpected content.
+for signature_state_file in \
+  main.cvd main.cld \
+  daily.cvd daily.cld \
+  bytecode.cvd bytecode.cld \
+  freshclam.dat
+do
+  candidate="$SIGNATURE_DIRECTORY/$signature_state_file"
+  [ ! -e "$candidate" ] || chown clamav:clamav "$candidate"
+done
+unset candidate signature_state_file
+
 signature_file_path() {
   directory="$1"
   base="$2"

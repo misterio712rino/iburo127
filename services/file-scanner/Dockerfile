@@ -1,8 +1,14 @@
-FROM node:24-bookworm-slim
+FROM node:24-bookworm-slim AS node-runtime
+
+FROM clamav/clamav-debian:1.4.6_base@sha256:9245cc23e6d080de80bfd2bf0eb84650db0465de1ebcba9fd408e10b65503854 AS runtime
+
+USER root
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates clamav-daemon clamav-freshclam gosu tini \
+  && apt-get install -y --no-install-recommends ca-certificates gosu tini \
   && rm -rf /var/lib/apt/lists/*
+
+COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
 
 COPY config/clamd.conf /etc/clamav/clamd.conf
 COPY config/freshclam.conf /etc/clamav/freshclam.conf
@@ -37,4 +43,5 @@ ENV NODE_ENV=production \
 
 EXPOSE 8080
 VOLUME ["/var/lib/clamav"]
+HEALTHCHECK NONE
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/file-scanner-entrypoint"]
