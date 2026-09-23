@@ -23,7 +23,8 @@ function harness(headStatus = 404, headEtag = etag) {
   const events: string[] = [];
   const request = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
-    if (url.startsWith("https://token.actions.githubusercontent.com/")) {
+    const parsed = new URL(url);
+    if (/^[a-z0-9-]+\.actions\.githubusercontent\.com$/.test(parsed.hostname)) {
       events.push("oidc");
       assert.equal(new URL(url).searchParams.get("audience"), "iburo-staging-file-scanner-fixtures-v1");
       return Response.json({ value: "a".repeat(200) });
@@ -142,13 +143,34 @@ test("invalid metadata must not authorize deletion", async () => {
   assert.deepEqual(h.events, ["oidc", "issue:head", "head"]);
 });
 
-test("OIDC request URL cannot redirect token to an arbitrary host", async () => {
+test("accepts GitHub Actions sharded OIDC request hosts", async () => {
   const h = harness();
   const storage = createOidcScopedScannerSmokeStorage({
-    ...env, ACTIONS_ID_TOKEN_REQUEST_URL: "https://attacker.example/request",
+    ...env,
+    ACTIONS_ID_TOKEN_REQUEST_URL:
+      "https://pipelinesghubeus13.actions.githubusercontent.com/request?x=1",
   }, h.request);
-  await assert.rejects(storage.createPrivateDownloadUrl({ pathname, expiresInSeconds: 120 }), denied);
-  assert.deepEqual(h.events, []);
+  const url = await storage.createPrivateDownloadUrl({ pathname, expiresInSeconds: 120 });
+  assert.equal(new URL(url).hostname, host);
+  assert.deepEqual(h.events, ["oidc", "issue:get"]);
+});
+
+test("OIDC request URL cannot redirect token outside one GitHub Actions host label", async () => {
+  for (const requestUrl of [
+    "https://attacker.example/request",
+    "https://actions.githubusercontent.com/request",
+    "https://foo.bar.actions.githubusercontent.com/request",
+    "https://actions.githubusercontent.com.attacker.example/request",
+    "https://user@token.actions.githubusercontent.com/request",
+    "https://token.actions.githubusercontent.com:444/request",
+  ]) {
+    const h = harness();
+    const storage = createOidcScopedScannerSmokeStorage({
+      ...env, ACTIONS_ID_TOKEN_REQUEST_URL: requestUrl,
+    }, h.request);
+    await assert.rejects(storage.createPrivateDownloadUrl({ pathname, expiresInSeconds: 120 }), denied);
+    assert.deepEqual(h.events, []);
+  }
 });
 
 test("oversized GitHub OIDC response denies before calling the Preview issuer", async () => {
@@ -160,7 +182,7 @@ test("oversized GitHub OIDC response denies before calling the Preview issuer", 
   const storage = createOidcScopedScannerSmokeStorage(env, request);
   await assert.rejects(storage.createPrivateDownloadUrl({ pathname, expiresInSeconds: 120 }), denied);
   assert.equal(calls.length, 1);
-  assert.match(calls[0], /^https:\/\/token\.actions\.githubusercontent\.com\//);
+  assert.match(calls[0], /^https:\/\/[a-z0-9-]+\.actions\.githubusercontent\.com\//);
 });
 
 test("oversized Preview issuer response denies before any Blob request", async () => {
