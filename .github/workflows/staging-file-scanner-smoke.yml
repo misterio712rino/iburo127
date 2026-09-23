@@ -179,10 +179,34 @@ jobs:
         run: |
           node --import tsx --input-type=module <<'NODE'
           import { verifyAuthorizedStagingScannerHealth } from "./scripts/staging-scanner-health-preflight.ts";
-          await verifyAuthorizedStagingScannerHealth(
-            process.env.IB_FILE_SCANNER_ORIGIN ?? "",
-            process.env.IB_FILE_SCANNER_SECRET ?? "",
-          );
+
+          const origin = process.env.IB_FILE_SCANNER_ORIGIN ?? "";
+          const secret = process.env.IB_FILE_SCANNER_SECRET ?? "";
+          if (origin !== "https://scanner-v2-staging.iburo127.online" ||
+              secret.length < 32 || /[\r\n\0]/.test(secret)) {
+            console.error("STAGING_SCANNER_AUTH_HEALTH_INPUT_DENIED");
+            process.exit(1);
+          }
+
+          let response;
+          try {
+            response = await fetch(`${origin}/health`, {
+              method: "GET",
+              headers: { Authorization: `Bearer ${secret}`, Accept: "application/json" },
+              redirect: "error",
+              cache: "no-store",
+              signal: AbortSignal.timeout(8_000),
+            });
+          } catch {
+            console.error("STAGING_SCANNER_AUTH_HEALTH_TRANSPORT_FAIL");
+            process.exit(1);
+          }
+
+          console.log(`STAGING_SCANNER_AUTH_HEALTH_HTTP_${response.status}`);
+          await response.body?.cancel().catch(() => {});
+          if (response.status !== 200) process.exit(1);
+
+          await verifyAuthorizedStagingScannerHealth(origin, secret);
           console.log("STAGING_SCANNER_AUTH_HEALTH_PASS");
           NODE
 
