@@ -171,6 +171,24 @@ jobs:
           echo "STAGING_FILE_SCANNER_IDENTITY_FAIL" >&2
           exit 1
 
+      - name: Diagnose staging scanner HTTPS transport read-only
+        shell: bash
+        env:
+          IB_FILE_SCANNER_SECRET: ${{ secrets.IB_STAGING_FILE_SCANNER_SECRET }}
+        run: |
+          origin="https://scanner-v2-staging.iburo127.online"
+          run_probe() {
+            label="$1"
+            shift
+            set +e
+            result="$(curl --silent --show-error --connect-timeout 5 --max-time 12               --output /dev/null               --write-out 'HTTP=%{http_code} REMOTE_IP=%{remote_ip} TLS_VERIFY=%{ssl_verify_result} CONNECT=%{time_connect} TOTAL=%{time_total}'               "$@" "$origin/health")"
+            code=$?
+            set -e
+            echo "STAGING_SCANNER_${label}_CURL_EXIT=${code} ${result}"
+          }
+          run_probe ANON
+          run_probe AUTH             --header "Authorization: Bearer $IB_FILE_SCANNER_SECRET"             --header "Accept: application/json"
+
       - name: Verify authorized staging scanner health
         shell: bash
         env:
