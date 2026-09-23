@@ -82,6 +82,48 @@ try {
   } finally {
     globalThis.fetch = originalTokenFetch;
   }
+
+  const boundedResponseFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = (async () => new Response("{}", {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+        "content-length": "20000",
+      },
+    })) as typeof fetch;
+    await assert.rejects(dependencies.issueSignedToken({
+      token: "vercel_blob_rw_teststore123_secret", pathname,
+      operations: ["put"], validUntil: tokenPayload.validUntil,
+    }), /signed-token-response-too-large/);
+
+    const oversizedStream = new Uint8Array(17_000).fill(0x78);
+    globalThis.fetch = (async () => new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(oversizedStream);
+          controller.close();
+        },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    )) as typeof fetch;
+    await assert.rejects(dependencies.issueSignedToken({
+      token: "vercel_blob_rw_teststore123_secret", pathname,
+      operations: ["put"], validUntil: tokenPayload.validUntil,
+    }), /signed-token-response-too-large/);
+
+    globalThis.fetch = (async () => new Response("null", {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    })) as typeof fetch;
+    await assert.rejects(dependencies.issueSignedToken({
+      token: "vercel_blob_rw_teststore123_secret", pathname,
+      operations: ["put"], validUntil: tokenPayload.validUntil,
+    }), /invalid-signed-token-response/);
+  } finally {
+    globalThis.fetch = boundedResponseFetch;
+  }
+
   // A successfully signed URL must never target a different store, a wildcard
   // pathname, an extra operation, or a longer-lived grant than requested.
   const baselineFetch = globalThis.fetch;
