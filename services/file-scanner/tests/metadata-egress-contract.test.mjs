@@ -34,10 +34,13 @@ test("staging scanner host can obtain a runtime IAM token without exposing metad
   );
 });
 
-test("staging scanner package bootstrap stays on HTTPS and does not require broad TCP/80", () => {
+test("staging scanner package and signature bootstrap stay on HTTPS and do not require broad TCP/80", () => {
   const cloudInit = read("infra/file-scanner-staging/cloud-init.yaml.tftpl");
+  const freshclam = read("services/file-scanner/config/freshclam.conf");
 
-  assert.match(cloudInit, /apt:\n\s+preserve_sources_list:\s+false/);
+  assert.match(freshclam, /^DatabaseMirror\s+https:\/\/database\.clamav\.net$/m);
+  assert.doesNotMatch(freshclam, /^DatabaseMirror\s+(?:http:\/\/)?database\.clamav\.net$/m);
+  assert.match(cloudInit, /apt:\r?\n\s+preserve_sources_list:\s+false/);
   const httpsArchiveUris = cloudInit.match(/uri:\s+https:\/\/archive\.ubuntu\.com\/ubuntu/g) ?? [];
   assert.equal(httpsArchiveUris.length, 2, "primary and security APT mirrors must both use HTTPS");
   assert.doesNotMatch(cloudInit, /uri:\s+http:\/\//);
@@ -47,7 +50,7 @@ test("staging scanner package bootstrap stays on HTTPS and does not require broa
 test("staging scanner package installation cannot auto-start public Caddy", () => {
   const cloudInit = read("infra/file-scanner-staging/cloud-init.yaml.tftpl");
 
-  assert.match(cloudInit, /bootcmd:\n\s+- \[cloud-init-per, once, iburo-scanner-policy-rcd,/);
+  assert.match(cloudInit, /bootcmd:\r?\n\s+- \[cloud-init-per, once, iburo-scanner-policy-rcd,/);
   assert.match(cloudInit, /echo '#!\/bin\/sh' > \/usr\/sbin\/policy-rc\.d/);
   assert.match(cloudInit, /echo 'exit 101' >> \/usr\/sbin\/policy-rc\.d/);
   assert.match(cloudInit, /touch \/run\/iburo-scanner-policy-rcd-created/);

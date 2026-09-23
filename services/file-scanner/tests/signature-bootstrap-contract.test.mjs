@@ -22,6 +22,16 @@ test("signature bootstrap avoids Docker stdout logfile recursion and restart per
     /^LogFile\s+\/dev\/(?:stdout|stderr|fd\/\d+)$/m,
     "clamd must not configure /dev stdout/stderr as a logfile because hardened ClamAV rejects those symlink targets",
   );
+  assert.match(
+    freshclam,
+    /^DatabaseMirror\s+https:\/\/database\.clamav\.net$/m,
+    "official signature updates must use the HTTPS mirror because staging egress does not permit broad TCP/80",
+  );
+  assert.doesNotMatch(
+    freshclam,
+    /^DatabaseMirror\s+(?:http:\/\/)?database\.clamav\.net$/m,
+    "the staging scanner must not rely on the HTTP/default mirror path",
+  );
 
   assert.match(
     entrypoint,
