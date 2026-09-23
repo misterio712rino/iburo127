@@ -13,7 +13,7 @@ async function validateHealthResponse(response: Response): Promise<void> {
   const advertised = response.headers.get("content-length");
   if (advertised !== null && (!/^\d{1,3}$/.test(advertised) || Number(advertised) > MAX_HEALTH_BYTES)) fail();
   const healthStream = response.body;
-  if (healthStream === null) fail();
+  if (healthStream === null) throw new Error(STAGING_SCANNER_HEALTH_DENIED);
   const reader = healthStream.getReader();
   const chunks: Uint8Array[] = [];
   let bytes = 0;
