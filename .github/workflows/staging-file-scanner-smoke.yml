@@ -33,6 +33,9 @@ concurrency:
 
 jobs:
   verify:
+    permissions:
+      contents: read
+      id-token: write
     if: github.ref_name == 'audit/production-readiness'
     runs-on: ubuntu-24.04
     timeout-minutes: 12
@@ -43,7 +46,8 @@ jobs:
       IB_STORAGE_TARGET: staging
       VERCEL_ENV: preview
       VERCEL_GIT_COMMIT_REF: audit/production-readiness
-      IB_VERCEL_BLOB_AUTH_MODE: read-write-token
+      IB_STAGING_SCANNER_FIXTURE_AUTH_MODE: github-oidc
+      IB_OBJECT_STORAGE_PROVIDER: vercel-blob
       IB_FILE_SCANNER_REQUEST_TIMEOUT_MS: "60000"
 
     steps:
@@ -57,6 +61,7 @@ jobs:
         shell: bash
         env:
           REQUESTED_SHA: ${{ inputs.candidate_sha }}
+          REQUESTED_SCANNER_ORIGIN: ${{ inputs.scanner_origin }}
           CONFIRMATION: ${{ inputs.confirmation }}
         run: |
           if [ "$CONFIRMATION" != "RUN_STAGING_FILE_SCANNER_SMOKE" ]; then
@@ -65,6 +70,10 @@ jobs:
           fi
           if [ "$GITHUB_REF" != "refs/heads/audit/production-readiness" ]; then
             echo "STAGING_FILE_SCANNER_SMOKE_GATE_FAIL: branch mismatch" >&2
+            exit 1
+          fi
+          if [ "$REQUESTED_SCANNER_ORIGIN" != "https://scanner-v2-staging.iburo127.online" ]; then
+            echo "STAGING_FILE_SCANNER_SMOKE_GATE_FAIL: scanner origin not pinned staging-v2" >&2
             exit 1
           fi
           if ! printf '%s' "$REQUESTED_SHA" | grep -Eq '^[a-f0-9]{40}$'; then
@@ -109,7 +118,7 @@ jobs:
 
           for attempt in $(seq 1 "$max_attempts"); do
             http_status="$(
-              curl --silent --show-error \
+              curl --silent --show-error --connect-timeout 5 --max-time 12 --max-filesize 4096 \
                 --output "$identity_file" \
                 --write-out '%{http_code}' \
                 -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
@@ -153,14 +162,16 @@ jobs:
       - name: Verify live staging scanner CLEAN and MALICIOUS verdicts
         shell: bash
         env:
-          BLOB_READ_WRITE_TOKEN: ${{ secrets.IB_STAGING_BLOB_READ_WRITE_TOKEN }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           IB_FILE_SCANNER_SECRET: ${{ secrets.IB_STAGING_FILE_SCANNER_SECRET }}
-          IB_FILE_SCANNER_ORIGIN: ${{ inputs.scanner_origin }}
-          IB_STAGING_FILE_SCANNER_ORIGIN: ${{ inputs.scanner_origin }}
+          IB_FILE_SCANNER_ORIGIN: https://scanner-v2-staging.iburo127.online
+          IB_STAGING_FILE_SCANNER_ORIGIN: https://scanner-v2-staging.iburo127.online
           IB_STAGING_VERCEL_BLOB_PRIVATE_HOST: ${{ inputs.blob_private_host }}
           IB_STAGING_FILE_SCANNER_SECRET_SHA256: ${{ inputs.scanner_secret_sha256 }}
         run: |
-          test -n "$BLOB_READ_WRITE_TOKEN"
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          test -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
+          test -n "$ACTIONS_ID_TOKEN_REQUEST_URL"
           test -n "$IB_FILE_SCANNER_SECRET"
 
           confirmation="$(node --input-type=module <<'NODE'
@@ -178,6 +189,6 @@ jobs:
           test -n "$confirmation"
 
           export IB_STAGING_FILE_SCANNER_CONFIRM="$confirmation"
-          export IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY="security-fixtures/file-scanner/$GITHUB_SHA/clean.txt"
-          export IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY="security-fixtures/file-scanner/$GITHUB_SHA/eicar.txt"
+          export IB_STAGING_FILE_SCANNER_CLEAN_OBJECT_KEY="security-fixtures/file-scanner/$GITHUB_SHA/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/clean.txt"
+          export IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY="security-fixtures/file-scanner/$GITHUB_SHA/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/eicar.txt"
           npm run check:staging:file-scanner

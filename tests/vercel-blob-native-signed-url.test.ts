@@ -29,7 +29,11 @@ const issuedToken = {
 
 globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
   calls.push({ input: String(input), init });
-  return new Response(JSON.stringify(issuedToken), {
+  const requested = JSON.parse(String(init?.body)) as { operations: string[] };
+  const responseToken = requested.operations.includes("head")
+    ? { ...issuedToken, delegationToken: delegationToken({ ...tokenPayload, operations: ["head"] }) }
+    : issuedToken;
+  return new Response(JSON.stringify(responseToken), {
     status: 200,
     headers: { "content-type": "application/json" },
   });
@@ -50,6 +54,7 @@ try {
   assert.equal(calls.length, 1);
   assert.equal(calls[0]?.input, "https://vercel.com/api/blob/signed-token");
   assert.equal(calls[0]?.init?.method, "POST");
+  assert.equal(calls[0]?.init?.redirect, "error");
   const headers = new Headers(calls[0]?.init?.headers);
   assert.equal(headers.get("authorization"), "Bearer vercel_blob_rw_teststore123_secret");
   assert.equal(headers.get("x-vercel-blob-store-id"), "teststore123");
@@ -62,6 +67,40 @@ try {
     maximumSizeInBytes: 1234,
   });
 
+  const originalTokenFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = (async (_input, init) => {
+      if (init?.redirect !== "error") return Response.json(issuedToken);
+      return new Response(null, {
+        status: 302, headers: { location: "https://example.invalid/collect" },
+      });
+    }) as typeof fetch;
+    await assert.rejects(dependencies.issueSignedToken({
+      token: "vercel_blob_rw_teststore123_secret", pathname,
+      operations: ["put"], validUntil: tokenPayload.validUntil,
+    }), /signed-token-http-302/);
+  } finally {
+    globalThis.fetch = originalTokenFetch;
+  }
+  // A successfully signed URL must never target a different store, a wildcard
+  // pathname, an extra operation, or a longer-lived grant than requested.
+  const baselineFetch = globalThis.fetch;
+  for (const unsafeGrant of [
+    { storeId: "unrelatedstore" },
+    { pathname: "*" },
+    { operations: ["put", "delete"] },
+    { validUntil: tokenPayload.validUntil + 60_000 },
+  ]) {
+    globalThis.fetch = (async () => Response.json({
+      ...issuedToken,
+      delegationToken: delegationToken({ ...tokenPayload, ...unsafeGrant }),
+    })) as typeof fetch;
+    await assert.rejects(dependencies.issueSignedToken({
+      token: "vercel_blob_rw_teststore123_secret", pathname,
+      operations: ["put"], validUntil: tokenPayload.validUntil,
+    }), /delegation-scope-mismatch/);
+  }
+  globalThis.fetch = baselineFetch;
   const { presignedUrl } = await dependencies.presignUrl(token, {
     operation: "put",
     pathname,
@@ -118,6 +157,26 @@ try {
   assert.equal(getUrl.searchParams.get("cache"), "0");
   assert.equal(getUrl.searchParams.get("vercel-blob-delegation"), getToken.delegationToken);
 
+  const deletePayload = { ...getPayload, operations: ["delete"] };
+  const deleteToken = { ...getToken, delegationToken: delegationToken(deletePayload) };
+  const etag = '"1234567890abcdef1234567890abcdef"';
+  const { presignedUrl: conditionalUrl } = await dependencies.presignUrl(deleteToken, {
+    operation: "delete", pathname, access: "private",
+    validUntil: tokenPayload.validUntil, ifMatch: etag,
+  });
+  const conditional = new URL(conditionalUrl);
+  assert.equal(conditional.searchParams.get("vercel-blob-if-match"), etag);
+  const deleteCanonical = ["operation=delete", `pathname=${pathname}`, `vercel-blob-if-match=${etag}`].sort().join("\n");
+  assert.equal(conditional.searchParams.get("vercel-blob-signature"),
+    createHmac("sha256", signingKey).update(deleteCanonical, "utf8").digest("base64url"));
+  await assert.rejects(async () => dependencies.presignUrl(deleteToken, {
+    operation: "delete", pathname, access: "private", validUntil: tokenPayload.validUntil,
+    ifMatch: "bad\r\netag",
+  }), /invalid-conditional-etag/);
+  await assert.rejects(async () => dependencies.presignUrl(getToken, {
+    operation: "get", pathname, access: "private", validUntil: tokenPayload.validUntil,
+    ifMatch: etag,
+  }), /invalid-conditional-etag/);
   calls.length = 0;
   await dependencies.issueSignedToken({
     oidcToken: "oidc-foundation-token",

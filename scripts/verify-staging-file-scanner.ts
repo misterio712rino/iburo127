@@ -11,12 +11,11 @@ import {
   STAGING_FILE_SCANNER_TARGET_GUARD,
   type StagingFileScannerTarget,
 } from "@/scripts/staging-file-scanner-target-guard";
+import { assertStagingScannerFixtureKeysAbsent } from "@/scripts/staging-scanner-fixture-ownership";
 import { scanWithHttpMalwareScanner } from "@/server/files/http-malware-scanner-core";
 import { VERCEL_BLOB_STORAGE_PROVIDER } from "@/server/files/object-storage-provider";
-import { readVercelBlobAuthConfig } from "@/server/files/vercel-blob-config";
-import { toVercelBlobSdkCredentialOptions } from "@/server/files/vercel-blob-driver-auth";
-import { createVercelBlobNativeSignedUrlDependencies } from "@/server/files/vercel-blob-native-signed-url";
-import { createVercelBlobSignedUrlDriver } from "@/server/files/vercel-blob-signed-url-driver";
+import { createOidcScopedScannerSmokeStorage } from "@/scripts/staging-scanner-blob-oidc-storage";
+import { verifyAuthorizedStagingScannerHealth } from "@/scripts/staging-scanner-health-preflight";
 import {
   MalwareScannerError,
   type MalwareScanVerdict,
@@ -24,7 +23,7 @@ import {
 
 const STAGING_FILE_SCANNER_VERIFY_FAIL = "STAGING_FILE_SCANNER_VERIFY_FAIL";
 const FIXTURE_URL_TTL_SECONDS = 300;
-const MAX_FIXTURE_BYTES = 1024 * 1024;
+const MAX_FIXTURE_BYTES = 1024;
 const FIXTURE_MIME_TYPE = "application/octet-stream";
 const CLEAN_FIXTURE = new TextEncoder().encode("iburo scanner smoke fixture: clean\n");
 // EICAR is the industry-standard inert antivirus test string, never executable malware.
@@ -146,11 +145,7 @@ async function verifyYandexFixture(
 }
 
 function createVercelBlobSmokeStorage() {
-  const credentials = toVercelBlobSdkCredentialOptions(readVercelBlobAuthConfig());
-  return createVercelBlobSignedUrlDriver(
-    createVercelBlobNativeSignedUrlDependencies(),
-    credentials,
-  );
+  return createOidcScopedScannerSmokeStorage();
 }
 
 async function verifyVercelBlobTargetBeforeMutation(
@@ -184,6 +179,7 @@ async function uploadVercelFixture(
   storage: ReturnType<typeof createVercelBlobSmokeStorage>,
   objectKey: string,
   bytes: Uint8Array,
+  recordConfirmedUpload: (key: string) => void,
 ) {
   assertFixtureBytes(bytes);
   const uploadUrl = await storage.createPrivateUploadUrl({
@@ -194,12 +190,15 @@ async function uploadVercelFixture(
   });
   const response = await fetch(uploadUrl, {
     method: "PUT",
+    redirect: "error",
     headers: { "content-type": FIXTURE_MIME_TYPE },
     body: new TextDecoder().decode(bytes),
     cache: "no-store",
     signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok) throw new Error("VERCEL_BLOB_UPLOAD_FAILED");
+  storage.confirmUploadedFixture(objectKey);
+  recordConfirmedUpload(objectKey);
 }
 
 async function verifyVercelFixture(
@@ -209,8 +208,9 @@ async function verifyVercelFixture(
   objectKey: string,
   bytes: Uint8Array,
   expectedVerdict: MalwareScanVerdict,
+  recordConfirmedUpload: (key: string) => void,
 ) {
-  await uploadVercelFixture(storage, objectKey, bytes);
+  await uploadVercelFixture(storage, objectKey, bytes, recordConfirmedUpload);
   const metadata = await storage.statPrivateBlob(objectKey);
   if (
     !metadata ||
@@ -228,17 +228,17 @@ async function verifyVercelFixture(
 
 async function cleanupVercelFixtures(
   storage: ReturnType<typeof createVercelBlobSmokeStorage>,
-  target: Extract<StagingFileScannerTarget, { providerCode: typeof VERCEL_BLOB_STORAGE_PROVIDER }>,
+  objectKeys: readonly string[],
 ) {
   let cleanupFailed = false;
-  for (const objectKey of [target.cleanObjectKey, target.maliciousObjectKey]) {
+  for (const objectKey of objectKeys) {
     try {
       await storage.deletePrivateBlob(objectKey);
     } catch {
       cleanupFailed = true;
     }
   }
-  for (const objectKey of [target.cleanObjectKey, target.maliciousObjectKey]) {
+  for (const objectKey of objectKeys) {
     try {
       if (await storage.statPrivateBlob(objectKey)) cleanupFailed = true;
     } catch {
@@ -252,11 +252,17 @@ async function verifyVercelBlobFixtures(
   target: Extract<StagingFileScannerTarget, { providerCode: typeof VERCEL_BLOB_STORAGE_PROVIDER }>,
   scannerTimeoutMs: number,
 ) {
+  await verifyAuthorizedStagingScannerHealth(target.scannerOrigin, target.scannerSecret);
   const storage = createVercelBlobSmokeStorage();
   await verifyVercelBlobTargetBeforeMutation(target, storage);
+  await assertStagingScannerFixtureKeysAbsent(
+    [target.cleanObjectKey, target.maliciousObjectKey],
+    (key) => storage.statPrivateBlob(key),
+  );
 
+  const confirmedUploads: string[] = [];
+  const recordConfirmedUpload = (key: string) => { confirmedUploads.push(key); };
   try {
-    await cleanupVercelFixtures(storage, target);
     await verifyVercelFixture(
       target,
       scannerTimeoutMs,
@@ -264,6 +270,7 @@ async function verifyVercelBlobFixtures(
       target.cleanObjectKey,
       CLEAN_FIXTURE,
       "CLEAN",
+      recordConfirmedUpload,
     );
     await verifyVercelFixture(
       target,
@@ -272,9 +279,10 @@ async function verifyVercelBlobFixtures(
       target.maliciousObjectKey,
       MALICIOUS_TEST_FIXTURE,
       "MALICIOUS",
+      recordConfirmedUpload,
     );
   } finally {
-    await cleanupVercelFixtures(storage, target);
+    await cleanupVercelFixtures(storage, confirmedUploads);
   }
 }
 

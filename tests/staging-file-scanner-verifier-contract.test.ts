@@ -23,21 +23,25 @@ assert.match(source, /GetObjectCommand/);
 assert.match(source, /getSignedUrl/);
 assert.match(source, /scanWithHttpMalwareScanner/);
 assert.match(source, /target\.providerCode === VERCEL_BLOB_STORAGE_PROVIDER/);
-assert.match(source, /createVercelBlobSignedUrlDriver/);
-assert.match(source, /createVercelBlobNativeSignedUrlDependencies/);
+assert.match(source, /createOidcScopedScannerSmokeStorage/);
+assert.doesNotMatch(source, /readVercelBlobAuthConfig|createVercelBlobSignedUrlDriver|BLOB_READ_WRITE_TOKEN/);
+
 assert.match(source, /createPrivateUploadUrl/);
 assert.match(source, /createPrivateDownloadUrl/);
 assert.match(source, /statPrivateBlob/);
 assert.match(source, /deletePrivateBlob/);
 assert.match(source, /verifyVercelBlobTargetBeforeMutation/);
+assert.match(source, /assertStagingScannerFixtureKeysAbsent/);
+assert.match(source, /recordConfirmedUpload\(objectKey\)/);
+assert.match(source, /const confirmedUploads: string\[\] = \[\]/);
 assert.match(source, /parsed\.hostname\.toLowerCase\(\) !== target\.expectedPrivateBlobHost/);
 assert.match(source, /VERCEL_BLOB_PRIVATE_HOST_MISMATCH/);
 assert.match(source, /await verifyVercelFixture\([\s\S]*target\.cleanObjectKey,[\s\S]*"CLEAN"/);
 assert.match(source, /await verifyVercelFixture\([\s\S]*target\.maliciousObjectKey,[\s\S]*"MALICIOUS"/);
-assert.match(source, /finally\s*\{\s*await cleanupVercelFixtures\(storage, target\)/);
+assert.match(source, /finally\s*\{\s*await cleanupVercelFixtures\(storage, confirmedUploads\)/);
 assert.match(source, /VERCEL_BLOB_FIXTURE_CLEANUP_FAILED/);
 assert.match(source, /FIXTURE_URL_TTL_SECONDS = 300/);
-assert.match(source, /MAX_FIXTURE_BYTES = 1024 \* 1024/);
+assert.match(source, /MAX_FIXTURE_BYTES = 1024;/);
 assert.match(source, /Vercel Blob staging host verified before fixture mutation/);
 assert.match(source, /Fixture object keys or signed URLs logged: 0/);
 assert.match(source, /STAGING_FILE_SCANNER_VERIFY_PASS/);
@@ -46,22 +50,44 @@ const vercelFixtureFunction = source.match(
   /async function verifyVercelBlobFixtures[\s\S]*?(?=\nasync function verifyYandexFixtures)/,
 )?.[0];
 assert.ok(vercelFixtureFunction, "Vercel Blob scanner fixture function must exist");
+const healthIndex = vercelFixtureFunction.indexOf("await verifyAuthorizedStagingScannerHealth(target.scannerOrigin, target.scannerSecret);");
+const storageIndex = vercelFixtureFunction.indexOf("const storage = createVercelBlobSmokeStorage();");
+assert.ok(healthIndex >= 0 && storageIndex > healthIndex,
+  "authorized staging health must pass before any signed Blob capability or fixture operation");
 const preflightIndex = vercelFixtureFunction.indexOf(
   "await verifyVercelBlobTargetBeforeMutation(target, storage);",
 );
+const absentIndex = vercelFixtureFunction.indexOf("await assertStagingScannerFixtureKeysAbsent(");
+const recordCallbackIndex = vercelFixtureFunction.indexOf("const recordConfirmedUpload =");
 const mutationTryIndex = vercelFixtureFunction.indexOf("try {", preflightIndex);
 const firstCleanupIndex = vercelFixtureFunction.indexOf(
-  "await cleanupVercelFixtures(storage, target);",
+  "await cleanupVercelFixtures(storage, confirmedUploads);",
 );
 assert.ok(preflightIndex >= 0, "private Blob target preflight must execute");
+assert.ok(absentIndex > preflightIndex, "occupied fixtures must fail before uploads or deletions");
+assert.ok(recordCallbackIndex > absentIndex, "only post-preflight confirmed uploads may become cleanup targets");
 assert.ok(
   mutationTryIndex > preflightIndex,
   "private Blob target preflight must execute before the mutation/cleanup try-finally block",
 );
 assert.ok(
-  firstCleanupIndex > preflightIndex,
+  firstCleanupIndex > recordCallbackIndex,
   "private Blob target preflight must execute before any fixture cleanup mutation",
 );
+
+const uploadFixtureFunction = source.match(
+  /async function uploadVercelFixture[\s\S]*?(?=\nasync function verifyVercelFixture)/,
+)?.[0];
+assert.ok(uploadFixtureFunction, "upload function must exist");
+assert.match(uploadFixtureFunction, /fetch\(uploadUrl,\s*\{[\s\S]*?method:\s*"PUT",\s*redirect:\s*"error",/, "signed fixture PUT must not follow redirects");
+const uploadGuardIndex = uploadFixtureFunction.indexOf(
+  'if (!response.ok) throw new Error("VERCEL_BLOB_UPLOAD_FAILED");',
+);
+const ownershipIndex = uploadFixtureFunction.indexOf("storage.confirmUploadedFixture(objectKey);");
+const confirmUploadIndex = uploadFixtureFunction.indexOf("recordConfirmedUpload(objectKey);");
+assert.ok(uploadGuardIndex >= 0 && ownershipIndex > uploadGuardIndex && confirmUploadIndex > ownershipIndex,
+  "only acknowledged uploads may authorize ETag-bound cleanup");
+assert.doesNotMatch(vercelFixtureFunction, /attemptedKeys\.push/);
 
 for (const forbidden of [
   "PutObjectCommand",
@@ -113,16 +139,34 @@ assert.match(smokeWorkflow, /runs-on: ubuntu-24\.04/);
 assert.match(smokeWorkflow, /persist-credentials: false/);
 assert.match(smokeWorkflow, /ref: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/);
 assert.match(smokeWorkflow, /RUN_STAGING_FILE_SCANNER_SMOKE/);
+// Dispatch inputs must never redirect a staging scanner bearer credential to an arbitrary host.
+assert.match(smokeWorkflow, /REQUESTED_SCANNER_ORIGIN: \$\{\{ inputs\.scanner_origin \}\}/);
+assert.match(smokeWorkflow, /if \[ "\$REQUESTED_SCANNER_ORIGIN" != "https:\/\/scanner-v2-staging\.iburo127\.online" \]; then/);
+assert.match(smokeWorkflow, /IB_FILE_SCANNER_ORIGIN: https:\/\/scanner-v2-staging\.iburo127\.online/);
+assert.match(smokeWorkflow, /IB_STAGING_FILE_SCANNER_ORIGIN: https:\/\/scanner-v2-staging\.iburo127\.online/);
+assert.doesNotMatch(smokeWorkflow, /IB_(?:STAGING_)?FILE_SCANNER_ORIGIN: \$\{\{ inputs\.scanner_origin \}\}/);
+const scannerOriginGate = smokeWorkflow.indexOf('if [ "$REQUESTED_SCANNER_ORIGIN" != "https://scanner-v2-staging.iburo127.online" ]; then');
+const previewSecretStep = smokeWorkflow.indexOf('VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}');
+assert.ok(scannerOriginGate > 0 && scannerOriginGate < previewSecretStep, "scanner origin must be pinned before any credential-bearing step");
 assert.match(smokeWorkflow, /refs\/heads\/audit\/production-readiness/);
-assert.match(smokeWorkflow, /test -n "\$BLOB_READ_WRITE_TOKEN"/);
+assert.match(smokeWorkflow, /test -n "\$ACTIONS_ID_TOKEN_REQUEST_TOKEN"/);
 assert.match(smokeWorkflow, /test -n "\$IB_FILE_SCANNER_SECRET"/);
-assert.match(smokeWorkflow, /secrets\.IB_STAGING_BLOB_READ_WRITE_TOKEN/);
+assert.doesNotMatch(smokeWorkflow, /IB_STAGING_BLOB_READ_WRITE_TOKEN|BLOB_READ_WRITE_TOKEN/);
+assert.match(smokeWorkflow, /id-token: write/);
+assert.match(smokeWorkflow, /IB_STAGING_SCANNER_FIXTURE_AUTH_MODE: github-oidc/);
 assert.match(smokeWorkflow, /secrets\.IB_STAGING_FILE_SCANNER_SECRET/);
 assert.match(smokeWorkflow, /IB_STAGING_VERCEL_BLOB_PRIVATE_HOST: \$\{\{ inputs\.blob_private_host \}\}/);
-assert.match(smokeWorkflow, /security-fixtures\/file-scanner\/\$GITHUB_SHA\/clean\.txt/);
-assert.match(smokeWorkflow, /security-fixtures\/file-scanner\/\$GITHUB_SHA\/eicar\.txt/);
+assert.match(smokeWorkflow, /security-fixtures\/file-scanner\/\$GITHUB_SHA\/\$GITHUB_RUN_ID-\$GITHUB_RUN_ATTEMPT\/clean\.txt/);
+assert.match(smokeWorkflow, /security-fixtures\/file-scanner\/\$GITHUB_SHA\/\$GITHUB_RUN_ID-\$GITHUB_RUN_ATTEMPT\/eicar\.txt/);
 assert.match(smokeWorkflow, /npm run check:staging:file-scanner/);
 assert.match(smokeWorkflow, /_iburo\/staging-identity/);
+// Protected Preview identity response must never consume unbounded network/disk resources.
+const identityCurl = smokeWorkflow.match(/curl --silent --show-error[^\r\n]+/)?.[0];
+assert.ok(identityCurl, "protected Preview identity curl must be present");
+assert.match(identityCurl, /--connect-timeout 5/);
+assert.match(identityCurl, /--max-time 12/);
+assert.match(identityCurl, /--max-filesize 4096/);
+assert.doesNotMatch(identityCurl, /--location(?:\s|$)/);
 assert.doesNotMatch(smokeWorkflow, /secrets\.BLOB_READ_WRITE_TOKEN/);
 assert.doesNotMatch(smokeWorkflow, /secrets\.IB_FILE_SCANNER_SECRET(?![A-Z_])/);
 assert.doesNotMatch(smokeWorkflow, /terraform\s+(apply|destroy)|\byc\s|kubectl|vercel\s+(deploy|promote)|target:\s*production/i);

@@ -61,6 +61,38 @@ function isBoundedManualOidcWorkflow(source) {
   );
 }
 
+function isBoundedManualSmokeOidcWorkflow(source, displayPath) {
+  if (displayPath.replace(/\\/g, "/") !== ".github/workflows/staging-file-scanner-smoke.yml") return false;
+  const jobs = collectJobBlocks(source);
+  if (jobs.length !== 1 || jobs[0].name !== "verify") return false;
+  const job = jobs[0].source;
+  const eventBlock = source.match(/^on:\s*\n([\s\S]*?)(?=^permissions:)/m)?.[1] ?? "";
+  // Count every top-level event key, including valid inline YAML values such as push: [branch].
+  const triggers = eventBlock.match(/^ {2}[a-z_-]+:/gm) ?? [];
+  const gate = job.indexOf("      - name: Exact staging gate");
+  const identity = job.indexOf("      - name: Verify exact protected Preview identity");
+  const smoke = job.indexOf("      - name: Verify live staging scanner CLEAN and MALICIOUS verdicts");
+  const firstSecret = job.indexOf("secrets.");
+  return triggers.length === 1 && triggers[0].trim() === "workflow_dispatch:" &&
+    !/^ {2}id-token:\s*write\s*(?:#.*)?$/m.test(source) &&
+    /^ {4}permissions:\s*$/m.test(job) &&
+    /^ {6}contents:\s*read\s*(?:#.*)?$/m.test(job) &&
+    /^ {6}id-token:\s*write\s*(?:#.*)?$/m.test(job) &&
+    /^ {4}if: github\.ref_name == 'audit\/production-readiness'\s*$/m.test(job) &&
+    job.includes(`ref: ${REQUIRED_CHECKOUT_REF}`) &&
+    /REQUESTED_SHA:\s*\$\{\{ inputs\.candidate_sha \}\}/.test(job) &&
+    /CONFIRMATION:\s*\$\{\{ inputs\.confirmation \}\}/.test(job) &&
+    /"\$CONFIRMATION" != "RUN_STAGING_FILE_SCANNER_SMOKE"/.test(job) &&
+    /"\$GITHUB_REF" != "refs\/heads\/audit\/production-readiness"/.test(job) &&
+    /actual_sha="\$\(git rev-parse HEAD\)"/.test(job) &&
+    /"\$actual_sha" != "\$GITHUB_SHA"/.test(job) &&
+    /"\$actual_sha" != "\$REQUESTED_SHA"/.test(job) &&
+    /IB_STAGING_BASE_URL:\s*https:\/\/iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects\.vercel\.app/.test(job) &&
+    /IB_STAGING_SCANNER_FIXTURE_AUTH_MODE:\s*github-oidc/.test(job) &&
+    /IB_FILE_SCANNER_ORIGIN:\s*https:\/\/scanner-v2-staging\.iburo127\.online/.test(job) &&
+    !/BLOB_READ_WRITE_TOKEN/.test(job) &&
+    gate >= 0 && gate < identity && identity < smoke && firstSecret > gate;
+}
 function collectWorkflowFiles(directory) {
   const files = [];
   for (const entry of readdirSync(directory)) {
@@ -86,7 +118,7 @@ for (const file of collectWorkflowFiles(WORKFLOWS_ROOT)) {
   const displayPath = relative(".", file);
   const source = readFileSync(file, "utf8");
   const lines = source.split(/\r?\n/);
-  const manualOidcWorkflow = isBoundedManualOidcWorkflow(source);
+  const manualOidcWorkflow = isBoundedManualOidcWorkflow(source) || isBoundedManualSmokeOidcWorkflow(source, displayPath);
 
   if (SHARED_STAGING_AUTH_WORKFLOWS.has(displayPath)) {
     sharedStagingAuthWorkflowCount += 1;
@@ -135,7 +167,7 @@ for (const file of collectWorkflowFiles(WORKFLOWS_ROOT)) {
 
   if (/^\s*id-token\s*:\s*write\s*(?:#.*)?$/m.test(source) && !manualOidcWorkflow) {
     violations.push(
-      `${displayPath}: id-token: write is allowed only in the single guarded manual staging publication job`,
+      `${displayPath}: id-token: write is allowed only in a bounded manual staging publication or scanner smoke job`,
     );
   }
 
@@ -177,14 +209,10 @@ for (const file of collectWorkflowFiles(WORKFLOWS_ROOT)) {
       }
     }
     if (!persistCredentialsFound) {
-      violations.push(
-        `${displayPath}:${index + 1}: checkout must explicitly set persist-credentials: false`,
-      );
+      violations.push(`${displayPath}:${index + 1}: checkout must explicitly set persist-credentials: false`);
     }
     if (!checkoutRefFound) {
-      violations.push(
-        `${displayPath}:${index + 1}: checkout must explicitly set ref to the exact candidate SHA expression`,
-      );
+      violations.push(`${displayPath}:${index + 1}: checkout must explicitly set ref to the exact candidate SHA expression`);
     }
   });
 }

@@ -129,6 +129,7 @@ function buildConstraintEntries(
     maximumSizeInBytes?: number;
     addRandomSuffix?: boolean;
     allowOverwrite?: boolean;
+    ifMatch?: string;
   },
 ) {
   const now = Date.now();
@@ -138,6 +139,10 @@ function buildConstraintEntries(
   const entries: Array<[string, string]> = [];
   if (resolvedUntil < Math.trunc(delegation.validUntil)) {
     entries.push(["vercel-blob-valid-until", String(resolvedUntil)]);
+  }
+  if (input.ifMatch !== undefined) {
+    if (!/^[!-~]{1,256}$/.test(input.ifMatch) || input.operation !== "delete") fail("invalid-conditional-etag");
+    entries.push(["vercel-blob-if-match", input.ifMatch]);
   }
   if (input.operation !== "put") return entries;
 
@@ -206,6 +211,7 @@ async function nativeIssueSignedToken(
       "x-vercel-blob-store-id": auth.storeId,
     },
     body: JSON.stringify(body),
+    redirect: "error",
     signal: AbortSignal.timeout(ISSUE_TIMEOUT_MS),
     cache: "no-store",
   });
@@ -220,6 +226,18 @@ async function nativeIssueSignedToken(
     !Number.isFinite(token.validUntil)
   ) {
     return fail("invalid-signed-token-response");
+  }
+  // Validate the issued grant before signing: PUT/DELETE URLs use vercel.com,
+  // so checking their origin alone cannot establish the target Blob store.
+  const delegation = decodeDelegationPayload(token.delegationToken);
+  if (normalizeStoreId(delegation.storeId) !== auth.storeId ||
+      delegation.pathname !== body.pathname ||
+      delegation.operations.length !== body.operations.length ||
+      delegation.operations.some((operation) => !body.operations.includes(operation as DelegationOperation)) ||
+      !Number.isSafeInteger(delegation.validUntil) ||
+      delegation.validUntil <= Date.now() || delegation.validUntil > body.validUntil ||
+      token.validUntil < delegation.validUntil || token.validUntil > body.validUntil) {
+    fail("delegation-scope-mismatch");
   }
   return token as IssuedSignedToken;
 }
