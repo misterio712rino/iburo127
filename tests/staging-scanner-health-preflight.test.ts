@@ -28,11 +28,54 @@ test("rejects any alternate origin or weak credential before network", async () 
   await assert.rejects(verifyAuthorizedStagingScannerHealth(origin, "short", fake), denied);
 });
 
-test("rejects unauthorized, unhealthy, and redirect responses", async () => {
-  for (const status of [302, 401, 503]) {
-    const fake = (async () => new Response(null, { status })) as typeof fetch;
-    await assert.rejects(verifyAuthorizedStagingScannerHealth(origin, secret, fake), denied);
+test("rejects unauthorized and redirect responses without retrying", async () => {
+  for (const status of [302, 401]) {
+    let requests = 0;
+    const fake = (async () => {
+      requests++;
+      return new Response(null, { status });
+    }) as typeof fetch;
+    await assert.rejects(
+      verifyAuthorizedStagingScannerHealth(origin, secret, fake, async () => {}),
+      denied,
+    );
+    assert.equal(requests, 1);
   }
+});
+
+test("retries transport failures and transient 5xx before succeeding", async () => {
+  let requests = 0;
+  let waits = 0;
+  const fake = (async () => {
+    requests++;
+    if (requests === 1) throw new Error("transient transport failure");
+    if (requests === 2) return new Response(null, { status: 503 });
+    return success();
+  }) as typeof fetch;
+  await verifyAuthorizedStagingScannerHealth(
+    origin,
+    secret,
+    fake,
+    async (ms) => {
+      assert.equal(ms, 1_000);
+      waits++;
+    },
+  );
+  assert.equal(requests, 3);
+  assert.equal(waits, 2);
+});
+
+test("fails closed after bounded transient retries", async () => {
+  let requests = 0;
+  const fake = (async () => {
+    requests++;
+    throw new Error("persistent transport failure");
+  }) as typeof fetch;
+  await assert.rejects(
+    verifyAuthorizedStagingScannerHealth(origin, secret, fake, async () => {}),
+    denied,
+  );
+  assert.equal(requests, 4);
 });
 
 test("rejects incorrect, malformed, and oversized health bodies", async () => {

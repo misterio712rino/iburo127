@@ -155,6 +155,16 @@ assert.doesNotMatch(smokeWorkflow, /IB_STAGING_BLOB_READ_WRITE_TOKEN|BLOB_READ_W
 assert.match(smokeWorkflow, /id-token: write/);
 assert.match(smokeWorkflow, /IB_STAGING_SCANNER_FIXTURE_AUTH_MODE: github-oidc/);
 assert.match(smokeWorkflow, /secrets\.IB_STAGING_FILE_SCANNER_SECRET/);
+assert.match(
+  smokeWorkflow,
+  /await verifyAuthorizedStagingScannerHealth\(origin, secret\);/,
+  "authorized health gate must use the bounded retry helper",
+);
+assert.doesNotMatch(
+  smokeWorkflow,
+  /response\s*=\s*await fetch\([^\n]*health/,
+  "workflow must not bypass the bounded health helper with a one-shot fetch",
+);
 assert.match(smokeWorkflow, /IB_STAGING_VERCEL_BLOB_PRIVATE_HOST: \$\{\{ inputs\.blob_private_host \}\}/);
 assert.match(smokeWorkflow, /security-fixtures\/file-scanner\/\$GITHUB_SHA\/\$GITHUB_RUN_ID-\$GITHUB_RUN_ATTEMPT\/clean\.txt/);
 assert.match(smokeWorkflow, /security-fixtures\/file-scanner\/\$GITHUB_SHA\/\$GITHUB_RUN_ID-\$GITHUB_RUN_ATTEMPT\/eicar\.txt/);
