@@ -119,6 +119,10 @@ for (const safeOutput of ["vm_id", "vm_internal_ip", "static_public_ip", "securi
 assert.doesNotMatch(outputs, /output\s+"[^"]*(secret|token|credential|environment_file)[^"]*"/i);
 
 assert.match(cloudInit, /\/srv\/iburo-file-scanner\/clamav/);
+assert.match(
+  cloudInit,
+  /install, -d, -m, "0701", -o, root, -g, root, \/srv\/iburo-file-scanner\/clamav/,
+);
 assert.match(cloudInit, /\/srv\/iburo-file-scanner\/caddy/);
 assert.match(cloudInit, /\/etc\/iburo-file-scanner/);
 assert.match(cloudInit, /docker\.io/);

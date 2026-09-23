@@ -92,7 +92,7 @@ runcmd:
   - [sh, -ec, "if [ -f /run/iburo-scanner-policy-rcd-created ]; then rm -f /usr/sbin/policy-rc.d /run/iburo-scanner-policy-rcd-created; fi"]
   - [install, -d, -m, "0700", -o, root, -g, root, /etc/iburo-file-scanner]
   - [install, -d, -m, "0750", -o, root, -g, root, /srv/iburo-file-scanner]
-  - [install, -d, -m, "0750", -o, root, -g, root, /srv/iburo-file-scanner/clamav]
+  - [install, -d, -m, "0701", -o, root, -g, root, /srv/iburo-file-scanner/clamav]
   - [install, -d, -m, "0750", -o, root, -g, root, /opt/iburo/file-scanner]
   - [install, -d, -m, "0750", -o, caddy, -g, caddy, /srv/iburo-file-scanner/caddy]
   - [install, -d, -m, "0750", -o, caddy, -g, caddy, /srv/iburo-file-scanner/caddy/data]

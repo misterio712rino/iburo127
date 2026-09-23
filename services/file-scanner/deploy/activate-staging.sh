@@ -6,6 +6,7 @@ umask 077
 IMAGE_ENV="/etc/iburo-file-scanner/image.env"
 SCANNER_ENV="/etc/iburo-file-scanner/scanner.env"
 COMPOSE_FILE="/opt/iburo/file-scanner/docker-compose.staging.yml"
+SIGNATURE_DIRECTORY="/srv/iburo-file-scanner/clamav"
 REGISTRY_HOST="cr.yandex"
 METADATA_TOKEN_URL="http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token"
 
@@ -18,6 +19,7 @@ fail() {
 [ -f "$IMAGE_ENV" ] || fail "image env missing"
 [ -f "$SCANNER_ENV" ] || fail "scanner env missing"
 [ -f "$COMPOSE_FILE" ] || fail "compose file missing"
+[ -d "$SIGNATURE_DIRECTORY" ] || fail "signature directory missing"
 [ "$(stat -c '%U:%G' "$SCANNER_ENV")" = "root:root" ] || fail "scanner env owner invalid"
 [ "$(stat -c '%a' "$SCANNER_ENV")" = "600" ] || fail "scanner env mode invalid"
 
@@ -26,6 +28,11 @@ command -v jq >/dev/null 2>&1 || fail "jq unavailable"
 command -v docker >/dev/null 2>&1 || fail "docker unavailable"
 docker compose version >/dev/null 2>&1 || fail "docker compose unavailable"
 docker info >/dev/null 2>&1 || fail "docker daemon unavailable"
+
+# The container drops DAC_OVERRIDE. Keep the persistent signature directory writable only
+# by its owner while allowing the hardened root startup process to traverse known paths.
+chmod 0701 "$SIGNATURE_DIRECTORY" || fail "signature directory mode update failed"
+[ "$(stat -c '%a' "$SIGNATURE_DIRECTORY")" = "701" ] || fail "signature directory mode invalid"
 
 DOCKER_CONFIG_DIR="$(mktemp -d /run/iburo-scanner-docker-config.XXXXXX)"
 export DOCKER_CONFIG="$DOCKER_CONFIG_DIR"

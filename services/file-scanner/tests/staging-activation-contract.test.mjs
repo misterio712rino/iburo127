@@ -34,6 +34,9 @@ test("staging activation remains explicit, digest-pinned and secret-file bounded
   assert.match(activate, /SCANNER_ENV="\/etc\/iburo-file-scanner\/scanner\.env"/);
   assert.match(activate, /stat -c '%U:%G' "\$SCANNER_ENV"/);
   assert.match(activate, /stat -c '%a' "\$SCANNER_ENV"/);
+  assert.match(activate, /SIGNATURE_DIRECTORY="\/srv\/iburo-file-scanner\/clamav"/);
+  assert.match(activate, /chmod 0701 "\$SIGNATURE_DIRECTORY"/);
+  assert.match(activate, /stat -c '%a' "\$SIGNATURE_DIRECTORY"/);
   assert.match(activate, /docker compose --env-file "\$IMAGE_ENV" -f "\$COMPOSE_FILE" pull scanner/);
   assert.match(activate, /docker compose --env-file "\$IMAGE_ENV" -f "\$COMPOSE_FILE" up -d --pull never scanner/);
   assert.match(compose, /image: "\$\{SCANNER_IMAGE:\?[^}]+\}@\$\{SCANNER_IMAGE_DIGEST:\?[^}]+\}"/);
@@ -91,6 +94,10 @@ test("cloud-init activates only through the explicit Lockbox bootstrap gate", ()
   assert.match(cloudInit, /path: \/usr\/local\/sbin\/iburo-file-scanner-bootstrap/);
   assert.match(cloudInit, /content: \$\{scanner_bootstrap_b64\}/);
   assert.match(cloudInit, /path: \/etc\/iburo-file-scanner\/bootstrap\.env/);
+  assert.match(
+    cloudInit,
+    /install, -d, -m, "0701", -o, root, -g, root, \/srv\/iburo-file-scanner\/clamav/,
+  );
   assert.match(cloudInit, /SCANNER_LOCKBOX_SECRET_ID=\$\{scanner_lockbox_secret_id\}/);
   assert.doesNotMatch(cloudInit, /IB_FILE_SCANNER_SECRET=/);
 
