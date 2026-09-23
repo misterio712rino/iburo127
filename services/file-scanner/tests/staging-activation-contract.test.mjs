@@ -66,7 +66,7 @@ test("staging bootstrap retrieves one bounded scanner secret from Lockbox withou
   assert.match(bootstrap, /TLS_KEY_FILE="\/srv\/iburo-file-scanner\/caddy\/certs\/key\.pem"/);
   assert.match(bootstrap, /tls \$\{TLS_CERT_FILE\} \$\{TLS_KEY_FILE\}/);
   assert.match(bootstrap, /request_body \{\s+max_size 8KB\s+\}/);
-  assert.match(bootstrap, /caddy validate --config "\$CADDYFILE_TMP"/);
+  assert.match(bootstrap, /caddy validate --config "\$CADDYFILE_TMP" --adapter caddyfile/);
   assert.match(bootstrap, /systemctl reload caddy/);
   assert.doesNotMatch(bootstrap, /systemctl restart caddy/);
   assert.match(bootstrap, /fail "caddy reload failed"/);

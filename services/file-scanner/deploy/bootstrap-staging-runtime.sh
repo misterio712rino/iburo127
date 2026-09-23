@@ -159,7 +159,7 @@ EOF
 
 chown root:root "$CADDYFILE_TMP"
 chmod 0644 "$CADDYFILE_TMP"
-caddy validate --config "$CADDYFILE_TMP" >/dev/null
+caddy validate --config "$CADDYFILE_TMP" --adapter caddyfile >/dev/null
 
 if [ -f "$CADDYFILE" ]; then
   cp -p "$CADDYFILE" "$CADDYFILE_BACKUP"
@@ -173,7 +173,7 @@ if systemctl is-active --quiet caddy; then
   if ! systemctl reload caddy; then
     if [ "$had_caddyfile" = "1" ]; then
       mv -f "$CADDYFILE_BACKUP" "$CADDYFILE"
-      caddy validate --config "$CADDYFILE" >/dev/null 2>&1 || true
+      caddy validate --config "$CADDYFILE" --adapter caddyfile >/dev/null 2>&1 || true
       systemctl reload caddy >/dev/null 2>&1 || true
     else
       rm -f "$CADDYFILE"
