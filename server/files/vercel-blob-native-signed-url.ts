@@ -9,6 +9,7 @@ const BLOB_API_URL = "https://vercel.com/api/blob";
 const BLOB_API_VERSION = "12";
 const PRIVATE_BLOB_HOST_SUFFIX = ".private.blob.vercel-storage.com";
 const ISSUE_TIMEOUT_MS = 15_000;
+const MAX_SIGNED_TOKEN_RESPONSE_BYTES = 16_384;
 
 const PRESIGN_QUERY_KEYS = [
   "vercel-blob-add-random-suffix",
@@ -187,6 +188,56 @@ function addSignedParams(
   return url.toString();
 }
 
+async function readBoundedSignedTokenJson(response: Response): Promise<Record<string, unknown>> {
+  const advertised = response.headers.get("content-length");
+  if (
+    advertised !== null &&
+    (!/^\\d+$/.test(advertised) || Number(advertised) > MAX_SIGNED_TOKEN_RESPONSE_BYTES)
+  ) {
+    fail("signed-token-response-too-large");
+  }
+  if (!response.body) fail("invalid-signed-token-response");
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > MAX_SIGNED_TOKEN_RESPONSE_BYTES) {
+        await reader.cancel().catch(() => {});
+        fail("signed-token-response-too-large");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  let decoded: string;
+  try {
+    decoded = new TextDecoder("utf-8", { fatal: true }).decode(
+      Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))),
+    );
+  } catch {
+    return fail("invalid-signed-token-response");
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(decoded) as unknown;
+  } catch {
+    return fail("invalid-signed-token-response");
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    fail("invalid-signed-token-response");
+  }
+  return parsed as Record<string, unknown>;
+}
+
 async function nativeIssueSignedToken(
   input: Parameters<VercelBlobSignedUrlDependencies["issueSignedToken"]>[0],
 ) {
@@ -216,7 +267,7 @@ async function nativeIssueSignedToken(
     cache: "no-store",
   });
   if (!response.ok) fail(`signed-token-http-${response.status}`);
-  const token = (await response.json()) as Partial<IssuedSignedToken>;
+  const token = (await readBoundedSignedTokenJson(response)) as Partial<IssuedSignedToken>;
   if (
     typeof token.delegationToken !== "string" ||
     !token.delegationToken ||
