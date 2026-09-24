@@ -103,6 +103,7 @@ assert.match(source, /runVercelFixtureStep\(phase, "UPLOAD_HTTP"/);
 assert.match(source, /verifyVercelFixtureDownload\(sourceUrl, bytes\)/);
 assert.match(source, /method: "GET"/);
 assert.match(source, /"Accept-Encoding": "identity"/);
+assert.ok(source.includes(String.raw`/^\d{1,4}$/`), "Content-Length validation must accept decimal digits");
 assert.match(source, /VERCEL_FIXTURE_STEP_PATTERN/);
 assert.match(source, /VERCEL_UPLOAD_HTTP_PATTERN/);
 assert.ok(source.includes("STAGING_SCANNER_UPLOAD_${phase}_NETWORK"));
