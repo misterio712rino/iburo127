@@ -460,7 +460,7 @@ async function verifyVercelFixtureDownload(sourceUrl: string, expectedBytes: Uin
   if (
     mediaType !== FIXTURE_MIME_TYPE ||
     (encoding !== "" && encoding !== "identity") ||
-    (declared !== null && (!/^\\d{1,4}$/.test(declared) || Number(declared) !== expectedBytes.byteLength)) ||
+    (declared !== null && (!/^\d{1,4}$/.test(declared) || Number(declared) !== expectedBytes.byteLength)) ||
     !response.body
   ) {
     await response.body?.cancel().catch(() => {});
