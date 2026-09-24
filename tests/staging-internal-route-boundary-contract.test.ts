@@ -93,6 +93,31 @@ for (const routeName of expectedRoutes) {
   }
 }
 
+const scannerFixtureRoute = await readFile(
+  resolve(stagingRoot, "staging-scanner-fixture-url", "route.ts"),
+  "utf8",
+);
+assert.match(
+  scannerFixtureRoute,
+  /const DIAGNOSTIC_PREFIX = "STAGING_SCANNER_FIXTURE_ROUTE_DENIED";/,
+  "scanner fixture issuer diagnostics must use a fixed staging-only prefix",
+);
+for (const reason of ["BOUNDARY", "ISSUER_ENV", "AUTH_HEADER", "REQUEST"]) {
+  assert.match(
+    scannerFixtureRoute,
+    new RegExp(`console\\.warn\\(\\`\\$\\{DIAGNOSTIC_PREFIX\\}:${reason}\\`\\)`),
+    `scanner fixture issuer must expose only the fixed ${reason} diagnostic marker`,
+  );
+}
+assert.match(scannerFixtureRoute, /return "OIDC";/);
+assert.match(scannerFixtureRoute, /return "ISSUER";/);
+assert.match(scannerFixtureRoute, /return "UPSTREAM";/);
+assert.doesNotMatch(
+  scannerFixtureRoute,
+  /console\.(?:warn|error|log)\([^\n]*(?:authorization|request\.headers|process\.env|error\.message)/,
+  "scanner fixture issuer diagnostics must never log auth headers, env values, or raw error messages",
+);
+
 const postboxVerifierSource = await readFile(
   resolve(stagingRoot, "staging-postbox-verify", "route.ts"),
   "utf8",
