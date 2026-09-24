@@ -91,7 +91,7 @@ const fixtureVerificationFunction = source.match(
   /async function verifyVercelFixture[\s\S]*?(?=\nasync function cleanupVercelFixtures)/,
 )?.[0];
 assert.ok(fixtureVerificationFunction, "Vercel fixture verification function must exist");
-for (const step of ["METADATA", "DOWNLOAD_URL", "SCAN"]) {
+for (const step of ["METADATA", "DOWNLOAD_URL", "DOWNLOAD_HTTP", "SCAN"]) {
   assert.match(
     fixtureVerificationFunction,
     new RegExp(`runVercelFixtureStep\\(phase, "${step}"`),
@@ -100,6 +100,9 @@ for (const step of ["METADATA", "DOWNLOAD_URL", "SCAN"]) {
 }
 assert.match(source, /runVercelFixtureStep\(phase, "UPLOAD_URL"/);
 assert.match(source, /runVercelFixtureStep\(phase, "UPLOAD_HTTP"/);
+assert.match(source, /verifyVercelFixtureDownload\(sourceUrl, bytes\)/);
+assert.match(source, /method: "GET"/);
+assert.match(source, /"Accept-Encoding": "identity"/);
 assert.match(source, /VERCEL_FIXTURE_STEP_PATTERN/);
 assert.match(source, /VERCEL_UPLOAD_HTTP_PATTERN/);
 assert.ok(source.includes("STAGING_SCANNER_UPLOAD_${phase}_NETWORK"));
