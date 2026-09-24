@@ -74,6 +74,12 @@ type ScannerBridgeDiagnostic =
   | "SCANNER_HTTP_4XX"
   | "SCANNER_INVALID_RESPONSE"
   | "SCANNER_TIMEOUT"
+  | "SCANNER_NETWORK_DNS"
+  | "SCANNER_NETWORK_CONNECT_TIMEOUT"
+  | "SCANNER_NETWORK_REFUSED"
+  | "SCANNER_NETWORK_RESET"
+  | "SCANNER_NETWORK_ROUTE"
+  | "SCANNER_NETWORK_TLS"
   | "SCANNER_NETWORK_ERROR";
 const DIAGNOSTIC_HEADER = "X-Iburo-Staging-Scanner-Bridge-Diagnostic";
 function unavailable(status = 404, reason?: ScannerBridgeDiagnostic) {
@@ -197,6 +203,12 @@ function safeScannerDiagnostic(error: unknown): ScannerBridgeDiagnostic | null {
     case "SCANNER_HTTP_4XX":
     case "SCANNER_INVALID_RESPONSE":
     case "SCANNER_TIMEOUT":
+    case "SCANNER_NETWORK_DNS":
+    case "SCANNER_NETWORK_CONNECT_TIMEOUT":
+    case "SCANNER_NETWORK_REFUSED":
+    case "SCANNER_NETWORK_RESET":
+    case "SCANNER_NETWORK_ROUTE":
+    case "SCANNER_NETWORK_TLS":
     case "SCANNER_NETWORK_ERROR":
       return error.code;
     default:
