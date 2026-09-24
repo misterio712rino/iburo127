@@ -26,6 +26,7 @@ assert.match(source, /target\.providerCode === VERCEL_BLOB_STORAGE_PROVIDER/);
 assert.match(source, /createOidcScopedScannerSmokeStorage/);
 assert.match(source, /readBoundedScannerJson/);
 assert.match(source, /STAGING_SCANNER_BRIDGE_URL/);
+assert.match(source, /const maxAttempts = payload\.operation === "scan" \? 1 : BRIDGE_MAX_ATTEMPTS;/);
 assert.match(source, /RUN_STAGING_SCANNER_BRIDGE:\$\{commitSha\}:\$\{fingerprint\}/);
 assert.match(source, /x-vercel-protection-bypass/);
 assert.match(source, /x-iburo-staging-control/);
