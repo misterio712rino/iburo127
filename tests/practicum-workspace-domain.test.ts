@@ -77,6 +77,7 @@ class FakeWorkspace implements PracticumWorkspaceRepository {
     clientCaseId: string;
     lessonId: string;
     answerText: string;
+    expectedVersion: number | null;
     actorUserId: string;
   }) {
     this.calls.push({ name: "saveHomeworkDraft", input });
@@ -99,6 +100,7 @@ class FakeWorkspace implements PracticumWorkspaceRepository {
     clientCaseId: string;
     lessonId: string;
     answerText: string;
+    expectedVersion: number | null;
     actorUserId: string;
   }) {
     this.calls.push({ name: "submitHomework", input });
@@ -110,6 +112,7 @@ class FakeWorkspace implements PracticumWorkspaceRepository {
     lessonId: string;
     decision: "CHANGES_REQUESTED" | "ACCEPTED";
     comment: string;
+    expectedVersion: number;
     actorUserId: string;
   }) {
     this.calls.push({ name: "reviewHomework", input });
@@ -155,12 +158,14 @@ async function expectCode(action: () => Promise<unknown>, code: string) {
     clientCaseId: CASE_ID,
     lessonId: LESSON_ID,
     answerText: "  Черновик ответа  ",
+    expectedVersion: null,
   });
   assert.equal(repository.calls.at(-1)?.name, "saveHomeworkDraft");
   assert.deepEqual(repository.calls.at(-1)?.input, {
     clientCaseId: CASE_ID,
     lessonId: LESSON_ID,
     answerText: "Черновик ответа",
+    expectedVersion: null,
     actorUserId: CLIENT_ID,
   });
 
@@ -168,6 +173,7 @@ async function expectCode(action: () => Promise<unknown>, code: string) {
     clientCaseId: CASE_ID,
     lessonId: LESSON_ID,
     answerText: "Готовый ответ",
+    expectedVersion: null,
   });
   assert.equal(repository.calls.at(-1)?.name, "submitHomework");
 
@@ -176,6 +182,7 @@ async function expectCode(action: () => Promise<unknown>, code: string) {
       clientCaseId: CASE_ID,
       lessonId: LESSON_ID,
       answerText: "   ",
+      expectedVersion: null,
     }),
     PRACTICUM_WORKSPACE_INVALID_HOMEWORK,
   );
@@ -188,6 +195,7 @@ async function expectCode(action: () => Promise<unknown>, code: string) {
     lessonId: LESSON_ID,
     decision: "ACCEPTED",
     comment: "",
+    expectedVersion: 1,
   });
   assert.equal(repository.calls.at(-1)?.name, "reviewHomework");
 
@@ -196,6 +204,7 @@ async function expectCode(action: () => Promise<unknown>, code: string) {
     lessonId: LESSON_ID,
     decision: "CHANGES_REQUESTED",
     comment: "Нужно уточнить источник дохода.",
+    expectedVersion: 2,
   });
   assert.equal(repository.calls.at(-1)?.name, "reviewHomework");
 
@@ -205,6 +214,7 @@ async function expectCode(action: () => Promise<unknown>, code: string) {
       lessonId: LESSON_ID,
       decision: "ACCEPTED",
       comment: "",
+      expectedVersion: 1,
     }),
     PRACTICUM_WORKSPACE_FORBIDDEN,
   );
@@ -215,6 +225,7 @@ async function expectCode(action: () => Promise<unknown>, code: string) {
       lessonId: LESSON_ID,
       decision: "ACCEPTED",
       comment: "",
+      expectedVersion: 1,
     }),
     PRACTICUM_WORKSPACE_FORBIDDEN,
   );
@@ -225,6 +236,7 @@ async function expectCode(action: () => Promise<unknown>, code: string) {
       lessonId: LESSON_ID,
       decision: "ACCEPTED",
       comment: "",
+      expectedVersion: 1,
     }),
     PRACTICUM_WORKSPACE_NOT_FOUND,
   );
