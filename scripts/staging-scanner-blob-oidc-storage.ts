@@ -88,7 +88,7 @@ export function createOidcScopedScannerSmokeStorage(
     if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port || parsed.hash ||
         !parsed.searchParams.has("vercel-blob-delegation") || !parsed.searchParams.has("vercel-blob-signature")) fail();
     if (operation === "head" || operation === "get") {
-      if (parsed.hostname !== required(env, "IB_STAGING_VERCEL_BLOB_PRIVATE_HOST") ||
+      if (parsed.hostname !== required(env, "IB_STAGING_VERCEL_BLOB_PRIVATE_HOST").toLowerCase() ||
           parsed.pathname !== `/${pathname}`) fail();
     } else if (parsed.origin !== "https://vercel.com" || parsed.pathname !== "/api/blob/" ||
         parsed.searchParams.get("pathname") !== pathname) fail();
