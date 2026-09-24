@@ -313,6 +313,66 @@ async function verifyVercelBlobTargetBeforeMutation(
   }
 }
 
+function readPresignedBlobStoreId(uploadUrl: string, objectKey: string) {
+  let parsed: URL;
+  try {
+    parsed = new URL(uploadUrl);
+  } catch {
+    throw new Error("VERCEL_BLOB_UPLOAD_GRANT_DENIED");
+  }
+  const delegation = parsed.searchParams.get("vercel-blob-delegation") ?? "";
+  if (
+    parsed.origin !== "https://vercel.com" ||
+    parsed.pathname !== "/api/blob/" ||
+    parsed.searchParams.get("pathname") !== objectKey ||
+    delegation.length < 20 ||
+    delegation.length > 12_288
+  ) {
+    throw new Error("VERCEL_BLOB_UPLOAD_GRANT_DENIED");
+  }
+
+  const payloadSegment = delegation.split(".", 1)[0] ?? "";
+  let payload: { storeId?: unknown; pathname?: unknown; operations?: unknown };
+  try {
+    const normalized = payloadSegment.replace(/-/g, "+").replace(/_/g, "/");
+    const padding = normalized.length % 4 === 0 ? "" : "=".repeat(4 - (normalized.length % 4));
+    payload = JSON.parse(Buffer.from(`${normalized}${padding}`, "base64").toString("utf8")) as {
+      storeId?: unknown;
+      pathname?: unknown;
+      operations?: unknown;
+    };
+  } catch {
+    throw new Error("VERCEL_BLOB_UPLOAD_GRANT_DENIED");
+  }
+
+  if (
+    typeof payload.storeId !== "string" ||
+    typeof payload.pathname !== "string" ||
+    !Array.isArray(payload.operations) ||
+    payload.pathname !== objectKey ||
+    !payload.operations.includes("put")
+  ) {
+    throw new Error("VERCEL_BLOB_UPLOAD_GRANT_DENIED");
+  }
+
+  const storeId = payload.storeId.startsWith("store_")
+    ? payload.storeId.slice("store_".length)
+    : payload.storeId;
+  if (!/^[A-Za-z0-9_-]{3,128}$/.test(storeId)) {
+    throw new Error("VERCEL_BLOB_UPLOAD_GRANT_DENIED");
+  }
+
+  const expectedHost = requireSecretEnv("IB_STAGING_VERCEL_BLOB_PRIVATE_HOST").toLowerCase();
+  const expectedSuffix = ".private.blob.vercel-storage.com";
+  if (
+    !expectedHost.endsWith(expectedSuffix) ||
+    storeId.toLowerCase() !== expectedHost.slice(0, -expectedSuffix.length)
+  ) {
+    throw new Error("VERCEL_BLOB_UPLOAD_GRANT_DENIED");
+  }
+  return storeId;
+}
+
 async function uploadVercelFixture(
   phase: VercelFixturePhase,
   storage: ReturnType<typeof createVercelBlobSmokeStorage>,
@@ -321,21 +381,29 @@ async function uploadVercelFixture(
   recordConfirmedUpload: (key: string) => void,
 ) {
   assertFixtureBytes(bytes);
-  const uploadUrl = await runVercelFixtureStep(phase, "UPLOAD_URL", () =>
-    storage.createPrivateUploadUrl({
+  const uploadGrant = await runVercelFixtureStep(phase, "UPLOAD_URL", async () => {
+    const url = await storage.createPrivateUploadUrl({
       pathname: objectKey,
       mimeType: FIXTURE_MIME_TYPE,
       maximumSizeInBytes: bytes.byteLength,
       expiresInSeconds: FIXTURE_URL_TTL_SECONDS,
-    }),
-  );
+    });
+    return { url, storeId: readPresignedBlobStoreId(url, objectKey) };
+  });
   await runVercelFixtureStep(phase, "UPLOAD_HTTP", async () => {
     let response: Response;
     try {
-      response = await fetch(uploadUrl, {
+      response = await fetch(uploadGrant.url, {
         method: "PUT",
         redirect: "error",
-        headers: { "content-type": FIXTURE_MIME_TYPE },
+        headers: {
+          "content-type": FIXTURE_MIME_TYPE,
+          "x-api-blob-request-id":
+            `${uploadGrant.storeId}:${Date.now()}:${Math.random().toString(16).slice(2)}`,
+          "x-vercel-blob-store-id": uploadGrant.storeId,
+          "x-api-blob-request-attempt": "0",
+          "x-api-version": "12",
+        },
         body: new TextDecoder().decode(bytes),
         cache: "no-store",
         signal: AbortSignal.timeout(30_000),
