@@ -3,8 +3,10 @@ import { VERCEL_STAGING_BRANCH, isVercelPreviewBackendAllowed } from "@/server/c
 import { readVercelBlobAuthConfig } from "@/server/files/vercel-blob-config";
 import { toVercelBlobSdkCredentialOptions } from "@/server/files/vercel-blob-driver-auth";
 import { createVercelBlobNativeSignedUrlDependencies } from "@/server/files/vercel-blob-native-signed-url";
+import { SCANNER_FIXTURE_OIDC_DENIED } from "@/server/staging/scanner-fixture-github-oidc";
 import {
   assertScannerFixtureIssuerPreview, issueScannerFixtureSignedUrl,
+  SCANNER_FIXTURE_ISSUER_DENIED,
   type ScannerFixtureRequest,
 } from "@/server/staging/scanner-fixture-signed-issuer";
 
@@ -24,8 +26,15 @@ function isExactStagingPreview(env: NodeJS.ProcessEnv) {
     isVercelPreviewBackendAllowed(env)
   );
 }
+const DIAGNOSTIC_PREFIX = "STAGING_SCANNER_FIXTURE_ROUTE_DENIED";
 function unavailable() {
   return NextResponse.json({ available: false }, { status: 404, headers: HEADERS });
+}
+function safeIssueReason(error: unknown) {
+  if (!(error instanceof Error)) return "UPSTREAM";
+  if (error.message === SCANNER_FIXTURE_OIDC_DENIED) return "OIDC";
+  if (error.message === SCANNER_FIXTURE_ISSUER_DENIED) return "ISSUER";
+  return "UPSTREAM";
 }
 async function readBoundedJson(request: Request): Promise<ScannerFixtureRequest> {
   const reported = request.headers.get("content-length");
@@ -55,16 +64,36 @@ async function readBoundedJson(request: Request): Promise<ScannerFixtureRequest>
 }
 
 export async function POST(request: Request) {
+  const env = process.env;
+  if (!isExactStagingPreview(env)) {
+    console.warn(`${DIAGNOSTIC_PREFIX}:BOUNDARY`);
+    return unavailable();
+  }
   try {
-    const env = process.env;
-    if (!isExactStagingPreview(env)) return unavailable();
     assertScannerFixtureIssuerPreview(env);
-    const authorization = request.headers.get("authorization") ?? "";
-    if (!authorization.startsWith("Bearer ") || authorization.length > 12_300) return unavailable();
-    const input = await readBoundedJson(request);
+  } catch {
+    console.warn(`${DIAGNOSTIC_PREFIX}:ISSUER_ENV`);
+    return unavailable();
+  }
+  const authorization = request.headers.get("authorization") ?? "";
+  if (!authorization.startsWith("Bearer ") || authorization.length > 12_300) {
+    console.warn(`${DIAGNOSTIC_PREFIX}:AUTH_HEADER`);
+    return unavailable();
+  }
+  let input: ScannerFixtureRequest;
+  try {
+    input = await readBoundedJson(request);
+  } catch {
+    console.warn(`${DIAGNOSTIC_PREFIX}:REQUEST`);
+    return unavailable();
+  }
+  try {
     const result = await issueScannerFixtureSignedUrl(input, authorization.slice(7),
       env, () => toVercelBlobSdkCredentialOptions(readVercelBlobAuthConfig()),
       createVercelBlobNativeSignedUrlDependencies());
     return NextResponse.json(result, { status: 200, headers: HEADERS });
-  } catch { return unavailable(); }
+  } catch (error) {
+    console.warn(`${DIAGNOSTIC_PREFIX}:${safeIssueReason(error)}`);
+    return unavailable();
+  }
 }
