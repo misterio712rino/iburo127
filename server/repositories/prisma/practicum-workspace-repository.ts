@@ -125,6 +125,7 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
     clientCaseId: string;
     lessonId: string;
     answerText: string;
+    expectedVersion: number | null;
     actorUserId: string;
   }) {
     const prisma = getPrismaClient();
@@ -143,6 +144,10 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
           clientCase: { clientId: input.actorUserId },
         },
       });
+
+      if ((current?.version ?? null) !== input.expectedVersion) {
+        throw new Error(PRACTICUM_WORKSPACE_STATE_CONFLICT);
+      }
 
       if (current && !homeworkCanBeEdited(current.status)) {
         throw new Error(PRACTICUM_WORKSPACE_STATE_CONFLICT);
@@ -195,6 +200,7 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
     clientCaseId: string;
     lessonId: string;
     answerText: string;
+    expectedVersion: number | null;
     actorUserId: string;
   }) {
     const prisma = getPrismaClient();
@@ -213,6 +219,10 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
           clientCase: { clientId: input.actorUserId },
         },
       });
+
+      if ((homework?.version ?? null) !== input.expectedVersion) {
+        throw new Error(PRACTICUM_WORKSPACE_STATE_CONFLICT);
+      }
 
       if (homework && !homeworkCanBeEdited(homework.status)) {
         throw new Error(PRACTICUM_WORKSPACE_STATE_CONFLICT);
@@ -315,6 +325,7 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
     lessonId: string;
     decision: "CHANGES_REQUESTED" | "ACCEPTED";
     comment: string;
+    expectedVersion: number;
     actorUserId: string;
   }) {
     const prisma = getPrismaClient();
@@ -338,6 +349,9 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
       });
 
       if (!homework) throw new Error(PRACTICUM_WORKSPACE_NOT_FOUND);
+      if (homework.version !== input.expectedVersion) {
+        throw new Error(PRACTICUM_WORKSPACE_STATE_CONFLICT);
+      }
       if (homework.status !== "SUBMITTED" && homework.status !== "IN_REVIEW") {
         throw new Error(PRACTICUM_WORKSPACE_STATE_CONFLICT);
       }
