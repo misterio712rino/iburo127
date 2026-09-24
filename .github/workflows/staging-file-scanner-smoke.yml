@@ -219,7 +219,7 @@ jobs:
           const reportDiagnostic = (response) => {
             const reason =
               response.headers.get("x-iburo-staging-scanner-bridge-diagnostic")?.trim() ?? "";
-            if (/^(CONFIG|ORIGIN|FINGERPRINT|CONTROL|REQUEST|UPSTREAM)$/.test(reason)) {
+            if (/^(CONFIG|ORIGIN|FINGERPRINT|CONTROL|REQUEST|UPSTREAM|UPSTREAM_NETWORK|UPSTREAM_HTTP|UPSTREAM_FORMAT|UPSTREAM_BODY)$/.test(reason)) {
               console.error(`STAGING_SCANNER_AUTH_HEALTH_DIAGNOSTIC=${reason}`);
             }
           };

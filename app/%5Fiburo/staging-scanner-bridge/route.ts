@@ -53,7 +53,11 @@ type ScannerBridgeDiagnostic =
   | "FINGERPRINT"
   | "CONTROL"
   | "REQUEST"
-  | "UPSTREAM";
+  | "UPSTREAM"
+  | "UPSTREAM_NETWORK"
+  | "UPSTREAM_HTTP"
+  | "UPSTREAM_FORMAT"
+  | "UPSTREAM_BODY";
 const DIAGNOSTIC_HEADER = "X-Iburo-Staging-Scanner-Bridge-Diagnostic";
 function unavailable(status = 404, reason?: ScannerBridgeDiagnostic) {
   return NextResponse.json(
@@ -131,31 +135,55 @@ async function readBoundedRequest(request: Request): Promise<BridgeRequest> {
   };
 }
 
-async function verifyScannerHealth(config: ReturnType<typeof readFileScannerRuntimeConfig>) {
-  const response = await fetch(`${config.origin}/health`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${config.secret}`,
-      Accept: "application/json",
-      "Cache-Control": "no-store",
-    },
-    redirect: "error",
-    cache: "no-store",
-    signal: AbortSignal.timeout(Math.min(config.requestTimeoutMs, 15_000)),
-  });
-  if (
-    response.status !== 200 ||
-    response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json"
-  ) throw new Error("HEALTH_DENIED");
+class ScannerBridgeUpstreamError extends Error {
+  constructor(readonly reason: ScannerBridgeDiagnostic) {
+    super(reason);
+    this.name = "ScannerBridgeUpstreamError";
+  }
+}
 
-  const parsed = await readBoundedScannerJson(response, MAX_HEALTH_BYTES);
+async function verifyScannerHealth(config: ReturnType<typeof readFileScannerRuntimeConfig>) {
+  let response: Response;
+  try {
+    response = await fetch(`${config.origin}/health`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${config.secret}`,
+        Accept: "application/json",
+        "Cache-Control": "no-store",
+      },
+      redirect: "error",
+      cache: "no-store",
+      signal: AbortSignal.timeout(Math.min(config.requestTimeoutMs, 15_000)),
+    });
+  } catch {
+    throw new ScannerBridgeUpstreamError("UPSTREAM_NETWORK");
+  }
+
+  if (response.status !== 200) {
+    await response.body?.cancel().catch(() => {});
+    throw new ScannerBridgeUpstreamError("UPSTREAM_HTTP");
+  }
+  if (
+    response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json"
+  ) {
+    await response.body?.cancel().catch(() => {});
+    throw new ScannerBridgeUpstreamError("UPSTREAM_FORMAT");
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = await readBoundedScannerJson(response, MAX_HEALTH_BYTES);
+  } catch {
+    throw new ScannerBridgeUpstreamError("UPSTREAM_BODY");
+  }
   if (
     !parsed ||
     typeof parsed !== "object" ||
     Array.isArray(parsed) ||
     Object.keys(parsed).length !== 1 ||
     (parsed as { status?: unknown }).status !== "ok"
-  ) throw new Error("HEALTH_DENIED");
+  ) throw new ScannerBridgeUpstreamError("UPSTREAM_BODY");
 }
 
 export async function POST(request: Request) {
@@ -205,7 +233,10 @@ export async function POST(request: Request) {
       { operation: "scan", verdict: result.verdict },
       { status: 200, headers: NO_STORE_HEADERS },
     );
-  } catch {
+  } catch (error) {
+    if (error instanceof ScannerBridgeUpstreamError) {
+      return unavailable(502, error.reason);
+    }
     return unavailable(502, "UPSTREAM");
   }
 }

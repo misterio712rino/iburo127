@@ -159,6 +159,20 @@ for (const reason of ["CONFIG", "ORIGIN", "FINGERPRINT", "CONTROL", "REQUEST"]) 
     `scanner bridge must use only the fixed ${reason} diagnostic reason`,
   );
 }
+for (const reason of [
+  "UPSTREAM_NETWORK",
+  "UPSTREAM_HTTP",
+  "UPSTREAM_FORMAT",
+  "UPSTREAM_BODY",
+]) {
+  assert.match(
+    scannerBridgeRoute,
+    new RegExp(`ScannerBridgeUpstreamError\\("${reason}"\\)`),
+    `scanner bridge must classify ${reason} without exposing upstream details`,
+  );
+}
+assert.match(scannerBridgeRoute, /error instanceof ScannerBridgeUpstreamError/);
+assert.match(scannerBridgeRoute, /unavailable\(502, error\.reason\)/);
 assert.match(scannerBridgeRoute, /unavailable\(502, "UPSTREAM"\)/);
 assert.match(scannerBridgeRoute, /\[DIAGNOSTIC_HEADER\]: reason/);
 assert.match(scannerBridgeRoute, /readFileScannerRuntimeConfig\(env\)/);
