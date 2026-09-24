@@ -1,6 +1,7 @@
 import type { VercelBlobStorageDriver } from "../server/files/vercel-blob-object-storage";
 import { SCANNER_FIXTURE_AUDIENCE } from "../server/staging/scanner-fixture-github-oidc";
 import type { ScannerFixtureRequest } from "../server/staging/scanner-fixture-signed-issuer";
+import { IB_STAGING_CONTROL_HEADER } from "../server/staging/vercel-automation-auth";
 import { isVercelBlobDeleteSuccessStatus } from "../server/files/vercel-blob-delete-semantics";
 import { readBoundedScannerJson } from "./staging-scanner-bounded-json";
 
@@ -60,9 +61,15 @@ export function createOidcScopedScannerSmokeStorage(
   async function issue(pathname: string, operation: ScannerFixtureRequest["operation"], etag?: string) {
     const fixture = target(env, pathname);
     const jwt = await githubIdentityToken(env, request);
+    const automationSecret = required(env, "VERCEL_AUTOMATION_BYPASS_SECRET");
     const response = await request(`${EXACT_PREVIEW_ORIGIN}${ROUTE}`, {
       method: "POST", redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20_000),
-      headers: { authorization: `Bearer ${jwt}`, "x-vercel-protection-bypass": required(env, "VERCEL_AUTOMATION_BYPASS_SECRET"), "content-type": "application/json" },
+      headers: {
+        authorization: `Bearer ${jwt}`,
+        "x-vercel-protection-bypass": automationSecret,
+        [IB_STAGING_CONTROL_HEADER]: automationSecret,
+        "content-type": "application/json",
+      },
       body: JSON.stringify({ fixture, operation, ...(etag ? { etag } : {}) }),
     });
     if (!response.ok) {
