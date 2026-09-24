@@ -256,6 +256,8 @@ type VercelFixturePhase = "CLEAN" | "MALICIOUS";
 type VercelFixtureStep = "UPLOAD_URL" | "UPLOAD_HTTP" | "METADATA" | "DOWNLOAD_URL" | "SCAN";
 const VERCEL_FIXTURE_STEP_PATTERN =
   /^STAGING_SCANNER_STEP_(?:CLEAN|MALICIOUS)_(?:UPLOAD_URL|UPLOAD_HTTP|METADATA|DOWNLOAD_URL|SCAN)$/;
+const VERCEL_UPLOAD_HTTP_PATTERN =
+  /^STAGING_SCANNER_UPLOAD_(?:CLEAN|MALICIOUS)_(?:NETWORK|HTTP_(?:400|401|403|404|409|413|415|429|500|502|503|504|OTHER))$/;
 
 async function runVercelFixtureStep<T>(
   phase: VercelFixturePhase,
@@ -266,6 +268,7 @@ async function runVercelFixtureStep<T>(
     return await task();
   } catch (error) {
     if (error instanceof MalwareScannerError) throw error;
+    if (error instanceof Error && VERCEL_UPLOAD_HTTP_PATTERN.test(error.message)) throw error;
     throw new Error(`STAGING_SCANNER_STEP_${phase}_${step}`);
   }
 }
@@ -275,7 +278,10 @@ async function runVercelSmokePhase<T>(phase: VercelSmokePhase, task: () => Promi
     return await task();
   } catch (error) {
     if (error instanceof MalwareScannerError) throw error;
-    if (error instanceof Error && VERCEL_FIXTURE_STEP_PATTERN.test(error.message)) throw error;
+    if (
+      error instanceof Error &&
+      (VERCEL_FIXTURE_STEP_PATTERN.test(error.message) || VERCEL_UPLOAD_HTTP_PATTERN.test(error.message))
+    ) throw error;
     throw new Error(`STAGING_SCANNER_PHASE_${phase}`);
   }
 }
@@ -324,15 +330,26 @@ async function uploadVercelFixture(
     }),
   );
   await runVercelFixtureStep(phase, "UPLOAD_HTTP", async () => {
-    const response = await fetch(uploadUrl, {
-      method: "PUT",
-      redirect: "error",
-      headers: { "content-type": FIXTURE_MIME_TYPE },
-      body: new TextDecoder().decode(bytes),
-      cache: "no-store",
-      signal: AbortSignal.timeout(30_000),
-    });
-    if (!response.ok) throw new Error("VERCEL_BLOB_UPLOAD_FAILED");
+    let response: Response;
+    try {
+      response = await fetch(uploadUrl, {
+        method: "PUT",
+        redirect: "error",
+        headers: { "content-type": FIXTURE_MIME_TYPE },
+        body: new TextDecoder().decode(bytes),
+        cache: "no-store",
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch {
+      throw new Error(`STAGING_SCANNER_UPLOAD_${phase}_NETWORK`);
+    }
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => {});
+      const status = [400, 401, 403, 404, 409, 413, 415, 429, 500, 502, 503, 504].includes(response.status)
+        ? String(response.status)
+        : "OTHER";
+      throw new Error(`STAGING_SCANNER_UPLOAD_${phase}_HTTP_${status}`);
+    }
   });
   storage.confirmUploadedFixture(objectKey);
   recordConfirmedUpload(objectKey);
@@ -476,7 +493,8 @@ try {
   const diagnosticCode =
     error instanceof Error &&
     (/^STAGING_SCANNER_PHASE_(?:BRIDGE_HEALTH|PREFLIGHT|CLEAN|MALICIOUS|CLEANUP)$/.test(error.message) ||
-      VERCEL_FIXTURE_STEP_PATTERN.test(error.message))
+      VERCEL_FIXTURE_STEP_PATTERN.test(error.message) ||
+      VERCEL_UPLOAD_HTTP_PATTERN.test(error.message))
       ? error.message
       : null;
   const safeCode =

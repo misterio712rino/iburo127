@@ -96,6 +96,10 @@ for (const step of ["METADATA", "DOWNLOAD_URL", "SCAN"]) {
 assert.match(source, /runVercelFixtureStep\(phase, "UPLOAD_URL"/);
 assert.match(source, /runVercelFixtureStep\(phase, "UPLOAD_HTTP"/);
 assert.match(source, /VERCEL_FIXTURE_STEP_PATTERN/);
+assert.match(source, /VERCEL_UPLOAD_HTTP_PATTERN/);
+assert.match(source, /STAGING_SCANNER_UPLOAD_\\$\\{phase\\}_NETWORK/);
+assert.match(source, /STAGING_SCANNER_UPLOAD_\\$\\{phase\\}_HTTP_\\$\\{status\\}/);
+assert.match(source, /\[400, 401, 403, 404, 409, 413, 415, 429, 500, 502, 503, 504\]\.includes\(response\.status\)/);
 assert.match(
   source,
   /STAGING_SCANNER_STEP_\$\{phase\}_\$\{step\}/,
@@ -108,7 +112,7 @@ const uploadFixtureFunction = source.match(
 assert.ok(uploadFixtureFunction, "upload function must exist");
 assert.match(uploadFixtureFunction, /fetch\(uploadUrl,\s*\{[\s\S]*?method:\s*"PUT",\s*redirect:\s*"error",/, "signed fixture PUT must not follow redirects");
 const uploadGuardIndex = uploadFixtureFunction.indexOf(
-  'if (!response.ok) throw new Error("VERCEL_BLOB_UPLOAD_FAILED");',
+  "if (!response.ok) {",
 );
 const ownershipIndex = uploadFixtureFunction.indexOf("storage.confirmUploadedFixture(objectKey);");
 const confirmUploadIndex = uploadFixtureFunction.indexOf("recordConfirmedUpload(objectKey);");
@@ -131,6 +135,7 @@ assert.doesNotMatch(source, /console\.(?:log|error)\([^\n]*objectKey/);
 assert.doesNotMatch(source, /console\.(?:log|error)\([^\n]*sourceUrl/);
 assert.doesNotMatch(source, /console\.(?:log|error)\([^\n]*scannerSecret/);
 assert.doesNotMatch(source, /console\.error\(error\)/);
+assert.doesNotMatch(source, /response\.text\(\)|response\.json\(\)/);
 assert.doesNotMatch(source, /String\(error\)/);
 assert.doesNotMatch(source, /prisma|ClientCase|DATABASE_URL/i);
 
