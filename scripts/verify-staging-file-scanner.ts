@@ -481,11 +481,19 @@ async function cleanupVercelFixtures(
     }
   }
   for (const objectKey of objectKeys) {
-    try {
-      if (await storage.statPrivateBlob(objectKey)) cleanupFailed = true;
-    } catch {
-      cleanupFailed = true;
+    let absent = false;
+    for (let attempt = 0; attempt < 7; attempt += 1) {
+      try {
+        if (!(await storage.statPrivateBlob(objectKey))) {
+          absent = true;
+          break;
+        }
+      } catch {
+        // Keep polling boundedly: Vercel documents delete cache propagation up to 60 seconds.
+      }
+      if (attempt < 6) await new Promise((resolve) => setTimeout(resolve, 10_000));
     }
+    if (!absent) cleanupFailed = true;
   }
   if (cleanupFailed) throw new Error("VERCEL_BLOB_FIXTURE_CLEANUP_FAILED");
 }
@@ -505,6 +513,7 @@ async function verifyVercelBlobFixtures(
 
   const confirmedUploads: string[] = [];
   const recordConfirmedUpload = (key: string) => { confirmedUploads.push(key); };
+  let primaryError: unknown = null;
   try {
     await runVercelSmokePhase("CLEAN", () => verifyVercelFixture(
       "CLEAN",
@@ -522,9 +531,18 @@ async function verifyVercelBlobFixtures(
       "MALICIOUS",
       recordConfirmedUpload,
     ));
-  } finally {
-    await runVercelSmokePhase("CLEANUP", () => cleanupVercelFixtures(storage, confirmedUploads));
+  } catch (error) {
+    primaryError = error;
   }
+
+  let cleanupError: unknown = null;
+  try {
+    await runVercelSmokePhase("CLEANUP", () => cleanupVercelFixtures(storage, confirmedUploads));
+  } catch (error) {
+    cleanupError = error;
+  }
+  if (primaryError) throw primaryError;
+  if (cleanupError) throw cleanupError;
 }
 
 async function verifyYandexFixtures(
