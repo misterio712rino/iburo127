@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import { VERCEL_STAGING_BRANCH, isVercelPreviewBackendAllowed } from "@/server/config/vercel-preview-boundary";
-import { readVercelBlobAuthConfig } from "@/server/files/vercel-blob-config";
+import {
+  readVercelBlobAuthConfig,
+  VERCEL_BLOB_CONFIG_ERROR,
+} from "@/server/files/vercel-blob-config";
 import { toVercelBlobSdkCredentialOptions } from "@/server/files/vercel-blob-driver-auth";
-import { createVercelBlobNativeSignedUrlDependencies } from "@/server/files/vercel-blob-native-signed-url";
+import {
+  createVercelBlobNativeSignedUrlDependencies,
+  VERCEL_BLOB_NATIVE_BINDING_ERROR,
+} from "@/server/files/vercel-blob-native-signed-url";
 import { SCANNER_FIXTURE_OIDC_DENIED } from "@/server/staging/scanner-fixture-github-oidc";
 import {
   assertScannerFixtureIssuerPreview, issueScannerFixtureSignedUrl,
@@ -26,7 +32,14 @@ function isExactStagingPreview(env: NodeJS.ProcessEnv) {
     isVercelPreviewBackendAllowed(env)
   );
 }
-type ScannerFixtureDiagnostic = "ISSUER_ENV" | "AUTH_HEADER" | "REQUEST" | "OIDC" | "ISSUER" | "UPSTREAM";
+type ScannerFixtureDiagnostic =
+  | "ISSUER_ENV" | "AUTH_HEADER" | "REQUEST" | "OIDC" | "ISSUER"
+  | "BLOB_CONFIG" | "BLOB_NATIVE" | "UPSTREAM_NETWORK" | "UPSTREAM"
+  | "BLOB_SIGNED_TOKEN_HTTP_400" | "BLOB_SIGNED_TOKEN_HTTP_401"
+  | "BLOB_SIGNED_TOKEN_HTTP_403" | "BLOB_SIGNED_TOKEN_HTTP_404"
+  | "BLOB_SIGNED_TOKEN_HTTP_409" | "BLOB_SIGNED_TOKEN_HTTP_429"
+  | "BLOB_SIGNED_TOKEN_HTTP_500" | "BLOB_SIGNED_TOKEN_HTTP_502"
+  | "BLOB_SIGNED_TOKEN_HTTP_503" | "BLOB_SIGNED_TOKEN_HTTP_504";
 const DIAGNOSTIC_HEADER = "X-Iburo-Staging-Scanner-Diagnostic";
 function unavailable(reason?: ScannerFixtureDiagnostic) {
   return NextResponse.json(
@@ -38,6 +51,17 @@ function safeIssueReason(error: unknown): ScannerFixtureDiagnostic {
   if (!(error instanceof Error)) return "UPSTREAM";
   if (error.message === SCANNER_FIXTURE_OIDC_DENIED) return "OIDC";
   if (error.message === SCANNER_FIXTURE_ISSUER_DENIED) return "ISSUER";
+  if (error.message.startsWith(`${VERCEL_BLOB_CONFIG_ERROR}:`)) return "BLOB_CONFIG";
+  const nativePrefix = `${VERCEL_BLOB_NATIVE_BINDING_ERROR}:`;
+  if (error.message.startsWith(nativePrefix)) {
+    const reason = error.message.slice(nativePrefix.length);
+    const match = /^signed-token-http-(400|401|403|404|409|429|500|502|503|504)$/.exec(reason);
+    if (match) return `BLOB_SIGNED_TOKEN_HTTP_${match[1]}` as ScannerFixtureDiagnostic;
+    return "BLOB_NATIVE";
+  }
+  if (error.name === "AbortError" || error.name === "TimeoutError" || error instanceof TypeError) {
+    return "UPSTREAM_NETWORK";
+  }
   return "UPSTREAM";
 }
 async function readBoundedJson(request: Request): Promise<ScannerFixtureRequest> {

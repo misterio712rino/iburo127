@@ -176,6 +176,27 @@ test("surfaces only an allowlisted Preview issuer diagnostic reason", async () =
   );
 });
 
+test("surfaces an allowlisted Blob signed-token HTTP diagnostic", async () => {
+  const request = (async (input: RequestInfo | URL) => {
+    const parsed = new URL(String(input));
+    if (/^[a-z0-9-]+\.actions\.githubusercontent\.com$/.test(parsed.hostname)) {
+      return Response.json({ value: "a".repeat(200) });
+    }
+    return Response.json(
+      { available: false },
+      { status: 404, headers: {
+        "x-iburo-staging-scanner-diagnostic": "BLOB_SIGNED_TOKEN_HTTP_403",
+      } },
+    );
+  }) as typeof fetch;
+  const storage = createOidcScopedScannerSmokeStorage(env, request);
+  await assert.rejects(
+    storage.createPrivateDownloadUrl({ pathname, expiresInSeconds: 120 }),
+    (error: unknown) => error instanceof Error &&
+      error.message === "STAGING_SCANNER_OIDC_STORAGE_DENIED:BLOB_SIGNED_TOKEN_HTTP_403",
+  );
+});
+
 test("does not reflect an unrecognized Preview issuer diagnostic value", async () => {
   const request = (async (input: RequestInfo | URL) => {
     const parsed = new URL(String(input));
