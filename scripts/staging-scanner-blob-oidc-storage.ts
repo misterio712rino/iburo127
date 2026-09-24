@@ -9,7 +9,8 @@ const EXACT_PREVIEW_ORIGIN = "https://iburo127-app-git-audit-pr-0d0d70-misterio7
 const ROUTE = "/_iburo/staging-scanner-fixture-url";
 const MIME = "application/octet-stream";
 const MAX_BYTES = 1024;
-const ISSUER_DIAGNOSTIC_PATTERN = /^(?:ISSUER_ENV|AUTH_HEADER|REQUEST|OIDC|ISSUER|UPSTREAM)$/;
+const ISSUER_DIAGNOSTIC_PATTERN =
+  /^(?:ISSUER_ENV|AUTH_HEADER|REQUEST|OIDC|ISSUER|BLOB_CONFIG|BLOB_NATIVE|UPSTREAM_NETWORK|UPSTREAM|BLOB_SIGNED_TOKEN_HTTP_(?:400|401|403|404|409|429|500|502|503|504))$/;
 const fail = (diagnostic?: string): never => {
   throw new Error(diagnostic
     ? `STAGING_SCANNER_OIDC_STORAGE_DENIED:${diagnostic}`
