@@ -99,6 +99,18 @@ assert.match(
   "LITE must not enter lesson messaging even with a stale assigned lawyer",
 );
 
+const workspaceInputSource = await readFile(resolve("server/practicum/workspace-input.ts"), "utf8");
+assert.match(
+  workspaceInputSource,
+  /expectedVersion: homeworkExpectedVersion\(body\.expectedVersion, true\)/,
+  "homework writes must require an explicit expected version, allowing null only for initial create",
+);
+assert.match(
+  workspaceInputSource,
+  /expectedVersion: homeworkExpectedVersion\(body\.expectedVersion, false\)/,
+  "homework reviews must require a positive expected version",
+);
+
 const workspaceRepositorySource = await readFile(
   resolve("server/repositories/prisma/practicum-workspace-repository.ts"),
   "utf8",
@@ -143,6 +155,9 @@ const reviewSource = workspaceRepositorySource.slice(reviewStart, messageStart);
 const messageSource = workspaceRepositorySource.slice(messageStart);
 
 assert.match(saveSource, /clientCase\.findFirst\([\s\S]*clientId: input\.actorUserId/);
+assert.match(saveSource, /\(current\?\.version \?\? null\) !== input\.expectedVersion/);
+assert.match(submitSource, /\(homework\?\.version \?\? null\) !== input\.expectedVersion/);
+assert.match(reviewSource, /homework\.version !== input\.expectedVersion/);
 assert.match(saveSource, /updateMany\([\s\S]*clientCase: \{ clientId: input\.actorUserId \}/);
 
 assert.match(submitSource, /clientCase\.findFirst\([\s\S]*clientId: input\.actorUserId/);
