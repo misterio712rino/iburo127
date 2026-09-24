@@ -192,27 +192,82 @@ jobs:
       - name: Verify authorized staging scanner health
         shell: bash
         env:
-          IB_FILE_SCANNER_SECRET: ${{ secrets.IB_STAGING_FILE_SCANNER_SECRET }}
-          IB_FILE_SCANNER_ORIGIN: https://scanner-v2-staging.iburo127.online
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          IB_STAGING_FILE_SCANNER_SECRET_SHA256: ${{ inputs.scanner_secret_sha256 }}
         run: |
           node --import tsx --input-type=module <<'NODE'
-          import { verifyAuthorizedStagingScannerHealth } from "./scripts/staging-scanner-health-preflight.ts";
+          import { readBoundedScannerJson } from "./scripts/staging-scanner-bounded-json.ts";
 
-          const origin = process.env.IB_FILE_SCANNER_ORIGIN ?? "";
-          const secret = process.env.IB_FILE_SCANNER_SECRET ?? "";
-          if (origin !== "https://scanner-v2-staging.iburo127.online" ||
-              secret.length < 32 || /[\r\n\0]/.test(secret)) {
+          const baseUrl = process.env.IB_STAGING_BASE_URL ?? "";
+          const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? "";
+          const fingerprint =
+            process.env.IB_STAGING_FILE_SCANNER_SECRET_SHA256?.trim().toLowerCase() ?? "";
+          const commitSha = process.env.GITHUB_SHA?.trim().toLowerCase() ?? "";
+          if (
+            baseUrl !==
+              "https://iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app" ||
+            !bypass ||
+            !/^[a-f0-9]{64}$/.test(fingerprint) ||
+            !/^[a-f0-9]{40}$/.test(commitSha)
+          ) {
             console.error("STAGING_SCANNER_AUTH_HEALTH_INPUT_DENIED");
             process.exit(1);
           }
 
-          try {
-            await verifyAuthorizedStagingScannerHealth(origin, secret);
-          } catch {
-            console.error("STAGING_SCANNER_AUTH_HEALTH_FAIL");
-            process.exit(1);
+          const bridgeUrl = `${baseUrl}/_iburo/staging-scanner-bridge`;
+          const control = `RUN_STAGING_SCANNER_BRIDGE:${commitSha}:${fingerprint}`;
+          for (let attempt = 1; attempt <= 4; attempt += 1) {
+            let response;
+            try {
+              response = await fetch(bridgeUrl, {
+                method: "POST",
+                redirect: "error",
+                cache: "no-store",
+                signal: AbortSignal.timeout(30_000),
+                headers: {
+                  "content-type": "application/json",
+                  accept: "application/json",
+                  "x-vercel-protection-bypass": bypass,
+                  "x-iburo-staging-scanner-control": control,
+                  "x-iburo-staging-scanner-secret-sha256": fingerprint,
+                },
+                body: JSON.stringify({ operation: "health" }),
+              });
+            } catch {
+              if (attempt === 4) break;
+              await new Promise((resolve) => setTimeout(resolve, 1_000));
+              continue;
+            }
+
+            if (response.status >= 500 && response.status <= 599) {
+              await response.body?.cancel().catch(() => {});
+              if (attempt === 4) break;
+              await new Promise((resolve) => setTimeout(resolve, 1_000));
+              continue;
+            }
+            if (
+              response.status !== 200 ||
+              response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !==
+                "application/json"
+            ) break;
+
+            const body = await readBoundedScannerJson(response, 512);
+            if (
+              body &&
+              typeof body === "object" &&
+              !Array.isArray(body) &&
+              Object.keys(body).length === 2 &&
+              body.operation === "health" &&
+              body.status === "ok"
+            ) {
+              console.log("STAGING_SCANNER_AUTH_HEALTH_PASS");
+              process.exit(0);
+            }
+            break;
           }
-          console.log("STAGING_SCANNER_AUTH_HEALTH_PASS");
+
+          console.error("STAGING_SCANNER_AUTH_HEALTH_FAIL");
+          process.exit(1);
           NODE
 
       - name: Verify delegated fixture access read-only

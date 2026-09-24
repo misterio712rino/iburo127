@@ -15,7 +15,7 @@ import { assertStagingScannerFixtureKeysAbsent } from "@/scripts/staging-scanner
 import { scanWithHttpMalwareScanner } from "@/server/files/http-malware-scanner-core";
 import { VERCEL_BLOB_STORAGE_PROVIDER } from "@/server/files/object-storage-provider";
 import { createOidcScopedScannerSmokeStorage } from "@/scripts/staging-scanner-blob-oidc-storage";
-import { verifyAuthorizedStagingScannerHealth } from "@/scripts/staging-scanner-health-preflight";
+import { readBoundedScannerJson } from "@/scripts/staging-scanner-bounded-json";
 import {
   MalwareScannerError,
   type MalwareScanVerdict,
@@ -25,6 +25,11 @@ const STAGING_FILE_SCANNER_VERIFY_FAIL = "STAGING_FILE_SCANNER_VERIFY_FAIL";
 const FIXTURE_URL_TTL_SECONDS = 300;
 const MAX_FIXTURE_BYTES = 1024;
 const FIXTURE_MIME_TYPE = "application/octet-stream";
+const STAGING_BASE_URL =
+  "https://iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app";
+const STAGING_SCANNER_BRIDGE_URL = `${STAGING_BASE_URL}/_iburo/staging-scanner-bridge`;
+const BRIDGE_RESPONSE_MAX_BYTES = 512;
+const BRIDGE_MAX_ATTEMPTS = 4;
 const CLEAN_FIXTURE = new TextEncoder().encode("iburo scanner smoke fixture: clean\n");
 // EICAR is the industry-standard inert antivirus test string, never executable malware.
 const MALICIOUS_TEST_FIXTURE = new TextEncoder().encode(
@@ -86,6 +91,103 @@ function scannerConfig(target: StagingFileScannerTarget, scannerTimeoutMs: numbe
     secret: target.scannerSecret,
     requestTimeoutMs: scannerTimeoutMs,
   };
+}
+
+function bridgeControl() {
+  const baseUrl = process.env.IB_STAGING_BASE_URL?.trim() ?? "";
+  const bypass = requireSecretEnv("VERCEL_AUTOMATION_BYPASS_SECRET");
+  const fingerprint = process.env.IB_STAGING_FILE_SCANNER_SECRET_SHA256?.trim().toLowerCase() ?? "";
+  const commitSha = process.env.GITHUB_SHA?.trim().toLowerCase() ?? "";
+  if (
+    baseUrl !== STAGING_BASE_URL ||
+    !/^[a-f0-9]{64}$/.test(fingerprint) ||
+    !/^[a-f0-9]{40}$/.test(commitSha)
+  ) {
+    throw new Error("STAGING_SCANNER_BRIDGE_CONFIG_DENIED");
+  }
+  return {
+    bypass,
+    fingerprint,
+    control: `RUN_STAGING_SCANNER_BRIDGE:${commitSha}:${fingerprint}`,
+  };
+}
+
+async function callStagingScannerBridge(payload: Record<string, string>) {
+  const auth = bridgeControl();
+  for (let attempt = 1; attempt <= BRIDGE_MAX_ATTEMPTS; attempt += 1) {
+    let response: Response;
+    try {
+      response = await fetch(STAGING_SCANNER_BRIDGE_URL, {
+        method: "POST",
+        redirect: "error",
+        cache: "no-store",
+        signal: AbortSignal.timeout(30_000),
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json",
+          "x-vercel-protection-bypass": auth.bypass,
+          "x-iburo-staging-scanner-control": auth.control,
+          "x-iburo-staging-scanner-secret-sha256": auth.fingerprint,
+        },
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      if (attempt === BRIDGE_MAX_ATTEMPTS) throw new Error("STAGING_SCANNER_BRIDGE_NETWORK_DENIED");
+      await new Promise((resolve) => setTimeout(resolve, 1_000));
+      continue;
+    }
+
+    if (response.status >= 500 && response.status <= 599) {
+      await response.body?.cancel().catch(() => {});
+      if (attempt === BRIDGE_MAX_ATTEMPTS) throw new Error("STAGING_SCANNER_BRIDGE_UPSTREAM_DENIED");
+      await new Promise((resolve) => setTimeout(resolve, 1_000));
+      continue;
+    }
+    if (response.status !== 200 ||
+        response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json") {
+      await response.body?.cancel().catch(() => {});
+      throw new Error("STAGING_SCANNER_BRIDGE_RESPONSE_DENIED");
+    }
+    return readBoundedScannerJson(response, BRIDGE_RESPONSE_MAX_BYTES);
+  }
+  throw new Error("STAGING_SCANNER_BRIDGE_DENIED");
+}
+
+async function verifyVercelBridgeHealth() {
+  const body = await callStagingScannerBridge({ operation: "health" });
+  if (
+    !body ||
+    typeof body !== "object" ||
+    Array.isArray(body) ||
+    Object.keys(body).length !== 2 ||
+    (body as { operation?: unknown }).operation !== "health" ||
+    (body as { status?: unknown }).status !== "ok"
+  ) {
+    throw new Error("STAGING_SCANNER_BRIDGE_HEALTH_DENIED");
+  }
+}
+
+async function scanFixtureThroughVercelBridge(
+  sourceUrl: string,
+  sizeBytes: bigint,
+  expectedVerdict: MalwareScanVerdict,
+) {
+  const body = await callStagingScannerBridge({
+    operation: "scan",
+    sourceUrl,
+    mimeType: FIXTURE_MIME_TYPE,
+    sizeBytes: sizeBytes.toString(),
+  });
+  if (
+    !body ||
+    typeof body !== "object" ||
+    Array.isArray(body) ||
+    Object.keys(body).length !== 2 ||
+    (body as { operation?: unknown }).operation !== "scan" ||
+    (body as { verdict?: unknown }).verdict !== expectedVerdict
+  ) {
+    throw new MalwareScannerError("SCANNER_UNEXPECTED_VERDICT");
+  }
 }
 
 async function scanFixture(
@@ -202,8 +304,6 @@ async function uploadVercelFixture(
 }
 
 async function verifyVercelFixture(
-  target: Extract<StagingFileScannerTarget, { providerCode: typeof VERCEL_BLOB_STORAGE_PROVIDER }>,
-  scannerTimeoutMs: number,
   storage: ReturnType<typeof createVercelBlobSmokeStorage>,
   objectKey: string,
   bytes: Uint8Array,
@@ -223,7 +323,7 @@ async function verifyVercelFixture(
     pathname: objectKey,
     expiresInSeconds: FIXTURE_URL_TTL_SECONDS,
   });
-  await scanFixture(target, scannerTimeoutMs, sourceUrl, FIXTURE_MIME_TYPE, metadata.sizeBytes, expectedVerdict);
+  await scanFixtureThroughVercelBridge(sourceUrl, metadata.sizeBytes, expectedVerdict);
 }
 
 async function cleanupVercelFixtures(
@@ -250,9 +350,8 @@ async function cleanupVercelFixtures(
 
 async function verifyVercelBlobFixtures(
   target: Extract<StagingFileScannerTarget, { providerCode: typeof VERCEL_BLOB_STORAGE_PROVIDER }>,
-  scannerTimeoutMs: number,
 ) {
-  await verifyAuthorizedStagingScannerHealth(target.scannerOrigin, target.scannerSecret);
+  await verifyVercelBridgeHealth();
   const storage = createVercelBlobSmokeStorage();
   await verifyVercelBlobTargetBeforeMutation(target, storage);
   await assertStagingScannerFixtureKeysAbsent(
@@ -264,8 +363,6 @@ async function verifyVercelBlobFixtures(
   const recordConfirmedUpload = (key: string) => { confirmedUploads.push(key); };
   try {
     await verifyVercelFixture(
-      target,
-      scannerTimeoutMs,
       storage,
       target.cleanObjectKey,
       CLEAN_FIXTURE,
@@ -273,8 +370,6 @@ async function verifyVercelBlobFixtures(
       recordConfirmedUpload,
     );
     await verifyVercelFixture(
-      target,
-      scannerTimeoutMs,
       storage,
       target.maliciousObjectKey,
       MALICIOUS_TEST_FIXTURE,
@@ -315,7 +410,7 @@ const scannerTimeoutMs = readInteger(
 
 try {
   if (target.providerCode === VERCEL_BLOB_STORAGE_PROVIDER) {
-    await verifyVercelBlobFixtures(target, scannerTimeoutMs);
+    await verifyVercelBlobFixtures(target);
     console.log("Vercel Blob staging host verified before fixture mutation");
     console.log("Bounded private Vercel Blob scanner fixtures verified: 2");
     console.log("Fixture cleanup verified: 2");

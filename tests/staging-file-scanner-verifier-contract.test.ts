@@ -24,6 +24,12 @@ assert.match(source, /getSignedUrl/);
 assert.match(source, /scanWithHttpMalwareScanner/);
 assert.match(source, /target\.providerCode === VERCEL_BLOB_STORAGE_PROVIDER/);
 assert.match(source, /createOidcScopedScannerSmokeStorage/);
+assert.match(source, /readBoundedScannerJson/);
+assert.match(source, /STAGING_SCANNER_BRIDGE_URL/);
+assert.match(source, /RUN_STAGING_SCANNER_BRIDGE:\$\{commitSha\}:\$\{fingerprint\}/);
+assert.match(source, /x-vercel-protection-bypass/);
+assert.match(source, /x-iburo-staging-scanner-control/);
+assert.match(source, /x-iburo-staging-scanner-secret-sha256/);
 assert.doesNotMatch(source, /readVercelBlobAuthConfig|createVercelBlobSignedUrlDriver|BLOB_READ_WRITE_TOKEN/);
 
 assert.match(source, /createPrivateUploadUrl/);
@@ -50,10 +56,10 @@ const vercelFixtureFunction = source.match(
   /async function verifyVercelBlobFixtures[\s\S]*?(?=\nasync function verifyYandexFixtures)/,
 )?.[0];
 assert.ok(vercelFixtureFunction, "Vercel Blob scanner fixture function must exist");
-const healthIndex = vercelFixtureFunction.indexOf("await verifyAuthorizedStagingScannerHealth(target.scannerOrigin, target.scannerSecret);");
+const healthIndex = vercelFixtureFunction.indexOf("await verifyVercelBridgeHealth();");
 const storageIndex = vercelFixtureFunction.indexOf("const storage = createVercelBlobSmokeStorage();");
 assert.ok(healthIndex >= 0 && storageIndex > healthIndex,
-  "authorized staging health must pass before any signed Blob capability or fixture operation");
+  "Vercel-routed authorized staging health must pass before any signed Blob capability or fixture operation");
 const preflightIndex = vercelFixtureFunction.indexOf(
   "await verifyVercelBlobTargetBeforeMutation(target, storage);",
 );
@@ -157,14 +163,14 @@ assert.match(smokeWorkflow, /IB_STAGING_SCANNER_FIXTURE_AUTH_MODE: github-oidc/)
 assert.match(smokeWorkflow, /secrets\.IB_STAGING_FILE_SCANNER_SECRET/);
 assert.match(
   smokeWorkflow,
-  /await verifyAuthorizedStagingScannerHealth\(origin, secret\);/,
-  "authorized health gate must use the bounded retry helper",
+  /_iburo\/staging-scanner-bridge/,
+  "authorized health gate must use the exact protected Preview scanner bridge",
 );
-assert.doesNotMatch(
-  smokeWorkflow,
-  /response\s*=\s*await fetch\([^\n]*health/,
-  "workflow must not bypass the bounded health helper with a one-shot fetch",
-);
+assert.match(smokeWorkflow, /RUN_STAGING_SCANNER_BRIDGE:\$\{commitSha\}:\$\{fingerprint\}/);
+assert.match(smokeWorkflow, /x-vercel-protection-bypass/);
+assert.match(smokeWorkflow, /x-iburo-staging-scanner-control/);
+assert.match(smokeWorkflow, /x-iburo-staging-scanner-secret-sha256/);
+assert.match(smokeWorkflow, /readBoundedScannerJson\(response, 512\)/);
 assert.match(smokeWorkflow, /IB_STAGING_VERCEL_BLOB_PRIVATE_HOST: \$\{\{ inputs\.blob_private_host \}\}/);
 assert.match(smokeWorkflow, /security-fixtures\/file-scanner\/\$GITHUB_SHA\/\$GITHUB_RUN_ID-\$GITHUB_RUN_ATTEMPT\/clean\.txt/);
 assert.match(smokeWorkflow, /security-fixtures\/file-scanner\/\$GITHUB_SHA\/\$GITHUB_RUN_ID-\$GITHUB_RUN_ATTEMPT\/eicar\.txt/);

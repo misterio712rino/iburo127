@@ -21,6 +21,7 @@ const expectedRoutes = [
   "staging-identity",
   "staging-maintenance-health",
   "staging-postbox-verify",
+  "staging-scanner-bridge",
   "staging-scanner-fixture-url",
   "staging-storage-verify",
 ] as const;
@@ -126,6 +127,36 @@ assert.doesNotMatch(
   scannerFixtureRoute,
   /\bconsole\s*\./,
   "scanner fixture issuer route must not bypass the runtime logging gate",
+);
+
+const scannerBridgeRoute = await readFile(
+  resolve(stagingRoot, "staging-scanner-bridge", "route.ts"),
+  "utf8",
+);
+assert.match(scannerBridgeRoute, /const CONTROL_HEADER = "x-iburo-staging-scanner-control";/);
+assert.match(
+  scannerBridgeRoute,
+  /const FINGERPRINT_HEADER = "x-iburo-staging-scanner-secret-sha256";/,
+);
+assert.match(
+  scannerBridgeRoute,
+  /const EXPECTED_SCANNER_ORIGIN = "https:\/\/scanner-v2-staging\.iburo127\.online";/,
+);
+assert.match(scannerBridgeRoute, /readFileScannerRuntimeConfig\(env\)/);
+assert.match(scannerBridgeRoute, /createHash\("sha256"\)\.update\(config\.secret, "utf8"\)/);
+assert.match(scannerBridgeRoute, /RUN_STAGING_SCANNER_BRIDGE:\$\{commitSha\}:\$\{fingerprint\}/);
+assert.match(scannerBridgeRoute, /MAX_REQUEST_BYTES = 8 \* 1024/);
+assert.match(scannerBridgeRoute, /input\.operation === "health"/);
+assert.match(scannerBridgeRoute, /input\.operation !== "scan"/);
+assert.match(scannerBridgeRoute, /scanWithHttpMalwareScanner\(config,/);
+assert.doesNotMatch(scannerBridgeRoute, /BLOB_READ_WRITE_TOKEN|prisma|ClientCase|getPrivateObjectStorage/i);
+assert.doesNotMatch(scannerBridgeRoute, /\bconsole\s*\./);
+
+const bridgeControlIndex = scannerBridgeRoute.indexOf("expectedControl");
+const bridgeRequestIndex = scannerBridgeRoute.indexOf("readBoundedRequest(request)");
+assert.ok(
+  bridgeControlIndex >= 0 && bridgeRequestIndex > bridgeControlIndex,
+  "scanner bridge must authenticate exact commit/fingerprint control before reading the request body",
 );
 
 const postboxVerifierSource = await readFile(
