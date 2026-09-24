@@ -26,11 +26,15 @@ function isExactStagingPreview(env: NodeJS.ProcessEnv) {
     isVercelPreviewBackendAllowed(env)
   );
 }
-const DIAGNOSTIC_PREFIX = "STAGING_SCANNER_FIXTURE_ROUTE_DENIED";
-function unavailable() {
-  return NextResponse.json({ available: false }, { status: 404, headers: HEADERS });
+type ScannerFixtureDiagnostic = "ISSUER_ENV" | "AUTH_HEADER" | "REQUEST" | "OIDC" | "ISSUER" | "UPSTREAM";
+const DIAGNOSTIC_HEADER = "X-Iburo-Staging-Scanner-Diagnostic";
+function unavailable(reason?: ScannerFixtureDiagnostic) {
+  return NextResponse.json(
+    { available: false },
+    { status: 404, headers: reason ? { ...HEADERS, [DIAGNOSTIC_HEADER]: reason } : HEADERS },
+  );
 }
-function safeIssueReason(error: unknown) {
+function safeIssueReason(error: unknown): ScannerFixtureDiagnostic {
   if (!(error instanceof Error)) return "UPSTREAM";
   if (error.message === SCANNER_FIXTURE_OIDC_DENIED) return "OIDC";
   if (error.message === SCANNER_FIXTURE_ISSUER_DENIED) return "ISSUER";
@@ -65,27 +69,21 @@ async function readBoundedJson(request: Request): Promise<ScannerFixtureRequest>
 
 export async function POST(request: Request) {
   const env = process.env;
-  if (!isExactStagingPreview(env)) {
-    console.warn(`${DIAGNOSTIC_PREFIX}:BOUNDARY`);
-    return unavailable();
-  }
+  if (!isExactStagingPreview(env)) return unavailable();
   try {
     assertScannerFixtureIssuerPreview(env);
   } catch {
-    console.warn(`${DIAGNOSTIC_PREFIX}:ISSUER_ENV`);
-    return unavailable();
+    return unavailable("ISSUER_ENV");
   }
   const authorization = request.headers.get("authorization") ?? "";
   if (!authorization.startsWith("Bearer ") || authorization.length > 12_300) {
-    console.warn(`${DIAGNOSTIC_PREFIX}:AUTH_HEADER`);
-    return unavailable();
+    return unavailable("AUTH_HEADER");
   }
   let input: ScannerFixtureRequest;
   try {
     input = await readBoundedJson(request);
   } catch {
-    console.warn(`${DIAGNOSTIC_PREFIX}:REQUEST`);
-    return unavailable();
+    return unavailable("REQUEST");
   }
   try {
     const result = await issueScannerFixtureSignedUrl(input, authorization.slice(7),
@@ -93,7 +91,6 @@ export async function POST(request: Request) {
       createVercelBlobNativeSignedUrlDependencies());
     return NextResponse.json(result, { status: 200, headers: HEADERS });
   } catch (error) {
-    console.warn(`${DIAGNOSTIC_PREFIX}:${safeIssueReason(error)}`);
-    return unavailable();
+    return unavailable(safeIssueReason(error));
   }
 }
