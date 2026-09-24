@@ -28,6 +28,7 @@ assert.match(source, /readBoundedScannerJson/);
 assert.match(source, /STAGING_SCANNER_BRIDGE_URL/);
 assert.match(source, /RUN_STAGING_SCANNER_BRIDGE:\$\{commitSha\}:\$\{fingerprint\}/);
 assert.match(source, /x-vercel-protection-bypass/);
+assert.match(source, /x-iburo-staging-control/);
 assert.match(source, /x-iburo-staging-scanner-control/);
 assert.match(source, /x-iburo-staging-scanner-secret-sha256/);
 assert.doesNotMatch(source, /readVercelBlobAuthConfig|createVercelBlobSignedUrlDriver|BLOB_READ_WRITE_TOKEN/);
@@ -168,6 +169,7 @@ assert.match(
 );
 assert.match(smokeWorkflow, /RUN_STAGING_SCANNER_BRIDGE:\$\{commitSha\}:\$\{fingerprint\}/);
 assert.match(smokeWorkflow, /x-vercel-protection-bypass/);
+assert.match(smokeWorkflow, /x-iburo-staging-control/);
 assert.match(smokeWorkflow, /x-iburo-staging-scanner-control/);
 assert.match(smokeWorkflow, /x-iburo-staging-scanner-secret-sha256/);
 assert.match(smokeWorkflow, /x-iburo-staging-scanner-bridge-diagnostic/);

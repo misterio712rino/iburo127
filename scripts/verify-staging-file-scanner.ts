@@ -126,6 +126,7 @@ async function callStagingScannerBridge(payload: Record<string, string>) {
           "content-type": "application/json",
           accept: "application/json",
           "x-vercel-protection-bypass": auth.bypass,
+          "x-iburo-staging-control": auth.bypass,
           "x-iburo-staging-scanner-control": auth.control,
           "x-iburo-staging-scanner-secret-sha256": auth.fingerprint,
         },

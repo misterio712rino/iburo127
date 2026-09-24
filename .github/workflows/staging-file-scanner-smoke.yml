@@ -235,6 +235,7 @@ jobs:
                   "content-type": "application/json",
                   accept: "application/json",
                   "x-vercel-protection-bypass": bypass,
+                  "x-iburo-staging-control": bypass,
                   "x-iburo-staging-scanner-control": control,
                   "x-iburo-staging-scanner-secret-sha256": fingerprint,
                 },
