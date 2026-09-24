@@ -29,6 +29,8 @@ const STAGING_BASE_URL =
   "https://iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app";
 const STAGING_SCANNER_BRIDGE_URL = `${STAGING_BASE_URL}/_iburo/staging-scanner-bridge`;
 const BRIDGE_RESPONSE_MAX_BYTES = 512;
+const BRIDGE_SCANNER_DIAGNOSTIC_PATTERN =
+  /^SCANNER_(?:INVALID_CONFIG|INVALID_SOURCE_URL|INVALID_INPUT|HTTP_5XX|HTTP_4XX|INVALID_RESPONSE|TIMEOUT|NETWORK_ERROR)$/;
 const BRIDGE_MAX_ATTEMPTS = 4;
 const CLEAN_FIXTURE = new TextEncoder().encode("iburo scanner smoke fixture: clean\n");
 // EICAR is the industry-standard inert antivirus test string, never executable malware.
@@ -139,8 +141,15 @@ async function callStagingScannerBridge(payload: Record<string, string>) {
     }
 
     if (response.status >= 500 && response.status <= 599) {
+      const diagnostic =
+        response.headers.get("x-iburo-staging-scanner-bridge-diagnostic")?.trim() ?? "";
       await response.body?.cancel().catch(() => {});
-      if (attempt === BRIDGE_MAX_ATTEMPTS) throw new Error("STAGING_SCANNER_BRIDGE_UPSTREAM_DENIED");
+      if (attempt === BRIDGE_MAX_ATTEMPTS) {
+        if (BRIDGE_SCANNER_DIAGNOSTIC_PATTERN.test(diagnostic)) {
+          throw new MalwareScannerError(diagnostic);
+        }
+        throw new Error("STAGING_SCANNER_BRIDGE_UPSTREAM_DENIED");
+      }
       await new Promise((resolve) => setTimeout(resolve, 1_000));
       continue;
     }
