@@ -8,7 +8,12 @@ const EXACT_PREVIEW_ORIGIN = "https://iburo127-app-git-audit-pr-0d0d70-misterio7
 const ROUTE = "/_iburo/staging-scanner-fixture-url";
 const MIME = "application/octet-stream";
 const MAX_BYTES = 1024;
-const fail = (): never => { throw new Error("STAGING_SCANNER_OIDC_STORAGE_DENIED"); };
+const ISSUER_DIAGNOSTIC_PATTERN = /^(?:ISSUER_ENV|AUTH_HEADER|REQUEST|OIDC|ISSUER|UPSTREAM)$/;
+const fail = (diagnostic?: string): never => {
+  throw new Error(diagnostic
+    ? `STAGING_SCANNER_OIDC_STORAGE_DENIED:${diagnostic}`
+    : "STAGING_SCANNER_OIDC_STORAGE_DENIED");
+};
 async function boundedControlJson(response: Response, limit: number): Promise<unknown> {
   try {
     const payload = await readBoundedScannerJson(response, limit);
@@ -60,7 +65,11 @@ export function createOidcScopedScannerSmokeStorage(
       headers: { authorization: `Bearer ${jwt}`, "x-vercel-protection-bypass": required(env, "VERCEL_AUTOMATION_BYPASS_SECRET"), "content-type": "application/json" },
       body: JSON.stringify({ fixture, operation, ...(etag ? { etag } : {}) }),
     });
-    if (!response.ok) fail();
+    if (!response.ok) {
+      const diagnostic = response.headers.get("x-iburo-staging-scanner-diagnostic");
+      if (diagnostic && ISSUER_DIAGNOSTIC_PATTERN.test(diagnostic)) fail(diagnostic);
+      fail();
+    }
     const payload = await boundedControlJson(response, 8_192) as { url?: unknown; expiresInSeconds?: unknown };
     if (typeof payload.url !== "string" || payload.expiresInSeconds !== 120) fail();
     return payload.url as string;
