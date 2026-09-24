@@ -15,7 +15,12 @@ export async function getPracticumLessonWorkspace(
 
 export async function savePracticumHomeworkDraft(
   sessionProvider: SessionProvider,
-  input: { clientCaseId: string; lessonId: string; answerText: unknown },
+  input: {
+    clientCaseId: string;
+    lessonId: string;
+    answerText: unknown;
+    expectedVersion: number | null;
+  },
 ) {
   const actor = await requireServerActor(sessionProvider);
   return practicumWorkspaceService.saveHomeworkDraft(actor, input);
@@ -23,7 +28,7 @@ export async function savePracticumHomeworkDraft(
 
 export async function submitPracticumHomework(
   sessionProvider: SessionProvider,
-  input: { clientCaseId: string; lessonId: string; answerText: unknown },
+  input: { clientCaseId: string; lessonId: string; answerText: unknown; expectedVersion: number | null },
 ) {
   const actor = await requireServerActor(sessionProvider);
   return practicumWorkspaceService.submitHomework(actor, input);
@@ -36,6 +41,7 @@ export async function reviewPracticumHomework(
     lessonId: string;
     decision: PracticumHomeworkReviewDecision;
     comment: unknown;
+    expectedVersion: number;
   },
 ) {
   const actor = await requireServerActor(sessionProvider);
