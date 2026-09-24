@@ -125,11 +125,11 @@ export class PracticumWorkspaceService {
   async saveHomeworkDraft(
     actor: AuthenticatedActor,
     input: {
-    clientCaseId: string;
-    lessonId: string;
-    answerText: unknown;
-    expectedVersion: number | null;
-  },
+      clientCaseId: string;
+      lessonId: string;
+      answerText: unknown;
+      expectedVersion: number | null;
+    },
   ) {
     this.requireKnownLesson(input.lessonId);
     await this.requireClientOwner(actor, input.clientCaseId);
