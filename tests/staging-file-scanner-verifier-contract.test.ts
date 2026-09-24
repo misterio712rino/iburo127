@@ -46,7 +46,7 @@ assert.match(source, /parsed\.hostname\.toLowerCase\(\) !== target\.expectedPriv
 assert.match(source, /VERCEL_BLOB_PRIVATE_HOST_MISMATCH/);
 assert.match(source, /runVercelSmokePhase\("CLEAN",[\s\S]*verifyVercelFixture\([\s\S]*"CLEAN",[\s\S]*target\.cleanObjectKey/);
 assert.match(source, /runVercelSmokePhase\("MALICIOUS",[\s\S]*verifyVercelFixture\([\s\S]*"MALICIOUS",[\s\S]*target\.maliciousObjectKey/);
-assert.match(source, /finally\s*\{\s*await runVercelSmokePhase\("CLEANUP",[\s\S]*cleanupVercelFixtures\(storage, confirmedUploads\)/);
+assert.match(source, /await runVercelSmokePhase\("CLEANUP",[\s\S]*cleanupVercelFixtures\(storage, confirmedUploads\)/);
 assert.match(source, /VERCEL_BLOB_FIXTURE_CLEANUP_FAILED/);
 assert.match(source, /let primaryError: unknown = null;/);
 assert.match(source, /if \(primaryError\) throw primaryError;/);
