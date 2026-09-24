@@ -175,7 +175,7 @@ assert.match(smokeWorkflow, /x-iburo-staging-scanner-secret-sha256/);
 assert.match(smokeWorkflow, /x-iburo-staging-scanner-bridge-diagnostic/);
 assert.match(
   smokeWorkflow,
-  /\^\(CONFIG\|ORIGIN\|FINGERPRINT\|CONTROL\|REQUEST\|UPSTREAM\|UPSTREAM_NETWORK\|UPSTREAM_HTTP\|UPSTREAM_FORMAT\|UPSTREAM_BODY\)\$/,
+  /\^\(CONFIG\|ORIGIN\|FINGERPRINT\|CONTROL\|REQUEST\|UPSTREAM\|UPSTREAM_NETWORK\|UPSTREAM_DNS\|UPSTREAM_CONNECT_TIMEOUT\|UPSTREAM_REFUSED\|UPSTREAM_RESET\|UPSTREAM_ROUTE\|UPSTREAM_TLS\|UPSTREAM_TIMEOUT\|UPSTREAM_HTTP\|UPSTREAM_FORMAT\|UPSTREAM_BODY\)\$/,
   "bridge diagnostic propagation must stay constrained to a fixed allowlist",
 );
 assert.match(smokeWorkflow, /STAGING_SCANNER_AUTH_HEALTH_DIAGNOSTIC=\$\{reason\}/);

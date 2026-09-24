@@ -56,6 +56,13 @@ type ScannerBridgeDiagnostic =
   | "REQUEST"
   | "UPSTREAM"
   | "UPSTREAM_NETWORK"
+  | "UPSTREAM_DNS"
+  | "UPSTREAM_CONNECT_TIMEOUT"
+  | "UPSTREAM_REFUSED"
+  | "UPSTREAM_RESET"
+  | "UPSTREAM_ROUTE"
+  | "UPSTREAM_TLS"
+  | "UPSTREAM_TIMEOUT"
   | "UPSTREAM_HTTP"
   | "UPSTREAM_FORMAT"
   | "UPSTREAM_BODY";
@@ -143,6 +150,34 @@ class ScannerBridgeUpstreamError extends Error {
   }
 }
 
+function scannerNetworkDiagnostic(error: unknown): ScannerBridgeDiagnostic {
+  const outer =
+    error && typeof error === "object" ? (error as Record<string, unknown>) : null;
+  const name = outer && typeof outer.name === "string" ? outer.name : "";
+  if (name === "AbortError" || name === "TimeoutError") return "UPSTREAM_TIMEOUT";
+
+  const cause =
+    outer?.cause && typeof outer.cause === "object"
+      ? (outer.cause as Record<string, unknown>)
+      : null;
+  const code = cause && typeof cause.code === "string" ? cause.code : "";
+  if (code === "ENOTFOUND" || code === "EAI_AGAIN") return "UPSTREAM_DNS";
+  if (code === "UND_ERR_CONNECT_TIMEOUT" || code === "ETIMEDOUT") {
+    return "UPSTREAM_CONNECT_TIMEOUT";
+  }
+  if (code === "ECONNREFUSED") return "UPSTREAM_REFUSED";
+  if (code === "ECONNRESET" || code === "UND_ERR_SOCKET") return "UPSTREAM_RESET";
+  if (code === "EHOSTUNREACH" || code === "ENETUNREACH") return "UPSTREAM_ROUTE";
+  if (
+    code === "CERT_HAS_EXPIRED" ||
+    code === "ERR_TLS_CERT_ALTNAME_INVALID" ||
+    code === "UNABLE_TO_VERIFY_LEAF_SIGNATURE" ||
+    code === "DEPTH_ZERO_SELF_SIGNED_CERT" ||
+    code === "SELF_SIGNED_CERT_IN_CHAIN"
+  ) return "UPSTREAM_TLS";
+  return "UPSTREAM_NETWORK";
+}
+
 async function verifyScannerHealth(config: ReturnType<typeof readFileScannerRuntimeConfig>) {
   let response: Response;
   try {
@@ -157,8 +192,8 @@ async function verifyScannerHealth(config: ReturnType<typeof readFileScannerRunt
       cache: "no-store",
       signal: AbortSignal.timeout(Math.min(config.requestTimeoutMs, 15_000)),
     });
-  } catch {
-    throw new ScannerBridgeUpstreamError("UPSTREAM_NETWORK");
+  } catch (error) {
+    throw new ScannerBridgeUpstreamError(scannerNetworkDiagnostic(error));
   }
 
   if (response.status !== 200) {

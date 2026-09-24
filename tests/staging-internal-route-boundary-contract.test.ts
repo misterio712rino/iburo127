@@ -164,7 +164,6 @@ for (const reason of ["CONFIG", "ORIGIN", "FINGERPRINT", "CONTROL", "REQUEST"]) 
   );
 }
 for (const reason of [
-  "UPSTREAM_NETWORK",
   "UPSTREAM_HTTP",
   "UPSTREAM_FORMAT",
   "UPSTREAM_BODY",
@@ -175,6 +174,23 @@ for (const reason of [
     `scanner bridge must classify ${reason} without exposing upstream details`,
   );
 }
+for (const reason of [
+  "UPSTREAM_NETWORK",
+  "UPSTREAM_DNS",
+  "UPSTREAM_CONNECT_TIMEOUT",
+  "UPSTREAM_REFUSED",
+  "UPSTREAM_RESET",
+  "UPSTREAM_ROUTE",
+  "UPSTREAM_TLS",
+  "UPSTREAM_TIMEOUT",
+]) {
+  assert.match(
+    scannerBridgeRoute,
+    new RegExp(`"${reason}"`),
+    `scanner bridge network diagnostics must stay within fixed class ${reason}`,
+  );
+}
+assert.match(scannerBridgeRoute, /scannerNetworkDiagnostic\\(error\\)/);
 assert.match(scannerBridgeRoute, /error instanceof ScannerBridgeUpstreamError/);
 assert.match(scannerBridgeRoute, /unavailable\(502, error\.reason\)/);
 assert.match(scannerBridgeRoute, /unavailable\(502, "UPSTREAM"\)/);
