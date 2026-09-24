@@ -32,7 +32,9 @@ function harness(headStatus = 404, headEtag = etag) {
     if (url.endsWith("/_iburo/staging-scanner-fixture-url")) {
       const body = JSON.parse(String(init?.body)) as { fixture: string; operation: string; etag?: string };
       events.push(`issue:${body.operation}`);
-      assert.equal(new Headers(init?.headers).get("x-vercel-protection-bypass"), env.VERCEL_AUTOMATION_BYPASS_SECRET);
+      const headers = new Headers(init?.headers);
+      assert.equal(headers.get("x-vercel-protection-bypass"), env.VERCEL_AUTOMATION_BYPASS_SECRET);
+      assert.equal(headers.get("x-iburo-staging-control"), env.VERCEL_AUTOMATION_BYPASS_SECRET);
       const key = body.fixture === "clean" ? pathname : env.IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY;
       if (body.operation === "delete") events.push(`delete-etag:${body.etag}`);
       const direct = body.operation === "head" || body.operation === "get"
