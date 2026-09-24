@@ -7,6 +7,7 @@ import {
   VERCEL_STAGING_BRANCH,
   isVercelPreviewBackendAllowed,
 } from "@/server/config/vercel-preview-boundary";
+import { MalwareScannerError } from "@/server/domain/files/scan-worker";
 import { scanWithHttpMalwareScanner } from "@/server/files/http-malware-scanner-core";
 
 export const dynamic = "force-dynamic";
@@ -65,7 +66,15 @@ type ScannerBridgeDiagnostic =
   | "UPSTREAM_TIMEOUT"
   | "UPSTREAM_HTTP"
   | "UPSTREAM_FORMAT"
-  | "UPSTREAM_BODY";
+  | "UPSTREAM_BODY"
+  | "SCANNER_INVALID_CONFIG"
+  | "SCANNER_INVALID_SOURCE_URL"
+  | "SCANNER_INVALID_INPUT"
+  | "SCANNER_HTTP_5XX"
+  | "SCANNER_HTTP_4XX"
+  | "SCANNER_INVALID_RESPONSE"
+  | "SCANNER_TIMEOUT"
+  | "SCANNER_NETWORK_ERROR";
 const DIAGNOSTIC_HEADER = "X-Iburo-Staging-Scanner-Bridge-Diagnostic";
 function unavailable(status = 404, reason?: ScannerBridgeDiagnostic) {
   return NextResponse.json(
@@ -178,6 +187,23 @@ function scannerNetworkDiagnostic(error: unknown): ScannerBridgeDiagnostic {
   return "UPSTREAM_NETWORK";
 }
 
+function safeScannerDiagnostic(error: unknown): ScannerBridgeDiagnostic | null {
+  if (!(error instanceof MalwareScannerError)) return null;
+  switch (error.code) {
+    case "SCANNER_INVALID_CONFIG":
+    case "SCANNER_INVALID_SOURCE_URL":
+    case "SCANNER_INVALID_INPUT":
+    case "SCANNER_HTTP_5XX":
+    case "SCANNER_HTTP_4XX":
+    case "SCANNER_INVALID_RESPONSE":
+    case "SCANNER_TIMEOUT":
+    case "SCANNER_NETWORK_ERROR":
+      return error.code;
+    default:
+      return null;
+  }
+}
+
 async function verifyScannerHealth(config: ReturnType<typeof readFileScannerRuntimeConfig>) {
   let response: Response;
   try {
@@ -273,6 +299,8 @@ export async function POST(request: Request) {
     if (error instanceof ScannerBridgeUpstreamError) {
       return unavailable(502, error.reason);
     }
+    const scannerReason = safeScannerDiagnostic(error);
+    if (scannerReason) return unavailable(502, scannerReason);
     return unavailable(502, "UPSTREAM");
   }
 }
