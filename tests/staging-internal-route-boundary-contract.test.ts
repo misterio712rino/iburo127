@@ -118,6 +118,10 @@ for (const reason of ["ISSUER_ENV", "AUTH_HEADER", "REQUEST"]) {
 assert.match(scannerFixtureRoute, /return "OIDC";/);
 assert.match(scannerFixtureRoute, /return "ISSUER";/);
 assert.match(scannerFixtureRoute, /return "UPSTREAM";/);
+assert.match(scannerFixtureRoute, /VERCEL_BLOB_CONFIG_ERROR/);
+assert.match(scannerFixtureRoute, /VERCEL_BLOB_NATIVE_BINDING_ERROR/);
+assert.match(scannerFixtureRoute, /BLOB_SIGNED_TOKEN_HTTP_/);
+assert.match(scannerFixtureRoute, /return "UPSTREAM_NETWORK";/);
 assert.match(
   scannerFixtureRoute,
   /headers: reason \? \{ \.\.\.HEADERS, \[DIAGNOSTIC_HEADER\]: reason \} : HEADERS/,
