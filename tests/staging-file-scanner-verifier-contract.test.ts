@@ -43,9 +43,9 @@ assert.match(source, /recordConfirmedUpload\(objectKey\)/);
 assert.match(source, /const confirmedUploads: string\[\] = \[\]/);
 assert.match(source, /parsed\.hostname\.toLowerCase\(\) !== target\.expectedPrivateBlobHost/);
 assert.match(source, /VERCEL_BLOB_PRIVATE_HOST_MISMATCH/);
-assert.match(source, /await verifyVercelFixture\([\s\S]*target\.cleanObjectKey,[\s\S]*"CLEAN"/);
-assert.match(source, /await verifyVercelFixture\([\s\S]*target\.maliciousObjectKey,[\s\S]*"MALICIOUS"/);
-assert.match(source, /finally\s*\{\s*await cleanupVercelFixtures\(storage, confirmedUploads\)/);
+assert.match(source, /runVercelSmokePhase\("CLEAN",[\s\S]*verifyVercelFixture\([\s\S]*"CLEAN",[\s\S]*target\.cleanObjectKey/);
+assert.match(source, /runVercelSmokePhase\("MALICIOUS",[\s\S]*verifyVercelFixture\([\s\S]*"MALICIOUS",[\s\S]*target\.maliciousObjectKey/);
+assert.match(source, /finally\s*\{\s*await runVercelSmokePhase\("CLEANUP",[\s\S]*cleanupVercelFixtures\(storage, confirmedUploads\)/);
 assert.match(source, /VERCEL_BLOB_FIXTURE_CLEANUP_FAILED/);
 assert.match(source, /FIXTURE_URL_TTL_SECONDS = 300/);
 assert.match(source, /MAX_FIXTURE_BYTES = 1024;/);
@@ -57,7 +57,7 @@ const vercelFixtureFunction = source.match(
   /async function verifyVercelBlobFixtures[\s\S]*?(?=\nasync function verifyYandexFixtures)/,
 )?.[0];
 assert.ok(vercelFixtureFunction, "Vercel Blob scanner fixture function must exist");
-const healthIndex = vercelFixtureFunction.indexOf("await verifyVercelBridgeHealth();");
+const healthIndex = vercelFixtureFunction.indexOf('runVercelSmokePhase("BRIDGE_HEALTH"');
 const storageIndex = vercelFixtureFunction.indexOf("const storage = createVercelBlobSmokeStorage();");
 assert.ok(healthIndex >= 0 && storageIndex > healthIndex,
   "Vercel-routed authorized staging health must pass before any signed Blob capability or fixture operation");
@@ -80,6 +80,26 @@ assert.ok(
 assert.ok(
   firstCleanupIndex > recordCallbackIndex,
   "private Blob target preflight must execute before any fixture cleanup mutation",
+);
+
+const fixtureVerificationFunction = source.match(
+  /async function verifyVercelFixture[\s\S]*?(?=\nasync function cleanupVercelFixtures)/,
+)?.[0];
+assert.ok(fixtureVerificationFunction, "Vercel fixture verification function must exist");
+for (const step of ["METADATA", "DOWNLOAD_URL", "SCAN"]) {
+  assert.match(
+    fixtureVerificationFunction,
+    new RegExp(`runVercelFixtureStep\\(phase, "${step}"`),
+    `fixture verification must classify ${step} without exposing URLs or keys`,
+  );
+}
+assert.match(source, /runVercelFixtureStep\(phase, "UPLOAD_URL"/);
+assert.match(source, /runVercelFixtureStep\(phase, "UPLOAD_HTTP"/);
+assert.match(source, /VERCEL_FIXTURE_STEP_PATTERN/);
+assert.match(
+  source,
+  /STAGING_SCANNER_STEP_\$\{phase\}_\$\{step\}/,
+  "fixture step diagnostics must remain fixed and phase-bounded",
 );
 
 const uploadFixtureFunction = source.match(

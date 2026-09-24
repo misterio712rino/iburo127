@@ -252,11 +252,30 @@ function createVercelBlobSmokeStorage() {
 }
 
 type VercelSmokePhase = "BRIDGE_HEALTH" | "PREFLIGHT" | "CLEAN" | "MALICIOUS" | "CLEANUP";
+type VercelFixturePhase = "CLEAN" | "MALICIOUS";
+type VercelFixtureStep = "UPLOAD_URL" | "UPLOAD_HTTP" | "METADATA" | "DOWNLOAD_URL" | "SCAN";
+const VERCEL_FIXTURE_STEP_PATTERN =
+  /^STAGING_SCANNER_STEP_(?:CLEAN|MALICIOUS)_(?:UPLOAD_URL|UPLOAD_HTTP|METADATA|DOWNLOAD_URL|SCAN)$/;
+
+async function runVercelFixtureStep<T>(
+  phase: VercelFixturePhase,
+  step: VercelFixtureStep,
+  task: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await task();
+  } catch (error) {
+    if (error instanceof MalwareScannerError) throw error;
+    throw new Error(`STAGING_SCANNER_STEP_${phase}_${step}`);
+  }
+}
+
 async function runVercelSmokePhase<T>(phase: VercelSmokePhase, task: () => Promise<T>): Promise<T> {
   try {
     return await task();
   } catch (error) {
     if (error instanceof MalwareScannerError) throw error;
+    if (error instanceof Error && VERCEL_FIXTURE_STEP_PATTERN.test(error.message)) throw error;
     throw new Error(`STAGING_SCANNER_PHASE_${phase}`);
   }
 }
@@ -289,52 +308,65 @@ async function verifyVercelBlobTargetBeforeMutation(
 }
 
 async function uploadVercelFixture(
+  phase: VercelFixturePhase,
   storage: ReturnType<typeof createVercelBlobSmokeStorage>,
   objectKey: string,
   bytes: Uint8Array,
   recordConfirmedUpload: (key: string) => void,
 ) {
   assertFixtureBytes(bytes);
-  const uploadUrl = await storage.createPrivateUploadUrl({
-    pathname: objectKey,
-    mimeType: FIXTURE_MIME_TYPE,
-    maximumSizeInBytes: bytes.byteLength,
-    expiresInSeconds: FIXTURE_URL_TTL_SECONDS,
+  const uploadUrl = await runVercelFixtureStep(phase, "UPLOAD_URL", () =>
+    storage.createPrivateUploadUrl({
+      pathname: objectKey,
+      mimeType: FIXTURE_MIME_TYPE,
+      maximumSizeInBytes: bytes.byteLength,
+      expiresInSeconds: FIXTURE_URL_TTL_SECONDS,
+    }),
+  );
+  await runVercelFixtureStep(phase, "UPLOAD_HTTP", async () => {
+    const response = await fetch(uploadUrl, {
+      method: "PUT",
+      redirect: "error",
+      headers: { "content-type": FIXTURE_MIME_TYPE },
+      body: new TextDecoder().decode(bytes),
+      cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) throw new Error("VERCEL_BLOB_UPLOAD_FAILED");
   });
-  const response = await fetch(uploadUrl, {
-    method: "PUT",
-    redirect: "error",
-    headers: { "content-type": FIXTURE_MIME_TYPE },
-    body: new TextDecoder().decode(bytes),
-    cache: "no-store",
-    signal: AbortSignal.timeout(30_000),
-  });
-  if (!response.ok) throw new Error("VERCEL_BLOB_UPLOAD_FAILED");
   storage.confirmUploadedFixture(objectKey);
   recordConfirmedUpload(objectKey);
 }
 
 async function verifyVercelFixture(
+  phase: VercelFixturePhase,
   storage: ReturnType<typeof createVercelBlobSmokeStorage>,
   objectKey: string,
   bytes: Uint8Array,
   expectedVerdict: MalwareScanVerdict,
   recordConfirmedUpload: (key: string) => void,
 ) {
-  await uploadVercelFixture(storage, objectKey, bytes, recordConfirmedUpload);
-  const metadata = await storage.statPrivateBlob(objectKey);
-  if (
-    !metadata ||
-    metadata.sizeBytes !== BigInt(bytes.byteLength) ||
-    metadata.mimeType?.toLowerCase() !== FIXTURE_MIME_TYPE
-  ) {
-    throw new Error("VERCEL_BLOB_METADATA_MISMATCH");
-  }
-  const sourceUrl = await storage.createPrivateDownloadUrl({
-    pathname: objectKey,
-    expiresInSeconds: FIXTURE_URL_TTL_SECONDS,
+  await uploadVercelFixture(phase, storage, objectKey, bytes, recordConfirmedUpload);
+  const metadata = await runVercelFixtureStep(phase, "METADATA", async () => {
+    const result = await storage.statPrivateBlob(objectKey);
+    if (
+      !result ||
+      result.sizeBytes !== BigInt(bytes.byteLength) ||
+      result.mimeType?.toLowerCase() !== FIXTURE_MIME_TYPE
+    ) {
+      throw new Error("VERCEL_BLOB_METADATA_MISMATCH");
+    }
+    return result;
   });
-  await scanFixtureThroughVercelBridge(sourceUrl, metadata.sizeBytes, expectedVerdict);
+  const sourceUrl = await runVercelFixtureStep(phase, "DOWNLOAD_URL", () =>
+    storage.createPrivateDownloadUrl({
+      pathname: objectKey,
+      expiresInSeconds: FIXTURE_URL_TTL_SECONDS,
+    }),
+  );
+  await runVercelFixtureStep(phase, "SCAN", () =>
+    scanFixtureThroughVercelBridge(sourceUrl, metadata.sizeBytes, expectedVerdict),
+  );
 }
 
 async function cleanupVercelFixtures(
@@ -376,6 +408,7 @@ async function verifyVercelBlobFixtures(
   const recordConfirmedUpload = (key: string) => { confirmedUploads.push(key); };
   try {
     await runVercelSmokePhase("CLEAN", () => verifyVercelFixture(
+      "CLEAN",
       storage,
       target.cleanObjectKey,
       CLEAN_FIXTURE,
@@ -383,6 +416,7 @@ async function verifyVercelBlobFixtures(
       recordConfirmedUpload,
     ));
     await runVercelSmokePhase("MALICIOUS", () => verifyVercelFixture(
+      "MALICIOUS",
       storage,
       target.maliciousObjectKey,
       MALICIOUS_TEST_FIXTURE,
@@ -439,11 +473,13 @@ try {
   console.log("Fixture object keys or signed URLs logged: 0");
   console.log("STAGING_FILE_SCANNER_VERIFY_PASS");
 } catch (error) {
-  const phaseCode =
+  const diagnosticCode =
     error instanceof Error &&
-    /^STAGING_SCANNER_PHASE_(?:BRIDGE_HEALTH|PREFLIGHT|CLEAN|MALICIOUS|CLEANUP)$/.test(error.message)
+    (/^STAGING_SCANNER_PHASE_(?:BRIDGE_HEALTH|PREFLIGHT|CLEAN|MALICIOUS|CLEANUP)$/.test(error.message) ||
+      VERCEL_FIXTURE_STEP_PATTERN.test(error.message))
       ? error.message
       : null;
-  const safeCode = error instanceof MalwareScannerError ? error.code : phaseCode ?? "SCANNER_SMOKE_FAILED";
+  const safeCode =
+    error instanceof MalwareScannerError ? error.code : diagnosticCode ?? "SCANNER_SMOKE_FAILED";
   fail(safeCode);
 }
