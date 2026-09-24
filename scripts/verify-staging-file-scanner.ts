@@ -116,7 +116,8 @@ function bridgeControl() {
 
 async function callStagingScannerBridge(payload: Record<string, string>) {
   const auth = bridgeControl();
-  for (let attempt = 1; attempt <= BRIDGE_MAX_ATTEMPTS; attempt += 1) {
+  const maxAttempts = payload.operation === "scan" ? 1 : BRIDGE_MAX_ATTEMPTS;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     let response: Response;
     try {
       response = await fetch(STAGING_SCANNER_BRIDGE_URL, {
@@ -135,7 +136,7 @@ async function callStagingScannerBridge(payload: Record<string, string>) {
         body: JSON.stringify(payload),
       });
     } catch {
-      if (attempt === BRIDGE_MAX_ATTEMPTS) throw new Error("STAGING_SCANNER_BRIDGE_NETWORK_DENIED");
+      if (attempt === maxAttempts) throw new Error("STAGING_SCANNER_BRIDGE_NETWORK_DENIED");
       await new Promise((resolve) => setTimeout(resolve, 1_000));
       continue;
     }
@@ -144,7 +145,7 @@ async function callStagingScannerBridge(payload: Record<string, string>) {
       const diagnostic =
         response.headers.get("x-iburo-staging-scanner-bridge-diagnostic")?.trim() ?? "";
       await response.body?.cancel().catch(() => {});
-      if (attempt === BRIDGE_MAX_ATTEMPTS) {
+      if (attempt === maxAttempts) {
         if (BRIDGE_SCANNER_DIAGNOSTIC_PATTERN.test(diagnostic)) {
           throw new MalwareScannerError(diagnostic);
         }
