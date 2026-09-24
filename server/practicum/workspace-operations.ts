@@ -28,7 +28,12 @@ export async function savePracticumHomeworkDraft(
 
 export async function submitPracticumHomework(
   sessionProvider: SessionProvider,
-  input: { clientCaseId: string; lessonId: string; answerText: unknown; expectedVersion: number | null },
+  input: {
+    clientCaseId: string;
+    lessonId: string;
+    answerText: unknown;
+    expectedVersion: number | null;
+  },
 ) {
   const actor = await requireServerActor(sessionProvider);
   return practicumWorkspaceService.submitHomework(actor, input);
