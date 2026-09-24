@@ -97,8 +97,8 @@ assert.match(source, /runVercelFixtureStep\(phase, "UPLOAD_URL"/);
 assert.match(source, /runVercelFixtureStep\(phase, "UPLOAD_HTTP"/);
 assert.match(source, /VERCEL_FIXTURE_STEP_PATTERN/);
 assert.match(source, /VERCEL_UPLOAD_HTTP_PATTERN/);
-assert.match(source, /STAGING_SCANNER_UPLOAD_\\$\\{phase\\}_NETWORK/);
-assert.match(source, /STAGING_SCANNER_UPLOAD_\\$\\{phase\\}_HTTP_\\$\\{status\\}/);
+assert.ok(source.includes("STAGING_SCANNER_UPLOAD_${phase}_NETWORK"));
+assert.ok(source.includes("STAGING_SCANNER_UPLOAD_${phase}_HTTP_${status}"));
 assert.match(source, /\[400, 401, 403, 404, 409, 413, 415, 429, 500, 502, 503, 504\]\.includes\(response\.status\)/);
 assert.match(
   source,
