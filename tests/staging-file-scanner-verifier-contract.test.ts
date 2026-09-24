@@ -117,6 +117,10 @@ for (const header of [
   "x-vercel-blob-store-id",
   "x-api-blob-request-attempt",
   "x-api-version",
+  "x-vercel-blob-access",
+  "x-content-type",
+  "x-add-random-suffix",
+  "x-allow-overwrite",
 ]) {
   assert.ok(
     uploadFixtureFunction.includes(header),
