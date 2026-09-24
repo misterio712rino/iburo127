@@ -251,6 +251,16 @@ function createVercelBlobSmokeStorage() {
   return createOidcScopedScannerSmokeStorage();
 }
 
+type VercelSmokePhase = "BRIDGE_HEALTH" | "PREFLIGHT" | "CLEAN" | "MALICIOUS" | "CLEANUP";
+async function runVercelSmokePhase<T>(phase: VercelSmokePhase, task: () => Promise<T>): Promise<T> {
+  try {
+    return await task();
+  } catch (error) {
+    if (error instanceof MalwareScannerError) throw error;
+    throw new Error(`STAGING_SCANNER_PHASE_${phase}`);
+  }
+}
+
 async function verifyVercelBlobTargetBeforeMutation(
   target: Extract<StagingFileScannerTarget, { providerCode: typeof VERCEL_BLOB_STORAGE_PROVIDER }>,
   storage: ReturnType<typeof createVercelBlobSmokeStorage>,
@@ -352,33 +362,35 @@ async function cleanupVercelFixtures(
 async function verifyVercelBlobFixtures(
   target: Extract<StagingFileScannerTarget, { providerCode: typeof VERCEL_BLOB_STORAGE_PROVIDER }>,
 ) {
-  await verifyVercelBridgeHealth();
+  await runVercelSmokePhase("BRIDGE_HEALTH", () => verifyVercelBridgeHealth());
   const storage = createVercelBlobSmokeStorage();
-  await verifyVercelBlobTargetBeforeMutation(target, storage);
-  await assertStagingScannerFixtureKeysAbsent(
-    [target.cleanObjectKey, target.maliciousObjectKey],
-    (key) => storage.statPrivateBlob(key),
-  );
+  await runVercelSmokePhase("PREFLIGHT", async () => {
+    await verifyVercelBlobTargetBeforeMutation(target, storage);
+    await assertStagingScannerFixtureKeysAbsent(
+      [target.cleanObjectKey, target.maliciousObjectKey],
+      (key) => storage.statPrivateBlob(key),
+    );
+  });
 
   const confirmedUploads: string[] = [];
   const recordConfirmedUpload = (key: string) => { confirmedUploads.push(key); };
   try {
-    await verifyVercelFixture(
+    await runVercelSmokePhase("CLEAN", () => verifyVercelFixture(
       storage,
       target.cleanObjectKey,
       CLEAN_FIXTURE,
       "CLEAN",
       recordConfirmedUpload,
-    );
-    await verifyVercelFixture(
+    ));
+    await runVercelSmokePhase("MALICIOUS", () => verifyVercelFixture(
       storage,
       target.maliciousObjectKey,
       MALICIOUS_TEST_FIXTURE,
       "MALICIOUS",
       recordConfirmedUpload,
-    );
+    ));
   } finally {
-    await cleanupVercelFixtures(storage, confirmedUploads);
+    await runVercelSmokePhase("CLEANUP", () => cleanupVercelFixtures(storage, confirmedUploads));
   }
 }
 
@@ -427,6 +439,11 @@ try {
   console.log("Fixture object keys or signed URLs logged: 0");
   console.log("STAGING_FILE_SCANNER_VERIFY_PASS");
 } catch (error) {
-  const safeCode = error instanceof MalwareScannerError ? error.code : "SCANNER_SMOKE_FAILED";
+  const phaseCode =
+    error instanceof Error &&
+    /^STAGING_SCANNER_PHASE_(?:BRIDGE_HEALTH|PREFLIGHT|CLEAN|MALICIOUS|CLEANUP)$/.test(error.message)
+      ? error.message
+      : null;
+  const safeCode = error instanceof MalwareScannerError ? error.code : phaseCode ?? "SCANNER_SMOKE_FAILED";
   fail(safeCode);
 }
