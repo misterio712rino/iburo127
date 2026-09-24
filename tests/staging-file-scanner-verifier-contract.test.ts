@@ -68,7 +68,7 @@ const absentIndex = vercelFixtureFunction.indexOf("await assertStagingScannerFix
 const recordCallbackIndex = vercelFixtureFunction.indexOf("const recordConfirmedUpload =");
 const mutationTryIndex = vercelFixtureFunction.indexOf("try {", preflightIndex);
 const firstCleanupIndex = vercelFixtureFunction.indexOf(
-  "await cleanupVercelFixtures(storage, confirmedUploads);",
+  'runVercelSmokePhase("CLEANUP"',
 );
 assert.ok(preflightIndex >= 0, "private Blob target preflight must execute");
 assert.ok(absentIndex > preflightIndex, "occupied fixtures must fail before uploads or deletions");
