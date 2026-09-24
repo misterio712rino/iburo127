@@ -190,6 +190,23 @@ for (const reason of [
     `scanner bridge network diagnostics must stay within fixed class ${reason}`,
   );
 }
+for (const reason of [
+  "SCANNER_INVALID_CONFIG",
+  "SCANNER_INVALID_SOURCE_URL",
+  "SCANNER_INVALID_INPUT",
+  "SCANNER_HTTP_5XX",
+  "SCANNER_HTTP_4XX",
+  "SCANNER_INVALID_RESPONSE",
+  "SCANNER_TIMEOUT",
+  "SCANNER_NETWORK_ERROR",
+]) {
+  assert.match(
+    scannerBridgeRoute,
+    new RegExp(`"${reason}"`),
+    `scanner bridge scan diagnostics must stay within fixed class ${reason}`,
+  );
+}
+assert.match(scannerBridgeRoute, /safeScannerDiagnostic\\(error\\)/);
 assert.match(scannerBridgeRoute, /scannerNetworkDiagnostic\(error\)/);
 assert.match(scannerBridgeRoute, /error instanceof ScannerBridgeUpstreamError/);
 assert.match(scannerBridgeRoute, /unavailable\(502, error\.reason\)/);
