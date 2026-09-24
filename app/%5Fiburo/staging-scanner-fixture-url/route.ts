@@ -34,7 +34,9 @@ function isExactStagingPreview(env: NodeJS.ProcessEnv) {
 }
 type ScannerFixtureDiagnostic =
   | "ISSUER_ENV" | "AUTH_HEADER" | "REQUEST" | "OIDC" | "ISSUER"
-  | "BLOB_CONFIG" | "BLOB_NATIVE" | "UPSTREAM_NETWORK" | "UPSTREAM"
+  | "BLOB_CONFIG" | "BLOB_NATIVE" | "BLOB_NATIVE_STORE_ID" | "BLOB_NATIVE_CREDENTIALS"
+  | "BLOB_NATIVE_TOKEN_FORMAT" | "BLOB_NATIVE_TOKEN_RESPONSE" | "BLOB_NATIVE_SCOPE"
+  | "BLOB_NATIVE_CONSTRAINT" | "BLOB_NATIVE_EXPIRED" | "UPSTREAM_NETWORK" | "UPSTREAM"
   | "BLOB_SIGNED_TOKEN_HTTP_400" | "BLOB_SIGNED_TOKEN_HTTP_401"
   | "BLOB_SIGNED_TOKEN_HTTP_403" | "BLOB_SIGNED_TOKEN_HTTP_404"
   | "BLOB_SIGNED_TOKEN_HTTP_409" | "BLOB_SIGNED_TOKEN_HTTP_429"
@@ -57,6 +59,19 @@ function safeIssueReason(error: unknown): ScannerFixtureDiagnostic {
     const reason = error.message.slice(nativePrefix.length);
     const match = /^signed-token-http-(400|401|403|404|409|429|500|502|503|504)$/.exec(reason);
     if (match) return `BLOB_SIGNED_TOKEN_HTTP_${match[1]}` as ScannerFixtureDiagnostic;
+    if (reason === "invalid-store-id") return "BLOB_NATIVE_STORE_ID";
+    if (reason === "missing-credentials") return "BLOB_NATIVE_CREDENTIALS";
+    if (reason === "invalid-delegation-token" || reason === "invalid-delegation-payload") {
+      return "BLOB_NATIVE_TOKEN_FORMAT";
+    }
+    if (reason === "signed-token-response-too-large" || reason === "invalid-signed-token-response") {
+      return "BLOB_NATIVE_TOKEN_RESPONSE";
+    }
+    if (reason === "delegation-scope-mismatch" || reason === "pathname-outside-delegation" ||
+        reason === "operation-outside-delegation") return "BLOB_NATIVE_SCOPE";
+    if (reason === "invalid-conditional-etag" || reason === "content-type-outside-delegation" ||
+        reason === "size-outside-delegation") return "BLOB_NATIVE_CONSTRAINT";
+    if (reason === "expired-presign" || reason === "delegation-expired") return "BLOB_NATIVE_EXPIRED";
     return "BLOB_NATIVE";
   }
   if (error.name === "AbortError" || error.name === "TimeoutError" || error instanceof TypeError) {
