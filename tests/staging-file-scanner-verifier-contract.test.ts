@@ -170,6 +170,13 @@ assert.match(smokeWorkflow, /RUN_STAGING_SCANNER_BRIDGE:\$\{commitSha\}:\$\{fing
 assert.match(smokeWorkflow, /x-vercel-protection-bypass/);
 assert.match(smokeWorkflow, /x-iburo-staging-scanner-control/);
 assert.match(smokeWorkflow, /x-iburo-staging-scanner-secret-sha256/);
+assert.match(smokeWorkflow, /x-iburo-staging-scanner-bridge-diagnostic/);
+assert.match(
+  smokeWorkflow,
+  /\^\(CONFIG\|ORIGIN\|FINGERPRINT\|CONTROL\|REQUEST\|UPSTREAM\)\$/,
+  "bridge diagnostic propagation must stay constrained to a fixed allowlist",
+);
+assert.match(smokeWorkflow, /STAGING_SCANNER_AUTH_HEALTH_DIAGNOSTIC=\$\{reason\}/);
 assert.match(smokeWorkflow, /readBoundedScannerJson\(response, 512\)/);
 assert.match(smokeWorkflow, /IB_STAGING_VERCEL_BLOB_PRIVATE_HOST: \$\{\{ inputs\.blob_private_host \}\}/);
 assert.match(smokeWorkflow, /security-fixtures\/file-scanner\/\$GITHUB_SHA\/\$GITHUB_RUN_ID-\$GITHUB_RUN_ATTEMPT\/clean\.txt/);

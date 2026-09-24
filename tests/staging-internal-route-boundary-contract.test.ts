@@ -142,6 +142,25 @@ assert.match(
   scannerBridgeRoute,
   /const EXPECTED_SCANNER_ORIGIN = "https:\/\/scanner-v2-staging\.iburo127\.online";/,
 );
+assert.match(
+  scannerBridgeRoute,
+  /const DIAGNOSTIC_HEADER = "X-Iburo-Staging-Scanner-Bridge-Diagnostic";/,
+  "scanner bridge diagnostics must use one fixed staging-only response header",
+);
+assert.match(
+  scannerBridgeRoute,
+  /if \(!isExactStagingPreview\(env\)\) return unavailable\(\);/,
+  "scanner bridge boundary failures must stay indistinguishable",
+);
+for (const reason of ["CONFIG", "ORIGIN", "FINGERPRINT", "CONTROL", "REQUEST"]) {
+  assert.match(
+    scannerBridgeRoute,
+    new RegExp(`unavailable\\(404, "${reason}"\\)`),
+    `scanner bridge must use only the fixed ${reason} diagnostic reason`,
+  );
+}
+assert.match(scannerBridgeRoute, /unavailable\(502, "UPSTREAM"\)/);
+assert.match(scannerBridgeRoute, /\[DIAGNOSTIC_HEADER\]: reason/);
 assert.match(scannerBridgeRoute, /readFileScannerRuntimeConfig\(env\)/);
 assert.match(scannerBridgeRoute, /createHash\("sha256"\)\.update\(config\.secret, "utf8"\)/);
 assert.match(scannerBridgeRoute, /RUN_STAGING_SCANNER_BRIDGE:\$\{commitSha\}:\$\{fingerprint\}/);

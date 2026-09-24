@@ -216,6 +216,13 @@ jobs:
 
           const bridgeUrl = `${baseUrl}/_iburo/staging-scanner-bridge`;
           const control = `RUN_STAGING_SCANNER_BRIDGE:${commitSha}:${fingerprint}`;
+          const reportDiagnostic = (response) => {
+            const reason =
+              response.headers.get("x-iburo-staging-scanner-bridge-diagnostic")?.trim() ?? "";
+            if (/^(CONFIG|ORIGIN|FINGERPRINT|CONTROL|REQUEST|UPSTREAM)$/.test(reason)) {
+              console.error(`STAGING_SCANNER_AUTH_HEALTH_DIAGNOSTIC=${reason}`);
+            }
+          };
           for (let attempt = 1; attempt <= 4; attempt += 1) {
             let response;
             try {
@@ -240,6 +247,7 @@ jobs:
             }
 
             if (response.status >= 500 && response.status <= 599) {
+              if (attempt === 4) reportDiagnostic(response);
               await response.body?.cancel().catch(() => {});
               if (attempt === 4) break;
               await new Promise((resolve) => setTimeout(resolve, 1_000));
@@ -249,7 +257,11 @@ jobs:
               response.status !== 200 ||
               response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !==
                 "application/json"
-            ) break;
+            ) {
+              reportDiagnostic(response);
+              await response.body?.cancel().catch(() => {});
+              break;
+            }
 
             const body = await readBoundedScannerJson(response, 512);
             if (

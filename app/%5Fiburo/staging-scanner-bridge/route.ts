@@ -47,8 +47,24 @@ function isExactStagingPreview(env: NodeJS.ProcessEnv) {
   );
 }
 
-function unavailable(status = 404) {
-  return NextResponse.json({ available: false }, { status, headers: NO_STORE_HEADERS });
+type ScannerBridgeDiagnostic =
+  | "CONFIG"
+  | "ORIGIN"
+  | "FINGERPRINT"
+  | "CONTROL"
+  | "REQUEST"
+  | "UPSTREAM";
+const DIAGNOSTIC_HEADER = "X-Iburo-Staging-Scanner-Bridge-Diagnostic";
+function unavailable(status = 404, reason?: ScannerBridgeDiagnostic) {
+  return NextResponse.json(
+    { available: false },
+    {
+      status,
+      headers: reason
+        ? { ...NO_STORE_HEADERS, [DIAGNOSTIC_HEADER]: reason }
+        : NO_STORE_HEADERS,
+    },
+  );
 }
 
 function safeEqual(left: string, right: string) {
@@ -148,27 +164,27 @@ export async function POST(request: Request) {
 
   const commitSha = exactPreviewCommitSha(env);
   const fingerprint = request.headers.get(FINGERPRINT_HEADER)?.trim().toLowerCase() ?? "";
-  if (!commitSha || !/^[a-f0-9]{64}$/.test(fingerprint)) return unavailable();
+  if (!commitSha || !/^[a-f0-9]{64}$/.test(fingerprint)) return unavailable(404, "REQUEST");
 
   let config: ReturnType<typeof readFileScannerRuntimeConfig>;
   try {
     config = readFileScannerRuntimeConfig(env);
   } catch {
-    return unavailable();
+    return unavailable(404, "CONFIG");
   }
-  if (config.origin !== EXPECTED_SCANNER_ORIGIN) return unavailable();
+  if (config.origin !== EXPECTED_SCANNER_ORIGIN) return unavailable(404, "ORIGIN");
   const actualFingerprint = createHash("sha256").update(config.secret, "utf8").digest("hex");
-  if (!safeEqual(actualFingerprint, fingerprint)) return unavailable();
+  if (!safeEqual(actualFingerprint, fingerprint)) return unavailable(404, "FINGERPRINT");
 
   const expectedControl = `RUN_STAGING_SCANNER_BRIDGE:${commitSha}:${fingerprint}`;
   const suppliedControl = request.headers.get(CONTROL_HEADER) ?? "";
-  if (!safeEqual(suppliedControl, expectedControl)) return unavailable();
+  if (!safeEqual(suppliedControl, expectedControl)) return unavailable(404, "CONTROL");
 
   let input: BridgeRequest;
   try {
     input = await readBoundedRequest(request);
   } catch {
-    return unavailable();
+    return unavailable(404, "REQUEST");
   }
 
   try {
@@ -190,6 +206,6 @@ export async function POST(request: Request) {
       { status: 200, headers: NO_STORE_HEADERS },
     );
   } catch {
-    return unavailable(502);
+    return unavailable(502, "UPSTREAM");
   }
 }
