@@ -99,23 +99,33 @@ const scannerFixtureRoute = await readFile(
 );
 assert.match(
   scannerFixtureRoute,
-  /const DIAGNOSTIC_PREFIX = "STAGING_SCANNER_FIXTURE_ROUTE_DENIED";/,
-  "scanner fixture issuer diagnostics must use a fixed staging-only prefix",
+  /const DIAGNOSTIC_HEADER = "X-Iburo-Staging-Scanner-Diagnostic";/,
+  "scanner fixture issuer diagnostics must use one fixed staging-only response header",
 );
-for (const reason of ["BOUNDARY", "ISSUER_ENV", "AUTH_HEADER", "REQUEST"]) {
+assert.match(
+  scannerFixtureRoute,
+  /if \(!isExactStagingPreview\(env\)\) return unavailable\(\);/,
+  "boundary failures must stay indistinguishable and must not receive a diagnostic reason",
+);
+for (const reason of ["ISSUER_ENV", "AUTH_HEADER", "REQUEST"]) {
   assert.match(
     scannerFixtureRoute,
-    new RegExp(`console\\.warn\\(\\`\\$\\{DIAGNOSTIC_PREFIX\\}:${reason}\\`\\)`),
-    `scanner fixture issuer must expose only the fixed ${reason} diagnostic marker`,
+    new RegExp(`return unavailable\\("${reason}"\\)`),
+    `scanner fixture issuer must use only the fixed ${reason} diagnostic reason`,
   );
 }
 assert.match(scannerFixtureRoute, /return "OIDC";/);
 assert.match(scannerFixtureRoute, /return "ISSUER";/);
 assert.match(scannerFixtureRoute, /return "UPSTREAM";/);
+assert.match(
+  scannerFixtureRoute,
+  /headers: reason \? \{ \.\.\.HEADERS, \[DIAGNOSTIC_HEADER\]: reason \} : HEADERS/,
+  "diagnostic reason must be returned only through the fixed response header",
+);
 assert.doesNotMatch(
   scannerFixtureRoute,
-  /console\.(?:warn|error|log)\([^\n]*(?:authorization|request\.headers|process\.env|error\.message)/,
-  "scanner fixture issuer diagnostics must never log auth headers, env values, or raw error messages",
+  /\bconsole\s*\./,
+  "scanner fixture issuer route must not bypass the runtime logging gate",
 );
 
 const postboxVerifierSource = await readFile(
