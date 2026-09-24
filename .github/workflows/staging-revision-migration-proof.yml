@@ -41,29 +41,106 @@ jobs:
               --output "$response_file" --write-out '%{http_code}' \
               -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
               "$STAGING_URL/_iburo/staging-db-baseline" || true)"
-            if [ "$http_status" = 200 ] && RESPONSE_FILE="$response_file" node --input-type=module -e '
+            if [ "$http_status" = 200 ] && RESPONSE_FILE="$response_file" EXPECTED_SHA="$GITHUB_SHA" node --input-type=module -e '
               import {readFileSync} from "node:fs";
+
+              let b;
               try {
-                const b=JSON.parse(readFileSync(process.env.RESPONSE_FILE,"utf8"));
-                const p=b.prisma;
-                if(b.service==="iburo127" && b.probe==="staging-db-baseline" &&
-                   b.environment==="preview" && b.branch==="audit/production-readiness" &&
-                   b.commitSha===process.env.GITHUB_SHA && b.runtimeTarget==="staging" &&
-                   b.readOnly===true && b.database?.name==="neondb" && b.database?.schema==="public" &&
-                   b.domain?.tables?.pass===true && b.domain?.enums?.pass===true &&
-                   p?.migrationTablePresent===true && p.unfinishedCount===0 && p.pass===true &&
-                   p.expectedCount===4 && [4,5].includes(p.appliedCount) &&
-                   typeof p.documentRevision?.migrationApplied==="boolean" &&
-                   p.documentRevision.schemaReady===p.documentRevision.migrationApplied &&
-                   p.appliedCount===(p.documentRevision.migrationApplied?5:4) && b.pass===true) {
-                  console.log(`STAGING_REVISION_MIGRATION_APPLIED=${p.documentRevision.migrationApplied}`);
-                  console.log(`STAGING_REVISION_MIGRATION_SCHEMA_READY=${p.documentRevision.schemaReady}`);
-                  console.log(`STAGING_BASELINE_APPLIED_COUNT=${p.appliedCount}`);
-                  console.log("STAGING_REVISION_READ_ONLY_PROOF_PASS");
-                  process.exit(0);
-                }
-              } catch {}
-              process.exit(1);
+                b = JSON.parse(readFileSync(process.env.RESPONSE_FILE, "utf8"));
+              } catch (error) {
+                console.error("STAGING_REVISION_JSON_PARSE_FAIL: " + error.message);
+                process.exit(1);
+              }
+
+              const p = b?.prisma ?? {};
+              const revision = p.documentRevision ?? {};
+              const checks = {
+                service: b?.service === "iburo127",
+                probe: b?.probe === "staging-db-baseline",
+                environment: b?.environment === "preview",
+                branch: b?.branch === "audit/production-readiness",
+                commitSha: b?.commitSha === process.env.EXPECTED_SHA,
+                runtimeTarget: b?.runtimeTarget === "staging",
+                readOnly: b?.readOnly === true,
+                database: b?.database?.name === "neondb" && b?.database?.schema === "public",
+                domainTables: b?.domain?.tables?.pass === true,
+                domainEnums: b?.domain?.enums?.pass === true,
+                migrationTablePresent: p.migrationTablePresent === true,
+                unfinishedCount: p.unfinishedCount === 0,
+                expectedCount: p.expectedCount === 4,
+                appliedCount: [4, 5].includes(p.appliedCount),
+                revisionFlagsAreBoolean: typeof revision.migrationApplied === "boolean" &&
+                  typeof revision.schemaReady === "boolean",
+                revisionFlagsMatch: revision.schemaReady === revision.migrationApplied,
+                revisionMigrationCount: p.appliedCount === (revision.migrationApplied ? 5 : 4),
+                prismaPass: p.pass === true,
+                overallPass: b?.pass === true
+              };
+
+              const failed = Object.entries(checks)
+                .filter(([, passed]) => !passed)
+                .map(([name]) => name);
+
+              if (failed.length > 0) {
+                console.error("STAGING_REVISION_VALIDATION_FAILED: " + failed.join(","));
+                // Print only allow-listed metadata; never dump the full response body.
+                console.error(JSON.stringify({
+                  actual: {
+                    service: b?.service ?? null,
+                    probe: b?.probe ?? null,
+                    environment: b?.environment ?? null,
+                    branch: b?.branch ?? null,
+                    commitSha: b?.commitSha ?? null,
+                    runtimeTarget: b?.runtimeTarget ?? null,
+                    readOnly: b?.readOnly ?? null,
+                    database: {
+                      name: b?.database?.name ?? null,
+                      schema: b?.database?.schema ?? null
+                    },
+                    domain: {
+                      tablesPass: b?.domain?.tables?.pass ?? null,
+                      enumsPass: b?.domain?.enums?.pass ?? null
+                    },
+                    prisma: {
+                      migrationTablePresent: p.migrationTablePresent ?? null,
+                      unfinishedCount: p.unfinishedCount ?? null,
+                      expectedCount: p.expectedCount ?? null,
+                      appliedCount: p.appliedCount ?? null,
+                      pass: p.pass ?? null,
+                      documentRevision: {
+                        migrationApplied: revision.migrationApplied ?? null,
+                        schemaReady: revision.schemaReady ?? null
+                      }
+                    },
+                    pass: b?.pass ?? null
+                  },
+                  expected: {
+                    service: "iburo127",
+                    probe: "staging-db-baseline",
+                    environment: "preview",
+                    branch: "audit/production-readiness",
+                    commitSha: process.env.EXPECTED_SHA,
+                    runtimeTarget: "staging",
+                    readOnly: true,
+                    database: { name: "neondb", schema: "public" },
+                    prisma: {
+                      expectedCount: 4,
+                      unfinishedCount: 0,
+                      appliedCount: "4 before revision migration, 5 after",
+                      revisionFlags: "schemaReady equals migrationApplied",
+                      pass: true
+                    },
+                    pass: true
+                  }
+                }, null, 2));
+                process.exit(1);
+              }
+
+              console.log("STAGING_REVISION_MIGRATION_APPLIED=" + revision.migrationApplied);
+              console.log("STAGING_REVISION_MIGRATION_SCHEMA_READY=" + revision.schemaReady);
+              console.log("STAGING_BASELINE_APPLIED_COUNT=" + p.appliedCount);
+              console.log("STAGING_REVISION_READ_ONLY_PROOF_PASS");
+              process.exit(0);
             '; then
               exit 0
             fi
