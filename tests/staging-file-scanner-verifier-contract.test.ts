@@ -48,6 +48,10 @@ assert.match(source, /runVercelSmokePhase\("CLEAN",[\s\S]*verifyVercelFixture\([
 assert.match(source, /runVercelSmokePhase\("MALICIOUS",[\s\S]*verifyVercelFixture\([\s\S]*"MALICIOUS",[\s\S]*target\.maliciousObjectKey/);
 assert.match(source, /finally\s*\{\s*await runVercelSmokePhase\("CLEANUP",[\s\S]*cleanupVercelFixtures\(storage, confirmedUploads\)/);
 assert.match(source, /VERCEL_BLOB_FIXTURE_CLEANUP_FAILED/);
+assert.match(source, /let primaryError: unknown = null;/);
+assert.match(source, /if \(primaryError\) throw primaryError;/);
+assert.match(source, /attempt < 7/);
+assert.match(source, /setTimeout\(resolve, 10_000\)/);
 assert.match(source, /FIXTURE_URL_TTL_SECONDS = 300/);
 assert.match(source, /MAX_FIXTURE_BYTES = 1024;/);
 assert.match(source, /Vercel Blob staging host verified before fixture mutation/);
