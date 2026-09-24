@@ -192,7 +192,7 @@ async function readBoundedSignedTokenJson(response: Response): Promise<Record<st
   const advertised = response.headers.get("content-length");
   if (
     advertised !== null &&
-    (!/^\\d+$/.test(advertised) || Number(advertised) > MAX_SIGNED_TOKEN_RESPONSE_BYTES)
+    (!/^\d+$/.test(advertised) || Number(advertised) > MAX_SIGNED_TOKEN_RESPONSE_BYTES)
   ) {
     fail("signed-token-response-too-large");
   }
