@@ -124,7 +124,12 @@ export class PracticumWorkspaceService {
 
   async saveHomeworkDraft(
     actor: AuthenticatedActor,
-    input: { clientCaseId: string; lessonId: string; answerText: unknown },
+    input: {
+    clientCaseId: string;
+    lessonId: string;
+    answerText: unknown;
+    expectedVersion: number | null;
+  },
   ) {
     this.requireKnownLesson(input.lessonId);
     await this.requireClientOwner(actor, input.clientCaseId);
@@ -138,13 +143,14 @@ export class PracticumWorkspaceService {
       clientCaseId: input.clientCaseId,
       lessonId: input.lessonId,
       answerText,
+      expectedVersion: input.expectedVersion,
       actorUserId: actor.userId,
     });
   }
 
   async submitHomework(
     actor: AuthenticatedActor,
-    input: { clientCaseId: string; lessonId: string; answerText: unknown },
+    input: { clientCaseId: string; lessonId: string; answerText: unknown; expectedVersion: number | null },
   ) {
     this.requireKnownLesson(input.lessonId);
     const clientCase = await this.requireClientOwner(actor, input.clientCaseId);
@@ -157,6 +163,7 @@ export class PracticumWorkspaceService {
       clientCaseId: input.clientCaseId,
       lessonId: input.lessonId,
       answerText,
+      expectedVersion: input.expectedVersion,
       actorUserId: actor.userId,
     });
     return clientPlanHasHumanSupport(clientCase.planCode)
@@ -171,6 +178,7 @@ export class PracticumWorkspaceService {
       lessonId: string;
       decision: PracticumHomeworkReviewDecision;
       comment: unknown;
+      expectedVersion: number;
     },
   ) {
     this.requireKnownLesson(input.lessonId);
@@ -189,6 +197,7 @@ export class PracticumWorkspaceService {
       lessonId: input.lessonId,
       decision: input.decision,
       comment,
+      expectedVersion: input.expectedVersion,
       actorUserId: actor.userId,
     });
   }
