@@ -11,7 +11,7 @@ import { scanWithHttpMalwareScanner } from "@/server/files/http-malware-scanner-
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-export const preferredRegion = "fra1";
+export const preferredRegion = "dub1";
 
 const EXPECTED_SCANNER_ORIGIN = "https://scanner-v2-staging.iburo127.online";
 const CONTROL_HEADER = "x-iburo-staging-scanner-control";
