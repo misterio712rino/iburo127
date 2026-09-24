@@ -206,25 +206,12 @@ jobs:
             process.exit(1);
           }
 
-          let response;
           try {
-            response = await fetch(`${origin}/health`, {
-              method: "GET",
-              headers: { Authorization: `Bearer ${secret}`, Accept: "application/json" },
-              redirect: "error",
-              cache: "no-store",
-              signal: AbortSignal.timeout(8_000),
-            });
+            await verifyAuthorizedStagingScannerHealth(origin, secret);
           } catch {
-            console.error("STAGING_SCANNER_AUTH_HEALTH_TRANSPORT_FAIL");
+            console.error("STAGING_SCANNER_AUTH_HEALTH_FAIL");
             process.exit(1);
           }
-
-          console.log(`STAGING_SCANNER_AUTH_HEALTH_HTTP_${response.status}`);
-          await response.body?.cancel().catch(() => {});
-          if (response.status !== 200) process.exit(1);
-
-          await verifyAuthorizedStagingScannerHealth(origin, secret);
           console.log("STAGING_SCANNER_AUTH_HEALTH_PASS");
           NODE
 
