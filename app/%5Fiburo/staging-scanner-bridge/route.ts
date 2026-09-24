@@ -30,7 +30,7 @@ type BridgeRequest =
   | {
       operation: "scan";
       sourceUrl: string;
-      mimeType: "application/octet-stream";
+      mimeType: "application/pdf";
       sizeBytes: string;
     };
 
@@ -137,7 +137,7 @@ async function readBoundedRequest(request: Request): Promise<BridgeRequest> {
     typeof input.sourceUrl !== "string" ||
     input.sourceUrl.length < 1 ||
     input.sourceUrl.length > 6144 ||
-    input.mimeType !== "application/octet-stream" ||
+    input.mimeType !== "application/pdf" ||
     typeof input.sizeBytes !== "string" ||
     !/^[1-9]\d{0,3}$/.test(input.sizeBytes)
   ) throw new Error("REQUEST_DENIED");

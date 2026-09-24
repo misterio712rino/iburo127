@@ -45,7 +45,7 @@ function harness(headStatus = 404, headEtag = etag) {
     if (init?.method === "HEAD") {
       events.push("head");
       return new Response(null, { status: headStatus, headers: {
-        "content-length": "35", "content-type": "application/octet-stream", etag: headEtag,
+        "content-length": "35", "content-type": "application/pdf", etag: headEtag,
       } });
     }
     if (init?.method === "DELETE") { events.push("delete"); return new Response(null, { status: 204 }); }
@@ -81,7 +81,7 @@ test("issues only exact short-lived URLs using a fresh GitHub OIDC assertion", a
   assert.deepEqual(h.events, ["oidc", "issue:get"]);
   const putUrl = await storage.createPrivateUploadUrl({
     pathname: env.IB_STAGING_FILE_SCANNER_MALICIOUS_OBJECT_KEY,
-    mimeType: "application/octet-stream", maximumSizeInBytes: 68,
+    mimeType: "application/pdf", maximumSizeInBytes: 68,
     expiresInSeconds: 120,
   });
   assert.equal(new URL(putUrl).origin, "https://vercel.com");
@@ -93,8 +93,8 @@ test("issues only exact short-lived URLs using a fresh GitHub OIDC assertion", a
 test("refuses oversized or overwriting uploads without requesting OIDC", async () => {
   for (const input of [
     { mimeType: "text/plain", maximumSizeInBytes: 35, allowOverwrite: false },
-    { mimeType: "application/octet-stream", maximumSizeInBytes: 1025, allowOverwrite: false },
-    { mimeType: "application/octet-stream", maximumSizeInBytes: 35, allowOverwrite: true },
+    { mimeType: "application/pdf", maximumSizeInBytes: 1025, allowOverwrite: false },
+    { mimeType: "application/pdf", maximumSizeInBytes: 35, allowOverwrite: true },
   ]) {
     const h = harness();
     const storage = createOidcScopedScannerSmokeStorage(env, h.request);
@@ -117,7 +117,7 @@ test("deletes only after acknowledged upload and matching ETag", async () => {
   await assert.rejects(storage.deletePrivateBlob(pathname), denied);
   assert.deepEqual(h.events, []);
   assert.deepEqual(await storage.statPrivateBlob(pathname), {
-    sizeBytes: BigInt(35), mimeType: "application/octet-stream",
+    sizeBytes: BigInt(35), mimeType: "application/pdf",
   });
   await assert.rejects(storage.deletePrivateBlob(pathname), denied);
   storage.confirmUploadedFixture(pathname);

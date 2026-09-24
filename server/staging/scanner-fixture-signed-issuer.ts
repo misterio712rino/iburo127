@@ -47,12 +47,12 @@ export async function issueScannerFixtureSignedUrl(
   const sign = async (operation: Operation, etag?: string) => {
     const token = await dependencies.issueSignedToken({
       ...signedCredentials, pathname, operations: [operation], validUntil: expiresAt,
-      ...(operation === "put" ? { allowedContentTypes: ["application/octet-stream"], maximumSizeInBytes: MAX_FIXTURE_BYTES } : {}),
+      ...(operation === "put" ? { allowedContentTypes: ["application/pdf"], maximumSizeInBytes: MAX_FIXTURE_BYTES } : {}),
     });
     const result = await dependencies.presignUrl(token, {
       operation, pathname, access: "private", validUntil: expiresAt,
       ...(operation === "get" ? { useCache: false } : {}),
-      ...(operation === "put" ? { allowedContentTypes: ["application/octet-stream"], maximumSizeInBytes: MAX_FIXTURE_BYTES, addRandomSuffix: false, allowOverwrite: false } : {}),
+      ...(operation === "put" ? { allowedContentTypes: ["application/pdf"], maximumSizeInBytes: MAX_FIXTURE_BYTES, addRandomSuffix: false, allowOverwrite: false } : {}),
       ...(etag ? { ifMatch: etag } : {}),
     });
     return result.presignedUrl;

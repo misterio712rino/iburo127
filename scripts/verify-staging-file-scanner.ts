@@ -24,7 +24,7 @@ import {
 const STAGING_FILE_SCANNER_VERIFY_FAIL = "STAGING_FILE_SCANNER_VERIFY_FAIL";
 const FIXTURE_URL_TTL_SECONDS = 300;
 const MAX_FIXTURE_BYTES = 1024;
-const FIXTURE_MIME_TYPE = "application/octet-stream";
+const FIXTURE_MIME_TYPE = "application/pdf";
 const STAGING_BASE_URL =
   "https://iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app";
 const STAGING_SCANNER_BRIDGE_URL = `${STAGING_BASE_URL}/_iburo/staging-scanner-bridge`;

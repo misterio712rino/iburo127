@@ -7,7 +7,7 @@ import { readBoundedScannerJson } from "./staging-scanner-bounded-json";
 
 const EXACT_PREVIEW_ORIGIN = "https://iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app";
 const ROUTE = "/_iburo/staging-scanner-fixture-url";
-const MIME = "application/octet-stream";
+const MIME = "application/pdf";
 const MAX_BYTES = 1024;
 const ISSUER_DIAGNOSTIC_PATTERN =
   /^(?:ISSUER_ENV|AUTH_HEADER|REQUEST|OIDC|ISSUER|BLOB_CONFIG|BLOB_NATIVE(?:_(?:STORE_ID|CREDENTIALS|TOKEN_FORMAT|TOKEN_RESPONSE|SCOPE|CONSTRAINT|EXPIRED))?|UPSTREAM_NETWORK|UPSTREAM|BLOB_SIGNED_TOKEN_HTTP_(?:400|401|403|404|409|429|500|502|503|504))$/;
