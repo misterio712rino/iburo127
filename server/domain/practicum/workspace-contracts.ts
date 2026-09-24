@@ -74,6 +74,7 @@ export interface PracticumWorkspaceRepository {
     clientCaseId: string;
     lessonId: string;
     answerText: string;
+    expectedVersion: number | null;
     actorUserId: string;
   }): Promise<PracticumHomeworkRecord>;
 
@@ -81,6 +82,7 @@ export interface PracticumWorkspaceRepository {
     clientCaseId: string;
     lessonId: string;
     answerText: string;
+    expectedVersion: number | null;
     actorUserId: string;
   }): Promise<PracticumLessonWorkspaceRecord>;
 
@@ -89,6 +91,7 @@ export interface PracticumWorkspaceRepository {
     lessonId: string;
     decision: PracticumHomeworkReviewDecision;
     comment: string;
+    expectedVersion: number;
     actorUserId: string;
   }): Promise<PracticumLessonWorkspaceRecord>;
 
