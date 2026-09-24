@@ -206,7 +206,7 @@ for (const reason of [
     `scanner bridge scan diagnostics must stay within fixed class ${reason}`,
   );
 }
-assert.match(scannerBridgeRoute, /safeScannerDiagnostic\\(error\\)/);
+assert.match(scannerBridgeRoute, /safeScannerDiagnostic\(error\)/);
 assert.match(scannerBridgeRoute, /scannerNetworkDiagnostic\(error\)/);
 assert.match(scannerBridgeRoute, /error instanceof ScannerBridgeUpstreamError/);
 assert.match(scannerBridgeRoute, /unavailable\(502, error\.reason\)/);
