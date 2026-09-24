@@ -110,7 +110,23 @@ const uploadFixtureFunction = source.match(
   /async function uploadVercelFixture[\s\S]*?(?=\nasync function verifyVercelFixture)/,
 )?.[0];
 assert.ok(uploadFixtureFunction, "upload function must exist");
-assert.match(uploadFixtureFunction, /fetch\(uploadUrl,\s*\{[\s\S]*?method:\s*"PUT",\s*redirect:\s*"error",/, "signed fixture PUT must not follow redirects");
+assert.match(uploadFixtureFunction, /fetch\(uploadGrant\.url,\s*\{[\s\S]*?method:\s*"PUT",\s*redirect:\s*"error",/, "signed fixture PUT must not follow redirects");
+assert.ok(uploadFixtureFunction.includes("readPresignedBlobStoreId(url, objectKey)"));
+for (const header of [
+  "x-api-blob-request-id",
+  "x-vercel-blob-store-id",
+  "x-api-blob-request-attempt",
+  "x-api-version",
+]) {
+  assert.ok(
+    uploadFixtureFunction.includes(header),
+    `presigned PUT must include Vercel Blob SDK header ${header}`,
+  );
+}
+assert.ok(source.includes('payload.operations.includes("put")'));
+assert.ok(source.includes("payload.pathname !== objectKey"));
+assert.ok(source.includes('requireSecretEnv("IB_STAGING_VERCEL_BLOB_PRIVATE_HOST")'));
+assert.doesNotMatch(source, /x-vercel-blob-store-id":\s*"[^"]+"/);
 const uploadGuardIndex = uploadFixtureFunction.indexOf(
   "if (!response.ok) {",
 );
