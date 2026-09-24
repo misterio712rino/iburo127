@@ -24,6 +24,14 @@ function stringValue(value: unknown): string {
   return value;
 }
 
+function homeworkExpectedVersion(value: unknown, allowNew: true): number | null;
+function homeworkExpectedVersion(value: unknown, allowNew: false): number;
+function homeworkExpectedVersion(value: unknown, allowNew: boolean): number | null {
+  if (allowNew && value === null) return null;
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1) invalidInput();
+  return value;
+}
+
 export function parsePracticumWorkspaceIdentity(input: {
   clientCaseId: unknown;
   lessonId: unknown;
@@ -45,6 +53,7 @@ export function parsePracticumHomeworkMutation(
     ...parsePracticumWorkspaceIdentity(identity),
     action,
     answerText: stringValue(body.answerText),
+    expectedVersion: homeworkExpectedVersion(body.expectedVersion, true),
   } as const;
 }
 
@@ -59,6 +68,7 @@ export function parsePracticumHomeworkReview(
     ...parsePracticumWorkspaceIdentity(identity),
     decision: decision as PracticumHomeworkReviewDecision,
     comment: stringValue(body.comment),
+    expectedVersion: homeworkExpectedVersion(body.expectedVersion, false),
   };
 }
 
