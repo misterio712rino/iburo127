@@ -263,9 +263,9 @@ function createVercelBlobSmokeStorage() {
 
 type VercelSmokePhase = "BRIDGE_HEALTH" | "PREFLIGHT" | "CLEAN" | "MALICIOUS" | "CLEANUP";
 type VercelFixturePhase = "CLEAN" | "MALICIOUS";
-type VercelFixtureStep = "UPLOAD_URL" | "UPLOAD_HTTP" | "METADATA" | "DOWNLOAD_URL" | "SCAN";
+type VercelFixtureStep = "UPLOAD_URL" | "UPLOAD_HTTP" | "METADATA" | "DOWNLOAD_URL" | "DOWNLOAD_HTTP" | "SCAN";
 const VERCEL_FIXTURE_STEP_PATTERN =
-  /^STAGING_SCANNER_STEP_(?:CLEAN|MALICIOUS)_(?:UPLOAD_URL|UPLOAD_HTTP|METADATA|DOWNLOAD_URL|SCAN)$/;
+  /^STAGING_SCANNER_STEP_(?:CLEAN|MALICIOUS)_(?:UPLOAD_URL|UPLOAD_HTTP|METADATA|DOWNLOAD_URL|DOWNLOAD_HTTP|SCAN)$/;
 const VERCEL_UPLOAD_HTTP_PATTERN =
   /^STAGING_SCANNER_UPLOAD_(?:CLEAN|MALICIOUS)_(?:NETWORK|HTTP_(?:400|401|403|404|409|413|415|429|500|502|503|504|OTHER))$/;
 
@@ -437,6 +437,60 @@ async function uploadVercelFixture(
   recordConfirmedUpload(objectKey);
 }
 
+async function verifyVercelFixtureDownload(sourceUrl: string, expectedBytes: Uint8Array) {
+  let response: Response;
+  try {
+    response = await fetch(sourceUrl, {
+      method: "GET",
+      redirect: "error",
+      cache: "no-store",
+      headers: { Accept: "*/*", "Accept-Encoding": "identity", "Cache-Control": "no-store" },
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    throw new Error("VERCEL_BLOB_DOWNLOAD_NETWORK");
+  }
+  if (response.status !== 200) {
+    await response.body?.cancel().catch(() => {});
+    throw new Error("VERCEL_BLOB_DOWNLOAD_STATUS");
+  }
+  const mediaType = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() ?? "";
+  const encoding = response.headers.get("content-encoding")?.trim().toLowerCase() ?? "";
+  const declared = response.headers.get("content-length");
+  if (
+    mediaType !== FIXTURE_MIME_TYPE ||
+    (encoding !== "" && encoding !== "identity") ||
+    (declared !== null && (!/^\\d{1,4}$/.test(declared) || Number(declared) !== expectedBytes.byteLength)) ||
+    !response.body
+  ) {
+    await response.body?.cancel().catch(() => {});
+    throw new Error("VERCEL_BLOB_DOWNLOAD_HEADERS");
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > MAX_FIXTURE_BYTES || total > expectedBytes.byteLength) {
+        await reader.cancel().catch(() => {});
+        throw new Error("VERCEL_BLOB_DOWNLOAD_SIZE");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const actual = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
+  if (actual.length !== expectedBytes.byteLength || !actual.equals(Buffer.from(expectedBytes))) {
+    throw new Error("VERCEL_BLOB_DOWNLOAD_CONTENT");
+  }
+}
+
 async function verifyVercelFixture(
   phase: VercelFixturePhase,
   storage: ReturnType<typeof createVercelBlobSmokeStorage>,
@@ -462,6 +516,9 @@ async function verifyVercelFixture(
       pathname: objectKey,
       expiresInSeconds: FIXTURE_URL_TTL_SECONDS,
     }),
+  );
+  await runVercelFixtureStep(phase, "DOWNLOAD_HTTP", () =>
+    verifyVercelFixtureDownload(sourceUrl, bytes),
   );
   await runVercelFixtureStep(phase, "SCAN", () =>
     scanFixtureThroughVercelBridge(sourceUrl, metadata.sizeBytes, expectedVerdict),
