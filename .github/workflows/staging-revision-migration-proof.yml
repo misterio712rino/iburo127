@@ -29,7 +29,7 @@ jobs:
         shell: bash
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-          STAGING_URL: https://iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
+          STAGING_URL: https://iburo127-app-git-audit-producti-0d0d70-misterio712rino-projects.vercel.app
         run: |
           set -euo pipefail
           test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
