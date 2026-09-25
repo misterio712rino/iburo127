@@ -22,7 +22,7 @@ jobs:
       zero_attempts: ${{ steps.aggregate.outputs.zero_attempts }}
       older_7d: ${{ steps.aggregate.outputs.older_7d }}
     env:
-      IB_STAGING_BASE_URL: https://iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
+      IB_STAGING_BASE_URL: https://iburo127-app-git-audit-producti-0d0d70-misterio712rino-projects.vercel.app
 
     steps:
       - name: Verify exact protected Preview and classify aggregate backlog

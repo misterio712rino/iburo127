@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 50
     env:
       IB_RUNTIME_TARGET: staging
-      IB_STAGING_BASE_URL: https://iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
+      IB_STAGING_BASE_URL: https://iburo127-app-git-audit-producti-0d0d70-misterio712rino-projects.vercel.app
       IB_STAGING_DATABASE_NAME: neondb
       IB_STAGING_AUTH_FLOW_TARGET: staging
       IB_STAGING_AUTH_FLOW_CONFIRM: AUTH-FLOW:iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
