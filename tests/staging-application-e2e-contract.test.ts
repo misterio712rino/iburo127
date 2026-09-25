@@ -421,7 +421,7 @@ assert.match(workflowSource, /IB_STAGING_FILES_E2E: "1"/);
 assert.match(workflowSource, /IB_STAGING_FILE_SCAN_E2E: "0"/);
 assert.match(
   workflowSource,
-  /IB_STAGING_PRIVATE_BUCKET_CONFIRM:\s*PRIVATE_STAGING_BUCKET:iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects\.vercel\.app/,
+  /IB_STAGING_PRIVATE_BUCKET_CONFIRM:\s*PRIVATE_STAGING_BUCKET:iburo127-app-git-audit-producti-0d0d70-misterio712rino-projects\.vercel\.app/,
 );
 
 assert.match(fixtureResetSource, /const FILES_E2E_FIXTURE_NAME = "iburo-staging-e2e\.pdf"/);
