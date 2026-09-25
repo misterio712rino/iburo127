@@ -35,7 +35,7 @@ jobs:
       IB_STAGING_BASE_URL: https://iburo127-app-git-audit-producti-0d0d70-misterio712rino-projects.vercel.app
       IB_STAGING_DATABASE_NAME: neondb
       IB_STAGING_AUTH_FLOW_TARGET: staging
-      IB_STAGING_AUTH_FLOW_CONFIRM: AUTH-FLOW:iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
+      IB_STAGING_AUTH_FLOW_CONFIRM: AUTH-FLOW:iburo127-app-git-audit-producti-0d0d70-misterio712rino-projects.vercel.app
       IB_STAGING_AUTH_REQUEST_TIMEOUT_MS: "15000"
       IB_STAGING_CLIENT_EMAIL: client.staging-e2e@example.test
       IB_STAGING_LITE_EMAIL: client.lite@example.test
@@ -48,12 +48,12 @@ jobs:
       IB_STAGING_CLIENT_AI_CASE_NUMBER: IBR-2026-009901
       IB_STAGING_CLIENT_SECOND_AI_CASE_NUMBER: IBR-2026-000104
       IB_STAGING_MUTATION_TARGET: staging
-      IB_STAGING_MUTATION_CONFIRM: MUTATE:iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
+      IB_STAGING_MUTATION_CONFIRM: MUTATE:iburo127-app-git-audit-producti-0d0d70-misterio712rino-projects.vercel.app
       IB_STAGING_MUTATION_CASE_NUMBER: IBR-2026-009901
       IB_STAGING_MUTATION_TASK_ID: 12700000-9901-4000-8000-000000000001
       IB_STAGING_FILES_E2E: "1"
       IB_STAGING_FILE_SCAN_E2E: "0"
-      IB_STAGING_PRIVATE_BUCKET_CONFIRM: PRIVATE_STAGING_BUCKET:iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
+      IB_STAGING_PRIVATE_BUCKET_CONFIRM: PRIVATE_STAGING_BUCKET:iburo127-app-git-audit-producti-0d0d70-misterio712rino-projects.vercel.app
 
     steps:
       - name: Checkout
