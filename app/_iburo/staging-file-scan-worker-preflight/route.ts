@@ -98,7 +98,7 @@ async function scannerHealth(origin: string, secret: string, timeoutMs: number) 
   if (
     contentType !== "application/json" ||
     declared === null ||
-    !/^\\d{1,3}$/.test(declared) ||
+    !/^\d{1,3}$/.test(declared) ||
     Number(declared) > 256
   ) {
     await response.body?.cancel().catch(() => {});
