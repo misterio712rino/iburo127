@@ -91,7 +91,8 @@ printf '%s\n' "STAGING_FILE_SCANNER_SECRET_INSTALLED"
 printf '%s\n' "STAGING_FILE_SCANNER_LOCAL_HEALTH_WAIT"
 
 health_ok=0
-for _attempt in $(seq 1 360); do
+restart_observations=0
+for _attempt in $(seq 1 960); do
   # shellcheck disable=SC1090
   . "$SCANNER_ENV"
 
@@ -113,10 +114,22 @@ for _attempt in $(seq 1 360); do
   unset IB_FILE_SCANNER_SECRET
 
   container_status="$(docker inspect --format '{{.State.Status}}' iburo-file-scanner-staging 2>/dev/null || true)"
-  if [ "$container_status" = "exited" ]; then
-    printf '%s\n' "STAGING_FILE_SCANNER_LOCAL_HEALTH_ABORT_CONTAINER_EXITED" >&2
-    break
-  fi
+  case "$container_status" in
+    exited|dead|removing)
+      printf '%s\n' "STAGING_FILE_SCANNER_LOCAL_HEALTH_ABORT_CONTAINER_STATUS:$container_status" >&2
+      break
+      ;;
+    restarting)
+      restart_observations=$((restart_observations + 1))
+      if [ "$restart_observations" -ge 12 ]; then
+        printf '%s\n' "STAGING_FILE_SCANNER_LOCAL_HEALTH_ABORT_CONTAINER_RESTART_LOOP" >&2
+        break
+      fi
+      ;;
+    *)
+      restart_observations=0
+      ;;
+  esac
 
   if [ $((_attempt % 24)) -eq 0 ]; then
     printf '%s\n' "STAGING_FILE_SCANNER_LOCAL_HEALTH_PENDING:${_attempt}"
