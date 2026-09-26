@@ -40,7 +40,7 @@ test("staging activation remains explicit, digest-pinned and secret-file bounded
   assert.match(activate, /docker compose --env-file "\$IMAGE_ENV" -f "\$COMPOSE_FILE" pull scanner/);
   assert.match(activate, /docker compose --env-file "\$IMAGE_ENV" -f "\$COMPOSE_FILE" up -d --pull never scanner/);
   assert.match(compose, /image: "\$\{SCANNER_IMAGE:\?[^}]+\}@\$\{SCANNER_IMAGE_DIGEST:\?[^}]+\}"/);
-  assert.match(compose, /restart: "no"/);
+  assert.match(compose, /restart: unless-stopped/);
   assert.match(bootstrap, /docker inspect --format '\{\{\.State\.Status\}\}' iburo-file-scanner-staging/);
   assert.doesNotMatch(activate, /:latest|docker push|terraform|yc\s|kubectl|IB_FILE_SCANNER_SECRET=/i);
   assert.doesNotMatch(activate, /iburo127\.ru|www\.iburo127\.ru|api\.iburo127\.ru/i);
