@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const source = readFileSync(
-  resolve(process.cwd(), "app/_iburo/staging-file-scan-worker-preflight/route.ts"),
+  resolve(process.cwd(), "app/%5Fiburo/staging-file-scan-worker-preflight/route.ts"),
   "utf8",
 );
 
