@@ -18,6 +18,7 @@ const expectedRoutes = [
   "staging-file-deletion-worker",
   "staging-file-scan-backlog-classifier",
   "staging-file-scan-fixture-cleanup",
+  "staging-file-scan-worker-preflight",
   "staging-identity",
   "staging-maintenance-backlog-classifier",
   "staging-maintenance-health",
