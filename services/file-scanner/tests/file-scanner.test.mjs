@@ -423,11 +423,15 @@ test("container contract keeps ClamAV persistent, refreshed and processes non-ro
     /FROM clamav\/clamav-debian:1\.4\.6_base@sha256:9245cc23e6d080de80bfd2bf0eb84650db0465de1ebcba9fd408e10b65503854 AS runtime/,
   );
   assert.match(dockerfile, /COPY --from=node-runtime \/usr\/local\/bin\/node \/usr\/local\/bin\/node/);
-  assert.match(dockerfile, /HEALTHCHECK NONE/);
+  assert.match(dockerfile, /HEALTHCHECK --interval=60s --timeout=10s --start-period=10m --retries=3/);
+  assert.match(dockerfile, /fetch\("http:\/\/127\.0\.0\.1:8080\/health"/);
+  assert.match(dockerfile, /process\.env\.IB_FILE_SCANNER_SECRET/);
   assert.doesNotMatch(dockerfile, /apt-get install[^\n]*(?:clamav-daemon|clamav-freshclam)/);
   assert.match(dockerfile, /VOLUME \["\/var\/lib\/clamav"\]/);
   assert.match(dockerfile, /ENTRYPOINT \["\/usr\/bin\/tini"/);
   assert.doesNotMatch(dockerfile, /IB_FILE_SCANNER_SECRET=/);
+  assert.match(entrypoint, /while \[ "\$signature_bootstrap_ok" -ne 1 \]; do/);
+  assert.match(entrypoint, /sleep 3600/);
   assert.doesNotMatch(entrypoint, /while \[ "\$attempt" -le 3 \]; do/);
   assert.match(entrypoint, /STAGING_FILE_SCANNER_SIGNATURE_BOOTSTRAP_RETRY_MANUAL:1/);
   assert.match(entrypoint, /timeout 420s gosu clamav freshclam/);
