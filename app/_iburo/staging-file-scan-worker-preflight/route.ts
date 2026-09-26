@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { readBoundedScannerJson } from "@/scripts/staging-scanner-bounded-json";
+
 import {
   readFileScannerRuntimeConfig,
   readMaintenanceRuntimeConfig,
@@ -94,17 +96,16 @@ async function scannerHealth(origin: string, secret: string, timeoutMs: number) 
     return false;
   }
   const contentType = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
-  const declared = response.headers.get("content-length");
-  if (
-    contentType !== "application/json" ||
-    declared === null ||
-    !/^\\d{1,3}$/.test(declared) ||
-    Number(declared) > 256
-  ) {
+  if (contentType !== "application/json") {
     await response.body?.cancel().catch(() => {});
     return false;
   }
-  const body = (await response.json()) as unknown;
+  let body: unknown;
+  try {
+    body = await readBoundedScannerJson(response, 128);
+  } catch {
+    return false;
+  }
   return (
     body !== null &&
     typeof body === "object" &&
