@@ -124,6 +124,9 @@ jobs:
               !n(b?.backlog?.unscheduled) ||
               !n(b?.backlog?.zeroAttempts) ||
               !n(b?.backlog?.attempted) ||
+              !n(b?.backlog?.scanning) ||
+              !n(b?.backlog?.expiredScanning) ||
+              b?.backlog?.noActiveScans !== true ||
               b.backlog.zeroAttempts + b.backlog.attempted !== b.backlog.pending ||
               b.backlog.dueOrOverdue > b.backlog.pending ||
               b.backlog.unscheduled > b.backlog.pending
@@ -136,6 +139,8 @@ jobs:
                   dueOrOverdue: b.backlog.dueOrOverdue,
                   zeroAttempts: b.backlog.zeroAttempts,
                   attempted: b.backlog.attempted,
+                  scanning: b.backlog.scanning,
+                  expiredScanning: b.backlog.expiredScanning,
                   batchLimit: b.worker.batchLimit,
                   scannerHealthy: b.scanner.healthy,
                   standardMaintenanceEndpointConfigured:
