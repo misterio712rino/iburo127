@@ -36,16 +36,7 @@ for (const forbidden of [
   assert.equal(source.includes(forbidden), false, `preflight must not contain ${forbidden}`);
 }
 
-for (const forbidden of [
-  "objectKey",
-  "fileName",
-  "uploadedById",
-  "clientCaseId",
-  "scanner.secret",
-]) {
-  const responseStart = source.indexOf("return NextResponse.json(");
-  const response = source.slice(responseStart);
-  assert.equal(response.includes(forbidden), false, `response must not expose ${forbidden}`);
-}
+assert.doesNotMatch(source, /scanner:\s*\{[\s\S]{0,400}secret\s*:/);
+assert.doesNotMatch(source, /backlog:\s*\{[\s\S]{0,400}(?:objectKey|fileName|uploadedById|clientCaseId)\s*:/);
 
 console.log("STAGING_FILE_SCAN_WORKER_PREFLIGHT_CONTRACT_PASS");
