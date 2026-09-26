@@ -109,15 +109,44 @@ export function createOidcScopedScannerSmokeStorage(
     },
     async createPrivateDownloadUrl(input) { return signed(input.pathname, "get"); },
     async statPrivateBlob(pathname) {
-      const url = await signed(pathname, "head");
-      const response = await request(url, { method: "HEAD", redirect: "error", cache: "no-store", signal: AbortSignal.timeout(15_000) });
+      const headUrl = await signed(pathname, "head");
+      let response = await request(headUrl, {
+        method: "HEAD", redirect: "error", cache: "no-store", signal: AbortSignal.timeout(15_000),
+      });
+
+      // The issuer intentionally HEADs the exact run-owned pathname before PUT to
+      // prevent overwrite. Private Blob HEAD may briefly retain that preflight 404.
+      // Only after this process has confirmed the upload may we recover metadata via
+      // a cache-bypassing signed GET. Unowned/preexisting paths never take this path.
+      if (response.status === 404 && confirmedUploads.has(pathname)) {
+        const getUrl = await signed(pathname, "get");
+        response = await request(getUrl, {
+          method: "GET",
+          redirect: "error",
+          cache: "no-store",
+          headers: { Accept: "*/*", "Accept-Encoding": "identity", "Cache-Control": "no-store" },
+          signal: AbortSignal.timeout(15_000),
+        });
+        if (response.status === 404) {
+          await response.body?.cancel().catch(() => {});
+          fail();
+        }
+      }
+
       if (response.status === 404) return null;
-      if (response.status !== 200) fail();
+      if (response.status !== 200) {
+        await response.body?.cancel().catch(() => {});
+        fail();
+      }
       const length = response.headers.get("content-length") ?? "";
       const mimeType = response.headers.get("content-type");
       const etag = response.headers.get("etag");
       if (!/^\d{1,4}$/.test(length) || Number(length) < 1 || Number(length) > MAX_BYTES ||
-          mimeType?.toLowerCase() !== MIME || !etag || !/^(?:"[A-Za-z0-9+\/_=-]{8,128}"|[A-Za-z0-9+\/_=-]{8,128})$/.test(etag)) fail();
+          mimeType?.toLowerCase() !== MIME || !etag || !/^(?:"[A-Za-z0-9+\/_=-]{8,128}"|[A-Za-z0-9+\/_=-]{8,128})$/.test(etag)) {
+        await response.body?.cancel().catch(() => {});
+        fail();
+      }
+      await response.body?.cancel().catch(() => {});
       knownEtags.set(pathname, etag as string);
       return { sizeBytes: BigInt(length), mimeType };
     },
