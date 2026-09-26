@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily iBuro staging scanner TLS renewal check
+
+[Timer]
+OnCalendar=*-*-* 04:15:00 UTC
+RandomizedDelaySec=45m
+Persistent=true
+Unit=iburo-staging-tls-renew.service
+
+[Install]
+WantedBy=timers.target
