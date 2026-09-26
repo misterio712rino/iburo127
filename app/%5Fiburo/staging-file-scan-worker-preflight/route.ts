@@ -136,7 +136,8 @@ export async function POST(request: Request) {
     const prisma = getPrismaClient();
     const now = new Date();
 
-    const [pending, dueOrOverdue, unscheduled, zeroAttempts, attempted] = await Promise.all([
+    const [pending, dueOrOverdue, unscheduled, zeroAttempts, attempted, scanning, expiredScanning] =
+      await Promise.all([
       prisma.storedFile.count({ where: { status: "PENDING_SCAN" } }),
       prisma.storedFile.count({
         where: {
@@ -162,6 +163,13 @@ export async function POST(request: Request) {
           scanAttemptCount: { gt: 0 },
         },
       }),
+      prisma.storedFile.count({ where: { status: "SCANNING" } }),
+      prisma.storedFile.count({
+        where: {
+          status: "SCANNING",
+          scanLeaseUntil: { lte: now },
+        },
+      }),
     ]);
 
     const health = await scannerHealth(scanner.origin, scanner.secret, scanner.requestTimeoutMs);
@@ -171,12 +179,14 @@ export async function POST(request: Request) {
       maintenance.fileScanSourceUrlTtlSeconds >= maintenance.fileScanLeaseSeconds;
     const batchIsOne = maintenance.fileScanBatchLimit === 1;
     const storageProviderMatches = storage.providerCode === EXPECTED_STORAGE_PROVIDER;
+    const noActiveScans = scanning === 0 && expiredScanning === 0;
     const workerConfigPass =
       health &&
       leaseTimeoutCompatible &&
       sourceUrlTtlCompatible &&
       batchIsOne &&
-      storageProviderMatches;
+      storageProviderMatches &&
+      noActiveScans;
 
     const standardMaintenanceEndpointConfigured =
       configuredSecret(env.IB_MAINTENANCE_SECRET) &&
@@ -223,6 +233,9 @@ export async function POST(request: Request) {
           unscheduled,
           zeroAttempts,
           attempted,
+          scanning,
+          expiredScanning,
+          noActiveScans,
         },
       },
       { status: workerConfigPass ? 200 : 503, headers: NO_STORE_HEADERS },
