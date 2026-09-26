@@ -115,6 +115,11 @@ jobs:
               b?.valuesPrinted !== false ||
               b?.scanner?.healthy !== true ||
               b?.storage?.providerMatches !== true ||
+              b?.candidate?.ready !== true ||
+              b?.candidate?.metadataReadError !== false ||
+              b?.candidate?.objectExists !== true ||
+              b?.candidate?.objectSizeMatches !== true ||
+              b?.candidate?.objectMimeMatches !== true ||
               b?.worker?.batchLimit !== 1 ||
               b?.worker?.batchIsOne !== true ||
               b?.worker?.sourceUrlTtlCompatible !== true ||
@@ -143,6 +148,8 @@ jobs:
                   expiredScanning: b.backlog.expiredScanning,
                   batchLimit: b.worker.batchLimit,
                   scannerHealthy: b.scanner.healthy,
+                  candidateReady: b.candidate.ready,
+                  candidateObjectExists: b.candidate.objectExists,
                   standardMaintenanceEndpointConfigured:
                     b.scheduler.standardMaintenanceEndpointConfigured === true,
                 }),
