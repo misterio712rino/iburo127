@@ -1,0 +1,228 @@
+name: Staging One File Scan
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Exact 40-character audit candidate SHA
+        required: true
+        type: string
+      confirmation:
+        description: Type RUN_STAGING_ONE_FILE_SCAN
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  one-file-scan:
+    if: github.ref_name == 'audit/production-readiness'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    env:
+      IB_STAGING_BASE_URL: https://iburo127-app-git-audit-producti-0d0d70-misterio712rino-projects.vercel.app
+      EXPECTED_PENDING: "43"
+
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Exact staging gate
+        shell: bash
+        env:
+          REQUESTED_SHA: ${{ inputs.candidate_sha }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          test "$CONFIRMATION" = "RUN_STAGING_ONE_FILE_SCAN"
+          printf '%s' "$REQUESTED_SHA" | grep -Eq '^[a-f0-9]{40}$'
+          actual_sha="$(git rev-parse HEAD)"
+          test "$actual_sha" = "$GITHUB_SHA"
+          test "$actual_sha" = "$REQUESTED_SHA"
+          echo "STAGING_ONE_FILE_SCAN_GATE_PASS"
+
+      - name: Verify exact Preview and preflight
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          IB_MAINTENANCE_SECRET: ${{ secrets.IB_MAINTENANCE_SECRET }}
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          test -n "$IB_MAINTENANCE_SECRET"
+          identity_file="$RUNNER_TEMP/staging-one-scan-identity.json"
+          preflight_file="$RUNNER_TEMP/staging-one-scan-preflight.json"
+          rm -f "$identity_file" "$preflight_file"
+          trap 'rm -f "$identity_file" "$preflight_file"' EXIT
+
+          for attempt in $(seq 1 18); do
+            status="$(curl --silent --show-error --connect-timeout 5 --max-time 15 \
+              --output "$identity_file" --write-out '%{http_code}' \
+              -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+              "$IB_STAGING_BASE_URL/_iburo/staging-identity" || true)"
+            if [ "$status" = "200" ] && IDENTITY_FILE="$identity_file" node --input-type=module -e '
+              import { readFileSync } from "node:fs";
+              try {
+                const b = JSON.parse(readFileSync(process.env.IDENTITY_FILE, "utf8"));
+                if (
+                  b.service === "iburo127" &&
+                  b.environment === "preview" &&
+                  b.branch === "audit/production-readiness" &&
+                  b.commitSha === process.env.GITHUB_SHA &&
+                  b.runtimeTarget === "staging" &&
+                  b.backendEnabled === true
+                ) process.exit(0);
+              } catch {}
+              process.exit(1);
+            '; then break; fi
+            if [ "$attempt" = 18 ]; then
+              echo "STAGING_ONE_FILE_SCAN_IDENTITY_FAIL" >&2
+              exit 1
+            fi
+            sleep 5
+          done
+
+          confirmation="PREFLIGHT_STAGING_FILE_SCAN_WORKER:${GITHUB_SHA}"
+          status="$(curl --silent --show-error --connect-timeout 5 --max-time 30 \
+            --request POST --output "$preflight_file" --write-out '%{http_code}' \
+            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+            -H "x-iburo-staging-control: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+            -H "x-iburo-staging-file-scan-worker-preflight-confirm: $confirmation" \
+            "$IB_STAGING_BASE_URL/_iburo/staging-file-scan-worker-preflight" || true)"
+          test "$status" = "200"
+
+          PREFLIGHT_FILE="$preflight_file" node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const b = JSON.parse(readFileSync(process.env.PREFLIGHT_FILE, "utf8"));
+            const expected = Number(process.env.EXPECTED_PENDING);
+            if (
+              b?.service !== "iburo127" ||
+              b?.operation !== "staging-file-scan-worker-preflight" ||
+              b?.commitSha !== process.env.GITHUB_SHA ||
+              b?.pass !== true ||
+              b?.readOnly !== true ||
+              b?.scanner?.healthy !== true ||
+              b?.storage?.providerMatches !== true ||
+              b?.candidate?.ready !== true ||
+              b?.worker?.batchLimit !== 1 ||
+              b?.backlog?.pending !== expected ||
+              b?.backlog?.dueOrOverdue !== expected ||
+              b?.backlog?.unscheduled !== 0 ||
+              b?.backlog?.zeroAttempts !== expected ||
+              b?.backlog?.attempted !== 0 ||
+              b?.backlog?.scanning !== 0 ||
+              b?.backlog?.expiredScanning !== 0 ||
+              b?.backlog?.noActiveScans !== true ||
+              b?.scheduler?.standardMaintenanceEndpointConfigured !== true
+            ) process.exit(1);
+          '
+          echo "STAGING_ONE_FILE_SCAN_PREFLIGHT_PASS"
+
+      - name: Run exactly one bounded file scan
+        id: scan
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          IB_MAINTENANCE_SECRET: ${{ secrets.IB_MAINTENANCE_SECRET }}
+        run: |
+          set -euo pipefail
+          result_file="$RUNNER_TEMP/staging-one-scan-result.json"
+          rm -f "$result_file"
+          trap 'rm -f "$result_file"' EXIT
+
+          status="$(curl --silent --show-error --connect-timeout 5 --max-time 130 \
+            --request POST --output "$result_file" --write-out '%{http_code}' \
+            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+            -H "Authorization: Bearer $IB_MAINTENANCE_SECRET" \
+            -H "Accept: application/json" \
+            "$IB_STAGING_BASE_URL/api/internal/maintenance/file-scans" || true)"
+          test "$status" = "200"
+
+          RESULT_FILE="$result_file" node --input-type=module -e '
+            import { appendFileSync, readFileSync } from "node:fs";
+            const b = JSON.parse(readFileSync(process.env.RESULT_FILE, "utf8"));
+            const d = b?.data ?? {};
+            const ints = ["claimed","clean","quarantined","retried","failed","leaseLost"];
+            if (b?.ok !== true || ints.some((key) => !Number.isInteger(d[key]) || d[key] < 0)) {
+              process.exit(1);
+            }
+            if (
+              d.claimed !== 1 ||
+              d.failed !== 0 ||
+              d.leaseLost !== 0 ||
+              d.clean + d.quarantined + d.retried !== 1
+            ) process.exit(1);
+            const kind = d.clean === 1 ? "clean" : d.quarantined === 1 ? "quarantined" : "retried";
+            appendFileSync(process.env.GITHUB_OUTPUT, `kind=${kind}\n`);
+            console.log(
+              "STAGING_ONE_FILE_SCAN_RESULT " +
+                JSON.stringify({
+                  claimed: d.claimed,
+                  clean: d.clean,
+                  quarantined: d.quarantined,
+                  retried: d.retried,
+                  failed: d.failed,
+                  leaseLost: d.leaseLost,
+                }),
+            );
+          '
+
+      - name: Verify exactly one-record state transition
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          SCAN_KIND: ${{ steps.scan.outputs.kind }}
+        run: |
+          set -euo pipefail
+          post_file="$RUNNER_TEMP/staging-one-scan-post.json"
+          rm -f "$post_file"
+          trap 'rm -f "$post_file"' EXIT
+          confirmation="PREFLIGHT_STAGING_FILE_SCAN_WORKER:${GITHUB_SHA}"
+          status="$(curl --silent --show-error --connect-timeout 5 --max-time 30 \
+            --request POST --output "$post_file" --write-out '%{http_code}' \
+            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+            -H "x-iburo-staging-control: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+            -H "x-iburo-staging-file-scan-worker-preflight-confirm: $confirmation" \
+            "$IB_STAGING_BASE_URL/_iburo/staging-file-scan-worker-preflight" || true)"
+          test "$status" = "200"
+
+          POST_FILE="$post_file" node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const b = JSON.parse(readFileSync(process.env.POST_FILE, "utf8"));
+            const kind = process.env.SCAN_KIND;
+            const expected = Number(process.env.EXPECTED_PENDING);
+            const terminal = kind === "clean" || kind === "quarantined";
+            if (!terminal && kind !== "retried") process.exit(1);
+            const expectedPending = terminal ? expected - 1 : expected;
+            const expectedDue = expected - 1;
+            const expectedZero = expected - 1;
+            const expectedAttempted = terminal ? 0 : 1;
+            if (
+              b?.pass !== true ||
+              b?.commitSha !== process.env.GITHUB_SHA ||
+              b?.scanner?.healthy !== true ||
+              b?.worker?.batchLimit !== 1 ||
+              b?.backlog?.pending !== expectedPending ||
+              b?.backlog?.dueOrOverdue !== expectedDue ||
+              b?.backlog?.unscheduled !== 0 ||
+              b?.backlog?.zeroAttempts !== expectedZero ||
+              b?.backlog?.attempted !== expectedAttempted ||
+              b?.backlog?.scanning !== 0 ||
+              b?.backlog?.expiredScanning !== 0 ||
+              b?.backlog?.noActiveScans !== true
+            ) process.exit(1);
+            console.log(
+              "STAGING_ONE_FILE_SCAN_POSTCHECK_PASS " +
+                JSON.stringify({
+                  kind,
+                  pending: b.backlog.pending,
+                  dueOrOverdue: b.backlog.dueOrOverdue,
+                  zeroAttempts: b.backlog.zeroAttempts,
+                  attempted: b.backlog.attempted,
+                }),
+            );
+          '
