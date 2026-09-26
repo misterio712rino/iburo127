@@ -4,7 +4,7 @@ services:
   scanner:
     image: "${SCANNER_IMAGE:?SCANNER_IMAGE is required}@${SCANNER_IMAGE_DIGEST:?SCANNER_IMAGE_DIGEST is required}"
     container_name: iburo-file-scanner-staging
-    restart: "no"
+    restart: unless-stopped
     env_file:
       - /etc/iburo-file-scanner/scanner.env
     ports:
