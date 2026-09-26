@@ -17,6 +17,9 @@ assert.match(source, /sourceUrlTtlCompatible/);
 assert.match(source, /standardMaintenanceEndpointConfigured/);
 assert.match(source, /scanAttemptCount: 0/);
 assert.match(source, /scanAttemptCount: \{ gt: 0 \}/);
+assert.match(source, /status: "SCANNING"/);
+assert.match(source, /expiredScanning/);
+assert.match(source, /noActiveScans/);
 
 for (const forbidden of [
   "runBatch(",
