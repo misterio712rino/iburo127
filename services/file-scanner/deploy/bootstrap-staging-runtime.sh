@@ -114,7 +114,7 @@ for _attempt in $(seq 1 360); do
 
   container_status="$(docker inspect --format '{{.State.Status}}' iburo-file-scanner-staging 2>/dev/null || true)"
   if [ "$container_status" = "exited" ]; then
-    printf '%s\\n' "STAGING_FILE_SCANNER_LOCAL_HEALTH_ABORT_CONTAINER_EXITED" >&2
+    printf '%s\n' "STAGING_FILE_SCANNER_LOCAL_HEALTH_ABORT_CONTAINER_EXITED" >&2
     break
   fi
 
