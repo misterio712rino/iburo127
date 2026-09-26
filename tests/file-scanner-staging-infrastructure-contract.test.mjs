@@ -137,7 +137,7 @@ assert.match(compose, /source: \/srv\/iburo-file-scanner\/clamav/);
 assert.match(compose, /target: \/var\/lib\/clamav/);
 assert.match(compose, /\/etc\/iburo-file-scanner\/scanner\.env/);
 assert.match(compose, /no-new-privileges:true/);
-assert.match(compose, /restart: unless-stopped/);
+assert.match(compose, /restart: "no"/);
 assert.match(compose, /read_only:\s*true/);
 assert.match(compose, /cap_drop:\s*\n\s*- ALL/);
 assert.match(compose, /cap_add:\s*\n\s*- CHOWN\s*\n\s*- SETGID\s*\n\s*- SETUID/);
