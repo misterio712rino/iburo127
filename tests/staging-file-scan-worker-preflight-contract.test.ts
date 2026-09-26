@@ -20,6 +20,10 @@ assert.match(source, /scanAttemptCount: \{ gt: 0 \}/);
 assert.match(source, /status: "SCANNING"/);
 assert.match(source, /expiredScanning/);
 assert.match(source, /noActiveScans/);
+assert.match(source, /MAX_SCANNER_FILE_BYTES = BigInt\(52_428_800\)/);
+assert.match(source, /ALLOWED_SCANNER_MIME_TYPES/);
+assert.match(source, /storage\.statObject\(candidate\.objectKey\)/);
+assert.match(source, /candidateReady/);
 
 for (const forbidden of [
   "runBatch(",
@@ -43,3 +47,8 @@ assert.doesNotMatch(source, /scanner:\s*\{[\s\S]{0,400}secret\s*:/);
 assert.doesNotMatch(source, /backlog:\s*\{[\s\S]{0,400}(?:objectKey|fileName|uploadedById|clientCaseId)\s*:/);
 
 console.log("STAGING_FILE_SCAN_WORKER_PREFLIGHT_CONTRACT_PASS");
+
+assert.doesNotMatch(
+  source,
+  /candidate:\s*\{[\s\S]{0,700}(?:objectKey|fileName|uploadedById|clientCaseId)\s*:/,
+);
