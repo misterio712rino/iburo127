@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     env:
-      IB_STAGING_BASE_URL: https://iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app
+      IB_STAGING_BASE_URL: https://iburo127-app-git-audit-producti-0d0d70-misterio712rino-projects.vercel.app
       IB_RUNTIME_TARGET: staging
       IB_FILE_SCANNER_TARGET: staging
       IB_STORAGE_TARGET: staging
@@ -205,7 +205,7 @@ jobs:
           const commitSha = process.env.GITHUB_SHA?.trim().toLowerCase() ?? "";
           if (
             baseUrl !==
-              "https://iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app" ||
+              "https://iburo127-app-git-audit-producti-0d0d70-misterio712rino-projects.vercel.app" ||
             !bypass ||
             !/^[a-f0-9]{64}$/.test(fingerprint) ||
             !/^[a-f0-9]{40}$/.test(commitSha)

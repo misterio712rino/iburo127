@@ -7,7 +7,7 @@ const pathname = `security-fixtures/file-scanner/${sha}/12345-1/clean.txt`;
 const host = "teststore123.private.blob.vercel-storage.com";
 const env = {
   NODE_ENV: "test" as const,
-  IB_STAGING_BASE_URL: "https://iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app",
+  IB_STAGING_BASE_URL: "https://iburo127-app-git-audit-producti-0d0d70-misterio712rino-projects.vercel.app",
   IB_STAGING_SCANNER_FIXTURE_AUTH_MODE: "github-oidc",
   IB_STAGING_VERCEL_BLOB_PRIVATE_HOST: host,
   GITHUB_SHA: sha, GITHUB_RUN_ID: "12345", GITHUB_RUN_ATTEMPT: "1",

@@ -5,7 +5,7 @@ import { IB_STAGING_CONTROL_HEADER } from "../server/staging/vercel-automation-a
 import { isVercelBlobDeleteSuccessStatus } from "../server/files/vercel-blob-delete-semantics";
 import { readBoundedScannerJson } from "./staging-scanner-bounded-json";
 
-const EXACT_PREVIEW_ORIGIN = "https://iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app";
+const EXACT_PREVIEW_ORIGIN = "https://iburo127-app-git-audit-producti-0d0d70-misterio712rino-projects.vercel.app";
 const ROUTE = "/_iburo/staging-scanner-fixture-url";
 const MIME = "application/pdf";
 const MAX_BYTES = 1024;

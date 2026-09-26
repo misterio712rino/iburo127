@@ -26,7 +26,7 @@ const FIXTURE_URL_TTL_SECONDS = 300;
 const MAX_FIXTURE_BYTES = 1024;
 const FIXTURE_MIME_TYPE = "application/pdf";
 const STAGING_BASE_URL =
-  "https://iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects.vercel.app";
+  "https://iburo127-app-git-audit-producti-0d0d70-misterio712rino-projects.vercel.app";
 const STAGING_SCANNER_BRIDGE_URL = `${STAGING_BASE_URL}/_iburo/staging-scanner-bridge`;
 const BRIDGE_RESPONSE_MAX_BYTES = 512;
 const BRIDGE_SCANNER_DIAGNOSTIC_PATTERN =

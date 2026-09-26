@@ -87,7 +87,7 @@ function isBoundedManualSmokeOidcWorkflow(source, displayPath) {
     /actual_sha="\$\(git rev-parse HEAD\)"/.test(job) &&
     /"\$actual_sha" != "\$GITHUB_SHA"/.test(job) &&
     /"\$actual_sha" != "\$REQUESTED_SHA"/.test(job) &&
-    /IB_STAGING_BASE_URL:\s*https:\/\/iburo127-app-git-audit-pr-0d0d70-misterio712rino-9166s-projects\.vercel\.app/.test(job) &&
+    /IB_STAGING_BASE_URL:\s*https:\/\/iburo127-app-git-audit-producti-0d0d70-misterio712rino-projects\.vercel\.app/.test(job) &&
     /IB_STAGING_SCANNER_FIXTURE_AUTH_MODE:\s*github-oidc/.test(job) &&
     /IB_FILE_SCANNER_ORIGIN:\s*https:\/\/scanner-v2-staging\.iburo127\.online/.test(job) &&
     !/BLOB_READ_WRITE_TOKEN/.test(job) &&
