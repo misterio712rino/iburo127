@@ -19,7 +19,7 @@ const env = {
 };
 const etag = '"0123456789abcdef0123456789abcdef"';
 const denied = /STAGING_SCANNER_OIDC_STORAGE_DENIED/;
-function harness(headStatus = 404, headEtag = etag) {
+function harness(headStatus = 404, headEtag = etag, getStatus = 200) {
   const events: string[] = [];
   const request = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -47,6 +47,15 @@ function harness(headStatus = 404, headEtag = etag) {
       return new Response(null, { status: headStatus, headers: {
         "content-length": "35", "content-type": "application/pdf", etag: headEtag,
       } });
+    }
+    if (init?.method === "GET") {
+      events.push("get");
+      return new Response(getStatus === 200 ? "x".repeat(35) : null, {
+        status: getStatus,
+        headers: {
+          "content-length": "35", "content-type": "application/pdf", etag: headEtag,
+        },
+      });
     }
     if (init?.method === "DELETE") { events.push("delete"); return new Response(null, { status: 204 }); }
     throw new Error("unexpected test request");
@@ -109,6 +118,33 @@ test("404 metadata is absence and never authorizes deletion", async () => {
   assert.equal(await storage.statPrivateBlob(pathname), null);
   await assert.rejects(storage.deletePrivateBlob(pathname), denied);
   assert.deepEqual(h.events, ["oidc", "issue:head", "head"]);
+});
+
+test("confirmed upload recovers metadata with cache-bypassing GET after stale HEAD 404", async () => {
+  const h = harness(404);
+  const storage = createOidcScopedScannerSmokeStorage(env, h.request);
+  storage.confirmUploadedFixture(pathname);
+  assert.deepEqual(await storage.statPrivateBlob(pathname), {
+    sizeBytes: BigInt(35), mimeType: "application/pdf",
+  });
+  await storage.deletePrivateBlob(pathname);
+  assert.deepEqual(h.events, [
+    "oidc", "issue:head", "head",
+    "oidc", "issue:get", "get",
+    "oidc", "issue:delete", `delete-etag:${etag}`, "delete",
+  ]);
+});
+
+test("confirmed upload remains fail-closed if HEAD and consistent GET both report 404", async () => {
+  const h = harness(404, etag, 404);
+  const storage = createOidcScopedScannerSmokeStorage(env, h.request);
+  storage.confirmUploadedFixture(pathname);
+  await assert.rejects(storage.statPrivateBlob(pathname), denied);
+  await assert.rejects(storage.deletePrivateBlob(pathname), denied);
+  assert.deepEqual(h.events, [
+    "oidc", "issue:head", "head",
+    "oidc", "issue:get", "get",
+  ]);
 });
 
 test("deletes only after acknowledged upload and matching ETag", async () => {
