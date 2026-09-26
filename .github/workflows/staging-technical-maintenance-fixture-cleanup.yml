@@ -1,0 +1,186 @@
+name: Staging Technical Maintenance Fixture Cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Exact audit/production-readiness SHA
+        required: true
+        type: string
+      expected_stale:
+        description: Exact strict technical stale-upload count
+        required: true
+        type: string
+      expected_deletion:
+        description: Exact strict technical deletion count
+        required: true
+        type: string
+      confirmation:
+        description: Must equal CLEAN_STAGING_TECHNICAL_MAINTENANCE
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    if: github.ref_name == 'audit/production-readiness'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      IB_STAGING_BASE_URL: https://iburo127-app-git-audit-producti-0d0d70-misterio712rino-projects.vercel.app
+
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.candidate_sha }}
+
+      - name: Enforce exact cleanup target
+        shell: bash
+        env:
+          REQUESTED_SHA: ${{ inputs.candidate_sha }}
+          EXPECTED_STALE: ${{ inputs.expected_stale }}
+          EXPECTED_DELETION: ${{ inputs.expected_deletion }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/audit/production-readiness"
+          test "$CONFIRMATION" = "CLEAN_STAGING_TECHNICAL_MAINTENANCE"
+          [[ "$REQUESTED_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$EXPECTED_STALE" =~ ^[0-9]{1,3}$ ]]
+          [[ "$EXPECTED_DELETION" =~ ^[0-9]{1,2}$ ]]
+          test "$REQUESTED_SHA" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$REQUESTED_SHA"
+          test "$EXPECTED_STALE" -le 100
+          test "$EXPECTED_DELETION" -le 20
+          echo "STAGING_TECHNICAL_MAINTENANCE_CLEANUP_TARGET_PASS"
+
+      - name: Verify exact Preview and strict technical ownership
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          EXPECTED_STALE: ${{ inputs.expected_stale }}
+          EXPECTED_DELETION: ${{ inputs.expected_deletion }}
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          identity="$RUNNER_TEMP/cleanup-identity.json"
+          classifier="$RUNNER_TEMP/cleanup-classifier.json"
+          rm -f "$identity" "$classifier"
+          trap 'rm -f "$identity" "$classifier"' EXIT
+
+          for attempt in $(seq 1 18); do
+            status="$(curl --silent --show-error --connect-timeout 5 --max-time 15 \
+              --output "$identity" --write-out '%{http_code}' \
+              -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+              "$IB_STAGING_BASE_URL/_iburo/staging-identity" || true)"
+            if [ "$status" = "200" ] && IDENTITY="$identity" node --input-type=module -e '
+              import { readFileSync } from "node:fs";
+              try {
+                const b=JSON.parse(readFileSync(process.env.IDENTITY,"utf8"));
+                if (b.service==="iburo127" && b.environment==="preview" &&
+                    b.branch==="audit/production-readiness" &&
+                    b.commitSha===process.env.GITHUB_SHA &&
+                    b.runtimeTarget==="staging" && b.backendEnabled===true) process.exit(0);
+              } catch {}
+              process.exit(1);
+            '; then break; fi
+            if [ "$attempt" = 18 ]; then exit 1; fi
+            sleep 5
+          done
+
+          curl --silent --show-error --fail \
+            --connect-timeout 5 --max-time 20 \
+            --output "$classifier" \
+            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+            "$IB_STAGING_BASE_URL/_iburo/staging-maintenance-backlog-classifier"
+
+          CLASSIFIER="$classifier" node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const b=JSON.parse(readFileSync(process.env.CLASSIFIER,"utf8"));
+            const es=Number(process.env.EXPECTED_STALE);
+            const ed=Number(process.env.EXPECTED_DELETION);
+            if (
+              b?.service!=="iburo127" ||
+              b?.operation!=="staging-maintenance-backlog-classifier" ||
+              b?.commitSha!==process.env.GITHUB_SHA ||
+              b?.readOnly!==true || b?.aggregateOnly!==true ||
+              b?.staleUploads?.overdue!==es ||
+              b?.staleUploads?.strictKnownTechnicalFixtures!==es ||
+              b?.staleUploads?.unknownOrNonTechnical!==0 ||
+              b?.fileDeletion?.overduePending!==ed ||
+              b?.fileDeletion?.strictKnownTechnicalFixtures!==ed ||
+              b?.fileDeletion?.unknownOrNonTechnical!==0
+            ) process.exit(1);
+          '
+          echo "STAGING_TECHNICAL_MAINTENANCE_OWNERSHIP_PASS"
+
+      - name: Clean only strict technical maintenance fixtures
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          EXPECTED_STALE: ${{ inputs.expected_stale }}
+          EXPECTED_DELETION: ${{ inputs.expected_deletion }}
+        run: |
+          set -euo pipefail
+          response="$RUNNER_TEMP/technical-maintenance-cleanup.json"
+          rm -f "$response"
+          trap 'rm -f "$response"' EXIT
+          status="$(curl --silent --show-error \
+            --connect-timeout 5 --max-time 90 \
+            --output "$response" --write-out '%{http_code}' \
+            --request POST \
+            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+            -H "x-iburo-staging-maintenance-cleanup-stale: $EXPECTED_STALE" \
+            -H "x-iburo-staging-maintenance-cleanup-deletion: $EXPECTED_DELETION" \
+            -H "x-iburo-staging-maintenance-cleanup-confirm: CLEAN_TECHNICAL_MAINTENANCE_FIXTURES:$GITHUB_SHA:$EXPECTED_STALE:$EXPECTED_DELETION" \
+            "$IB_STAGING_BASE_URL/_iburo/staging-maintenance-technical-fixture-cleanup" || true)"
+          test "$status" = "200"
+          RESPONSE="$response" node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const b=JSON.parse(readFileSync(process.env.RESPONSE,"utf8"));
+            const es=Number(process.env.EXPECTED_STALE);
+            const ed=Number(process.env.EXPECTED_DELETION);
+            if (
+              b?.service!=="iburo127" ||
+              b?.operation!=="staging-maintenance-technical-fixture-cleanup" ||
+              b?.commitSha!==process.env.GITHUB_SHA ||
+              b?.pass!==true || b?.aggregateOnly!==true ||
+              b?.valuesPrinted!==false ||
+              b?.expected?.staleUploads!==es ||
+              b?.expected?.fileDeletion!==ed ||
+              b?.cleaned?.staleUploads!==es ||
+              b?.cleaned?.fileDeletion!==ed
+            ) process.exit(1);
+          '
+          echo "STAGING_TECHNICAL_MAINTENANCE_CLEANUP_PASS"
+
+      - name: Verify technical maintenance backlog is empty
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          set -euo pipefail
+          result="$RUNNER_TEMP/post-cleanup-classifier.json"
+          rm -f "$result"
+          trap 'rm -f "$result"' EXIT
+          curl --silent --show-error --fail \
+            --connect-timeout 5 --max-time 20 \
+            --output "$result" \
+            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+            "$IB_STAGING_BASE_URL/_iburo/staging-maintenance-backlog-classifier"
+          RESULT="$result" node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const b=JSON.parse(readFileSync(process.env.RESULT,"utf8"));
+            if (
+              b?.commitSha!==process.env.GITHUB_SHA ||
+              b?.staleUploads?.overdue!==0 ||
+              b?.staleUploads?.unknownOrNonTechnical!==0 ||
+              b?.fileDeletion?.overduePending!==0 ||
+              b?.fileDeletion?.unknownOrNonTechnical!==0
+            ) process.exit(1);
+          '
+          echo "STAGING_TECHNICAL_MAINTENANCE_POST_CLEANUP_PASS"
