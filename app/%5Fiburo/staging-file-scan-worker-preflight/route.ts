@@ -20,6 +20,15 @@ const EXACT_GIT_SHA_PATTERN = /^[a-f0-9]{40}$/i;
 const CONFIRM_HEADER = "x-iburo-staging-file-scan-worker-preflight-confirm";
 const CONFIG_ONLY_SECRET = "x".repeat(32);
 const EXPECTED_STORAGE_PROVIDER = "vercel-blob";
+const MAX_SCANNER_FILE_BYTES = BigInt(52_428_800);
+const ALLOWED_SCANNER_MIME_TYPES = new Set([
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
 
 const NO_STORE_HEADERS = {
   "Cache-Control": "private, no-store, max-age=0",
@@ -172,6 +181,61 @@ export async function POST(request: Request) {
       }),
     ]);
 
+    const candidate = await prisma.storedFile.findFirst({
+      where: {
+        status: "PENDING_SCAN",
+        scanNextAttemptAt: { lte: now },
+      },
+      select: {
+        storageProvider: true,
+        objectKey: true,
+        mimeType: true,
+        sizeBytes: true,
+        scanAttemptCount: true,
+      },
+      orderBy: [{ scanNextAttemptAt: "asc" }, { createdAt: "asc" }],
+    });
+
+    let candidateMetadata: Awaited<ReturnType<typeof storage.statObject>> = null;
+    let candidateMetadataReadError = false;
+    if (candidate) {
+      try {
+        candidateMetadata = await storage.statObject(candidate.objectKey);
+      } catch {
+        candidateMetadataReadError = true;
+      }
+    }
+
+    const candidatePresent = candidate !== null;
+    const candidateProviderMatches =
+      candidate !== null && candidate.storageProvider === storage.providerCode;
+    const candidateAttemptIsZero = candidate !== null && candidate.scanAttemptCount === 0;
+    const candidateMimeAllowed =
+      candidate !== null && ALLOWED_SCANNER_MIME_TYPES.has(candidate.mimeType);
+    const candidateSizeAllowed =
+      candidate !== null &&
+      candidate.sizeBytes > BigInt(0) &&
+      candidate.sizeBytes <= MAX_SCANNER_FILE_BYTES;
+    const candidateObjectExists = candidateMetadata !== null;
+    const candidateObjectSizeMatches =
+      candidate !== null &&
+      candidateMetadata !== null &&
+      candidateMetadata.sizeBytes === candidate.sizeBytes;
+    const candidateObjectMimeMatches =
+      candidate !== null &&
+      candidateMetadata !== null &&
+      candidateMetadata.mimeType === candidate.mimeType;
+    const candidateReady =
+      candidatePresent &&
+      candidateProviderMatches &&
+      candidateAttemptIsZero &&
+      candidateMimeAllowed &&
+      candidateSizeAllowed &&
+      !candidateMetadataReadError &&
+      candidateObjectExists &&
+      candidateObjectSizeMatches &&
+      candidateObjectMimeMatches;
+
     const health = await scannerHealth(scanner.origin, scanner.secret, scanner.requestTimeoutMs);
     const leaseTimeoutCompatible =
       scanner.requestTimeoutMs < maintenance.fileScanLeaseSeconds * 1000;
@@ -186,7 +250,8 @@ export async function POST(request: Request) {
       sourceUrlTtlCompatible &&
       batchIsOne &&
       storageProviderMatches &&
-      noActiveScans;
+      noActiveScans &&
+      candidateReady;
 
     const standardMaintenanceEndpointConfigured =
       configuredSecret(env.IB_MAINTENANCE_SECRET) &&
@@ -212,6 +277,18 @@ export async function POST(request: Request) {
           provider: storage.providerCode,
           expectedProvider: EXPECTED_STORAGE_PROVIDER,
           providerMatches: storageProviderMatches,
+        },
+        candidate: {
+          present: candidatePresent,
+          providerMatches: candidateProviderMatches,
+          attemptIsZero: candidateAttemptIsZero,
+          mimeAllowed: candidateMimeAllowed,
+          sizeAllowed: candidateSizeAllowed,
+          metadataReadError: candidateMetadataReadError,
+          objectExists: candidateObjectExists,
+          objectSizeMatches: candidateObjectSizeMatches,
+          objectMimeMatches: candidateObjectMimeMatches,
+          ready: candidateReady,
         },
         worker: {
           batchLimit: maintenance.fileScanBatchLimit,
