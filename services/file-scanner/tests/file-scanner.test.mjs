@@ -433,7 +433,7 @@ test("container contract keeps ClamAV persistent, refreshed and processes non-ro
   assert.match(entrypoint, /while \[ "\$signature_bootstrap_ok" -ne 1 \]; do/);
   assert.match(entrypoint, /sleep 3600/);
   assert.doesNotMatch(entrypoint, /while \[ "\$attempt" -le 3 \]; do/);
-  assert.match(entrypoint, /STAGING_FILE_SCANNER_SIGNATURE_BOOTSTRAP_RETRY_MANUAL:1/);
+  assert.match(entrypoint, /STAGING_FILE_SCANNER_SIGNATURE_BOOTSTRAP_WAITING_3600S/);
   assert.match(entrypoint, /timeout 420s gosu clamav freshclam/);
   assert.match(entrypoint, /STAGING_FILE_SCANNER_SIGNATURE_BOOTSTRAP_FAIL/);
   assert.match(entrypoint, /has_signature_database main/);
