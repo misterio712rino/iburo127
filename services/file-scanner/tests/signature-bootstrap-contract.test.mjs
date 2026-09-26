@@ -59,6 +59,10 @@ test("signature bootstrap avoids Docker stdout logfile recursion and restart per
     entrypoint,
     /freshclam\s+--stdout\s+--config-file="\$initial_freshclam_config"/,
   );
+  assert.match(entrypoint, /while \[ "\$signature_bootstrap_ok" -ne 1 \]; do/);
+  assert.match(entrypoint, /STAGING_FILE_SCANNER_SIGNATURE_BOOTSTRAP_WAITING_3600S/);
+  assert.match(entrypoint, /sleep 3600/);
+  assert.doesNotMatch(entrypoint, /while \[ "\$attempt" -le 3 \]/);
   assert.match(
     entrypoint,
     /freshclam\s+--config-file=\/etc\/clamav\/freshclam\.conf\s+--daemon\s+--stdout/,
