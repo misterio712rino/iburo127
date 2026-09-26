@@ -87,19 +87,13 @@ if signature_set_is_fresh "$SIGNATURE_DIRECTORY"; then
   printf '%s\n' "STAGING_FILE_SCANNER_SIGNATURE_BOOTSTRAP_FRESH_LOCAL_PASS"
 else
   signature_bootstrap_ok=0
-  attempt=1
-  while [ "$attempt" -le 3 ]; do
-    printf '%s\n' "STAGING_FILE_SCANNER_SIGNATURE_BOOTSTRAP_ATTEMPT:${attempt}"
+  printf '%s\n' "STAGING_FILE_SCANNER_SIGNATURE_BOOTSTRAP_ATTEMPT:1"
 
-    if timeout 420s gosu clamav freshclam --stdout --config-file="$initial_freshclam_config"; then
-      signature_bootstrap_ok=1
-      break
-    fi
-
-    printf '%s\n' "STAGING_FILE_SCANNER_SIGNATURE_BOOTSTRAP_RETRY:${attempt}" >&2
-    sleep $((attempt * 15))
-    attempt=$((attempt + 1))
-  done
+  if timeout 420s gosu clamav freshclam --stdout --config-file="$initial_freshclam_config"; then
+    signature_bootstrap_ok=1
+  else
+    printf '%s\n' "STAGING_FILE_SCANNER_SIGNATURE_BOOTSTRAP_RETRY_MANUAL:1" >&2
+  fi
 fi
 
 rm -f "$initial_freshclam_config"
