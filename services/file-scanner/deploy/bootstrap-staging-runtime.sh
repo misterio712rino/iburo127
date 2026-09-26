@@ -112,6 +112,12 @@ for _attempt in $(seq 1 360); do
 
   unset IB_FILE_SCANNER_SECRET
 
+  container_status="$(docker inspect --format '{{.State.Status}}' iburo-file-scanner-staging 2>/dev/null || true)"
+  if [ "$container_status" = "exited" ]; then
+    printf '%s\\n' "STAGING_FILE_SCANNER_LOCAL_HEALTH_ABORT_CONTAINER_EXITED" >&2
+    break
+  fi
+
   if [ $((_attempt % 24)) -eq 0 ]; then
     printf '%s\n' "STAGING_FILE_SCANNER_LOCAL_HEALTH_PENDING:${_attempt}"
   fi
