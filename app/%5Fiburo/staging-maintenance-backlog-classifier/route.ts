@@ -156,6 +156,7 @@ export async function GET() {
               clientCaseId: technicalCase.id,
               requestedByUserId: technicalClient.id,
               storageProvider: EXPECTED_STORAGE_PROVIDER,
+              objectKey: { startsWith: `cases/${technicalCase.id}/` },
               originalFileStatus: "PENDING_SCAN",
               attemptCount: 0,
               leaseUntil: null,
