@@ -41,5 +41,6 @@ ENV NODE_ENV=production \
 
 EXPOSE 8080
 VOLUME ["/var/lib/clamav"]
-HEALTHCHECK NONE
+HEALTHCHECK --interval=60s --timeout=10s --start-period=10m --retries=3 \
+  CMD node -e 'const token = process.env.IB_FILE_SCANNER_SECRET; if (!token) process.exit(1); fetch("http://127.0.0.1:8080/health", { headers: { authorization: "Bearer " + token }, signal: AbortSignal.timeout(5000) }).then((response) => process.exit(response.status === 200 ? 0 : 1)).catch(() => process.exit(1))'
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/file-scanner-entrypoint"]
