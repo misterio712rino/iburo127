@@ -209,7 +209,6 @@ export async function POST(request: Request) {
         },
         scheduler: {
           standardMaintenanceEndpointConfigured,
-          fileScanSchedulerOnDefaultBranch: false,
         },
         backlog: {
           pending,
