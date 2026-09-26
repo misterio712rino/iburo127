@@ -76,7 +76,27 @@ jobs:
               -H "x-iburo-staging-file-scan-worker-preflight-confirm: $confirmation" \
               "$IB_STAGING_BASE_URL/_iburo/staging-file-scan-worker-preflight" || true
           )"
-          test "$http_status" = "200"
+          if [ "$http_status" != "200" ]; then
+            HTTP_STATUS="$http_status" PREFLIGHT_FILE="$preflight_file" node --input-type=module -e '
+              import { readFileSync } from "node:fs";
+              let b = {};
+              try { b = JSON.parse(readFileSync(process.env.PREFLIGHT_FILE, "utf8")); } catch {}
+              const safe = {
+                httpStatus: process.env.HTTP_STATUS,
+                errorCode: typeof b?.errorCode === "string" ? b.errorCode : null,
+                pass: b?.pass === true,
+                scannerHealthy: b?.scanner?.healthy === true,
+                storageProviderMatches: b?.storage?.providerMatches === true,
+                batchIsOne: b?.worker?.batchIsOne === true,
+                sourceUrlTtlCompatible: b?.worker?.sourceUrlTtlCompatible === true,
+                leaseTimeoutCompatible: b?.worker?.leaseTimeoutCompatible === true,
+                standardMaintenanceEndpointConfigured:
+                  b?.scheduler?.standardMaintenanceEndpointConfigured === true,
+              };
+              console.error("STAGING_FILE_SCAN_WORKER_PREFLIGHT_DIAGNOSTIC " + JSON.stringify(safe));
+            '
+            exit 1
+          fi
 
           PREFLIGHT_FILE="$preflight_file" node --input-type=module -e '
             import { readFileSync } from "node:fs";
