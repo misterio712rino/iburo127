@@ -94,7 +94,13 @@ async function scannerHealth(origin: string, secret: string, timeoutMs: number) 
     return false;
   }
   const contentType = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
-  if (contentType !== "application/json") {
+  const declared = response.headers.get("content-length");
+  if (
+    contentType !== "application/json" ||
+    declared === null ||
+    !/^\\d{1,3}$/.test(declared) ||
+    Number(declared) > 256
+  ) {
     await response.body?.cancel().catch(() => {});
     return false;
   }
