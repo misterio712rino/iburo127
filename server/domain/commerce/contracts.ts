@@ -111,3 +111,13 @@ export type CommerceVerifiedEventProcessingResult = {
   orderBecamePaid: boolean;
   shouldPauseProvisionedCase: boolean;
 };
+
+
+export type CommerceCreatedOrder = {
+  publicCheckoutId: string;
+  planCode: CommerceOnlinePlanCode;
+  amountMinor: number;
+  currency: string;
+  offerVersion: string;
+  status: "PENDING_PAYMENT";
+};
