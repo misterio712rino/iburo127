@@ -110,6 +110,15 @@ export async function GET() {
     return unavailable(503, "target");
   }
 
+  let databaseProvider: "neon" | "yandex" | "other" = "other";
+  try {
+    const hostname = new URL(target.databaseUrl).hostname.toLowerCase();
+    if (hostname.endsWith(".neon.tech")) databaseProvider = "neon";
+    else if (hostname.endsWith(".yandexcloud.net")) databaseProvider = "yandex";
+  } catch {
+    return unavailable(503, "target");
+  }
+
   const pool = new Pool({
     connectionString: target.databaseUrl,
     connectionTimeoutMillis: 10_000,
@@ -264,8 +273,7 @@ export async function GET() {
           database: {
             name: identityRow.database_name,
             schema: identityRow.current_schema,
-            host: target.expectedHost,
-            provider: target.expectedHost.endsWith(".neon.tech") ? "neon" : "other",
+            provider: databaseProvider,
           },
           domain: {
             tables: {
