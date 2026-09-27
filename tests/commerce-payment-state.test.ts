@@ -224,6 +224,48 @@ function payment(
   assert.equal(chargeback.shouldPauseProvisionedCase, false);
 }
 
+
+{
+  const delayedSuccess = applyVerifiedCommercePaymentEvent({
+    order: order("PAYMENT_FAILED"),
+    payment: payment("FAILED", t3),
+    event: event("SUCCEEDED", t2),
+  });
+  assert.equal(delayedSuccess.applied, true);
+  assert.equal(delayedSuccess.stale, false);
+  assert.equal(delayedSuccess.paymentStatus, "SUCCEEDED");
+  assert.equal(delayedSuccess.orderStatus, "PAID");
+  assert.equal(delayedSuccess.orderBecamePaid, true);
+  assert.equal(delayedSuccess.providerOccurredAt?.getTime(), t3.getTime());
+}
+
+{
+  const delayedRefund = applyVerifiedCommercePaymentEvent({
+    order: order("PROVISIONED"),
+    payment: payment("SUCCEEDED", t3),
+    event: event("REFUNDED", t2),
+  });
+  assert.equal(delayedRefund.applied, true);
+  assert.equal(delayedRefund.stale, false);
+  assert.equal(delayedRefund.paymentStatus, "REFUNDED");
+  assert.equal(delayedRefund.orderStatus, "REFUNDED");
+  assert.equal(delayedRefund.shouldPauseProvisionedCase, true);
+  assert.equal(delayedRefund.providerOccurredAt?.getTime(), t3.getTime());
+}
+
+{
+  const delayedChargeback = applyVerifiedCommercePaymentEvent({
+    order: order("REFUNDED"),
+    payment: payment("REFUNDED", t3),
+    event: event("CHARGEBACK", t2),
+  });
+  assert.equal(delayedChargeback.applied, true);
+  assert.equal(delayedChargeback.stale, false);
+  assert.equal(delayedChargeback.paymentStatus, "CHARGEBACK");
+  assert.equal(delayedChargeback.orderStatus, "CHARGEBACK");
+  assert.equal(delayedChargeback.providerOccurredAt?.getTime(), t3.getTime());
+}
+
 for (const [overrides, code] of [
   [{ amountMinor: 123_401 }, COMMERCE_PAYMENT_AMOUNT_MISMATCH],
   [{ currency: "USD" }, COMMERCE_PAYMENT_CURRENCY_MISMATCH],
