@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { DOCUMENT_DEFINITIONS } from "@/lib/platform/document-definitions";
+import { CaseStageTimeline } from "../progress/CaseStageTimeline";
 import styles from "./IBuroDocumentsV2.module.css";
 
 type DocumentStatus = "WAITING_DATA" | "DRAFT" | "READY_FOR_REVIEW" | "SENT_FOR_REVIEW" | "REVIEWED";
@@ -39,10 +40,11 @@ const SELF_SERVICE_STATUS_LABELS: Record<DocumentStatus, string> = {
   REVIEWED: "Проверен ранее",
 };
 
-export function IBuroDocumentsV2({ caseId, humanSupportAvailable, questionnaire, initialDocuments }: {
+export function IBuroDocumentsV2({ caseId, humanSupportAvailable, questionnaire, stage, initialDocuments }: {
   caseId: string;
   humanSupportAvailable: boolean;
   questionnaire: { completed: number; total: number; percent: number };
+  stage: { code: string; label: string; position: number | null; total: number };
   initialDocuments: DocumentView[];
 }) {
   const [documents, setDocuments] = useState(initialDocuments);
@@ -115,6 +117,8 @@ export function IBuroDocumentsV2({ caseId, humanSupportAvailable, questionnaire,
       <section className={styles.hero}>
         <span>Подготовка документов</span><h2>{heroTitle}</h2><p>{heroText}</p><Files aria-hidden="true" />
       </section>
+
+      <CaseStageTimeline stage={stage} />
 
       <section aria-labelledby="docs-v2-list">
         <div className={styles.sectionHeading}>
