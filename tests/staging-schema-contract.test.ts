@@ -211,13 +211,22 @@ const stagingBaselineSource = await readFile(
   "utf8",
 );
 assert.match(stagingBaselineSource, /client\.query\("BEGIN READ ONLY"\)/);
-assert.match(stagingBaselineSource, /DOCUMENT_REVISION_MIGRATION = "20260917_case_document_revisions"/);
-assert.match(stagingBaselineSource, /appliedNames\.size !== appliedMigrations\.length/);
-assert.match(stagingBaselineSource, /EXPECTED_PRISMA_MIGRATIONS\.every\(\(name\) => appliedNames\.has\(name\)\)/);
-assert.match(stagingBaselineSource, /revisionMigrationApplied === null/);
+assert.match(stagingBaselineSource, /"20260917_case_document_revisions"/);
+assert.match(stagingBaselineSource, /"20260927_commerce_foundation"/);
+assert.match(stagingBaselineSource, /"20260927_commerce_order_checkout_idempotency"/);
+assert.match(stagingBaselineSource, /function reviewedMigrationState/);
+assert.match(stagingBaselineSource, /appliedMigrations\.length > EXPECTED_PRISMA_MIGRATIONS\.length/);
+assert.match(stagingBaselineSource, /appliedNames\[index\] !== EXPECTED_PRISMA_MIGRATIONS\[index\]/);
+assert.match(stagingBaselineSource, /exactReviewedPrefix: true/);
+assert.match(stagingBaselineSource, /pendingCount: migrationState\.pendingCount/);
 assert.match(stagingBaselineSource, /assertDocumentRevisionSchemaContract\(\{ tables: tableNames, enums: enumNames \}\)/);
-assert.match(stagingBaselineSource, /else if \(revisionTablePresent \|\| revisionEnumPresent\)/);
-assert.match(stagingBaselineSource, /documentRevision: \{\s*migrationApplied: revisionMigrationApplied,\s*schemaReady: revisionMigrationApplied,/);
+assert.match(stagingBaselineSource, /commerce foundation migration recorded without required schema objects/);
+assert.match(stagingBaselineSource, /untracked commerce foundation schema drift/);
+assert.match(stagingBaselineSource, /commerce idempotency migration recorded without checkoutRequestId/);
+assert.match(stagingBaselineSource, /untracked commerce idempotency schema drift/);
+assert.match(stagingBaselineSource, /foundationMigrationApplied: migrationState\.commerceFoundationApplied/);
+assert.match(stagingBaselineSource, /idempotencyMigrationApplied: migrationState\.commerceIdempotencyApplied/);
+assert.match(stagingBaselineSource, /schemaReady: migrationState\.commerceReady/);
 assert.doesNotMatch(stagingBaselineSource, /expectedCount: EXPECTED_PRISMA_MIGRATIONS\.length \+ 1/);
 
 console.log("STAGING_SCHEMA_CONTRACT_TEST_PASS");
