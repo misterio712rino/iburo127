@@ -115,7 +115,13 @@ try {
     );
   }
 
-  const orderCount = await prisma.commerceOrder.count();
+  const orderCount = await prisma.commerceOrder.count({
+    where: {
+      customerEmail: {
+        contains: runId,
+      },
+    },
+  });
   assert.equal(orderCount, 2);
 
   console.log("COMMERCE_POSTGRES_ORDER_CREATION_PASS");
