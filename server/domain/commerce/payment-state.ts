@@ -232,8 +232,10 @@ export function applyVerifiedCommercePaymentEvent(input: {
   const currentPaymentStatus = input.payment?.status ?? "PENDING";
   const currentOccurredAt = input.payment?.providerOccurredAt ?? null;
   const incomingStatus = eventPaymentStatus(event.kind);
+  const paymentStatus = transitionPaymentStatus(currentPaymentStatus, incomingStatus);
+  const paymentStatusChanged = paymentStatus !== currentPaymentStatus;
 
-  if (currentOccurredAt) {
+  if (currentOccurredAt && !paymentStatusChanged) {
     const incomingTime = event.occurredAt.getTime();
     const currentTime = currentOccurredAt.getTime();
 
@@ -254,20 +256,23 @@ export function applyVerifiedCommercePaymentEvent(input: {
     }
   }
 
-  const paymentStatus = transitionPaymentStatus(currentPaymentStatus, incomingStatus);
   const orderStatus = transitionOrderStatus(input.order.status, paymentStatus);
+  const providerOccurredAt =
+    currentOccurredAt && currentOccurredAt.getTime() > event.occurredAt.getTime()
+      ? currentOccurredAt
+      : event.occurredAt;
   const applied =
-    paymentStatus !== currentPaymentStatus ||
+    paymentStatusChanged ||
     orderStatus !== input.order.status ||
     currentOccurredAt === null ||
-    event.occurredAt.getTime() > currentOccurredAt.getTime();
+    providerOccurredAt.getTime() > currentOccurredAt.getTime();
 
   return {
     applied,
     stale: false,
     paymentStatus,
     orderStatus,
-    providerOccurredAt: applied ? event.occurredAt : currentOccurredAt,
+    providerOccurredAt: applied ? providerOccurredAt : currentOccurredAt,
     orderBecamePaid:
       orderStatus === "PAID" &&
       input.order.status !== "PAID" &&
