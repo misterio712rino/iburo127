@@ -99,6 +99,41 @@ enum PotentialClientLeadStatus {
   ARCHIVED
 }
 
+enum CommerceOrderStatus {
+  PENDING_PAYMENT
+  PAYMENT_FAILED
+  CANCELLED
+  PAID
+  PROVISIONING
+  PROVISIONED
+  REFUNDED
+  CHARGEBACK
+}
+
+enum CommercePaymentStatus {
+  PENDING
+  FAILED
+  CANCELLED
+  SUCCEEDED
+  REFUNDED
+  CHARGEBACK
+}
+
+enum CommercePaymentEventKind {
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  REFUNDED
+  CHARGEBACK
+}
+
+enum CommercePaymentEventProcessingStatus {
+  RECEIVED
+  APPLIED
+  IGNORED
+  REJECTED
+}
+
 model User {
   id          String     @id @default(uuid()) @db.Uuid
   email       String?    @unique
@@ -122,6 +157,7 @@ model User {
   practicumHomeworkReviews     CasePracticumHomeworkRevision[]  @relation("PracticumHomeworkReviewers")
   practicumLessonMessages      CasePracticumLessonMessage[]     @relation("PracticumLessonMessageAuthors")
   practicumLessonReadStates    CasePracticumLessonReadState[]
+  commerceOrders               CommerceOrder[]                    @relation("CommerceOrderUser")
 }
 
 model Role {
@@ -182,8 +218,9 @@ model Plan {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  features    PlanFeature[]
-  clientCases ClientCase[]
+  features       PlanFeature[]
+  clientCases    ClientCase[]
+  commerceOrders CommerceOrder[]
 }
 
 model Feature {
@@ -252,6 +289,7 @@ model ClientCase {
   activityEvents            CaseActivityEvent[]
   notifications             Notification[]
   storedFiles               StoredFile[]
+  commerceOrder             CommerceOrder?
 
   @@index([clientId])
   @@index([planId])
@@ -528,6 +566,85 @@ model StoredFileDeletion {
   @@index([status, leaseUntil])
   @@index([clientCaseId, requestedAt])
   @@index([requestedByUserId, requestedAt])
+}
+
+model CommerceOrder {
+  id               String              @id @default(uuid()) @db.Uuid
+  publicCheckoutId String              @unique
+  planId           String              @db.Uuid
+  userId           String?             @db.Uuid
+  clientCaseId     String?             @unique @db.Uuid
+  customerEmail    String
+  amountMinor      Int
+  currency         String
+  offerVersion     String
+  status           CommerceOrderStatus @default(PENDING_PAYMENT)
+  paidAt           DateTime?
+  provisionedAt    DateTime?
+  refundedAt       DateTime?
+  version          Int                 @default(1)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  plan       Plan        @relation(fields: [planId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user       User?       @relation("CommerceOrderUser", fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  clientCase ClientCase? @relation(fields: [clientCaseId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  payments   CommercePayment[]
+  events     CommercePaymentEvent[]
+
+  @@index([planId, status, createdAt])
+  @@index([userId, status, createdAt])
+  @@index([status, createdAt])
+}
+
+model CommercePayment {
+  id                 String                @id @default(uuid()) @db.Uuid
+  orderId            String                @db.Uuid
+  provider           String
+  providerPaymentId  String
+  amountMinor        Int
+  currency           String
+  status             CommercePaymentStatus @default(PENDING)
+  providerOccurredAt DateTime?
+  paidAt             DateTime?
+  refundedAt         DateTime?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  order  CommerceOrder          @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  events CommercePaymentEvent[]
+
+  @@unique([provider, providerPaymentId])
+  @@index([orderId, status, createdAt])
+  @@index([provider, status, providerOccurredAt])
+}
+
+model CommercePaymentEvent {
+  id                 String                               @id @default(uuid()) @db.Uuid
+  orderId            String                               @db.Uuid
+  paymentId          String?                              @db.Uuid
+  provider           String
+  providerEventId    String
+  providerPaymentId  String
+  kind               CommercePaymentEventKind
+  amountMinor        Int
+  currency           String
+  providerOccurredAt DateTime
+  rawBodySha256      String
+  verifiedAt         DateTime
+  processingStatus   CommercePaymentEventProcessingStatus @default(RECEIVED)
+  rejectionCode      String?
+  processedAt        DateTime?
+  receivedAt         DateTime                             @default(now())
+
+  order   CommerceOrder    @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  payment CommercePayment? @relation(fields: [paymentId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@unique([provider, providerEventId])
+  @@index([orderId, receivedAt])
+  @@index([paymentId, receivedAt])
+  @@index([provider, providerPaymentId, providerOccurredAt])
+  @@index([processingStatus, receivedAt])
 }
 
 model PotentialClientLead {
