@@ -57,6 +57,7 @@ export async function CasePortalFrame({
           caseNumber={clientCase.caseNumber}
           displayName={profile.displayName?.trim() || "Клиент iБюро"}
           planLabel={getPlanDisplayLabel(clientCase.planCode, "CLIENT")}
+          planCode={planCode}
           cases={caseOptions}
         >
           {children}

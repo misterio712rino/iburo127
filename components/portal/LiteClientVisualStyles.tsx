@@ -2,12 +2,12 @@ export function LiteClientVisualStyles() {
   return (
     <style>{`
       .client-case-shell[data-client-plan="lite"] {
-        --ib-lite-accent:#9f2332;
-        --ib-lite-accent-strong:#851c2a;
-        --ib-lite-accent-soft:rgba(159,35,50,.065);
+        --ib-lite-accent:var(--ib-plan-accent);
+        --ib-lite-accent-strong:var(--ib-plan-accent-hover);
+        --ib-lite-accent-soft:rgba(var(--ib-plan-accent-rgb),.065);
         --ib-lite-line:rgba(15,23,42,.085);
-        --ib-accent:#9f2332;
-        --ib-accent-soft:#f8ecee;
+        --ib-accent:var(--ib-plan-accent);
+        --ib-accent-soft:var(--ib-plan-accent-soft);
         --ib-shell:#f5f6f8;
         --ib-sidebar:#ffffff;
         --ib-header:#ffffff;
@@ -30,8 +30,8 @@ export function LiteClientVisualStyles() {
       }
 
       .client-case-shell[data-client-plan="lite"] nav a[aria-current="page"] {
-        border-color:rgba(159,35,50,.13)!important;
-        background:linear-gradient(90deg, rgba(159,35,50,.065), rgba(159,35,50,.018))!important;
+        border-color:rgba(var(--ib-plan-accent-rgb),.13)!important;
+        background:linear-gradient(90deg, rgba(var(--ib-plan-accent-rgb),.065), rgba(var(--ib-plan-accent-rgb),.018))!important;
         color:#18202b!important;
         box-shadow:none!important;
       }
@@ -53,17 +53,17 @@ export function LiteClientVisualStyles() {
       }
 
       .client-case-shell[data-client-plan="lite"] main > div > section:first-child span:first-child {
-        border-color:rgba(159,35,50,.12)!important;
+        border-color:rgba(var(--ib-plan-accent-rgb),.12)!important;
         background:var(--ib-lite-accent-soft)!important;
         color:var(--ib-lite-accent)!important;
       }
 
       .client-case-shell[data-client-plan="lite"] main > div > section:nth-child(2) > div:first-child {
         background:
-          linear-gradient(90deg, rgba(159,35,50,.045), transparent 58%),
+          linear-gradient(90deg, rgba(var(--ib-plan-accent-rgb),.045), transparent 58%),
           #ffffff!important;
         color:var(--ib-text)!important;
-        border:1px solid rgba(159,35,50,.13)!important;
+        border:1px solid rgba(var(--ib-plan-accent-rgb),.13)!important;
         box-shadow:0 16px 44px rgba(15,23,42,.055)!important;
         position:relative;
         overflow:hidden;
@@ -84,7 +84,7 @@ export function LiteClientVisualStyles() {
       .client-case-shell[data-client-plan="lite"] main > div > section:nth-child(2) > div:first-child a {
         background:var(--ib-lite-accent)!important;
         color:#ffffff!important;
-        box-shadow:0 8px 22px rgba(159,35,50,.17)!important;
+        box-shadow:0 8px 22px rgba(var(--ib-plan-accent-rgb),.17)!important;
       }
 
       .client-case-shell[data-client-plan="lite"] main > div > section:nth-child(2) > div:first-child a:hover {
@@ -104,7 +104,7 @@ export function LiteClientVisualStyles() {
       }
 
       .client-case-shell[data-client-plan="lite"] main > div > section:nth-child(4) > div:last-child > :nth-child(-n+4):hover {
-        border-color:rgba(159,35,50,.14)!important;
+        border-color:rgba(var(--ib-plan-accent-rgb),.14)!important;
         box-shadow:0 14px 34px rgba(15,23,42,.065)!important;
       }
 
@@ -122,9 +122,9 @@ export function LiteClientVisualStyles() {
 
       .client-case-shell[data-client-plan="lite"] main > div > section:nth-child(4) > div:last-child > :nth-child(6) {
         background:
-          radial-gradient(circle at 100% 0%, rgba(159,35,50,.055), transparent 44%),
+          radial-gradient(circle at 100% 0%, rgba(var(--ib-plan-accent-rgb),.055), transparent 44%),
           #ffffff!important;
-        border-color:rgba(159,35,50,.11)!important;
+        border-color:rgba(var(--ib-plan-accent-rgb),.11)!important;
         box-shadow:0 8px 24px rgba(15,23,42,.035)!important;
       }
 
@@ -147,7 +147,7 @@ export function LiteClientVisualStyles() {
 
         .client-case-shell[data-client-plan="lite"] nav[aria-label="Мобильная навигация клиентского кабинета"] a[aria-current="page"] {
           color:var(--ib-lite-accent)!important;
-          border-color:rgba(159,35,50,.14)!important;
+          border-color:rgba(var(--ib-plan-accent-rgb),.14)!important;
           background:var(--ib-lite-accent-soft)!important;
         }
       }
