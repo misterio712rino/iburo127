@@ -44,13 +44,13 @@ export function PortalMotionStyles() {
         position: absolute;
         inset: -1px;
         z-index: -1;
-        border: 1px solid color-mix(in srgb, #7B2330 58%, transparent);
+        border: 1px solid color-mix(in srgb, var(--ib-plan-accent) 58%, transparent);
         border-radius: inherit;
         pointer-events: none;
         animation: iburo-portal-step-ring 2.3s ease-out infinite;
       }
 
-      .portal-motion-content [aria-label="Этапы дела"] li > div[class*="bg-[#7B2330]"] {
+      .portal-motion-content [aria-label="Этапы дела"] li > div[class*="bg-primary"] {
         transform-origin: left center;
         animation: iburo-portal-progress-breathe 2.3s ease-in-out infinite;
       }

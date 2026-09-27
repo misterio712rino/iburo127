@@ -51,7 +51,7 @@ export function ClientAccountVisualStyles() {
       }
 
       .client-case-shell[data-client-plan="pro"] .client-account-surface [class~="bg-[#17202a]"] {
-        color:#102e49!important;
+        color:#fff!important;
       }
 
       .client-case-shell .client-account-surface [class~="bg-[#17202a]"]:hover {

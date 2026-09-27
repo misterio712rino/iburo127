@@ -65,7 +65,7 @@ export default async function PortalPracticumPage({ params }: { params: Promise<
           </Link>
           <section className="mt-6 rounded-[32px] border border-white/80 bg-white/80 p-5 shadow-[0_18px_55px_rgba(75,57,43,0.07)] sm:p-8">
             <div className="flex min-w-0 items-start gap-3 sm:gap-4">
-              <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#f0eeea] text-[#b9202b] sm:size-12"><GraduationCap className="size-5 sm:size-6" aria-hidden="true" /></span>
+              <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary sm:size-12"><GraduationCap className="size-5 sm:size-6" aria-hidden="true" /></span>
               <div className="min-w-0">
                 <p className="text-xs font-semibold tracking-[0.02em] text-slate-400">{getClientCaseDisplayNumber(clientCase.caseNumber)}</p>
                 <h1 className="mt-2 break-words font-[var(--font-iburo-display)] text-3xl font-semibold leading-none text-slate-900 sm:text-5xl">Практикум</h1>

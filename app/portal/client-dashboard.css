@@ -5,7 +5,7 @@
 }
 
 .client-case-shell[data-client-plan="individual"] main > div > section:nth-child(2) > div:first-child {
-  background: #b91f29 !important;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--ib-plan-accent) 78%, white), var(--ib-plan-accent)) !important;
 }
 
 .client-case-shell[data-client-plan="individual"] main > div > section:nth-child(2) > div:first-child > div.absolute {

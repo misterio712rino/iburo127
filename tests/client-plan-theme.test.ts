@@ -14,6 +14,16 @@ assert.equal(getClientPlanTheme("PRO"), CLIENT_PLAN_THEMES.PRO);
 assert.equal(getClientPlanTheme("INDIVIDUAL"), CLIENT_PLAN_THEMES.INDIVIDUAL);
 
 const shellSource = await readFile(resolve("components/portal/IBuroClientShellV2.tsx"), "utf8");
+const legacyFrameSource = await readFile(resolve("components/portal/ClientCaseFrame.tsx"), "utf8");
+const casePortalFrameSource = await readFile(resolve("components/portal/CasePortalFrame.tsx"), "utf8");
+const productionDemoSource = await readFile(resolve("components/portal/ProductionDemoClientDashboard.tsx"), "utf8");
+const legacyNavigationSource = await readFile(resolve("components/portal/ClientCaseNavigation.tsx"), "utf8");
+const motionStylesSource = await readFile(resolve("components/portal/PortalMotionStyles.tsx"), "utf8");
+const legacyPlanStyles = await Promise.all([
+  "components/portal/LiteClientVisualStyles.tsx",
+  "components/portal/ProClientVisualStyles.tsx",
+  "components/portal/IndividualClientVisualStyles.tsx",
+].map((path) => readFile(resolve(path), "utf8")));
 const dashboardSource = await readFile(resolve("components/portal/IBuroClientDashboardV2.tsx"), "utf8");
 const dashboardCssSource = await readFile(resolve("components/portal/IBuroClientDashboardV2.module.css"), "utf8");
 const brandSource = await readFile(resolve("components/platform/IBuroBrand.tsx"), "utf8");
@@ -22,8 +32,25 @@ const aiPageSource = await readFile(resolve("app/portal/cases/[caseId]/ai/page.t
 const profilePageSource = await readFile(resolve("app/portal/profile/page.tsx"), "utf8");
 const notificationsPageSource = await readFile(resolve("app/portal/notifications/page.tsx"), "utf8");
 const securityPageSource = await readFile(resolve("app/portal/security/page.tsx"), "utf8");
+const filesPageSource = await readFile(resolve("app/portal/cases/[caseId]/files/page.tsx"), "utf8");
+const practicumPageSource = await readFile(resolve("app/portal/cases/[caseId]/practicum/page.tsx"), "utf8");
 
 assert.match(shellSource, /getClientPlanTheme\(planCode\)/);
+assert.match(legacyFrameSource, /getClientPlanTheme\(planCode\)/);
+assert.match(legacyFrameSource, /--ib-plan-accent": planTheme\.accent/);
+assert.match(legacyFrameSource, /planCode: PlanCode/);
+assert.match(casePortalFrameSource, /planCode=\{planCode\}/);
+assert.match(productionDemoSource, /planCode=\{props\.planCode\}/);
+assert.match(legacyNavigationSource, /var\(--ib-plan-accent\)/);
+assert.match(motionStylesSource, /var\(--ib-plan-accent\)/);
+assert.doesNotMatch(motionStylesSource, /#7B2330/i);
+const stalePlanAccent = /#(?:9f2332|851c2a|82b9e9|a7d1f4|c9a66b|e2c48b|c82934|c53b40|75a3d4|b91f29)\b|rgba\((?:159\s*,\s*35\s*,\s*50|130\s*,\s*185\s*,\s*233|167\s*,\s*209\s*,\s*244|201\s*,\s*166\s*,\s*107)\s*,/i;
+for (const source of [...legacyPlanStyles, legacyFrameSource]) {
+  assert.match(source, /var\(--ib-plan-accent/);
+  assert.doesNotMatch(source, stalePlanAccent);
+}
+assert.match(filesPageSource, /bg-primary\/10 text-primary/);
+assert.match(practicumPageSource, /bg-primary\/10 text-primary/);
 assert.match(shellSource, /data-plan=\{planCode \?\? "UNSPECIFIED"\}/);
 assert.match(shellSource, /"--primary": planTheme\.accent/);
 assert.match(shellSource, /"--ib2-theme-hero-start": planTheme\.heroStart/);

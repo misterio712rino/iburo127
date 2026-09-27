@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
+import { getClientPlanTheme } from "@/lib/platform/client-plan-theme";
+import type { PlanCode } from "@/lib/platform/types";
 import Link from "next/link";
 import { IBuroBrand } from "@/components/platform/IBuroBrand";
 import { SignOutButton } from "@/components/platform/auth/SignOutButton";
@@ -36,13 +38,13 @@ function CaseSwitcher({
 
   return (
     <details className={`group rounded-2xl border border-black/8 bg-white/60 ${compact ? "p-3" : "p-3.5"}`}>
-      <summary className="cursor-pointer list-none text-xs font-semibold text-[#262a31] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#b9202b]/15">
+      <summary className="cursor-pointer list-none text-xs font-semibold text-[#262a31] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--ib-plan-accent)]/15">
         <span className="flex min-w-0 items-center justify-between gap-3">
           <span className="min-w-0">
             <span className="block truncate">{planLabel}</span>
             <span className="mt-1 block truncate font-mono text-[10px] font-medium text-[#8b8b88]">{caseNumber}</span>
           </span>
-          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#b9202b]">Сменить дело</span>
+          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: "var(--ib-plan-accent)" }}>Сменить дело</span>
         </span>
       </summary>
       <div className="mt-3 space-y-1 border-t border-black/5 pt-3">
@@ -52,8 +54,12 @@ function CaseSwitcher({
             href={`/portal/cases/${item.id}`}
             aria-current={item.id === caseId ? "page" : undefined}
             className={`block rounded-xl px-2.5 py-2 text-xs transition ${
-              item.id === caseId ? "bg-[#b9202b]/[0.07] text-[#9e1e28]" : "text-[#5d6065] hover:bg-[#f6f2ed]"
+              item.id === caseId ? "font-semibold" : "text-[#5d6065] hover:bg-[#f6f2ed]"
             }`}
+            style={item.id === caseId ? {
+              backgroundColor: "color-mix(in srgb, var(--ib-plan-accent) 8%, transparent)",
+              color: "var(--ib-plan-accent)",
+            } : undefined}
           >
             <span className="block font-semibold">{item.planLabel}</span>
             <span className="mt-0.5 block font-mono text-[10px] opacity-70">{item.caseNumber}</span>
@@ -79,6 +85,7 @@ export function ClientCaseFrame({
   caseNumber,
   displayName,
   planLabel,
+  planCode,
   cases,
 }: {
   children: ReactNode;
@@ -86,20 +93,34 @@ export function ClientCaseFrame({
   caseNumber: string;
   displayName: string;
   planLabel: string;
+  planCode: PlanCode;
   cases: readonly ClientCaseOption[];
 }) {
   const base = `/portal/cases/${caseId}`;
-  const normalizedPlanLabel = planLabel.trim().toLocaleUpperCase("ru-RU");
-  const theme = normalizedPlanLabel === "ПРО" ? "pro" : normalizedPlanLabel === "ИНДИВИДУАЛЬНЫЙ" ? "individual" : "lite";
+  const theme = planCode.toLocaleLowerCase("en-US");
+  const planTheme = getClientPlanTheme(planCode);
+  const shellStyle = {
+    "--ib-plan-accent": planTheme.accent,
+    "--ib-plan-accent-hover": planTheme.accentHover,
+    "--ib-plan-accent-soft": planTheme.accentSoft,
+    "--ib-plan-accent-rgb": planTheme.accentRgb,
+    "--ib-plan-accent-bright": planTheme.heroStart,
+    "--primary": planTheme.accent,
+    "--ring": planTheme.accent,
+    "--accent": planTheme.accent,
+    "--sidebar-primary": planTheme.accent,
+    "--sidebar-ring": planTheme.accent,
+    "--chart-1": planTheme.accent,
+  } as CSSProperties;
   const userInitials = initials(displayName);
 
   return (
-    <div data-client-plan={theme} className="portal-motion-shell client-case-shell min-h-screen bg-[#f4f0ea] text-[#191d25]">
+    <div data-client-plan={theme} style={shellStyle} className="portal-motion-shell client-case-shell min-h-screen bg-[#f4f0ea] text-[#191d25]">
       <PortalMotionStyles />
       <style>{`
-        .client-case-shell { --ib-accent:#bf202b; --ib-accent-soft:#f3e3e1; --ib-shell:#f4eee7; --ib-sidebar:#faf6f0; --ib-header:#fffaf5; --ib-card:rgba(255,253,249,.92); --ib-card-border:rgba(84,57,44,.08); --ib-text:#25272b; --ib-muted:#8f8a83; --ib-line:#ded9d2; --ib-shadow:0 14px 44px rgba(83,59,43,.07); }
-        .client-case-shell[data-client-plan="pro"] { --ib-accent:#78a8dd; --ib-accent-soft:#244d77; --ib-shell:#153b60; --ib-sidebar:#0e2d49; --ib-header:#153858; --ib-card:#173b60; --ib-card-border:rgba(139,184,229,.18); --ib-text:#f4f8fc; --ib-muted:#9eb9d2; --ib-line:#315676; --ib-shadow:0 16px 45px rgba(3,21,39,.18); color-scheme:dark; }
-        .client-case-shell[data-client-plan="individual"] { --ib-accent:#c91f2b; --ib-accent-soft:#3a292e; --ib-shell:#202126; --ib-sidebar:#1a1b20; --ib-header:#24242a; --ib-card:#27272d; --ib-card-border:rgba(255,255,255,.08); --ib-text:#f7f5f3; --ib-muted:#9f9da1; --ib-line:#3a3a40; --ib-shadow:0 18px 55px rgba(0,0,0,.18); color-scheme:dark; }
+        .client-case-shell { --ib-accent:var(--ib-plan-accent); --ib-accent-soft:var(--ib-plan-accent-soft); --ib-shell:#f4eee7; --ib-sidebar:#faf6f0; --ib-header:#fffaf5; --ib-card:rgba(255,253,249,.92); --ib-card-border:rgba(84,57,44,.08); --ib-text:#25272b; --ib-muted:#8f8a83; --ib-line:#ded9d2; --ib-shadow:0 14px 44px rgba(83,59,43,.07); }
+        .client-case-shell[data-client-plan="pro"] { --ib-accent:var(--ib-plan-accent); --ib-accent-soft:var(--ib-plan-accent-soft); --ib-shell:#153b60; --ib-sidebar:#0e2d49; --ib-header:#153858; --ib-card:#173b60; --ib-card-border:rgba(139,184,229,.18); --ib-text:#f4f8fc; --ib-muted:#9eb9d2; --ib-line:#315676; --ib-shadow:0 16px 45px rgba(3,21,39,.18); color-scheme:dark; }
+        .client-case-shell[data-client-plan="individual"] { --ib-accent:var(--ib-plan-accent); --ib-accent-soft:var(--ib-plan-accent-soft); --ib-shell:#202126; --ib-sidebar:#1a1b20; --ib-header:#24242a; --ib-card:#27272d; --ib-card-border:rgba(255,255,255,.08); --ib-text:#f7f5f3; --ib-muted:#9f9da1; --ib-line:#3a3a40; --ib-shadow:0 18px 55px rgba(0,0,0,.18); color-scheme:dark; }
         .client-case-shell { background:var(--ib-shell)!important; color:var(--ib-text); }
         .client-case-shell > aside { width:240px!important; background:var(--ib-sidebar)!important; border-color:var(--ib-card-border)!important; }
         .client-case-shell > div { padding-left:240px!important; }
@@ -130,11 +151,11 @@ export function ClientCaseFrame({
         .client-case-shell main > div > section:first-child span:last-child { color:var(--ib-muted)!important; }
         .client-case-shell main > div > section:first-child span:first-child { border-color:color-mix(in srgb,var(--ib-accent) 32%,transparent)!important; background:color-mix(in srgb,var(--ib-accent) 10%,transparent)!important; color:var(--ib-accent)!important; }
         .client-case-shell main > div > section:nth-child(2) { gap:18px!important; grid-template-columns:minmax(0,1.62fr) minmax(280px,.78fr)!important; }
-        .client-case-shell main > div > section:nth-child(2) > div:first-child { min-height:260px!important; border-radius:23px!important; padding:27px 28px!important; background:#c53b40!important; box-shadow:var(--ib-shadow)!important; }
-        .client-case-shell[data-client-plan="pro"] main > div > section:nth-child(2) > div:first-child { background:#75a3d4!important; color:#102f4c!important; }
-        .client-case-shell[data-client-plan="pro"] main > div > section:nth-child(2) > div:first-child p { color:#173c5d!important; }
-        .client-case-shell[data-client-plan="pro"] main > div > section:nth-child(2) > div:first-child a { background:#102f4d!important; color:#8bb7e6!important; }
-        .client-case-shell[data-client-plan="individual"] main > div > section:nth-child(2) > div:first-child { background:#b91f29!important; }
+        .client-case-shell main > div > section:nth-child(2) > div:first-child { min-height:260px!important; border-radius:23px!important; padding:27px 28px!important; background:linear-gradient(135deg,color-mix(in srgb,var(--ib-plan-accent) 78%,white),var(--ib-plan-accent))!important; box-shadow:var(--ib-shadow)!important; }
+        .client-case-shell[data-client-plan="pro"] main > div > section:nth-child(2) > div:first-child { background:linear-gradient(135deg,color-mix(in srgb,var(--ib-plan-accent) 78%,white),var(--ib-plan-accent))!important; color:#fff!important; }
+        .client-case-shell[data-client-plan="pro"] main > div > section:nth-child(2) > div:first-child p { color:rgba(255,255,255,.82)!important; }
+        .client-case-shell[data-client-plan="pro"] main > div > section:nth-child(2) > div:first-child a { background:#fff!important; color:var(--ib-plan-accent)!important; }
+        .client-case-shell[data-client-plan="individual"] main > div > section:nth-child(2) > div:first-child { background:linear-gradient(135deg,color-mix(in srgb,var(--ib-plan-accent) 78%,white),var(--ib-plan-accent))!important; }
         .client-case-shell main > div > section:nth-child(2) > article { border-radius:23px!important; background:var(--ib-card)!important; border-color:var(--ib-card-border)!important; box-shadow:var(--ib-shadow)!important; color:var(--ib-text)!important; }
         .client-case-shell main > div > section:nth-child(2) > article p { color:var(--ib-muted)!important; }
         .client-case-shell main > div > section:nth-child(2) > article p[class*="text-2xl"], .client-case-shell main > div > section:nth-child(2) > article p[class*="text-3xl"] { color:var(--ib-text)!important; }
@@ -182,7 +203,7 @@ export function ClientCaseFrame({
       `}</style>
 
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-black/5 bg-[#f8f5f0] px-5 py-6 lg:flex">
-        <Link href={base} className="inline-flex w-fit items-center rounded-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#b9202b]/15">
+        <Link href={base} className="inline-flex w-fit items-center rounded-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--ib-plan-accent)]/15">
           <IBuroBrand dot className="text-2xl font-semibold tracking-[-0.05em]" />
         </Link>
 
@@ -204,7 +225,7 @@ export function ClientCaseFrame({
         <header className="sticky top-0 z-30 border-b border-black/5 bg-[#f8f5f0]/95 backdrop-blur-xl">
           <div className="flex min-h-20 items-center justify-between gap-4 px-4 sm:px-8 lg:px-10">
             <div>
-              <Link href={base} className="rounded-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#b9202b]/15 lg:hidden">
+              <Link href={base} className="rounded-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--ib-plan-accent)]/15 lg:hidden">
                 <IBuroBrand dot className="text-xl font-semibold tracking-[-0.05em]" />
               </Link>
               <p className="hidden text-xs font-medium text-[#92918d] lg:block">Платформа сопровождения</p>

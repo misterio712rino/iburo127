@@ -323,6 +323,7 @@ export async function ProductionDemoClientDashboard(props: ProductionDemoClientD
       caseNumber={props.caseNumber}
       displayName={props.displayName}
       planLabel={props.planLabel}
+      planCode={props.planCode}
       cases={props.cases}
     >
       <div className="flex flex-col gap-8 sm:gap-10">

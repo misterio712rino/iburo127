@@ -2,11 +2,11 @@ export function IndividualClientVisualStyles() {
   return (
     <style>{`
       .client-case-shell[data-client-plan="individual"] {
-        --ib-gold:#c9a66b;
-        --ib-gold-bright:#e2c48b;
-        --ib-gold-soft:rgba(201,166,107,.11);
-        --ib-gold-line:rgba(201,166,107,.23);
-        --ib-accent:#c82934;
+        --ib-gold:var(--ib-plan-accent);
+        --ib-gold-bright:var(--ib-plan-accent-bright);
+        --ib-gold-soft:rgba(var(--ib-plan-accent-rgb),.11);
+        --ib-gold-line:rgba(var(--ib-plan-accent-rgb),.23);
+        --ib-accent:var(--ib-plan-accent);
         --ib-card:#25262b;
         --ib-card-border:rgba(255,255,255,.075);
         --ib-shell:#1d1e22;
@@ -16,19 +16,19 @@ export function IndividualClientVisualStyles() {
 
       .client-case-shell[data-client-plan="individual"] > aside {
         background:
-          radial-gradient(circle at 10% 4%, rgba(201,166,107,.07), transparent 30%),
+          radial-gradient(circle at 10% 4%, rgba(var(--ib-plan-accent-rgb),.07), transparent 30%),
           var(--ib-sidebar)!important;
-        box-shadow:inset -1px 0 0 rgba(201,166,107,.08);
+        box-shadow:inset -1px 0 0 rgba(var(--ib-plan-accent-rgb),.08);
       }
 
       .client-case-shell[data-client-plan="individual"] > aside > p {
-        color:rgba(226,196,139,.52)!important;
+        color:rgba(var(--ib-plan-accent-rgb),.52)!important;
       }
 
       .client-case-shell[data-client-plan="individual"] nav a[aria-current="page"] {
         border-color:var(--ib-gold-line)!important;
-        background:linear-gradient(90deg, rgba(201,166,107,.10), rgba(255,255,255,.025))!important;
-        box-shadow:inset 0 0 0 1px rgba(201,166,107,.03), 0 10px 28px rgba(0,0,0,.14)!important;
+        background:linear-gradient(90deg, rgba(var(--ib-plan-accent-rgb),.10), rgba(255,255,255,.025))!important;
+        box-shadow:inset 0 0 0 1px rgba(var(--ib-plan-accent-rgb),.03), 0 10px 28px rgba(0,0,0,.14)!important;
       }
 
       .client-case-shell[data-client-plan="individual"] nav a[aria-current="page"] svg {
@@ -36,18 +36,18 @@ export function IndividualClientVisualStyles() {
       }
 
       .client-case-shell[data-client-plan="individual"] header {
-        box-shadow:0 1px 0 rgba(201,166,107,.05);
+        box-shadow:0 1px 0 rgba(var(--ib-plan-accent-rgb),.05);
       }
 
       .client-case-shell[data-client-plan="individual"] .client-user-chip {
-        border-color:rgba(201,166,107,.17);
-        background:linear-gradient(135deg, rgba(201,166,107,.08), rgba(255,255,255,.025));
+        border-color:rgba(var(--ib-plan-accent-rgb),.17);
+        background:linear-gradient(135deg, rgba(var(--ib-plan-accent-rgb),.08), rgba(255,255,255,.025));
       }
 
       .client-case-shell[data-client-plan="individual"] .client-user-avatar {
-        background:linear-gradient(145deg, #d7b474, #a98247)!important;
-        color:#191a1d!important;
-        box-shadow:0 0 0 1px rgba(255,236,192,.18);
+        background:linear-gradient(145deg, color-mix(in srgb,var(--ib-plan-accent) 38%,white), color-mix(in srgb,var(--ib-plan-accent) 72%,#18191d))!important;
+        color:white!important;
+        box-shadow:0 0 0 1px rgba(var(--ib-plan-accent-rgb),.18);
       }
 
       .client-case-shell[data-client-plan="individual"] main > div > section:first-child span:first-child {
@@ -58,7 +58,7 @@ export function IndividualClientVisualStyles() {
 
       .client-case-shell[data-client-plan="individual"] main > div > section:nth-child(2) > div:first-child {
         background:
-          linear-gradient(135deg, rgba(196,32,43,.98), rgba(138,20,29,.98))!important;
+          linear-gradient(135deg,color-mix(in srgb,var(--ib-plan-accent) 78%,white),var(--ib-plan-accent-hover))!important;
         border:1px solid rgba(255,255,255,.06)!important;
         box-shadow:0 22px 60px rgba(126,15,24,.22)!important;
       }
@@ -66,7 +66,7 @@ export function IndividualClientVisualStyles() {
       .client-case-shell[data-client-plan="individual"] main > div > section:nth-child(2) > article {
         border-color:var(--ib-gold-line)!important;
         background:
-          radial-gradient(circle at 100% 0%, rgba(201,166,107,.08), transparent 42%),
+          radial-gradient(circle at 100% 0%, rgba(var(--ib-plan-accent-rgb),.08), transparent 42%),
           var(--ib-card)!important;
       }
 
@@ -75,7 +75,7 @@ export function IndividualClientVisualStyles() {
       }
 
       .client-case-shell[data-client-plan="individual"] main > div > section:nth-child(3) {
-        border-color:rgba(201,166,107,.12)!important;
+        border-color:rgba(var(--ib-plan-accent-rgb),.12)!important;
       }
 
       .client-case-shell[data-client-plan="individual"] main > div > section:nth-child(3) li span[class*="bg-white"] {
@@ -97,7 +97,7 @@ export function IndividualClientVisualStyles() {
       .client-case-shell[data-client-plan="individual"] main > div > section:nth-child(4) > div:last-child > :nth-child(6) {
         border-color:var(--ib-gold-line)!important;
         background:
-          radial-gradient(circle at 90% 8%, rgba(201,166,107,.11), transparent 40%),
+          radial-gradient(circle at 90% 8%, rgba(var(--ib-plan-accent-rgb),.11), transparent 40%),
           linear-gradient(145deg, #29292f, #232429)!important;
       }
 
@@ -109,19 +109,19 @@ export function IndividualClientVisualStyles() {
 
       .client-case-shell[data-client-plan="individual"] main > div > section:nth-child(4) > div:last-child > :nth-child(5):hover,
       .client-case-shell[data-client-plan="individual"] main > div > section:nth-child(4) > div:last-child > :nth-child(6):hover {
-        border-color:rgba(226,196,139,.38)!important;
+        border-color:rgba(var(--ib-plan-accent-rgb),.38)!important;
         box-shadow:0 18px 48px rgba(0,0,0,.22)!important;
       }
 
       .client-case-shell[data-client-plan="individual"] main > div > section:nth-child(5) > article:last-child {
         border-color:var(--ib-gold-line)!important;
         background:
-          linear-gradient(145deg, rgba(201,166,107,.07), transparent 44%),
+          linear-gradient(145deg, rgba(var(--ib-plan-accent-rgb),.07), transparent 44%),
           var(--ib-card)!important;
       }
 
       .client-case-shell[data-client-plan="individual"] main > div > section:nth-child(5) > article:last-child [class*="rounded-full"]:first-of-type {
-        box-shadow:0 0 0 1px rgba(201,166,107,.20);
+        box-shadow:0 0 0 1px rgba(var(--ib-plan-accent-rgb),.20);
       }
 
       @media (max-width: 1023px) {

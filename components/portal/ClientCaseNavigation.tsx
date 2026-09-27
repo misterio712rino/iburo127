@@ -55,9 +55,14 @@ export function ClientCaseNavigation({ caseId, mobile = false }: { caseId: strin
               aria-current={active ? "page" : undefined}
               className={`inline-flex min-h-11 shrink-0 items-center rounded-full border px-3 py-2 text-xs font-semibold transition ${
                 active
-                  ? "border-[#b9202b]/20 bg-[#b9202b]/[0.08] text-[#9f2029]"
+                  ? "border-transparent"
                   : "border-white/70 bg-white text-[#55585d] shadow-sm hover:border-black/10 hover:text-[#1d222b]"
               }`}
+              style={active ? {
+                borderColor: "color-mix(in srgb,var(--ib-plan-accent) 20%,transparent)",
+                backgroundColor: "color-mix(in srgb,var(--ib-plan-accent) 8%,transparent)",
+                color: "var(--ib-plan-accent)",
+              } : undefined}
             >
               {label}
             </Link>
@@ -79,11 +84,11 @@ export function ClientCaseNavigation({ caseId, mobile = false }: { caseId: strin
             aria-current={active ? "page" : undefined}
             className={`flex min-h-11 items-center gap-3 rounded-2xl border px-3.5 text-sm font-semibold transition ${
               active
-                ? "border-[#b9202b]/15 bg-white text-[#1d222b] shadow-[0_8px_28px_rgba(65,47,35,0.08)]"
+                ? "border-transparent bg-white text-[#1d222b] shadow-[0_8px_28px_rgba(65,47,35,0.08)]"
                 : "border-transparent text-[#56595f] hover:bg-white/80 hover:text-[#1d222b]"
             }`}
           >
-            <Icon className="size-[18px] shrink-0" aria-hidden="true" />
+            <Icon className="size-[18px] shrink-0" style={active ? { color: "var(--ib-plan-accent)" } : undefined} aria-hidden="true" />
             {label}
           </Link>
         );
