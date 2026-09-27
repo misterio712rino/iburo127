@@ -264,6 +264,8 @@ export async function GET() {
           database: {
             name: identityRow.database_name,
             schema: identityRow.current_schema,
+            host: target.expectedHost,
+            provider: target.expectedHost.endsWith(".neon.tech") ? "neon" : "other",
           },
           domain: {
             tables: {
