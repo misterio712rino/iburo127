@@ -4,13 +4,13 @@ import Link from "next/link";
 import {
   ArrowRight,
   BookOpen,
-  Check,
   ClipboardCheck,
   FileText,
   Flag,
   FolderOpen,
 } from "lucide-react";
 
+import { CASE_STAGE_FLOW } from "@/lib/platform/case-progress";
 import { CaseStageTimeline } from "./CaseStageTimeline";
 import styles from "./IBuroProgressV2.module.css";
 
