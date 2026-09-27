@@ -35,9 +35,13 @@ assert.match(schema, /clientCase\s+ClientCase\?\s+@relation\(fields: \[clientCas
 assert.match(schema, /commerceOrders\s+CommerceOrder\[\]\s+@relation\("CommerceOrderUser"\)/);
 assert.match(schema, /commerceOrder\s+CommerceOrder\?/);
 
+const userModelStart = schema.indexOf("model User {");
+const userModelEnd = schema.indexOf("\n}", userModelStart);
+assert.ok(userModelStart >= 0 && userModelEnd > userModelStart, "User model must exist");
+const userModel = schema.slice(userModelStart, userModelEnd + 2);
 assert.doesNotMatch(
-  schema,
-  /model User \{[\s\S]*?\n\}[\s\S]*?planId\s+String/,
+  userModel,
+  /\bplanId\s+String/,
   "commerce must not put a planId on User",
 );
 assert.doesNotMatch(schema, /rawPayload|rawBody\s+String|webhookBody/);
