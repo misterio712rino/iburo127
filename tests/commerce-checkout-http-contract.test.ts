@@ -63,21 +63,25 @@ for (const missing of Object.keys(env)) {
 const parsed = parseCommerceCheckoutBody({
   planCode: "LITE",
   email: "  Customer@Example.TEST  ",
+  requestId: "550e8400-e29b-41d4-a716-446655440000",
 });
 assert.deepEqual(parsed, {
   planCode: "LITE",
   email: "customer@example.test",
+  requestId: "550e8400-e29b-41d4-a716-446655440000",
 });
 
 for (const invalid of [
   null,
   [],
   {},
-  { planCode: "INDIVIDUAL", email: "a@example.test" },
-  { planCode: "LITE", email: "invalid" },
-  { planCode: "LITE", email: "a@example.test", amountMinor: 1 },
-  { planCode: "LITE", email: "a@example.test", status: "PAID" },
-  { planCode: "LITE", email: "a@example.test", role: "ADMIN" },
+  { planCode: "INDIVIDUAL", email: "a@example.test", requestId: "550e8400-e29b-41d4-a716-446655440000" },
+  { planCode: "LITE", email: "invalid", requestId: "550e8400-e29b-41d4-a716-446655440000" },
+  { planCode: "LITE", email: "a@example.test" },
+  { planCode: "LITE", email: "a@example.test", requestId: "not-a-uuid" },
+  { planCode: "LITE", email: "a@example.test", requestId: "550e8400-e29b-41d4-a716-446655440000", amountMinor: 1 },
+  { planCode: "LITE", email: "a@example.test", requestId: "550e8400-e29b-41d4-a716-446655440000", status: "PAID" },
+  { planCode: "LITE", email: "a@example.test", requestId: "550e8400-e29b-41d4-a716-446655440000", role: "ADMIN" },
 ]) {
   assert.throws(
     () => parseCommerceCheckoutBody(invalid),
@@ -123,6 +127,10 @@ assert.match(route, /enforceCommerceCheckoutRateLimit/);
 assert.match(route, /readBoundedJsonBody/);
 assert.match(route, /PrismaCommerceOrderRepository/);
 assert.match(route, /status: order\.status/);
+assert.match(route, /replayed: order\.replayed/);
+assert.match(route, /order\.replayed \? 200 : 201/);
+assert.match(route, /CHECKOUT_IDEMPOTENCY_CONFLICT/);
+assert.match(route, /409/);
 assert.doesNotMatch(route, /customerEmail:\s*order\./);
 assert.doesNotMatch(route, /userId:\s*order\./);
 assert.doesNotMatch(route, /clientCaseId:\s*order\./);
