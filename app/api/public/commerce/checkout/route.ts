@@ -1,4 +1,5 @@
 import {
+  COMMERCE_CHECKOUT_IDEMPOTENCY_CONFLICT,
   COMMERCE_INVALID_INPUT,
   COMMERCE_PLAN_UNAVAILABLE,
   COMMERCE_UNSUPPORTED_PLAN,
@@ -136,6 +137,7 @@ export async function POST(request: Request) {
     const order = await new PrismaCommerceOrderRepository().createPendingOrder({
       planCode: input.planCode,
       customerEmail: input.email,
+      checkoutRequestId: input.requestId,
       catalog: config.catalog,
     });
 
@@ -150,11 +152,23 @@ export async function POST(request: Request) {
           currency: order.currency,
           offerVersion: order.offerVersion,
           status: order.status,
+          replayed: order.replayed,
         },
       },
-      201,
+      order.replayed ? 200 : 201,
     );
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === COMMERCE_CHECKOUT_IDEMPOTENCY_CONFLICT
+    ) {
+      return commerceResponse(
+        config.allowedOrigin,
+        { ok: false, error: { code: "CHECKOUT_IDEMPOTENCY_CONFLICT" } },
+        409,
+      );
+    }
+
     if (
       error instanceof Error &&
       (error.message === COMMERCE_UNSUPPORTED_PLAN ||
