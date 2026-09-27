@@ -4,6 +4,9 @@ export const COMMERCE_PLAN_UNAVAILABLE = "COMMERCE_PLAN_UNAVAILABLE";
 export const COMMERCE_PAYMENT_AMOUNT_MISMATCH = "COMMERCE_PAYMENT_AMOUNT_MISMATCH";
 export const COMMERCE_PAYMENT_CURRENCY_MISMATCH = "COMMERCE_PAYMENT_CURRENCY_MISMATCH";
 export const COMMERCE_PAYMENT_IDENTITY_CONFLICT = "COMMERCE_PAYMENT_IDENTITY_CONFLICT";
+export const COMMERCE_ORDER_NOT_FOUND = "COMMERCE_ORDER_NOT_FOUND";
+export const COMMERCE_PAYMENT_EVENT_CONFLICT = "COMMERCE_PAYMENT_EVENT_CONFLICT";
+export const COMMERCE_PAYMENT_CONCURRENT_UPDATE = "COMMERCE_PAYMENT_CONCURRENT_UPDATE";
 
 export const COMMERCE_ONLINE_PLAN_CODES = ["LITE", "PRO"] as const;
 
@@ -33,6 +36,12 @@ export type CommercePaymentEventKind =
   | "CANCELLED"
   | "REFUNDED"
   | "CHARGEBACK";
+
+export type CommercePaymentEventProcessingStatus =
+  | "RECEIVED"
+  | "APPLIED"
+  | "IGNORED"
+  | "REJECTED";
 
 export type CommerceCatalogEntry = {
   planCode: CommerceOnlinePlanCode;
@@ -88,6 +97,17 @@ export type CommercePaymentTransition = {
   paymentStatus: CommercePaymentStatus;
   orderStatus: CommerceOrderStatus;
   providerOccurredAt: Date | null;
+  orderBecamePaid: boolean;
+  shouldPauseProvisionedCase: boolean;
+};
+
+
+export type CommerceVerifiedEventProcessingResult = {
+  replay: boolean;
+  processingStatus: CommercePaymentEventProcessingStatus;
+  rejectionCode: string | null;
+  paymentStatus: CommercePaymentStatus | null;
+  orderStatus: CommerceOrderStatus;
   orderBecamePaid: boolean;
   shouldPauseProvisionedCase: boolean;
 };
