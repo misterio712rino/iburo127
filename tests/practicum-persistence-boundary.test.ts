@@ -111,6 +111,29 @@ assert.match(
   "homework reviews must require a positive expected version",
 );
 
+const activityTaxonomySource = await readFile(
+  resolve("server/domain/activity/taxonomy.ts"),
+  "utf8",
+);
+for (const activityType of [
+  "practicum.homework.submitted",
+  "practicum.homework.reviewed",
+  "practicum.lesson_message.created",
+]) {
+  assert.match(
+    activityTaxonomySource,
+    new RegExp(`"${activityType.replaceAll(".", "\\.")}"`),
+    `activity taxonomy must allow ${activityType}`,
+  );
+}
+for (const metadataKey of ["revisionNumber", "decision", "messageId"]) {
+  assert.match(
+    activityTaxonomySource,
+    new RegExp(`"${metadataKey}"`),
+    `activity metadata taxonomy must allow ${metadataKey}`,
+  );
+}
+
 const workspaceRepositorySource = await readFile(
   resolve("server/repositories/prisma/practicum-workspace-repository.ts"),
   "utf8",
