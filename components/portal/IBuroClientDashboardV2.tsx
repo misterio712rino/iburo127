@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -13,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { formatProfileDisplayName } from "@/lib/platform/profile-display-name";
+import { CaseStageTimeline } from "@/components/platform/progress/CaseStageTimeline";
 import type { PlanCode } from "@/lib/platform/types";
 import { IBuroClientShellV2, type IBuroClientCaseOptionV2 } from "./IBuroClientShellV2";
 import styles from "./IBuroClientDashboardV2.module.css";
@@ -132,8 +132,6 @@ function MiniProgressCard({
 export function IBuroClientDashboardV2(props: DashboardProps) {
   const base = `/portal/cases/${props.caseId}`;
   const boundedProgress = Math.max(0, Math.min(100, props.progress));
-  const stagePosition = props.stagePosition ?? 1;
-  const completedSegments = Math.max(0, Math.min(props.stageTotal, stagePosition - 1));
   const shellDisplayName = props.displayName.trim()
     ? formatProfileDisplayName(props.displayName)
     : "Клиент iБюро";
@@ -235,19 +233,10 @@ export function IBuroClientDashboardV2(props: DashboardProps) {
                 </div>
                 <strong className={styles.progressBig}>{boundedProgress}%</strong>
               </div>
-              <div
-                className={styles.stageRoute}
-                style={{ "--stage-count": Math.max(1, props.stageTotal) } as CSSProperties}
-                aria-label="Маршрут дела"
-              >
-                {Array.from({ length: Math.max(1, props.stageTotal) }, (_, index) => (
-                  <span
-                    key={index}
-                    className={`${styles.stageSegment} ${index < completedSegments || index === stagePosition - 1 ? styles.stageSegmentDone : ""}`}
-                  />
-                ))}
-              </div>
-              <div className={styles.stageCaption}>Показывает положение этапа в маршруте, а не прогноз срока завершения процедуры.</div>
+              <CaseStageTimeline
+                compact
+                stage={{ label: props.stageLabel, position: props.stagePosition, total: props.stageTotal }}
+              />
             </article>
 
             <div className={styles.sideStack}>
