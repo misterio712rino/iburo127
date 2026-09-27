@@ -7,6 +7,10 @@ const migration = await readFile(
   resolve("prisma/migrations/20260927_commerce_foundation/migration.sql"),
   "utf8",
 );
+const checkoutIdempotencyMigration = await readFile(
+  resolve("prisma/migrations/20260927_commerce_checkout_idempotency/migration.sql"),
+  "utf8",
+);
 const idempotencyMigration = await readFile(
   resolve("prisma/migrations/20260927_commerce_checkout_idempotency/migration.sql"),
   "utf8",
