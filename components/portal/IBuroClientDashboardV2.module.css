@@ -290,10 +290,6 @@
 .caseProgressCard h3 { margin: 6px 0 0; font-size: 22px; letter-spacing: -.035em; }
 .caseProgressCard p { color: var(--ib2-muted); font-size: 12px; line-height: 1.55; }
 .progressBig { color: var(--ib2-red); font-size: 42px; font-weight: 760; letter-spacing: -.07em; }
-.stageRoute { display: grid; grid-template-columns: repeat(var(--stage-count), 1fr); gap: 5px; margin-top: 24px; }
-.stageSegment { height: 5px; border-radius: 999px; background: #e8eaed; }
-.stageSegmentDone { background: var(--ib2-red); }
-.stageCaption { margin-top: 11px; font-size: 10px; color: var(--ib2-muted); }
 
 .sideStack { display: grid; gap: 18px; }
 .miniProgressCard { padding: 20px; animation: riseIn 420ms 190ms cubic-bezier(.2,.8,.2,1) both; }
