@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Onest } from "next/font/google";
+import { Geist_Mono, Manrope, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,13 +13,14 @@ export const metadata: Metadata = {
   },
 };
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const iburoSans = Manrope({
+  variable: "--font-iburo-sans",
+  subsets: ["cyrillic", "latin"],
+  display: "swap",
 });
 
-const iburoUi = Onest({
-  variable: "--font-iburo-ui",
+const iburoDisplay = Source_Serif_4({
+  variable: "--font-iburo-display",
   subsets: ["cyrillic", "latin"],
   display: "swap",
 });
@@ -37,7 +38,7 @@ export default function RootLayout({
   return (
     <html
       lang="ru"
-      className={`${geistSans.variable} ${iburoUi.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${iburoSans.variable} ${iburoDisplay.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full">{children}</body>
     </html>
