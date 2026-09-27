@@ -131,6 +131,43 @@ try {
   assert.equal(concurrent[0].publicCheckoutId, concurrent[1].publicCheckoutId);
   assert.equal(concurrent.filter((item) => item.replayed).length, 1);
 
+  const conflictingRaceRequestId = randomUUID();
+  const conflictingRace = await Promise.allSettled([
+    repository.createPendingOrder({
+      planCode: "LITE",
+      customerEmail: `race-a-${runId}@example.test`,
+      checkoutRequestId: conflictingRaceRequestId,
+      catalog,
+    }),
+    repository.createPendingOrder({
+      planCode: "LITE",
+      customerEmail: `race-b-${runId}@example.test`,
+      checkoutRequestId: conflictingRaceRequestId,
+      catalog,
+    }),
+  ]);
+  const conflictingRaceFulfilled = conflictingRace.filter(
+    (item): item is PromiseFulfilledResult<Awaited<ReturnType<PrismaCommerceOrderRepository["createPendingOrder"]>>> =>
+      item.status === "fulfilled",
+  );
+  const conflictingRaceRejected = conflictingRace.filter(
+    (item): item is PromiseRejectedResult => item.status === "rejected",
+  );
+  assert.equal(conflictingRaceFulfilled.length, 1);
+  assert.equal(conflictingRaceRejected.length, 1);
+  assert.match(
+    conflictingRaceRejected[0].reason instanceof Error
+      ? conflictingRaceRejected[0].reason.message
+      : String(conflictingRaceRejected[0].reason),
+    new RegExp(COMMERCE_CHECKOUT_IDEMPOTENCY_CONFLICT),
+  );
+  assert.equal(
+    await prisma.commerceOrder.count({
+      where: { checkoutRequestId: conflictingRaceRequestId },
+    }),
+    1,
+  );
+
   const second = await repository.createPendingOrder({
     planCode: "LITE",
     customerEmail: `second-${runId}@example.test`,
@@ -202,7 +239,7 @@ try {
       },
     },
   });
-  assert.equal(orderCount, 3);
+  assert.equal(orderCount, 4);
 
   console.log("COMMERCE_POSTGRES_ORDER_CREATION_PASS");
 } finally {
