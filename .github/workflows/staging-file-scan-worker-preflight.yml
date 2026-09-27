@@ -86,6 +86,12 @@ jobs:
                 errorCode: typeof b?.errorCode === "string" ? b.errorCode : null,
                 pass: b?.pass === true,
                 scannerHealthy: b?.scanner?.healthy === true,
+                scannerHttpStatus:
+                  Number.isInteger(b?.scanner?.httpStatus) ? b.scanner.httpStatus : null,
+                scannerResponseErrorCode:
+                  ["UNAUTHORIZED", "REQUEST_FAILED"].includes(b?.scanner?.responseErrorCode)
+                    ? b.scanner.responseErrorCode
+                    : null,
                 storageProviderMatches: b?.storage?.providerMatches === true,
                 batchIsOne: b?.worker?.batchIsOne === true,
                 sourceUrlTtlCompatible: b?.worker?.sourceUrlTtlCompatible === true,

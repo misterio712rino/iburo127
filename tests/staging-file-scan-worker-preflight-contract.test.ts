@@ -24,6 +24,10 @@ assert.match(source, /MAX_SCANNER_FILE_BYTES = BigInt\(52_428_800\)/);
 assert.match(source, /ALLOWED_SCANNER_MIME_TYPES/);
 assert.match(source, /storage\.statObject\(candidate\.objectKey\)/);
 assert.match(source, /candidateReady/);
+assert.match(source, /httpStatus: health\.httpStatus/);
+assert.match(source, /responseErrorCode: health\.responseErrorCode/);
+assert.match(source, /SAFE_SCANNER_RESPONSE_ERRORS = new Set\(\["UNAUTHORIZED", "REQUEST_FAILED"\]\)/);
+assert.doesNotMatch(source, /scanner:\s*\{[\s\S]{0,500}(?:origin|secret)\s*:/);
 
 for (const forbidden of [
   "runBatch(",

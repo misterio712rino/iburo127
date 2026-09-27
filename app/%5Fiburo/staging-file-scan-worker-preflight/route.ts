@@ -88,42 +88,99 @@ function unavailable(status = 404, errorCode?: string) {
   );
 }
 
-async function scannerHealth(origin: string, secret: string, timeoutMs: number) {
-  const response = await fetch(`${origin}/health`, {
-    method: "GET",
-    redirect: "error",
-    cache: "no-store",
-    signal: AbortSignal.timeout(Math.min(timeoutMs, 15_000)),
-    headers: {
-      Authorization: `Bearer ${secret}`,
-      Accept: "application/json",
-      "Cache-Control": "no-store",
-    },
-  });
-  if (response.status !== 200) {
-    await response.body?.cancel().catch(() => {});
-    return false;
+type ScannerHealthResult = {
+  healthy: boolean;
+  httpStatus: number | null;
+  responseErrorCode: "UNAUTHORIZED" | "REQUEST_FAILED" | null;
+  contentTypeMatches: boolean | null;
+};
+
+const SAFE_SCANNER_RESPONSE_ERRORS = new Set(["UNAUTHORIZED", "REQUEST_FAILED"]);
+
+async function scannerHealth(
+  origin: string,
+  secret: string,
+  timeoutMs: number,
+): Promise<ScannerHealthResult> {
+  let response: Response;
+  try {
+    response = await fetch(`${origin}/health`, {
+      method: "GET",
+      redirect: "error",
+      cache: "no-store",
+      signal: AbortSignal.timeout(Math.min(timeoutMs, 15_000)),
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        Accept: "application/json",
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch {
+    return {
+      healthy: false,
+      httpStatus: null,
+      responseErrorCode: "REQUEST_FAILED",
+      contentTypeMatches: null,
+    };
   }
-  const contentType = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
-  if (contentType !== "application/json") {
-    await response.body?.cancel().catch(() => {});
-    return false;
+
+  const contentType =
+    response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
+  const contentTypeMatches = contentType === "application/json";
+  if (response.status !== 200 || !contentTypeMatches) {
+    let responseErrorCode: ScannerHealthResult["responseErrorCode"] = null;
+    if (contentTypeMatches) {
+      try {
+        const body = await readBoundedScannerJson(response, 128);
+        if (
+          body !== null &&
+          typeof body === "object" &&
+          !Array.isArray(body) &&
+          Object.keys(body as Record<string, unknown>).length === 1
+        ) {
+          const error = (body as { error?: unknown }).error;
+          if (typeof error === "string" && SAFE_SCANNER_RESPONSE_ERRORS.has(error)) {
+            responseErrorCode = error;
+          }
+        }
+      } catch {
+        // Keep only the bounded status and whitelisted response code.
+      }
+    } else {
+      await response.body?.cancel().catch(() => {});
+    }
+    return {
+      healthy: false,
+      httpStatus: response.status,
+      responseErrorCode,
+      contentTypeMatches,
+    };
   }
+
   let body: unknown;
   try {
     body = await readBoundedScannerJson(response, 128);
   } catch {
-    return false;
+    return {
+      healthy: false,
+      httpStatus: response.status,
+      responseErrorCode: null,
+      contentTypeMatches,
+    };
   }
-  return (
+  const healthy =
     body !== null &&
     typeof body === "object" &&
     !Array.isArray(body) &&
     Object.keys(body as Record<string, unknown>).length === 1 &&
-    (body as { status?: unknown }).status === "ok"
-  );
+    (body as { status?: unknown }).status === "ok";
+  return {
+    healthy,
+    httpStatus: response.status,
+    responseErrorCode: null,
+    contentTypeMatches,
+  };
 }
-
 export async function POST(request: Request) {
   const env = process.env;
   const commitSha = exactPreviewCommitSha(env);
@@ -245,7 +302,7 @@ export async function POST(request: Request) {
     const storageProviderMatches = storage.providerCode === EXPECTED_STORAGE_PROVIDER;
     const noActiveScans = scanning === 0 && expiredScanning === 0;
     const workerConfigPass =
-      health &&
+      health.healthy &&
       leaseTimeoutCompatible &&
       sourceUrlTtlCompatible &&
       batchIsOne &&
@@ -270,7 +327,10 @@ export async function POST(request: Request) {
         networkAccessed: true,
         valuesPrinted: false,
         scanner: {
-          healthy: health,
+          healthy: health.healthy,
+          httpStatus: health.httpStatus,
+          responseErrorCode: health.responseErrorCode,
+          contentTypeMatches: health.contentTypeMatches,
           requestTimeoutMs: scanner.requestTimeoutMs,
         },
         storage: {
