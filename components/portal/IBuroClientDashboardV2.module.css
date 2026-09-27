@@ -278,6 +278,7 @@
 }
 
 .caseProgressCard {
+  min-width: 0;
   padding: 24px;
   animation: riseIn 420ms 150ms cubic-bezier(.2,.8,.2,1) both;
 }
