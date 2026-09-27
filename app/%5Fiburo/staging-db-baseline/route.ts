@@ -29,8 +29,20 @@ const EXPECTED_PRISMA_MIGRATIONS = [
   "20260901_access_gate_leads",
   "20260905_practicum_homework_lesson_chat",
   "20260906_stored_file_deletion_foundation",
+  "20260917_case_document_revisions",
+  "20260927_commerce_foundation",
+  "20260927_commerce_order_checkout_idempotency",
 ] as const;
-const DOCUMENT_REVISION_MIGRATION = "20260917_case_document_revisions";
+const DOCUMENT_REVISION_MIGRATION_INDEX = 4;
+const COMMERCE_FOUNDATION_MIGRATION_INDEX = 5;
+const COMMERCE_IDEMPOTENCY_MIGRATION_INDEX = 6;
+const COMMERCE_TABLES = ["CommerceOrder", "CommercePayment", "CommercePaymentEvent"] as const;
+const COMMERCE_ENUMS = [
+  "CommerceOrderStatus",
+  "CommercePaymentStatus",
+  "CommercePaymentEventKind",
+  "CommercePaymentEventProcessingStatus",
+] as const;
 const BETTER_AUTH_TABLES = [
   "user",
   "session",
@@ -84,19 +96,30 @@ function unavailable(status = 404, failureStage?: ProbeFailureStage) {
   );
 }
 
-// Accept only the reviewed legacy baseline or that baseline plus the single
-// optional document-revision migration. A partial, unknown or duplicated history
-// fails closed; legacy PASS must never be mistaken for revision readiness.
-function documentRevisionMigrationApplied(appliedMigrations: readonly MigrationRow[]): boolean | null {
-  const appliedNames = new Set(appliedMigrations.map((row) => row.migration_name));
-  if (appliedNames.size !== appliedMigrations.length) return null;
-  if (!EXPECTED_PRISMA_MIGRATIONS.every((name) => appliedNames.has(name))) return null;
-  if (appliedMigrations.length === EXPECTED_PRISMA_MIGRATIONS.length) return false;
-  if (
-    appliedMigrations.length === EXPECTED_PRISMA_MIGRATIONS.length + 1 &&
-    appliedNames.has(DOCUMENT_REVISION_MIGRATION)
-  ) return true;
-  return null;
+// Accept only an exact prefix of the reviewed migration history. This lets the
+// read-only probe report an older staging schema safely while rejecting unknown,
+// duplicated, reordered or partially tracked migration history.
+function reviewedMigrationState(appliedMigrations: readonly MigrationRow[]) {
+  if (appliedMigrations.length > EXPECTED_PRISMA_MIGRATIONS.length) return null;
+  const appliedNames = appliedMigrations.map((row) => row.migration_name);
+  if (new Set(appliedNames).size !== appliedNames.length) return null;
+  for (let index = 0; index < appliedNames.length; index += 1) {
+    if (appliedNames[index] !== EXPECTED_PRISMA_MIGRATIONS[index]) return null;
+  }
+
+  const appliedCount = appliedNames.length;
+  const documentRevisionApplied = appliedCount > DOCUMENT_REVISION_MIGRATION_INDEX;
+  const commerceFoundationApplied = appliedCount > COMMERCE_FOUNDATION_MIGRATION_INDEX;
+  const commerceIdempotencyApplied = appliedCount > COMMERCE_IDEMPOTENCY_MIGRATION_INDEX;
+
+  return {
+    appliedCount,
+    pendingCount: EXPECTED_PRISMA_MIGRATIONS.length - appliedCount,
+    documentRevisionApplied,
+    commerceFoundationApplied,
+    commerceIdempotencyApplied,
+    commerceReady: commerceFoundationApplied && commerceIdempotencyApplied,
+  };
 }
 
 export async function GET() {
@@ -195,6 +218,17 @@ export async function GET() {
       );
       const storedFileStatusValues = storedFileStatusResult.rows.map((row) => row.enum_value);
 
+      const commerceOrderColumnResult = await client.query<{ column_name: string }>(
+        `
+          select column_name
+          from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'CommerceOrder'
+          order by ordinal_position
+        `,
+      );
+      const commerceOrderColumns = commerceOrderColumnResult.rows.map((row) => row.column_name);
+
       const prismaMigrationTablePresent = tableSet.has("_prisma_migrations");
       let migrationRows: MigrationRow[] = [];
       if (prismaMigrationTablePresent) {
@@ -232,16 +266,40 @@ export async function GET() {
       });
 
       failureStage = "prisma-history";
-      const revisionMigrationApplied = documentRevisionMigrationApplied(appliedMigrations);
-      if (unfinishedMigrations.length !== 0 || revisionMigrationApplied === null) {
-        throw new Error("staging Prisma migration history does not match the reviewed migration set");
+      const migrationState = reviewedMigrationState(appliedMigrations);
+      if (unfinishedMigrations.length !== 0 || migrationState === null) {
+        throw new Error("staging Prisma migration history does not match the reviewed migration prefix");
       }
+
       const revisionTablePresent = tableSet.has("CaseDocumentRevision");
       const revisionEnumPresent = enumNames.includes("CaseDocumentRevisionStatus");
-      if (revisionMigrationApplied) {
+      if (migrationState.documentRevisionApplied) {
         assertDocumentRevisionSchemaContract({ tables: tableNames, enums: enumNames });
       } else if (revisionTablePresent || revisionEnumPresent) {
         throw new Error("untracked document revision schema drift");
+      }
+
+      const commerceTablesPresent = COMMERCE_TABLES.filter((name) => tableSet.has(name));
+      const commerceEnumsPresent = COMMERCE_ENUMS.filter((name) => enumNames.includes(name));
+      const commerceCheckoutRequestIdPresent = commerceOrderColumns.includes("checkoutRequestId");
+
+      if (migrationState.commerceFoundationApplied) {
+        if (
+          commerceTablesPresent.length !== COMMERCE_TABLES.length ||
+          commerceEnumsPresent.length !== COMMERCE_ENUMS.length
+        ) {
+          throw new Error("commerce foundation migration recorded without required schema objects");
+        }
+      } else if (commerceTablesPresent.length > 0 || commerceEnumsPresent.length > 0) {
+        throw new Error("untracked commerce foundation schema drift");
+      }
+
+      if (migrationState.commerceIdempotencyApplied) {
+        if (!commerceCheckoutRequestIdPresent) {
+          throw new Error("commerce idempotency migration recorded without checkoutRequestId");
+        }
+      } else if (commerceCheckoutRequestIdPresent) {
+        throw new Error("untracked commerce idempotency schema drift");
       }
 
       const presentDomainTables = REQUIRED_STAGING_DOMAIN_TABLES.filter((name) => tableSet.has(name));
@@ -298,11 +356,23 @@ export async function GET() {
           prisma: {
             migrationTablePresent: prismaMigrationTablePresent,
             appliedCount: appliedMigrations.length,
+            pendingCount: migrationState.pendingCount,
             unfinishedCount: unfinishedMigrations.length,
             expectedCount: EXPECTED_PRISMA_MIGRATIONS.length,
+            exactReviewedPrefix: true,
             documentRevision: {
-              migrationApplied: revisionMigrationApplied,
-              schemaReady: revisionMigrationApplied,
+              migrationApplied: migrationState.documentRevisionApplied,
+              schemaReady: migrationState.documentRevisionApplied,
+            },
+            commerce: {
+              foundationMigrationApplied: migrationState.commerceFoundationApplied,
+              idempotencyMigrationApplied: migrationState.commerceIdempotencyApplied,
+              tablesPresent: commerceTablesPresent.length,
+              tablesExpected: COMMERCE_TABLES.length,
+              enumsPresent: commerceEnumsPresent.length,
+              enumsExpected: COMMERCE_ENUMS.length,
+              checkoutRequestIdPresent: commerceCheckoutRequestIdPresent,
+              schemaReady: migrationState.commerceReady,
             },
             pass: true,
           },
