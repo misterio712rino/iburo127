@@ -68,5 +68,15 @@ jobs:
           ./node_modules/.bin/prisma migrate deploy
           ./node_modules/.bin/prisma migrate status
 
+      - name: Install isolated server-only marker shim
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p node_modules/server-only
+          cat > node_modules/server-only/package.json <<'JSON'
+          {"name":"server-only","version":"0.0.0-ci-shim","type":"module","exports":"./index.js"}
+          JSON
+          printf 'export {};\n' > node_modules/server-only/index.js
+
       - name: Run real PostgreSQL practicum concurrency tests
         run: node --conditions=react-server --import tsx tests/practicum-postgres-concurrency.integration.ts
