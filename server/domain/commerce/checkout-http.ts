@@ -3,11 +3,15 @@ import {
   COMMERCE_ONLINE_PLAN_CODES,
   type CommerceOnlinePlanCode,
 } from "@/server/domain/commerce/contracts";
-import { normalizeCommerceCustomerEmail } from "@/server/domain/commerce/order-creation";
+import {
+  normalizeCommerceCheckoutRequestId,
+  normalizeCommerceCustomerEmail,
+} from "@/server/domain/commerce/order-creation";
 
 export type CommerceCheckoutRequest = {
   planCode: CommerceOnlinePlanCode;
   email: string;
+  requestId: string;
 };
 
 function invalid(): never {
@@ -20,9 +24,10 @@ export function parseCommerceCheckoutBody(value: unknown): CommerceCheckoutReque
   const record = value as Record<string, unknown>;
   const keys = Object.keys(record).sort();
   if (
-    keys.length !== 2 ||
+    keys.length !== 3 ||
     keys[0] !== "email" ||
-    keys[1] !== "planCode"
+    keys[1] !== "planCode" ||
+    keys[2] !== "requestId"
   ) {
     invalid();
   }
@@ -38,6 +43,7 @@ export function parseCommerceCheckoutBody(value: unknown): CommerceCheckoutReque
   return {
     planCode: planCode as CommerceOnlinePlanCode,
     email: normalizeCommerceCustomerEmail(record.email),
+    requestId: normalizeCommerceCheckoutRequestId(record.requestId),
   };
 }
 
