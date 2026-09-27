@@ -7,6 +7,7 @@ export const COMMERCE_PAYMENT_IDENTITY_CONFLICT = "COMMERCE_PAYMENT_IDENTITY_CON
 export const COMMERCE_ORDER_NOT_FOUND = "COMMERCE_ORDER_NOT_FOUND";
 export const COMMERCE_PAYMENT_EVENT_CONFLICT = "COMMERCE_PAYMENT_EVENT_CONFLICT";
 export const COMMERCE_PAYMENT_CONCURRENT_UPDATE = "COMMERCE_PAYMENT_CONCURRENT_UPDATE";
+export const COMMERCE_CHECKOUT_IDEMPOTENCY_CONFLICT = "COMMERCE_CHECKOUT_IDEMPOTENCY_CONFLICT";
 
 export const COMMERCE_ONLINE_PLAN_CODES = ["LITE", "PRO"] as const;
 
@@ -119,5 +120,6 @@ export type CommerceCreatedOrder = {
   amountMinor: number;
   currency: string;
   offerVersion: string;
-  status: "PENDING_PAYMENT";
+  status: CommerceOrderStatus;
+  replayed: boolean;
 };
