@@ -16,7 +16,7 @@
 .cardLabel,
 .continueEyebrow,
 .moduleTitle > span {
-  color: #b51f2a;
+  color: var(--ib-plan-accent);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: .08em;
@@ -55,8 +55,8 @@
   width: 52px;
   height: 52px;
   border-radius: 18px;
-  background: #f8e9ea;
-  color: #b51f2a;
+  background: color-mix(in srgb,var(--ib-plan-accent) 10%,white);
+  color: var(--ib-plan-accent);
 }
 
 .headerIcon svg,
@@ -140,7 +140,7 @@
 
 .primaryButton {
   margin-top: 28px;
-  background: #b51f2a;
+  background: var(--ib-plan-accent);
   color: white;
   padding: 0 22px;
   box-shadow: 0 10px 24px rgba(181,31,42,.2);
@@ -149,7 +149,7 @@
 .primaryButton:hover,
 .completeButton:hover {
   transform: translateY(-1px);
-  background: #9f1923;
+  background: var(--ib-plan-accent-hover);
 }
 
 .primaryButton:disabled,
@@ -179,7 +179,7 @@
   border-radius: 30px;
   background:
     radial-gradient(circle at 88% 0%, rgba(255,255,255,.13), transparent 34%),
-    linear-gradient(135deg, #c61f2b 0%, #a61622 100%);
+    linear-gradient(135deg, var(--ib-plan-accent) 0%, var(--ib-plan-accent-hover) 100%);
   color: white;
   padding: 34px;
   box-shadow: 0 24px 60px rgba(181,31,42,.2);
@@ -213,7 +213,7 @@
   left: 34px;
   bottom: 30px;
   background: white;
-  color: #a61622;
+  color: var(--ib-plan-accent-hover);
   padding: 0 20px;
 }
 
@@ -268,7 +268,7 @@
 .doneIcon {
   width: 36px;
   height: 36px;
-  color: #b51f2a;
+  color: var(--ib-plan-accent);
 }
 
 .progressTrack {
@@ -283,7 +283,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #b51f2a, #d3333d);
+  background: linear-gradient(90deg, var(--ib-plan-accent), var(--ib-plan-accent-hover));
   transition: width 520ms cubic-bezier(.2,.8,.2,1);
 }
 
@@ -351,8 +351,8 @@
   height: 44px;
   place-items: center;
   border-radius: 16px;
-  background: #f8e9ea;
-  color: #b51f2a;
+  background: color-mix(in srgb,var(--ib-plan-accent) 10%,white);
+  color: var(--ib-plan-accent);
   font-weight: 820;
 }
 
@@ -431,8 +431,8 @@
 }
 
 .lessonDone {
-  border-color: #b51f2a;
-  background: #b51f2a;
+  border-color: var(--ib-plan-accent);
+  background: var(--ib-plan-accent);
   color: white;
 }
 
@@ -472,7 +472,7 @@
 }
 
 .lessonCurrent .lessonState {
-  color: #b51f2a;
+  color: var(--ib-plan-accent);
 }
 
 .chevron {
@@ -513,7 +513,7 @@
 }
 
 .keyPoints > span {
-  color: #b51f2a;
+  color: var(--ib-plan-accent);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: .07em;
@@ -534,7 +534,7 @@
 
 .completeButton {
   margin-top: 20px;
-  background: #b51f2a;
+  background: var(--ib-plan-accent);
   color: white;
   padding: 0 20px;
 }
