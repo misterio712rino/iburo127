@@ -136,6 +136,16 @@ jobs:
                 process.exit(1);
               }
 
+              if (
+                typeof b?.database?.host !== "string" ||
+                !/^[a-z0-9.-]{3,253}$/.test(b.database.host) ||
+                !["neon", "other"].includes(b?.database?.provider)
+              ) {
+                console.error("STAGING_DATABASE_PROVIDER_DIAGNOSTIC_INVALID");
+                process.exit(1);
+              }
+              console.log("STAGING_DATABASE_PROVIDER=" + b.database.provider);
+              console.log("STAGING_DATABASE_HOST=" + b.database.host);
               console.log("STAGING_REVISION_MIGRATION_APPLIED=" + revision.migrationApplied);
               console.log("STAGING_REVISION_MIGRATION_SCHEMA_READY=" + revision.schemaReady);
               console.log("STAGING_BASELINE_APPLIED_COUNT=" + p.appliedCount);
