@@ -20,7 +20,7 @@ jobs:
         env:
           POSTGRES_DB: iburo_concurrency
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 5432:5432
         options: >-
@@ -29,7 +29,7 @@ jobs:
           --health-timeout 5s
           --health-retries 30
     env:
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/iburo_concurrency?schema=public
+      DATABASE_URL: postgresql://postgres@127.0.0.1:5432/iburo_concurrency?schema=public
       NODE_ENV: test
 
     steps:
