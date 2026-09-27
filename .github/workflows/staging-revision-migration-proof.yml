@@ -67,12 +67,26 @@ jobs:
                 domainEnums: b?.domain?.enums?.pass === true,
                 migrationTablePresent: p.migrationTablePresent === true,
                 unfinishedCount: p.unfinishedCount === 0,
-                expectedCount: p.expectedCount === 4,
-                appliedCount: [4, 5].includes(p.appliedCount),
+                expectedCount: p.expectedCount === 7,
+                appliedCount: Number.isInteger(p.appliedCount) &&
+                  p.appliedCount >= 4 &&
+                  p.appliedCount <= 7,
+                pendingCount: p.pendingCount === 7 - p.appliedCount,
+                exactReviewedPrefix: p.exactReviewedPrefix === true,
                 revisionFlagsAreBoolean: typeof revision.migrationApplied === "boolean" &&
                   typeof revision.schemaReady === "boolean",
                 revisionFlagsMatch: revision.schemaReady === revision.migrationApplied,
-                revisionMigrationCount: p.appliedCount === (revision.migrationApplied ? 5 : 4),
+                revisionMigrationCount: revision.migrationApplied === (p.appliedCount >= 5),
+                commerceFlagsAreBoolean:
+                  typeof p?.commerce?.foundationMigrationApplied === "boolean" &&
+                  typeof p?.commerce?.idempotencyMigrationApplied === "boolean" &&
+                  typeof p?.commerce?.schemaReady === "boolean",
+                commerceFoundationCount:
+                  p.commerce.foundationMigrationApplied === (p.appliedCount >= 6),
+                commerceIdempotencyCount:
+                  p.commerce.idempotencyMigrationApplied === (p.appliedCount >= 7),
+                commerceReadyCount:
+                  p.commerce.schemaReady === (p.appliedCount === 7),
                 prismaPass: p.pass === true,
                 overallPass: b?.pass === true
               };
@@ -106,10 +120,21 @@ jobs:
                       unfinishedCount: p.unfinishedCount ?? null,
                       expectedCount: p.expectedCount ?? null,
                       appliedCount: p.appliedCount ?? null,
+                      pendingCount: p.pendingCount ?? null,
+                      exactReviewedPrefix: p.exactReviewedPrefix ?? null,
                       pass: p.pass ?? null,
                       documentRevision: {
                         migrationApplied: revision.migrationApplied ?? null,
                         schemaReady: revision.schemaReady ?? null
+                      },
+                      commerce: {
+                        foundationMigrationApplied:
+                          p?.commerce?.foundationMigrationApplied ?? null,
+                        idempotencyMigrationApplied:
+                          p?.commerce?.idempotencyMigrationApplied ?? null,
+                        checkoutRequestIdPresent:
+                          p?.commerce?.checkoutRequestIdPresent ?? null,
+                        schemaReady: p?.commerce?.schemaReady ?? null
                       }
                     },
                     pass: b?.pass ?? null
@@ -124,10 +149,14 @@ jobs:
                     readOnly: true,
                     database: { name: "neondb", schema: "public" },
                     prisma: {
-                      expectedCount: 4,
+                      expectedCount: 7,
                       unfinishedCount: 0,
-                      appliedCount: "4 before revision migration, 5 after",
-                      revisionFlags: "schemaReady equals migrationApplied",
+                      appliedCount: "exact reviewed prefix length 4..7",
+                      pendingCount: "7 - appliedCount",
+                      exactReviewedPrefix: true,
+                      revisionFlags: "schemaReady iff appliedCount >= 5",
+                      commerceFlags:
+                        "foundation at >=6, idempotency/schemaReady at 7",
                       pass: true
                     },
                     pass: true
