@@ -1,3 +1,5 @@
+BEGIN;
+
 -- CreateEnum
 CREATE TYPE "CommerceOrderStatus" AS ENUM (
   'PENDING_PAYMENT',
@@ -162,3 +164,5 @@ ALTER TABLE "CommercePaymentEvent" ADD CONSTRAINT "CommercePaymentEvent_orderId_
 
 -- AddForeignKey
 ALTER TABLE "CommercePaymentEvent" ADD CONSTRAINT "CommercePaymentEvent_paymentId_fkey" FOREIGN KEY ("paymentId") REFERENCES "CommercePayment"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+COMMIT;
