@@ -22,11 +22,12 @@ function isStateConflict(reason: unknown) {
   return reason instanceof Error && reason.message === PRACTICUM_WORKSPACE_STATE_CONFLICT;
 }
 
-async function exactlyOneWins<T>(left: Promise<T>, right: Promise<T>) {
+async function exactlyOneWins(
+  left: Promise<unknown>,
+  right: Promise<unknown>,
+): Promise<void> {
   const results = await Promise.allSettled([left, right]);
-  const fulfilled = results.filter(
-    (result): result is PromiseFulfilledResult<T> => result.status === "fulfilled",
-  );
+  const fulfilledCount = results.filter((result) => result.status === "fulfilled").length;
   const rejected = results.filter(
     (result): result is PromiseRejectedResult => result.status === "rejected",
   );
@@ -42,7 +43,7 @@ async function exactlyOneWins<T>(left: Promise<T>, right: Promise<T>) {
     return { name: typeof reason, code: null, message: String(reason) };
   });
   assert.equal(
-    fulfilled.length,
+    fulfilledCount,
     1,
     `exactly one concurrent mutation must commit; rejected=${JSON.stringify(safeReasons)}`,
   );
@@ -57,7 +58,6 @@ async function exactlyOneWins<T>(left: Promise<T>, right: Promise<T>) {
       rejected[0].reason instanceof Error ? rejected[0].reason.message : String(rejected[0].reason)
     }`,
   );
-  return fulfilled[0].value;
 }
 
 async function makeFixture(label: string): Promise<Fixture> {
