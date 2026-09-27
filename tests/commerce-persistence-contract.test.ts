@@ -11,10 +11,6 @@ const checkoutIdempotencyMigration = await readFile(
   resolve("prisma/migrations/20260927_commerce_order_checkout_idempotency/migration.sql"),
   "utf8",
 );
-const idempotencyMigration = await readFile(
-  resolve("prisma/migrations/20260927_commerce_checkout_idempotency/migration.sql"),
-  "utf8",
-);
 
 for (const enumName of [
   "CommerceOrderStatus",
@@ -80,6 +76,6 @@ assert.doesNotMatch(migration, /rawPayload|webhookBody/);
 
 console.log("COMMERCE_PERSISTENCE_CONTRACT_PASS");
 
-assert.match(idempotencyMigration, /ADD COLUMN "checkoutRequestId" UUID/);
-assert.match(idempotencyMigration, /CommerceOrder_checkoutRequestId_key/);
-assert.match(idempotencyMigration, /CREATE UNIQUE INDEX/);
+assert.match(checkoutIdempotencyMigration, /ADD COLUMN "checkoutRequestId" UUID/);
+assert.match(checkoutIdempotencyMigration, /CommerceOrder_checkoutRequestId_key/);
+assert.match(checkoutIdempotencyMigration, /CREATE UNIQUE INDEX/);
