@@ -60,7 +60,7 @@ export function IndividualClientVisualStyles() {
         background:
           linear-gradient(135deg,color-mix(in srgb,var(--ib-plan-accent) 78%,white),var(--ib-plan-accent-hover))!important;
         border:1px solid rgba(255,255,255,.06)!important;
-        box-shadow:0 22px 60px rgba(126,15,24,.22)!important;
+        box-shadow:0 22px 60px rgba(var(--ib-plan-accent-rgb),.22)!important;
       }
 
       .client-case-shell[data-client-plan="individual"] main > div > section:nth-child(2) > article {
