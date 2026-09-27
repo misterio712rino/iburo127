@@ -232,7 +232,7 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
     <div className="flex min-w-0 flex-col gap-7 py-1 sm:gap-9 sm:py-2">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-[#b9202b]">Материалы дела</p>
+          <p className="text-sm font-semibold text-[var(--ib-plan-accent)]">Материалы дела</p>
           <h1 className="mt-2 font-[var(--font-iburo-display)] text-3xl font-semibold tracking-[-.04em] text-slate-950 sm:text-5xl">Файлы</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">Загружайте документы и изображения по делу. Сразу после загрузки вы увидите файл здесь, а скачать его можно будет после проверки безопасности.</p>
         </div>
@@ -245,14 +245,14 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
       {error ? <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</p> : null}
 
       <section className="relative overflow-hidden rounded-[26px] border border-[#e8e8e6] bg-white p-6 text-slate-950 shadow-[0_10px_34px_rgba(15,23,42,.04)] sm:p-8">
-        <FileLock2 className="absolute -bottom-10 -right-8 size-56 text-[#b9202b] opacity-[.035]" aria-hidden="true" />
+        <FileLock2 className="absolute -bottom-10 -right-8 size-56 text-[var(--ib-plan-accent)] opacity-[.035]" aria-hidden="true" />
         <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[.14em] text-[#b9202b]">Добавить материал</p>
+            <p className="text-xs font-semibold uppercase tracking-[.14em] text-[var(--ib-plan-accent)]">Добавить материал</p>
             <h2 className="mt-3 text-2xl font-semibold tracking-[-.035em] sm:text-3xl">Передайте файл в дело</h2>
             <p className="mt-3 text-sm leading-6 text-slate-500">PDF, JPG, PNG, WEBP, DOC или DOCX до 50 МБ. После загрузки материал появится в списке со статусом проверки.</p>
           </div>
-          <label className="inline-flex min-h-12 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#b9202b] bg-[#b9202b] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#9f1923] focus-within:ring-4 focus-within:ring-[#b9202b]/15 has-[input:disabled]:cursor-not-allowed has-[input:disabled]:opacity-60">
+          <label className="inline-flex min-h-12 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[var(--ib-plan-accent)] bg-[var(--ib-plan-accent)] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[var(--ib-plan-accent-hover)] focus-within:ring-4 focus-within:ring-[var(--ib-plan-accent)]/15 has-[input:disabled]:cursor-not-allowed has-[input:disabled]:opacity-60">
             {uploading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <UploadCloud className="size-4" aria-hidden="true" />}
             {uploading ? "Загрузка…" : "Выбрать файл"}
             <input
@@ -273,7 +273,7 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
       <section aria-labelledby="case-files-heading">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[.14em] text-[#b9202b]">Хранилище</p>
+            <p className="text-xs font-semibold uppercase tracking-[.14em] text-[var(--ib-plan-accent)]">Хранилище</p>
             <h2 id="case-files-heading" className="mt-2 text-2xl font-semibold tracking-[-.04em] text-slate-950 sm:text-3xl">Файлы дела</h2>
           </div>
           <span aria-live="polite" className="text-xs font-semibold text-slate-400">{files.length} шт.</span>
@@ -291,7 +291,7 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
               return (
                 <article key={file.id} className="group rounded-[24px] border border-[#e8e8e6] bg-white p-5 shadow-[0_8px_28px_rgba(15,23,42,.035)] transition-colors hover:bg-slate-50/40 sm:p-6">
                   <div className="flex items-start justify-between gap-4">
-                    <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#f4f1ef] text-[#b9202b]"><StatusIcon className="size-5" aria-hidden="true" /></span>
+                    <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#f4f1ef] text-[var(--ib-plan-accent)]"><StatusIcon className="size-5" aria-hidden="true" /></span>
                     <span className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${status.className}`}>{status.label}</span>
                   </div>
                   <h3 className="mt-5 truncate text-lg font-semibold tracking-[-.025em] text-slate-950" title={file.fileName}>{file.fileName}</h3>
@@ -306,7 +306,7 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
                         type="button"
                         onClick={() => download(file.id)}
                         disabled={Boolean(deletingId || downloadingId)}
-                        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#b9202b]/15 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--ib-plan-accent)]/15 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                       >
                         {downloadingId === file.id ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Download className="size-4" aria-hidden="true" />}
                         {downloadingId === file.id ? "Готовим ссылку…" : "Скачать"}
