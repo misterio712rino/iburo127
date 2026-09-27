@@ -7,6 +7,10 @@ const migration = await readFile(
   resolve("prisma/migrations/20260927_commerce_foundation/migration.sql"),
   "utf8",
 );
+const idempotencyMigration = await readFile(
+  resolve("prisma/migrations/20260927_commerce_checkout_idempotency/migration.sql"),
+  "utf8",
+);
 
 for (const enumName of [
   "CommerceOrderStatus",
@@ -22,7 +26,8 @@ for (const modelName of ["CommerceOrder", "CommercePayment", "CommercePaymentEve
   assert.match(migration, new RegExp(`CREATE TABLE "${modelName}"`));
 }
 
-assert.match(schema, /publicCheckoutId String\s+@unique/);
+assert.match(schema, /publicCheckoutId\s+String\s+@unique/);
+assert.match(schema, /checkoutRequestId\s+String\?\s+@unique @db\.Uuid/);
 assert.match(schema, /clientCaseId\s+String\?\s+@unique @db\.Uuid/);
 assert.match(schema, /@@unique\(\[provider, providerPaymentId\]\)/);
 assert.match(schema, /@@unique\(\[provider, providerEventId\]\)/);
@@ -70,3 +75,7 @@ for (const relation of [
 assert.doesNotMatch(migration, /rawPayload|webhookBody/);
 
 console.log("COMMERCE_PERSISTENCE_CONTRACT_PASS");
+
+assert.match(idempotencyMigration, /ADD COLUMN "checkoutRequestId" UUID/);
+assert.match(idempotencyMigration, /CommerceOrder_checkoutRequestId_key/);
+assert.match(idempotencyMigration, /CREATE UNIQUE INDEX/);
