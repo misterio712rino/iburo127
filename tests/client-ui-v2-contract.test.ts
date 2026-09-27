@@ -95,7 +95,10 @@ assert.match(shellStyleSource, /prefers-reduced-motion/);
 assert.match(dashboardStyleSource, /border-radius:\s*28px/);
 assert.match(dashboardStyleSource, /grid-template-columns:\s*repeat\(6/);
 
-assert.match(layoutSource, /Onest/);
+assert.match(layoutSource, /Manrope/);
+assert.match(layoutSource, /Source_Serif_4/);
+assert.match(layoutSource, /variable:\\s*"--font-iburo-sans"/);
+assert.match(layoutSource, /variable:\\s*"--font-iburo-display"/);
 assert.match(layoutSource, /subsets:\s*\["cyrillic", "latin"\]/);
 
 console.log("CLIENT_UI_V2_CONTRACT_TEST_PASS");
