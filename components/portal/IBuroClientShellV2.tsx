@@ -53,7 +53,7 @@ function initials(displayName: string) {
   return (
     displayName
       .trim()
-      .split(/\s+/u)
+      .split(/\\s+/u)
       .slice(0, 2)
       .map((part) => part[0]?.toUpperCase() ?? "")
       .join("") || "iБ"
@@ -112,6 +112,13 @@ export function IBuroClientShellV2({
   const userInitials = initials(displayName);
   const planTheme = getClientPlanTheme(planCode);
   const shellStyle = {
+    "--ib-plan-accent": planTheme.accent,
+    "--ib-plan-accent-hover": planTheme.accentHover,
+    "--ib-plan-accent-soft": planTheme.accentSoft,
+    "--ib-plan-accent-rgb": planTheme.accentRgb,
+    "--ib-plan-accent-bright": planTheme.heroStart,
+    "--ib-accent": planTheme.accent,
+    "--ib-accent-soft": planTheme.accentSoft,
     "--ib2-red": planTheme.accent,
     "--ib2-red-hover": planTheme.accentHover,
     "--ib2-red-soft": planTheme.accentSoft,
