@@ -26,3 +26,18 @@ export function normalizeCommerceCustomerEmail(value: unknown): string {
 
   return email;
 }
+
+
+const CHECKOUT_REQUEST_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function normalizeCommerceCheckoutRequestId(value: unknown): string {
+  if (typeof value !== "string") {
+    throw new Error(COMMERCE_INVALID_INPUT);
+  }
+  const requestId = value.trim().toLowerCase();
+  if (!CHECKOUT_REQUEST_ID.test(requestId)) {
+    throw new Error(COMMERCE_INVALID_INPUT);
+  }
+  return requestId;
+}
