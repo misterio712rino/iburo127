@@ -6,9 +6,9 @@ import { Check } from "lucide-react";
 import { CASE_STAGE_FLOW } from "@/lib/platform/case-progress";
 import styles from "./IBuroProgressV2.module.css";
 
-type CaseStage = { code: string; label: string; position: number | null; total: number };
+type CaseStage = { label: string; position: number | null; total: number };
 
-export function CaseStageTimeline({ stage }: { stage: CaseStage }) {
+export function CaseStageTimeline({ stage, compact = false }: { stage: CaseStage; compact?: boolean }) {
   const stageScrollerRef = useRef<HTMLDivElement>(null);
   const currentStageRef = useRef<HTMLLIElement>(null);
 
@@ -28,11 +28,17 @@ export function CaseStageTimeline({ stage }: { stage: CaseStage }) {
   }, [stage.position]);
 
   return (
-    <section className={styles.stages} aria-labelledby="case-stage-timeline-heading">
+    <section
+      className={`${styles.stages} ${compact ? styles.stagesCompact : ""}`}
+      aria-label={compact ? "Этапы дела" : undefined}
+      aria-labelledby={compact ? undefined : "case-stage-timeline-heading"}
+    >
+      {!compact ? (
       <div className={styles.sectionHeading}>
         <div><span>Процедура</span><h2 id="case-stage-timeline-heading">Этапы дела</h2></div>
         <small>Актуально по данным дела</small>
       </div>
+      ) : null}
       <div
         ref={stageScrollerRef}
         className={styles.stageScroller}
