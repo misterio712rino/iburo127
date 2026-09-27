@@ -30,8 +30,27 @@ async function exactlyOneWins<T>(left: Promise<T>, right: Promise<T>) {
   const rejected = results.filter(
     (result): result is PromiseRejectedResult => result.status === "rejected",
   );
-  assert.equal(fulfilled.length, 1, "exactly one concurrent mutation must commit");
-  assert.equal(rejected.length, 1, "exactly one concurrent mutation must lose the CAS race");
+  const safeReasons = rejected.map((result) => {
+    const reason = result.reason as { code?: unknown; name?: unknown; message?: unknown } | unknown;
+    if (reason && typeof reason === "object") {
+      return {
+        name: "name" in reason ? String(reason.name) : "unknown",
+        code: "code" in reason ? String(reason.code) : null,
+        message: "message" in reason ? String(reason.message) : "unknown",
+      };
+    }
+    return { name: typeof reason, code: null, message: String(reason) };
+  });
+  assert.equal(
+    fulfilled.length,
+    1,
+    `exactly one concurrent mutation must commit; rejected=${JSON.stringify(safeReasons)}`,
+  );
+  assert.equal(
+    rejected.length,
+    1,
+    `exactly one concurrent mutation must lose the CAS race; rejected=${JSON.stringify(safeReasons)}`,
+  );
   assert.ok(
     isStateConflict(rejected[0].reason),
     `losing mutation must surface state conflict, got: ${
