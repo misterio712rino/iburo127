@@ -172,7 +172,17 @@ jobs:
               console.log("STAGING_DATABASE_PROVIDER=" + b.database.provider);
               console.log("STAGING_REVISION_MIGRATION_APPLIED=" + revision.migrationApplied);
               console.log("STAGING_REVISION_MIGRATION_SCHEMA_READY=" + revision.schemaReady);
+              console.log(
+                "STAGING_COMMERCE_FOUNDATION_MIGRATION_APPLIED=" +
+                  p.commerce.foundationMigrationApplied,
+              );
+              console.log(
+                "STAGING_COMMERCE_IDEMPOTENCY_MIGRATION_APPLIED=" +
+                  p.commerce.idempotencyMigrationApplied,
+              );
+              console.log("STAGING_COMMERCE_SCHEMA_READY=" + p.commerce.schemaReady);
               console.log("STAGING_BASELINE_APPLIED_COUNT=" + p.appliedCount);
+              console.log("STAGING_BASELINE_PENDING_COUNT=" + p.pendingCount);
               console.log("STAGING_REVISION_READ_ONLY_PROOF_PASS");
               process.exit(0);
             '; then
