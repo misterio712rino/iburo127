@@ -116,6 +116,7 @@ export default async function PortalDocumentsPage({ params }: { params: Promise<
         caseId={clientCase.id}
         humanSupportAvailable={humanSupportAvailable}
         questionnaire={questionnaire}
+        stage={summary.stage}
         initialDocuments={documentState}
       />
     </IBuroClientShellV2>
