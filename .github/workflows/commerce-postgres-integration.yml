@@ -70,3 +70,6 @@ jobs:
 
       - name: Run verified payment event integration tests
         run: node --conditions=react-server --import tsx tests/commerce-postgres-payment-event.integration.ts
+
+      - name: Run trusted order creation integration tests
+        run: node --conditions=react-server --import tsx tests/commerce-postgres-order-creation.integration.ts
