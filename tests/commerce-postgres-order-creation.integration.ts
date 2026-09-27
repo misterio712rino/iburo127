@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 
 import { getPrismaClient } from "@/server/database/prisma";
 import {
+  COMMERCE_CHECKOUT_IDEMPOTENCY_CONFLICT,
   COMMERCE_INVALID_INPUT,
   COMMERCE_PLAN_UNAVAILABLE,
   COMMERCE_UNSUPPORTED_PLAN,
@@ -43,9 +44,11 @@ try {
     create: { code: "PRO", name: "Про", isActive: false },
   });
 
+  const firstRequestId = randomUUID();
   const created = await repository.createPendingOrder({
     planCode: "LITE",
     customerEmail: `  Customer-${runId}@Example.TEST  `,
+    checkoutRequestId: firstRequestId,
     catalog,
   });
 
@@ -54,12 +57,14 @@ try {
   assert.equal(created.currency, "RUB");
   assert.equal(created.offerVersion, "offer-test-2026-09-27");
   assert.equal(created.status, "PENDING_PAYMENT");
+  assert.equal(created.replayed, false);
   assert.match(created.publicCheckoutId, /^chk_[A-Za-z0-9_-]{32}$/);
 
   const persisted = await prisma.commerceOrder.findUniqueOrThrow({
     where: { publicCheckoutId: created.publicCheckoutId },
   });
   assert.equal(persisted.planId, litePlan.id);
+  assert.equal(persisted.checkoutRequestId, firstRequestId);
   assert.equal(
     persisted.customerEmail,
     `customer-${runId}@example.test`,
@@ -73,9 +78,63 @@ try {
   assert.equal(persisted.paidAt, null);
   assert.equal(persisted.provisionedAt, null);
 
+  const replay = await repository.createPendingOrder({
+    planCode: "LITE",
+    customerEmail: `customer-${runId}@example.test`,
+    checkoutRequestId: firstRequestId,
+    catalog,
+  });
+  assert.equal(replay.publicCheckoutId, created.publicCheckoutId);
+  assert.equal(replay.replayed, true);
+
+  await assert.rejects(
+    repository.createPendingOrder({
+      planCode: "LITE",
+      customerEmail: `different-${runId}@example.test`,
+      checkoutRequestId: firstRequestId,
+      catalog,
+    }),
+    new RegExp(COMMERCE_CHECKOUT_IDEMPOTENCY_CONFLICT),
+  );
+
+  await assert.rejects(
+    repository.createPendingOrder({
+      planCode: "LITE",
+      customerEmail: `customer-${runId}@example.test`,
+      checkoutRequestId: firstRequestId,
+      catalog: {
+        ...catalog,
+        LITE: {
+          ...catalog.LITE!,
+          amountMinor: 799_001,
+        },
+      },
+    }),
+    new RegExp(COMMERCE_CHECKOUT_IDEMPOTENCY_CONFLICT),
+  );
+
+  const concurrentRequestId = randomUUID();
+  const concurrent = await Promise.all([
+    repository.createPendingOrder({
+      planCode: "LITE",
+      customerEmail: `concurrent-${runId}@example.test`,
+      checkoutRequestId: concurrentRequestId,
+      catalog,
+    }),
+    repository.createPendingOrder({
+      planCode: "LITE",
+      customerEmail: `concurrent-${runId}@example.test`,
+      checkoutRequestId: concurrentRequestId,
+      catalog,
+    }),
+  ]);
+  assert.equal(concurrent[0].publicCheckoutId, concurrent[1].publicCheckoutId);
+  assert.equal(concurrent.filter((item) => item.replayed).length, 1);
+
   const second = await repository.createPendingOrder({
     planCode: "LITE",
     customerEmail: `second-${runId}@example.test`,
+    checkoutRequestId: randomUUID(),
     catalog,
   });
   assert.notEqual(second.publicCheckoutId, created.publicCheckoutId);
@@ -84,6 +143,7 @@ try {
     repository.createPendingOrder({
       planCode: "PRO",
       customerEmail: `pro-${runId}@example.test`,
+      checkoutRequestId: randomUUID(),
       catalog,
     }),
     new RegExp(COMMERCE_PLAN_UNAVAILABLE),
@@ -93,6 +153,7 @@ try {
     repository.createPendingOrder({
       planCode: "INDIVIDUAL",
       customerEmail: `individual-${runId}@example.test`,
+      checkoutRequestId: randomUUID(),
       catalog,
     }),
     new RegExp(COMMERCE_UNSUPPORTED_PLAN),
@@ -109,6 +170,25 @@ try {
       repository.createPendingOrder({
         planCode: "LITE",
         customerEmail: invalidEmail,
+        checkoutRequestId: randomUUID(),
+        catalog,
+      }),
+      new RegExp(COMMERCE_INVALID_INPUT),
+    );
+  }
+
+
+  for (const invalidRequestId of [
+    "",
+    "not-a-uuid",
+    "00000000-0000-0000-0000-000000000000",
+    "550e8400-e29b-11d4-a716-446655440000",
+  ]) {
+    await assert.rejects(
+      repository.createPendingOrder({
+        planCode: "LITE",
+        customerEmail: `request-id-${runId}@example.test`,
+        checkoutRequestId: invalidRequestId,
         catalog,
       }),
       new RegExp(COMMERCE_INVALID_INPUT),
@@ -122,7 +202,7 @@ try {
       },
     },
   });
-  assert.equal(orderCount, 2);
+  assert.equal(orderCount, 3);
 
   console.log("COMMERCE_POSTGRES_ORDER_CREATION_PASS");
 } finally {
