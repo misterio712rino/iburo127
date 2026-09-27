@@ -1,3 +1,5 @@
+BEGIN;
+
 -- CreateEnum
 CREATE TYPE "CaseDocumentRevisionStatus" AS ENUM ('DRAFT', 'IN_REVIEW', 'CHANGES_REQUESTED', 'APPROVED', 'SUPERSEDED');
 
@@ -52,3 +54,5 @@ ALTER TABLE "CaseDocumentRevision" ADD CONSTRAINT "CaseDocumentRevision_submitte
 
 -- AddForeignKey
 ALTER TABLE "CaseDocumentRevision" ADD CONSTRAINT "CaseDocumentRevision_reviewedByUserId_fkey" FOREIGN KEY ("reviewedByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+COMMIT;
