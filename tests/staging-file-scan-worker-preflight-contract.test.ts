@@ -26,7 +26,8 @@ assert.match(source, /storage\.statObject\(candidate\.objectKey\)/);
 assert.match(source, /candidateReady/);
 assert.match(source, /httpStatus: health\.httpStatus/);
 assert.match(source, /responseErrorCode: health\.responseErrorCode/);
-assert.match(source, /SAFE_SCANNER_RESPONSE_ERRORS = new Set\(\["UNAUTHORIZED", "REQUEST_FAILED"\]\)/);
+assert.match(source, /function safeScannerResponseErrorCode/);
+assert.match(source, /value === "UNAUTHORIZED" \|\| value === "REQUEST_FAILED"/);
 assert.doesNotMatch(source, /scanner:\s*\{[\s\S]{0,500}(?:origin|secret)\s*:/);
 
 for (const forbidden of [

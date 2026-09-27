@@ -95,7 +95,12 @@ type ScannerHealthResult = {
   contentTypeMatches: boolean | null;
 };
 
-const SAFE_SCANNER_RESPONSE_ERRORS = new Set(["UNAUTHORIZED", "REQUEST_FAILED"]);
+function safeScannerResponseErrorCode(
+  value: unknown,
+): ScannerHealthResult["responseErrorCode"] {
+  if (value === "UNAUTHORIZED" || value === "REQUEST_FAILED") return value;
+  return null;
+}
 
 async function scannerHealth(
   origin: string,
@@ -138,10 +143,9 @@ async function scannerHealth(
           !Array.isArray(body) &&
           Object.keys(body as Record<string, unknown>).length === 1
         ) {
-          const error = (body as { error?: unknown }).error;
-          if (typeof error === "string" && SAFE_SCANNER_RESPONSE_ERRORS.has(error)) {
-            responseErrorCode = error;
-          }
+          responseErrorCode = safeScannerResponseErrorCode(
+            (body as { error?: unknown }).error,
+          );
         }
       } catch {
         // Keep only the bounded status and whitelisted response code.
