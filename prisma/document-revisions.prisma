@@ -27,6 +27,11 @@ model CaseDocumentRevision {
   createdAt            DateTime                   @default(now())
   updatedAt            DateTime                   @updatedAt
 
+  caseDocument CaseDocument @relation(fields: [caseDocumentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  createdBy    User         @relation("CaseDocumentRevisionCreator", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  submittedBy  User?        @relation("CaseDocumentRevisionSubmitter", fields: [submittedByUserId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  reviewedBy   User?        @relation("CaseDocumentRevisionReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
   @@unique([caseDocumentId, revisionNumber])
   @@index([caseDocumentId, status, createdAt])
   @@index([createdByUserId, createdAt])

@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import {
   DOCUMENT_REVISION_INVALID_SOURCE,
@@ -9,6 +11,42 @@ import {
   DOCUMENT_TEMPLATE_NOT_REGISTERED,
   EmptyDocumentTemplateRegistry,
 } from "@/server/domain/documents/template-contracts";
+
+const prismaDomainSchema = readFileSync(resolve(process.cwd(), "prisma/schema.prisma"), "utf8");
+const prismaRevisionSchema = readFileSync(resolve(process.cwd(), "prisma/document-revisions.prisma"), "utf8");
+const revisionMigration = readFileSync(
+  resolve(process.cwd(), "prisma/migrations/20260917_case_document_revisions/migration.sql"),
+  "utf8",
+);
+
+const revisionRelations = [
+  {
+    prisma: /caseDocument\s+CaseDocument\s+@relation\(fields: \[caseDocumentId\], references: \[id\], onDelete: Cascade, onUpdate: Cascade\)/,
+    inverse: /revisions\s+CaseDocumentRevision\[\]/,
+    migration: /CaseDocumentRevision_caseDocumentId_fkey[^;]*ON DELETE CASCADE ON UPDATE CASCADE/,
+  },
+  {
+    prisma: /createdBy\s+User\s+@relation\("CaseDocumentRevisionCreator", fields: \[createdByUserId\], references: \[id\], onDelete: Restrict, onUpdate: Cascade\)/,
+    inverse: /documentRevisionsCreated\s+CaseDocumentRevision\[\]\s+@relation\("CaseDocumentRevisionCreator"\)/,
+    migration: /CaseDocumentRevision_createdByUserId_fkey[^;]*ON DELETE RESTRICT ON UPDATE CASCADE/,
+  },
+  {
+    prisma: /submittedBy\s+User\?\s+@relation\("CaseDocumentRevisionSubmitter", fields: \[submittedByUserId\], references: \[id\], onDelete: SetNull, onUpdate: Cascade\)/,
+    inverse: /documentRevisionsSubmitted\s+CaseDocumentRevision\[\]\s+@relation\("CaseDocumentRevisionSubmitter"\)/,
+    migration: /CaseDocumentRevision_submittedByUserId_fkey[^;]*ON DELETE SET NULL ON UPDATE CASCADE/,
+  },
+  {
+    prisma: /reviewedBy\s+User\?\s+@relation\("CaseDocumentRevisionReviewer", fields: \[reviewedByUserId\], references: \[id\], onDelete: SetNull, onUpdate: Cascade\)/,
+    inverse: /documentRevisionsReviewed\s+CaseDocumentRevision\[\]\s+@relation\("CaseDocumentRevisionReviewer"\)/,
+    migration: /CaseDocumentRevision_reviewedByUserId_fkey[^;]*ON DELETE SET NULL ON UPDATE CASCADE/,
+  },
+];
+
+for (const relation of revisionRelations) {
+  assert.match(prismaRevisionSchema, relation.prisma);
+  assert.match(prismaDomainSchema, relation.inverse);
+  assert.match(revisionMigration, relation.migration);
+}
 
 const left: DocumentSourceValue = {
   applicant: {
