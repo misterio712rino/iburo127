@@ -51,10 +51,4 @@ export interface CaseDocumentRepository {
     expectedVersion: number;
     auditActorUserId: string;
   }): Promise<CaseDocumentRecord>;
-  markReviewed(input: {
-    clientCaseId: string;
-    documentCode: string;
-    expectedVersion: number;
-    auditActorUserId: string;
-  }): Promise<CaseDocumentRecord>;
 }
