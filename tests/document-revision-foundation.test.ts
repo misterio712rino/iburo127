@@ -21,23 +21,23 @@ const revisionMigration = readFileSync(
 
 const revisionRelations = [
   {
-    prisma: /caseDocument\\s+CaseDocument\\s+@relation\\(fields: \\[caseDocumentId\\], references: \\[id\\], onDelete: Cascade, onUpdate: Cascade\\)/,
-    inverse: /revisions\\s+CaseDocumentRevision\\[\\]/,
+    prisma: /caseDocument\s+CaseDocument\s+@relation\(fields: \[caseDocumentId\], references: \[id\], onDelete: Cascade, onUpdate: Cascade\)/,
+    inverse: /revisions\s+CaseDocumentRevision\[\]/,
     migration: /CaseDocumentRevision_caseDocumentId_fkey[^;]*ON DELETE CASCADE ON UPDATE CASCADE/,
   },
   {
-    prisma: /createdBy\\s+User\\s+@relation\\("CaseDocumentRevisionCreator", fields: \\[createdByUserId\\], references: \\[id\\], onDelete: Restrict, onUpdate: Cascade\\)/,
-    inverse: /documentRevisionsCreated\\s+CaseDocumentRevision\\[\\]\\s+@relation\\("CaseDocumentRevisionCreator"\\)/,
+    prisma: /createdBy\s+User\s+@relation\("CaseDocumentRevisionCreator", fields: \[createdByUserId\], references: \[id\], onDelete: Restrict, onUpdate: Cascade\)/,
+    inverse: /documentRevisionsCreated\s+CaseDocumentRevision\[\]\s+@relation\("CaseDocumentRevisionCreator"\)/,
     migration: /CaseDocumentRevision_createdByUserId_fkey[^;]*ON DELETE RESTRICT ON UPDATE CASCADE/,
   },
   {
-    prisma: /submittedBy\\s+User\\?\\s+@relation\\("CaseDocumentRevisionSubmitter", fields: \\[submittedByUserId\\], references: \\[id\\], onDelete: SetNull, onUpdate: Cascade\\)/,
-    inverse: /documentRevisionsSubmitted\\s+CaseDocumentRevision\\[\\]\\s+@relation\\("CaseDocumentRevisionSubmitter"\\)/,
+    prisma: /submittedBy\s+User\?\s+@relation\("CaseDocumentRevisionSubmitter", fields: \[submittedByUserId\], references: \[id\], onDelete: SetNull, onUpdate: Cascade\)/,
+    inverse: /documentRevisionsSubmitted\s+CaseDocumentRevision\[\]\s+@relation\("CaseDocumentRevisionSubmitter"\)/,
     migration: /CaseDocumentRevision_submittedByUserId_fkey[^;]*ON DELETE SET NULL ON UPDATE CASCADE/,
   },
   {
-    prisma: /reviewedBy\\s+User\\?\\s+@relation\\("CaseDocumentRevisionReviewer", fields: \\[reviewedByUserId\\], references: \\[id\\], onDelete: SetNull, onUpdate: Cascade\\)/,
-    inverse: /documentRevisionsReviewed\\s+CaseDocumentRevision\\[\\]\\s+@relation\\("CaseDocumentRevisionReviewer"\\)/,
+    prisma: /reviewedBy\s+User\?\s+@relation\("CaseDocumentRevisionReviewer", fields: \[reviewedByUserId\], references: \[id\], onDelete: SetNull, onUpdate: Cascade\)/,
+    inverse: /documentRevisionsReviewed\s+CaseDocumentRevision\[\]\s+@relation\("CaseDocumentRevisionReviewer"\)/,
     migration: /CaseDocumentRevision_reviewedByUserId_fkey[^;]*ON DELETE SET NULL ON UPDATE CASCADE/,
   },
 ];
