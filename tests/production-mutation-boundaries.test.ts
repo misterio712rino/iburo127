@@ -254,13 +254,11 @@ async function testDocumentPersistenceMutationBoundaries() {
   );
   const regenerateStart = source.indexOf("  async regenerate(");
   const sendStart = source.indexOf("  async sendForReview(");
-  const reviewStart = source.indexOf("  async markReviewed(");
 
-  assert.ok(regenerateStart >= 0 && sendStart > regenerateStart && reviewStart > sendStart);
+  assert.ok(regenerateStart >= 0 && sendStart > regenerateStart);
 
   const regenerateSource = source.slice(regenerateStart, sendStart);
-  const sendSource = source.slice(sendStart, reviewStart);
-  const reviewSource = source.slice(reviewStart);
+  const sendSource = source.slice(sendStart);
 
   assert.match(regenerateSource, /findFirst\([\s\S]*clientCase: \{ clientId: input\.auditActorUserId \}/);
   assert.match(regenerateSource, /updateMany\([\s\S]*clientCase: \{ clientId: input\.auditActorUserId \}/);
@@ -272,10 +270,9 @@ async function testDocumentPersistenceMutationBoundaries() {
   assert.match(sendSource, /updateMany\([\s\S]*assignedLawyerId: \{ not: null \}/);
   assert.match(sendSource, /updateMany\([\s\S]*plan: \{ code: \{ in: \[\.\.\.HUMAN_SUPPORT_PLAN_CODES\] \} \}/);
 
-  assert.match(reviewSource, /findFirst\([\s\S]*assignedLawyerId: input\.auditActorUserId/);
-  assert.match(reviewSource, /findFirst\([\s\S]*plan: \{ code: \{ in: \[\.\.\.HUMAN_SUPPORT_PLAN_CODES\] \} \}/);
-  assert.match(reviewSource, /updateMany\([\s\S]*assignedLawyerId: input\.auditActorUserId/);
-  assert.match(reviewSource, /updateMany\([\s\S]*plan: \{ code: \{ in: \[\.\.\.HUMAN_SUPPORT_PLAN_CODES\] \} \}/);
+  assert.doesNotMatch(source, /async markReviewed\(/);
+  assert.doesNotMatch(source, /status: "REVIEWED"/);
+  assert.doesNotMatch(source, /type: "document\.reviewed"/);
 
   assert.match(source, /const HUMAN_SUPPORT_PLAN_CODES = \["PRO", "INDIVIDUAL"\] as const;/);
 }

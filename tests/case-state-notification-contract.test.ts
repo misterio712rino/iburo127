@@ -9,10 +9,12 @@ for (const type of [
   "questionnaire.completed",
   "practicum.completed",
   "document.ready_for_review",
-  "document.reviewed",
 ] as const) {
   assert.equal(requireNotificationType(type), type);
 }
+// Keep this type readable for old notifications, but do not emit it from the
+// metadata-only document workflow.
+assert.equal(requireNotificationType("document.reviewed"), "document.reviewed");
 
 assert.equal(
   sanitizeCaseNotificationText("По делу IBR-2026-000001 требуется действие"),
@@ -107,13 +109,7 @@ assert.match(
 );
 assert.doesNotMatch(readyForReviewNotification, /auditActorUserId|input\.documentCode/);
 
-const reviewedNotification = notificationCallFor(documentSource, "document.reviewed");
-assert.match(reviewedNotification, /userId:\s*clientCase\.clientId/);
-assert.match(
-  reviewedNotification,
-  /dedupeKey:\s*`document\.reviewed:\$\{current\.id\}:\$\{input\.expectedVersion \+ 1\}`/,
-);
-assert.doesNotMatch(reviewedNotification, /auditActorUserId|input\.documentCode/);
+assert.doesNotMatch(documentSource, /type: "document\.reviewed"/);
 
 assert.match(practicumSource, /if \(transition\.programJustCompleted\)/);
 assert.match(practicumCompletionSource, /input\.requiredLessonIds\.every\(\(id\) => next\.has\(id\)\)/);
