@@ -34,9 +34,13 @@ assert.match(clientFilesComponentSource, /fetch\(`\/api\/platform\/cases\/\$\{ca
 assert.match(clientFilesComponentSource, /method: "POST"/, "CLIENT UI v2 must preserve the real case-scoped upload preparation request");
 assert.match(clientFilesComponentSource, /\/api\/platform\/files\/\$\{prepared\.data\.fileId\}\/complete/, "CLIENT UI v2 must preserve upload completion through the protected file endpoint");
 assert.match(clientFilesComponentSource, /\/api\/platform\/files\/\$\{fileId\}\/download/, "CLIENT UI v2 must preserve protected downloads");
+assert.match(clientFilesComponentSource, /multiple/, "client must be able to select multiple documents");
+assert.match(clientFilesComponentSource, /Array\.from\(event\.target\.files \?\? \[\]\)/, "all selected files must be passed to the uploader");
+assert.match(clientFilesComponentSource, /await uploadOne\(file\)/, "uploads must be processed sequentially");
+assert.match(clientFilesComponentSource, /setUploadProgress\(\{ current: index \+ 1, total: validFiles\.length \}\)/, "the interface must report upload progress");
 
-const uploadControlIndex = clientFilesComponentSource.indexOf("Передайте файл в дело");
-const uploadFunctionIndex = clientFilesComponentSource.indexOf("async function upload(file: File)");
+const uploadControlIndex = clientFilesComponentSource.indexOf("Передайте документы в дело");
+const uploadFunctionIndex = clientFilesComponentSource.indexOf("async function upload(selectedFiles: readonly File[])");
 assert.ok(uploadFunctionIndex >= 0 && uploadControlIndex > uploadFunctionIndex, "CLIENT upload control must remain backed by the real upload function");
 
 console.log("FILE_PORTAL_AUDIENCE_CONTRACT_PASS");

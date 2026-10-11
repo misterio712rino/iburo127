@@ -33,6 +33,7 @@ import { getCurrentPlatformActor } from "@/server/client-cases/operations";
 import { clientCaseService } from "@/server/client-cases/runtime";
 import { getPrismaClient } from "@/server/database/prisma";
 import { listNotifications } from "@/server/notifications/operations";
+import { readCommerceCheckoutRuntimeConfig } from "@/server/config/commerce";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,15 @@ function getClientPlanLabel(planCode: PlanCode) {
   return getPlanDisplayLabel(planCode, "CLIENT");
 }
 
+function isProCheckoutAvailable(planCode: PlanCode) {
+  if (planCode !== "LITE") return false;
+  try {
+    return readCommerceCheckoutRuntimeConfig().catalog.PRO?.active === true;
+  } catch {
+    return false;
+  }
+}
+
 function formatCaseOpenedDate(date: Date) {
   return new Intl.DateTimeFormat("ru-RU", {
     day: "numeric",
@@ -85,6 +95,7 @@ async function renderClientDashboard(
   actor: Awaited<ReturnType<typeof getCurrentPlatformActor>>,
   clientCase: NonNullable<Awaited<ReturnType<typeof clientCaseService.getCase>>>,
   summary: CaseProgressSummary,
+  checkoutStatus: "success" | "cancelled" | null,
 ) {
   const [profile, allCases, caseMetadata, notifications, activityRecords] = await Promise.all([
     getCurrentAccountProfile(sessionProvider),
@@ -111,6 +122,7 @@ async function renderClientDashboard(
   ]);
 
   const planCode = requirePlanCode(clientCase.planCode);
+  const checkoutAvailable = isProCheckoutAvailable(planCode);
   const humanSupportAvailable = clientPlanHasHumanSupport(planCode);
   const ownedCases = allCases.filter((item) => item.clientId === actor.userId);
   const caseOptions = ownedCases.map((item) => ({
@@ -153,12 +165,25 @@ async function renderClientDashboard(
       readyFileCount={summary.readyFileCount}
       nextAction={{ title: summary.nextAction.title, description: summary.nextAction.description, segment: summary.nextAction.segment }}
       activity={clientActivity}
+      checkoutAvailable={checkoutAvailable}
+      checkoutStatus={checkoutStatus}
     />
   );
 }
 
-export default async function PortalCasePage({ params }: { params: Promise<{ caseId: string }> }) {
-  const { caseId } = await params;
+export default async function PortalCasePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ caseId: string }>;
+  searchParams: Promise<{ checkout?: string }>;
+}) {
+  const [{ caseId }, query] = await Promise.all([params, searchParams]);
+  const checkoutStatus = query.checkout === "success"
+    ? "success"
+    : query.checkout === "cancelled"
+      ? "cancelled"
+      : null;
   const sessionProvider = createProductionSessionProvider();
 
   let actor;
@@ -176,7 +201,7 @@ export default async function PortalCasePage({ params }: { params: Promise<{ cas
   const isClient = audience === "CLIENT";
   const summary = await getCaseProgressSummaryForActor(actor, clientCase, audience);
 
-  if (isClient) return renderClientDashboard(sessionProvider, actor, clientCase, summary);
+  if (isClient) return renderClientDashboard(sessionProvider, actor, clientCase, summary, checkoutStatus);
 
   const nextActionHref = `/portal/cases/${clientCase.id}/${summary.nextAction.segment}`;
   const displayCaseNumber = getClientCaseDisplayNumber(clientCase.caseNumber);

@@ -108,6 +108,12 @@ export function normalizeVerifiedCommercePaymentEvent(
     eventId: normalizeIdentifier(input.eventId),
     paymentId: normalizeIdentifier(input.paymentId),
     publicCheckoutId: normalizeIdentifier(input.publicCheckoutId),
+    ...(input.stripeCheckoutSessionId !== undefined
+      ? { stripeCheckoutSessionId: normalizeIdentifier(input.stripeCheckoutSessionId) }
+      : {}),
+    ...(input.clientCaseId
+      ? { clientCaseId: normalizeIdentifier(input.clientCaseId) }
+      : {}),
     kind: requirePaymentEventKind(input.kind),
     amountMinor: requireAmountMinor(input.amountMinor),
     currency: normalizeCurrency(input.currency),
@@ -152,28 +158,71 @@ function paymentRank(status: CommercePaymentStatus) {
 function transitionPaymentStatus(
   current: CommercePaymentStatus,
   incoming: CommercePaymentStatus,
+  currentOccurredAt: Date | null,
+  incomingOccurredAt: Date,
 ): CommercePaymentStatus {
-  if (current === "CHARGEBACK") return current;
+  if (current === "CHARGEBACK") {
+    // Only a newer successful result can recover a chargeback.
+    // Older deliveries stay stale.
+    return incoming === "SUCCEEDED" &&
+      currentOccurredAt &&
+      incomingOccurredAt.getTime() > currentOccurredAt.getTime()
+      ? incoming
+      : current;
+  }
   if (current === "REFUNDED") {
     return incoming === "CHARGEBACK" ? incoming : current;
   }
   if (current === "SUCCEEDED") {
-    return incoming === "REFUNDED" || incoming === "CHARGEBACK" ? incoming : current;
+    if (incoming === "REFUNDED") return incoming;
+    if (incoming !== "CHARGEBACK") return current;
+    return currentOccurredAt && incomingOccurredAt.getTime() < currentOccurredAt.getTime()
+      ? current
+      : incoming;
   }
 
   if (incoming === "PENDING") return current;
+
+  // Stripe can deliver events out of order. FAILED and CANCELLED have the
+  // same terminality, so preserve the newer one. Stripe timestamps have
+  // second precision; for ties, prefer CANCELLED as the final unpaid state.
+  if (
+    currentOccurredAt &&
+    (current === "FAILED" || current === "CANCELLED") &&
+    (incoming === "FAILED" || incoming === "CANCELLED")
+  ) {
+    const currentTime = currentOccurredAt.getTime();
+    const incomingTime = incomingOccurredAt.getTime();
+    if (incomingTime < currentTime) return current;
+    if (incomingTime === currentTime && current === "CANCELLED") return current;
+  }
+
+  // A late success notification must not override a newer terminal failure.
+  // Stripe timestamps have second precision; a same-second success is left to
+  // the normal rank-based transition because the event order is ambiguous.
+  if (
+    currentOccurredAt &&
+    (current === "FAILED" || current === "CANCELLED") &&
+    incoming === "SUCCEEDED" &&
+    incomingOccurredAt.getTime() < currentOccurredAt.getTime()
+  ) {
+    return current;
+  }
+
   return incoming;
 }
 
 function transitionOrderStatus(
   current: CommerceOrderStatus,
   paymentStatus: CommercePaymentStatus,
+  previousPaymentStatus: CommercePaymentStatus,
 ): CommerceOrderStatus {
   if (paymentStatus === "CHARGEBACK") return "CHARGEBACK";
   if (paymentStatus === "REFUNDED") return "REFUNDED";
 
   if (paymentStatus === "SUCCEEDED") {
     if (current === "PROVISIONED" || current === "PROVISIONING") return current;
+    if (current === "CHARGEBACK" && previousPaymentStatus === "CHARGEBACK") return "PAID";
     if (current === "REFUNDED" || current === "CHARGEBACK") return current;
     return "PAID";
   }
@@ -185,6 +234,15 @@ function transitionOrderStatus(
   if (paymentStatus === "CANCELLED") return "CANCELLED";
   if (paymentStatus === "FAILED") return "PAYMENT_FAILED";
   return current;
+}
+
+export function assertCommercePaymentOrderIdentity(input: {
+  orderId: string;
+  paymentOrderId: string;
+}) {
+  if (input.orderId !== input.paymentOrderId) {
+    throw new Error(COMMERCE_PAYMENT_IDENTITY_CONFLICT);
+  }
 }
 
 function assertEventMatchesOrder(
@@ -232,7 +290,12 @@ export function applyVerifiedCommercePaymentEvent(input: {
   const currentPaymentStatus = input.payment?.status ?? "PENDING";
   const currentOccurredAt = input.payment?.providerOccurredAt ?? null;
   const incomingStatus = eventPaymentStatus(event.kind);
-  const paymentStatus = transitionPaymentStatus(currentPaymentStatus, incomingStatus);
+  const paymentStatus = transitionPaymentStatus(
+    currentPaymentStatus,
+    incomingStatus,
+    currentOccurredAt,
+    event.occurredAt,
+  );
   const paymentStatusChanged = paymentStatus !== currentPaymentStatus;
 
   if (currentOccurredAt && !paymentStatusChanged) {
@@ -256,7 +319,11 @@ export function applyVerifiedCommercePaymentEvent(input: {
     }
   }
 
-  const orderStatus = transitionOrderStatus(input.order.status, paymentStatus);
+  const orderStatus = transitionOrderStatus(
+    input.order.status,
+    paymentStatus,
+    currentPaymentStatus,
+  );
   const providerOccurredAt =
     currentOccurredAt && currentOccurredAt.getTime() > event.occurredAt.getTime()
       ? currentOccurredAt

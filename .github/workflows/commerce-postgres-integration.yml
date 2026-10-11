@@ -31,6 +31,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres@127.0.0.1:5432/iburo_commerce?schema=public
       NODE_ENV: test
+      IB_COMMERCE_POSTGRES_TEST_TARGET: github-actions-isolated
 
     steps:
       - name: Checkout exact candidate
@@ -73,3 +74,6 @@ jobs:
 
       - name: Run trusted order creation integration tests
         run: node --conditions=react-server --import tsx tests/commerce-postgres-order-creation.integration.ts
+
+      - name: Run checkout recovery integration tests
+        run: node --conditions=react-server --import tsx tests/commerce-postgres-checkout-recovery.integration.ts

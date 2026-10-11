@@ -1,19 +1,36 @@
+import "dotenv/config";
+
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
 import { getPrismaClient } from "@/server/database/prisma";
 import {
+  COMMERCE_CASE_CHECKOUT_PENDING,
   COMMERCE_CHECKOUT_IDEMPOTENCY_CONFLICT,
   COMMERCE_INVALID_INPUT,
   COMMERCE_PLAN_UNAVAILABLE,
   COMMERCE_UNSUPPORTED_PLAN,
   type CommercePricingCatalog,
 } from "@/server/domain/commerce/contracts";
+import { PrismaCommerceCaseCheckoutRepository } from "@/server/repositories/prisma/commerce-case-checkout-repository";
 import { PrismaCommerceOrderRepository } from "@/server/repositories/prisma/commerce-order-repository";
+import {
+  assertIsolatedCiMigrationHistory,
+  requireCommercePostgresIntegrationTarget,
+} from "./commerce-postgres-integration-target";
+
+const integrationTarget = await requireCommercePostgresIntegrationTarget("COMMERCE_POSTGRES_ORDER_CREATION");
 
 const prisma = getPrismaClient();
 const repository = new PrismaCommerceOrderRepository();
+const caseCheckoutRepository = new PrismaCommerceCaseCheckoutRepository();
 const runId = randomUUID();
+let checkoutCaseId: string | null = null;
+let checkoutUserId: string | null = null;
+let checkoutStageId: string | null = null;
+let priorLitePlan: { id: string; name: string; description: string | null; isActive: boolean } | null = null;
+let priorProPlan: { id: string; name: string; description: string | null; isActive: boolean } | null = null;
+let testProPlanId: string | null = null;
 
 const catalog: CommercePricingCatalog = {
   LITE: {
@@ -33,16 +50,49 @@ const catalog: CommercePricingCatalog = {
 };
 
 try {
+  const targetIdentity = await prisma.$queryRaw<Array<{ databaseName: string; databaseUser: string }>>`
+    SELECT current_database() AS "databaseName", current_user AS "databaseUser"
+  `;
+  assert.equal(targetIdentity[0]?.databaseName, integrationTarget.expectedDatabaseName);
+  assert.equal(targetIdentity[0]?.databaseUser, integrationTarget.expectedUser);
+  if (integrationTarget.mode === "github-actions-isolated") {
+    const appliedMigrations = await prisma.$queryRaw<Array<{
+      migrationName: string;
+      finishedAt: Date | null;
+      rolledBackAt: Date | null;
+    }>>`
+      SELECT migration_name AS "migrationName", finished_at AS "finishedAt", rolled_back_at AS "rolledBackAt"
+      FROM "_prisma_migrations"
+    `;
+    assertIsolatedCiMigrationHistory(integrationTarget.migrationHistory, appliedMigrations);
+  }
+  const stripeMigration = await prisma.$queryRaw<Array<{ applied: boolean }>>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM "_prisma_migrations"
+      WHERE migration_name = '20261007_commerce_stripe_checkout'
+        AND finished_at IS NOT NULL
+        AND rolled_back_at IS NULL
+    ) AS applied
+  `;
+  assert.equal(stripeMigration[0]?.applied, true, "the staging Stripe migration must already be applied");
+
+  [priorLitePlan, priorProPlan] = await Promise.all([
+    prisma.plan.findUnique({ where: { code: "LITE" }, select: { id: true, name: true, description: true, isActive: true } }),
+    prisma.plan.findUnique({ where: { code: "PRO" }, select: { id: true, name: true, description: true, isActive: true } }),
+  ]);
+
   const litePlan = await prisma.plan.upsert({
     where: { code: "LITE" },
     update: { name: "Лайт", isActive: true },
     create: { code: "LITE", name: "Лайт", isActive: true },
   });
-  await prisma.plan.upsert({
+  const proPlan = await prisma.plan.upsert({
     where: { code: "PRO" },
     update: { name: "Про", isActive: false },
     create: { code: "PRO", name: "Про", isActive: false },
   });
+  testProPlanId = proPlan.id;
 
   const firstRequestId = randomUUID();
   const created = await repository.createPendingOrder({
@@ -241,7 +291,86 @@ try {
   });
   assert.equal(orderCount, 4);
 
+  const client = await prisma.user.create({
+    data: { email: `case-checkout-${runId}@example.test`, displayName: "Checkout integration fixture" },
+    select: { id: true },
+  });
+  checkoutUserId = client.id;
+  const stage = await prisma.caseStage.create({
+    data: { code: `checkout-test-${runId}`, name: "Checkout integration fixture", sortOrder: 999 },
+    select: { id: true },
+  });
+  checkoutStageId = stage.id;
+  const clientCase = await prisma.clientCase.create({
+    data: {
+      caseNumber: `CHECKOUT-${runId.slice(0, 8)}`,
+      clientId: client.id,
+      planId: litePlan.id,
+      stageId: stage.id,
+    },
+    select: { id: true },
+  });
+  checkoutCaseId = clientCase.id;
+  assert.ok(testProPlanId);
+  await prisma.plan.update({ where: { id: testProPlanId }, data: { isActive: true } });
+
+  const distinctRequests = await Promise.allSettled([
+    caseCheckoutRepository.createPendingOrder({
+      userId: client.id,
+      clientCaseId: clientCase.id,
+      checkoutRequestId: randomUUID(),
+      planCode: "PRO",
+      catalog,
+    }),
+    caseCheckoutRepository.createPendingOrder({
+      userId: client.id,
+      clientCaseId: clientCase.id,
+      checkoutRequestId: randomUUID(),
+      planCode: "PRO",
+      catalog,
+    }),
+  ]);
+  const accepted = distinctRequests.filter(
+    (item): item is PromiseFulfilledResult<Awaited<ReturnType<typeof caseCheckoutRepository.createPendingOrder>>> =>
+      item.status === "fulfilled",
+  );
+  const rejected = distinctRequests.filter((item): item is PromiseRejectedResult => item.status === "rejected");
+  assert.equal(accepted.length, 1);
+  assert.equal(rejected.length, 1);
+  assert.match(
+    rejected[0].reason instanceof Error ? rejected[0].reason.message : String(rejected[0].reason),
+    new RegExp(COMMERCE_CASE_CHECKOUT_PENDING),
+  );
+  assert.equal(accepted[0].value.status, "PENDING_PAYMENT");
+  assert.equal(
+    await prisma.commerceOrder.count({
+      where: { clientCaseId: clientCase.id, status: "PENDING_PAYMENT" },
+    }),
+    1,
+  );
+
   console.log("COMMERCE_POSTGRES_ORDER_CREATION_PASS");
 } finally {
+  if (checkoutCaseId) {
+    await prisma.commerceOrder.deleteMany({ where: { clientCaseId: checkoutCaseId } });
+    await prisma.clientCase.deleteMany({ where: { id: checkoutCaseId } });
+  }
+  if (checkoutUserId) await prisma.user.deleteMany({ where: { id: checkoutUserId } });
+  if (checkoutStageId) await prisma.caseStage.deleteMany({ where: { id: checkoutStageId } });
+  await prisma.commerceOrder.deleteMany({ where: { customerEmail: { contains: runId } } });
+  if (priorLitePlan) {
+    await prisma.plan.update({
+      where: { id: priorLitePlan.id },
+      data: { name: priorLitePlan.name, description: priorLitePlan.description, isActive: priorLitePlan.isActive },
+    });
+  }
+  if (priorProPlan) {
+    await prisma.plan.update({
+      where: { id: priorProPlan.id },
+      data: { name: priorProPlan.name, description: priorProPlan.description, isActive: priorProPlan.isActive },
+    });
+  } else if (testProPlanId) {
+    await prisma.plan.update({ where: { id: testProPlanId }, data: { isActive: false } });
+  }
   await prisma.$disconnect();
 }
