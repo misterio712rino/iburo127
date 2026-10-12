@@ -13,7 +13,7 @@ const config = readTimewebObjectStorageConfig({
   TIMEWEB_STORAGE_BUCKET: "private-iburo-staging-files",
   TIMEWEB_STORAGE_ACCESS_KEY_ID: "staging-key-id",
   TIMEWEB_STORAGE_SECRET_ACCESS_KEY: "staging-key-secret",
-} as NodeJS.ProcessEnv);
+} as unknown as NodeJS.ProcessEnv);
 
 assert.equal(config.endpoint, "https://s3.twcstorage.ru");
 assert.equal(config.region, "ru-1");
@@ -41,7 +41,7 @@ const readiness = buildProviderAwareStagingStorageReadiness(stagingEnv);
 assert.equal(readiness.storage.provider, "timeweb-object-storage");
 assert.equal(readiness.storage.ready, true);
 assert.throws(
-  () => readTimewebObjectStorageConfig({ TIMEWEB_STORAGE_BUCKET: "bad bucket" } as NodeJS.ProcessEnv),
+  () => readTimewebObjectStorageConfig({ TIMEWEB_STORAGE_BUCKET: "bad bucket" } as unknown as NodeJS.ProcessEnv),
   /PRODUCTION_CONFIG_ERROR:TIMEWEB_STORAGE_BUCKET/,
 );
 
@@ -57,7 +57,7 @@ const adapter = new TimewebPrivateObjectStorage("private-iburo-staging-files", {
   },
   async statObject(input) {
     calls.push(`head:${input.bucket}:${input.objectKey}`);
-    return { sizeBytes: 12n, mimeType: "application/pdf" };
+    return { sizeBytes: BigInt(12), mimeType: "application/pdf" };
   },
   async deleteObject(input) {
     calls.push(`delete:${input.bucket}:${input.objectKey}`);
@@ -68,13 +68,13 @@ assert.equal(adapter.providerCode, "timeweb-object-storage");
 const upload = await adapter.createUploadUrl({
   objectKey: "cases/11111111-1111-1111-1111-111111111111/22222222-2222-2222-2222-222222222222/object.pdf",
   mimeType: "application/pdf",
-  sizeBytes: 12n,
+  sizeBytes: BigInt(12),
   expiresInSeconds: 300,
 });
 assert.equal(upload.url, "https://signed.example/upload");
 assert.ok(upload.expiresAt instanceof Date);
 assert.deepEqual(await adapter.statObject("security-fixtures/clean.txt"), {
-  sizeBytes: 12n,
+  sizeBytes: BigInt(12),
   mimeType: "application/pdf",
 });
 await adapter.deleteObject("security-fixtures/clean.txt");
