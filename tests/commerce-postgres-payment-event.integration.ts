@@ -193,7 +193,7 @@ async function scenarioEventIdConflict() {
 
 async function scenarioOutOfOrderMonotonicRecovery() {
   const order = await createOrder("out-of-order");
-  const failed = event(order, "out-of-order", "FAILED", t3);
+  const failed = event(order, "out-of-order", "FAILED", t1);
   const delayedSuccess = event(order, "out-of-order-success", "SUCCEEDED", t2, {
     paymentId: failed.paymentId,
   });
