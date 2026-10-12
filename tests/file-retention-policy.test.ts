@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   addCalendarYearsUtc,
+  createAuthorizedFileRetentionSchedule,
   createFileRetentionSchedule,
   DEFAULT_FILE_RETENTION_YEARS,
 } from "../server/domain/files/retention-policy";
@@ -28,6 +29,54 @@ const deleteNow = createFileRetentionSchedule({
 assert.equal(deleteNow.kind, "DELETE_NOW");
 assert.equal(deleteNow.deleteAt.toISOString(), deleteNowAt.toISOString());
 assert.notEqual(deleteNow.deleteAt, deleteNowAt);
+
+const ownerActor = { userId: "owner", roles: ["CLIENT"] };
+const completedCase = { clientId: "owner", status: "COMPLETED", closedAt: completedAt };
+const authorized = createAuthorizedFileRetentionSchedule({
+  actor: ownerActor,
+  clientCase: completedCase,
+  choice: "KEEP_UNTIL_AUTOMATIC_DELETION",
+  decidedAt: new Date("2026-03-16T12:00:00Z"),
+});
+assert.equal(authorized.kind, "SCHEDULED");
+assert.equal(authorized.deleteAt.toISOString(), "2031-03-15T10:20:30.123Z");
+
+assert.throws(
+  () => createAuthorizedFileRetentionSchedule({
+    actor: { userId: "intruder", roles: ["CLIENT"] },
+    clientCase: completedCase,
+    choice: "DELETE_NOW",
+    decidedAt: new Date(),
+  }),
+  /RETENTION_FORBIDDEN/,
+);
+assert.throws(
+  () => createAuthorizedFileRetentionSchedule({
+    actor: { userId: "owner", roles: ["CLIENT", "MANAGER"] },
+    clientCase: completedCase,
+    choice: "DELETE_NOW",
+    decidedAt: new Date(),
+  }),
+  /RETENTION_FORBIDDEN/,
+);
+assert.throws(
+  () => createAuthorizedFileRetentionSchedule({
+    actor: ownerActor,
+    clientCase: { ...completedCase, status: "ACTIVE" },
+    choice: "DELETE_NOW",
+    decidedAt: new Date(),
+  }),
+  /RETENTION_CASE_NOT_COMPLETED/,
+);
+assert.throws(
+  () => createAuthorizedFileRetentionSchedule({
+    actor: ownerActor,
+    clientCase: { ...completedCase, closedAt: null },
+    choice: "DELETE_NOW",
+    decidedAt: new Date(),
+  }),
+  /RETENTION_COMPLETION_DATE_MISSING/,
+);
 
 assert.throws(
   () => createFileRetentionSchedule({
