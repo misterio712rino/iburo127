@@ -91,17 +91,19 @@ async function createFixture(label: string) {
   });
   stageIds.push(stage.id);
 
-  const currentPlan = await prisma.plan.create({
-    data: { code: `RECOVERY_OLD_${label.toUpperCase()}_${runId.slice(0, 8)}`, name: "Recovery old test plan" },
+  const currentPlan = await prisma.plan.upsert({
+    where: { code: "LITE" },
+    update: { name: "Лайт" },
+    create: { code: "LITE", name: "Лайт" },
     select: { id: true },
   });
-  planIds.push(currentPlan.id);
 
-  const targetPlan = await prisma.plan.create({
-    data: { code: `RECOVERY_NEW_${label.toUpperCase()}_${runId.slice(0, 8)}`, name: "Recovery target test plan" },
+  const targetPlan = await prisma.plan.upsert({
+    where: { code: "PRO" },
+    update: { name: "Про" },
+    create: { code: "PRO", name: "Про" },
     select: { id: true },
   });
-  planIds.push(targetPlan.id);
 
   const clientCase = await prisma.clientCase.create({
     data: {
