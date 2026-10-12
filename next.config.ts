@@ -8,7 +8,7 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data:",
   "font-src 'self' data:",
-  `connect-src 'self' https://storage.yandexcloud.net https://vercel.com${isDevelopment ? " ws: http:" : ""}`,
+  `connect-src 'self' https://storage.yandexcloud.net https://s3.twcstorage.ru https://vercel.com${isDevelopment ? " ws: http:" : ""}`,
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -68,6 +68,7 @@ const legacyMarketingRoutes = [
 ] as const;
 
 const nextConfig: NextConfig = {
+  ...(!process.env.VERCEL_ENV ? { output: "standalone" as const } : {}),
   poweredByHeader: false,
   skipTrailingSlashRedirect: true,
   async redirects() {
