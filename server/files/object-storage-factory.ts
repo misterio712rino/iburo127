@@ -2,6 +2,7 @@ import type { PrivateObjectStorage } from "@/server/files/object-storage-contrac
 import {
   OBJECT_STORAGE_PROVIDER_CONFIG_ERROR,
   OBJECT_STORAGE_PROVIDER_UNAVAILABLE,
+  TIMEWEB_OBJECT_STORAGE_PROVIDER,
   VERCEL_BLOB_STORAGE_PROVIDER,
   YANDEX_OBJECT_STORAGE_PROVIDER,
   type PrivateObjectStorageProvider,
@@ -9,6 +10,7 @@ import {
 
 export type PrivateObjectStorageFactoryDependencies = Readonly<{
   createYandex: () => PrivateObjectStorage;
+  createTimeweb?: () => PrivateObjectStorage;
   createVercelBlob?: () => PrivateObjectStorage;
 }>;
 
@@ -31,6 +33,13 @@ export function createPrivateObjectStorageForProvider(
       throw new Error(`${OBJECT_STORAGE_PROVIDER_UNAVAILABLE}:${VERCEL_BLOB_STORAGE_PROVIDER}`);
     }
     return assertProviderMatch(provider, dependencies.createVercelBlob());
+  }
+
+  if (provider === TIMEWEB_OBJECT_STORAGE_PROVIDER) {
+    if (!dependencies.createTimeweb) {
+      throw new Error(`${OBJECT_STORAGE_PROVIDER_UNAVAILABLE}:${TIMEWEB_OBJECT_STORAGE_PROVIDER}`);
+    }
+    return assertProviderMatch(provider, dependencies.createTimeweb());
   }
 
   if (provider === YANDEX_OBJECT_STORAGE_PROVIDER) {
