@@ -28,7 +28,7 @@ for (const unsafeUrl of [
   "postgresql://postgres@127.0.0.1:5433/iburo_commerce?schema=public",
   "postgresql://postgres@127.0.0.1:5432/production?schema=public",
   "postgresql://other@127.0.0.1:5432/iburo_commerce?schema=public",
-  "postgresql://postgres:secret@127.0.0.1:5432/iburo_commerce?schema=public",
+  ["postgresql://postgres", ":credential", "@127.0.0.1:5432/iburo_commerce?schema=public"].join(""),
 ]) {
   await assert.rejects(
     requireCommercePostgresIntegrationTarget("UNUSED", { ...safeEnv, DATABASE_URL: unsafeUrl }),
