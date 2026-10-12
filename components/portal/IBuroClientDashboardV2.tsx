@@ -14,6 +14,7 @@ import {
 import { formatProfileDisplayName } from "@/lib/platform/profile-display-name";
 import { CaseStageTimeline } from "@/components/platform/progress/CaseStageTimeline";
 import type { PlanCode } from "@/lib/platform/types";
+import { ClientPlanUpgradeCheckout } from "./ClientPlanUpgradeCheckout";
 import { IBuroClientShellV2, type IBuroClientCaseOptionV2 } from "./IBuroClientShellV2";
 import styles from "./IBuroClientDashboardV2.module.css";
 
@@ -46,6 +47,8 @@ type DashboardProps = {
   readyFileCount: number;
   nextAction: { title: string; description: string; segment: string };
   activity: readonly ActivityItem[];
+  checkoutAvailable: boolean;
+  checkoutStatus: "success" | "cancelled" | null;
 };
 
 function firstName(displayName: string) {
@@ -155,6 +158,22 @@ export function IBuroClientDashboardV2(props: DashboardProps) {
           </div>
           <span className={styles.casePill}>{props.caseDisplayNumber} · {props.planLabel}</span>
         </section>
+
+        {props.checkoutStatus ? (
+          <p className="rounded-2xl border border-border bg-card px-5 py-4 text-sm leading-6 text-foreground" role="status">
+            {props.checkoutStatus === "success"
+              ? "Возврат со страницы оплаты получен. Доступ к тарифу обновится после подтверждения платежа."
+              : "Оплата отменена. Текущий тариф и дело не изменены."}
+          </p>
+        ) : null}
+
+        {props.planCode === "LITE" ? (
+          <ClientPlanUpgradeCheckout
+            caseId={props.caseId}
+            caseDisplayNumber={props.caseDisplayNumber}
+            checkoutAvailable={props.checkoutAvailable && props.checkoutStatus !== "success"}
+          />
+        ) : null}
 
         <section className={styles.primaryGrid} aria-label="Главное по делу">
           <article

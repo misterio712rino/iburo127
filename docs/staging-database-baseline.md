@@ -2,7 +2,7 @@
 
 ## Current repository status
 
-The authoritative database baseline is not resolved yet. The repository currently has `prisma/schema.prisma` but no committed `prisma/migrations/` history. This is an intentional release blocker: do not manufacture or deploy an initial migration until the actual staging/authoritative database structure has been inspected and reconciled.
+The authoritative staging database baseline is not confirmed yet. This working copy contains `prisma/schema.prisma` and 10 Prisma migration directories, including the initial baseline and the Stripe checkout/recovery migrations. Their presence in the repository does not prove that staging was inspected against this history, that the history is the approved one, or that these migrations have been applied there. Do not create a replacement baseline or apply migrations until the actual staging structure has been inspected and reconciled with this history.
 
 ## Safety invariants
 
@@ -18,12 +18,12 @@ The authoritative database baseline is not resolved yet. The repository currentl
 
 1. Configure the exact staging target identity and run `npm run db:inspect:baseline`. The inspector validates staging host/database/user before connection, opens an explicit read-only transaction, then verifies `current_database()` and `current_user`. Preserve the structural fingerprint and review the complete structural snapshot.
 2. Determine whether the database is empty, already contains application tables, contains Better Auth tables, or contains legacy/unmanaged structures. Do not assume an empty database.
-3. Reconcile the inspected structure with `prisma/schema.prisma` and decide the baseline strategy before creating migration files.
-4. Generate migration SQL only from the reviewed baseline strategy. Do not apply it yet.
+3. Reconcile the inspected structure with `prisma/schema.prisma` and the existing migration history. Decide whether the history represents the authoritative baseline before changing or adding migration files.
+4. If the review identifies a required schema change, generate a new migration only from the approved baseline strategy. Do not replace the existing initial migration or apply the new SQL yet.
 5. Review each generated `migration.sql` with `IB_MIGRATION_SQL_PATH=<path> npm run db:review:sql` and perform manual review for data-loss, locking, uniqueness, nullability, enum and index changes.
-6. Commit the reviewed `prisma/migrations/` history, including `migration_lock.toml` with `provider = "postgresql"`.
-7. Run `npm run db:inspect:migrations`. Record the reported migration-history SHA-256 only after the SQL review is complete.
-8. Set `IB_STAGING_MIGRATION_HISTORY_SHA256` to that exact lowercase SHA-256 value. `npm run db:check:migrations` must pass.
+6. Review the complete migration history and `migration_lock.toml` (`provider = "postgresql"`) as one unit. The reviewed history must be committed before it is used for staging operations.
+7. Run `npm run db:inspect:migrations`. Compare the result with the fingerprint approved by the staging owner; a locally calculated value is not approval.
+8. Set `IB_STAGING_MIGRATION_HISTORY_SHA256` from the trusted, approved source. `npm run db:check:migrations` must pass. Never substitute a locally calculated fingerprint for the approved value.
 9. Confirm a current staging backup exists and perform a restore validation before the first migration of a meaningful environment.
 10. Run the read-only staging checks and schema preflight.
 11. For the single staging migration operation, set `IB_STAGING_MIGRATION_CONFIRM=MIGRATE:<database-name>` and run `npm run db:deploy:staging`.
@@ -69,8 +69,8 @@ Before mutation they require, in order:
 
 Reference seed confirmation remains `REFERENCE-SEED:<database-name>`. Demo seed confirmation remains `DEMO-SEED:<database-name>`. AuthIdentity provisioning is more narrowly bound and requires `LINK:<database-name>:<internal-user-id>`.
 
-Because the repository currently has no reviewed `prisma/migrations/` history, all three mutation entrypoints are intentionally blocked before staging database access.
+Because the staging baseline and the approved fingerprint for the current migration history have not yet been confirmed, all three mutation entrypoints remain blocked before staging database access.
 
 ## Current blocker
 
-Until the authoritative staging database has been inspected and the migration/baseline strategy has been reviewed, staging migration status is **BLOCKED_BASELINE**. This is expected and must not be bypassed.
+Until the authoritative staging database has been inspected, reconciled with the existing migration history, and the exact reviewed history fingerprint has been approved by the staging owner, staging migration status is **BLOCKED_BASELINE**. This is expected and must not be bypassed.

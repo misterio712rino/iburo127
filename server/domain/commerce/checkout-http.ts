@@ -5,12 +5,11 @@ import {
 } from "@/server/domain/commerce/contracts";
 import {
   normalizeCommerceCheckoutRequestId,
-  normalizeCommerceCustomerEmail,
 } from "@/server/domain/commerce/order-creation";
 
 export type CommerceCheckoutRequest = {
+  clientCaseId: string;
   planCode: CommerceOnlinePlanCode;
-  email: string;
   requestId: string;
 };
 
@@ -25,7 +24,7 @@ export function parseCommerceCheckoutBody(value: unknown): CommerceCheckoutReque
   const keys = Object.keys(record).sort();
   if (
     keys.length !== 3 ||
-    keys[0] !== "email" ||
+    keys[0] !== "clientCaseId" ||
     keys[1] !== "planCode" ||
     keys[2] !== "requestId"
   ) {
@@ -39,10 +38,16 @@ export function parseCommerceCheckoutBody(value: unknown): CommerceCheckoutReque
   ) {
     invalid();
   }
+  if (
+    typeof record.clientCaseId !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(record.clientCaseId)
+  ) {
+    invalid();
+  }
 
   return {
+    clientCaseId: record.clientCaseId.toLowerCase(),
     planCode: planCode as CommerceOnlinePlanCode,
-    email: normalizeCommerceCustomerEmail(record.email),
     requestId: normalizeCommerceCheckoutRequestId(record.requestId),
   };
 }

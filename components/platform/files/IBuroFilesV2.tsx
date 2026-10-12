@@ -106,9 +106,11 @@ function getStatusPresentation(status: StoredFileStatus) {
 export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initialFiles: StoredFileView[] }) {
   const [files, setFiles] = useState(initialFiles);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function refreshFiles() {
@@ -118,57 +120,80 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
     setFiles(result.data);
   }
 
-  async function upload(file: File) {
-    if (uploading) return;
-    setError(null);
+  async function uploadOne(file: File) {
+    const prepareResponse = await fetch(`/api/platform/cases/${caseId}/files`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ fileName: file.name, mimeType: file.type, sizeBytes: file.size }),
+    });
+    const prepared = (await prepareResponse.json()) as ApiResult<PreparedUpload>;
+    if (!prepared.ok) throw new Error(prepared.error.code);
 
-    if (file.size <= 0 || file.size > MAX_UPLOAD_BYTES) {
-      setError("Размер файла должен быть от 1 байта до 50 МБ.");
+    const putResponse = await fetch(prepared.data.uploadUrl, {
+      method: "PUT",
+      headers: prepared.data.requiredHeaders,
+      body: file,
+    });
+    if (!putResponse.ok) throw new Error("OBJECT_UPLOAD_FAILED");
+
+    const completeResponse = await fetch(`/api/platform/files/${prepared.data.fileId}/complete`, {
+      method: "POST",
+      headers: { Accept: "application/json" },
+    });
+    const completed = (await completeResponse.json()) as ApiResult<StoredFileView>;
+    if (!completed.ok) throw new Error(completed.error.code);
+  }
+
+  async function upload(selectedFiles: readonly File[]) {
+    if (uploading || selectedFiles.length === 0) return;
+    setError(null);
+    setNotice(null);
+
+    const validFiles = selectedFiles.filter(
+      (file) => file.size > 0 && file.size <= MAX_UPLOAD_BYTES,
+    );
+    const invalidCount = selectedFiles.length - validFiles.length;
+    if (validFiles.length === 0) {
+      setError("Размер каждого файла должен быть от 1 байта до 50 МБ.");
+      if (inputRef.current) inputRef.current.value = "";
       return;
     }
 
     setUploading(true);
+    let uploadedCount = 0;
+    let failedCount = invalidCount;
     try {
-      const prepareResponse = await fetch(`/api/platform/cases/${caseId}/files`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ fileName: file.name, mimeType: file.type, sizeBytes: file.size }),
-      });
-      const prepared = (await prepareResponse.json()) as ApiResult<PreparedUpload>;
-      if (!prepared.ok) {
-        if (prepared.error.code === "INVALID_INPUT") {
-          setError("Этот тип файла не поддерживается или файл превышает допустимый размер.");
-          return;
+      for (const [index, file] of validFiles.entries()) {
+        setUploadProgress({ current: index + 1, total: validFiles.length });
+        try {
+          await uploadOne(file);
+          uploadedCount += 1;
+        } catch {
+          failedCount += 1;
         }
-        throw new Error(prepared.error.code);
-      }
-
-      const putResponse = await fetch(prepared.data.uploadUrl, {
-        method: "PUT",
-        headers: prepared.data.requiredHeaders,
-        body: file,
-      });
-      if (!putResponse.ok) throw new Error("OBJECT_UPLOAD_FAILED");
-
-      const completeResponse = await fetch(`/api/platform/files/${prepared.data.fileId}/complete`, {
-        method: "POST",
-        headers: { Accept: "application/json" },
-      });
-      const completed = (await completeResponse.json()) as ApiResult<StoredFileView>;
-      if (!completed.ok) {
-        if (completeResponse.status === 409) {
-          setError("Файл загружен, но подтверждение загрузки ещё не завершено. Повторите попытку через несколько секунд.");
-          return;
-        }
-        throw new Error(completed.error.code);
       }
 
       await refreshFiles();
-      if (inputRef.current) inputRef.current.value = "";
+      if (uploadedCount > 0) {
+        setNotice(
+          `Загружено и отправлено на проверку: ${uploadedCount}. Доступ к скачиванию появится после завершения проверки безопасности.`,
+        );
+      }
+      if (failedCount > 0) {
+        setError(
+          `Не удалось завершить загрузку: ${failedCount}. Проверьте формат и размер и повторите попытку.`,
+        );
+      }
     } catch {
-      setError("Не удалось загрузить файл. Проверьте соединение и повторите попытку.");
+      setError(
+        uploadedCount > 0
+          ? "Файлы загружены, но список не удалось обновить. Обновите страницу и проверьте статусы."
+          : "Не удалось загрузить выбранные файлы. Проверьте соединение и повторите попытку.",
+      );
     } finally {
       setUploading(false);
+      setUploadProgress(null);
+      if (inputRef.current) inputRef.current.value = "";
     }
   }
 
@@ -243,27 +268,31 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
       </header>
 
       {error ? <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</p> : null}
+      {notice ? <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">{notice}</p> : null}
 
       <section className="relative overflow-hidden rounded-[26px] border border-[#e8e8e6] bg-white p-6 text-slate-950 shadow-[0_10px_34px_rgba(15,23,42,.04)] sm:p-8">
         <FileLock2 className="absolute -bottom-10 -right-8 size-56 text-[var(--ib-plan-accent)] opacity-[.035]" aria-hidden="true" />
         <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[.14em] text-[var(--ib-plan-accent)]">Добавить материал</p>
-            <h2 className="mt-3 text-2xl font-semibold tracking-[-.035em] sm:text-3xl">Передайте файл в дело</h2>
-            <p className="mt-3 text-sm leading-6 text-slate-500">PDF, JPG, PNG, WEBP, DOC или DOCX до 50 МБ. После загрузки материал появится в списке со статусом проверки.</p>
+            <p className="text-xs font-semibold uppercase tracking-[.14em] text-[var(--ib-plan-accent)]">Загрузить документы</p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-.035em] sm:text-3xl">Передайте документы в дело</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-500">Выберите один или несколько PDF, JPG, PNG, WEBP, DOC или DOCX размером до 50 МБ каждый. Файлы загрузятся по очереди; статус проверки будет виден в списке.</p>
           </div>
           <label className="inline-flex min-h-12 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[var(--ib-plan-accent)] bg-[var(--ib-plan-accent)] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[var(--ib-plan-accent-hover)] focus-within:ring-4 focus-within:ring-[var(--ib-plan-accent)]/15 has-[input:disabled]:cursor-not-allowed has-[input:disabled]:opacity-60">
             {uploading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <UploadCloud className="size-4" aria-hidden="true" />}
-            {uploading ? "Загрузка…" : "Выбрать файл"}
+            {uploading
+              ? `Загрузка ${uploadProgress?.current ?? 1} из ${uploadProgress?.total ?? 1}…`
+              : "Выбрать документы"}
             <input
               ref={inputRef}
               type="file"
               accept={ACCEPT}
+              multiple
               disabled={uploading}
               className="sr-only"
               onChange={(event) => {
-                const selected = event.target.files?.[0];
-                if (selected) void upload(selected);
+                const selected = Array.from(event.target.files ?? []);
+                if (selected.length > 0) void upload(selected);
               }}
             />
           </label>

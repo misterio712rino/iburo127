@@ -32,10 +32,16 @@ const EXPECTED_PRISMA_MIGRATIONS = [
   "20260917_case_document_revisions",
   "20260927_commerce_foundation",
   "20260927_commerce_order_checkout_idempotency",
+  "20261007_commerce_stripe_checkout",
+  "20261008_commerce_checkout_session_recovery",
+  "20261008_commerce_checkout_session_recovery_audit",
 ] as const;
 const DOCUMENT_REVISION_MIGRATION_INDEX = 4;
 const COMMERCE_FOUNDATION_MIGRATION_INDEX = 5;
 const COMMERCE_IDEMPOTENCY_MIGRATION_INDEX = 6;
+const COMMERCE_STRIPE_MIGRATION_INDEX = 7;
+const COMMERCE_SESSION_RECOVERY_MIGRATION_INDEX = 8;
+const COMMERCE_SESSION_RECOVERY_AUDIT_MIGRATION_INDEX = 9;
 const COMMERCE_TABLES = ["CommerceOrder", "CommercePayment", "CommercePaymentEvent"] as const;
 const COMMERCE_ENUMS = [
   "CommerceOrderStatus",
@@ -111,6 +117,9 @@ function reviewedMigrationState(appliedMigrations: readonly MigrationRow[]) {
   const documentRevisionApplied = appliedCount > DOCUMENT_REVISION_MIGRATION_INDEX;
   const commerceFoundationApplied = appliedCount > COMMERCE_FOUNDATION_MIGRATION_INDEX;
   const commerceIdempotencyApplied = appliedCount > COMMERCE_IDEMPOTENCY_MIGRATION_INDEX;
+  const commerceStripeApplied = appliedCount > COMMERCE_STRIPE_MIGRATION_INDEX;
+  const commerceSessionRecoveryApplied = appliedCount > COMMERCE_SESSION_RECOVERY_MIGRATION_INDEX;
+  const commerceSessionRecoveryAuditApplied = appliedCount > COMMERCE_SESSION_RECOVERY_AUDIT_MIGRATION_INDEX;
 
   return {
     appliedCount,
@@ -118,7 +127,11 @@ function reviewedMigrationState(appliedMigrations: readonly MigrationRow[]) {
     documentRevisionApplied,
     commerceFoundationApplied,
     commerceIdempotencyApplied,
-    commerceReady: commerceFoundationApplied && commerceIdempotencyApplied,
+    commerceStripeApplied,
+    commerceSessionRecoveryApplied,
+    commerceSessionRecoveryAuditApplied,
+    commerceReady: commerceFoundationApplied && commerceIdempotencyApplied && commerceStripeApplied && commerceSessionRecoveryApplied,
+    commerceRecoveryReady: commerceFoundationApplied && commerceIdempotencyApplied && commerceStripeApplied && commerceSessionRecoveryApplied && commerceSessionRecoveryAuditApplied,
   };
 }
 
@@ -158,12 +171,19 @@ export async function GET() {
       transactionOpen = true;
 
       failureStage = "identity";
-      const identity = await client.query<{ database_name: string; current_schema: string | null }>(
-        "select current_database() as database_name, current_schema() as current_schema",
+      const identity = await client.query<{
+        database_name: string;
+        database_user: string;
+        current_schema: string | null;
+      }>(
+        "select current_database() as database_name, current_user as database_user, current_schema() as current_schema",
       );
       const identityRow = identity.rows[0];
       if (!identityRow || identityRow.database_name !== target.expectedDatabaseName) {
         throw new Error("staging database identity mismatch");
+      }
+      if (identityRow.database_user !== target.expectedUser) {
+        throw new Error("staging database user identity mismatch");
       }
       if (identityRow.current_schema !== "public") {
         throw new Error("staging schema identity mismatch");
@@ -282,6 +302,10 @@ export async function GET() {
       const commerceTablesPresent = COMMERCE_TABLES.filter((name) => tableSet.has(name));
       const commerceEnumsPresent = COMMERCE_ENUMS.filter((name) => enumNames.includes(name));
       const commerceCheckoutRequestIdPresent = commerceOrderColumns.includes("checkoutRequestId");
+      const commerceStripeSessionIdPresent = commerceOrderColumns.includes("stripeCheckoutSessionId");
+      const commercePreviousPlanIdPresent = commerceOrderColumns.includes("previousPlanId");
+      const commerceRecoveryAttemptMarkerPresent = commerceOrderColumns.includes("stripeCheckoutSessionCreateStartedAt");
+      const commerceRecoveryAuditTablePresent = tableSet.has("CommerceCheckoutSessionRecovery");
 
       if (migrationState.commerceFoundationApplied) {
         if (
@@ -300,6 +324,30 @@ export async function GET() {
         }
       } else if (commerceCheckoutRequestIdPresent) {
         throw new Error("untracked commerce idempotency schema drift");
+      }
+
+      if (migrationState.commerceStripeApplied) {
+        if (!commerceStripeSessionIdPresent || !commercePreviousPlanIdPresent) {
+          throw new Error("Stripe commerce migration recorded without required CommerceOrder columns");
+        }
+      } else if (commerceStripeSessionIdPresent || commercePreviousPlanIdPresent) {
+        throw new Error("untracked Stripe commerce schema drift");
+      }
+
+      if (migrationState.commerceSessionRecoveryApplied) {
+        if (!commerceRecoveryAttemptMarkerPresent) {
+          throw new Error("checkout session recovery migration recorded without attempt marker");
+        }
+      } else if (commerceRecoveryAttemptMarkerPresent) {
+        throw new Error("untracked checkout session recovery schema drift");
+      }
+
+      if (migrationState.commerceSessionRecoveryAuditApplied) {
+        if (!commerceRecoveryAuditTablePresent) {
+          throw new Error("checkout session recovery audit migration recorded without audit table");
+        }
+      } else if (commerceRecoveryAuditTablePresent) {
+        throw new Error("untracked checkout session recovery audit schema drift");
       }
 
       const presentDomainTables = REQUIRED_STAGING_DOMAIN_TABLES.filter((name) => tableSet.has(name));
@@ -367,12 +415,20 @@ export async function GET() {
             commerce: {
               foundationMigrationApplied: migrationState.commerceFoundationApplied,
               idempotencyMigrationApplied: migrationState.commerceIdempotencyApplied,
+              stripeMigrationApplied: migrationState.commerceStripeApplied,
+              sessionRecoveryMigrationApplied: migrationState.commerceSessionRecoveryApplied,
+              sessionRecoveryAuditMigrationApplied: migrationState.commerceSessionRecoveryAuditApplied,
               tablesPresent: commerceTablesPresent.length,
               tablesExpected: COMMERCE_TABLES.length,
               enumsPresent: commerceEnumsPresent.length,
               enumsExpected: COMMERCE_ENUMS.length,
               checkoutRequestIdPresent: commerceCheckoutRequestIdPresent,
+              stripeCheckoutSessionIdPresent: commerceStripeSessionIdPresent,
+              previousPlanIdPresent: commercePreviousPlanIdPresent,
+              recoveryAttemptMarkerPresent: commerceRecoveryAttemptMarkerPresent,
+              recoveryAuditTablePresent: commerceRecoveryAuditTablePresent,
               schemaReady: migrationState.commerceReady,
+              recoveryReady: migrationState.commerceRecoveryReady,
             },
             pass: true,
           },

@@ -82,7 +82,7 @@ assert.match(
 );
 assert.match(
   casePageSource,
-  /if \(isClient\) return renderClientDashboard\(sessionProvider, actor, clientCase, summary\)/,
+  /if \(isClient\) return renderClientDashboard\(sessionProvider, actor, clientCase, summary, checkoutStatus\)/,
   "client-owned cases must use the dedicated server-authoritative production client dashboard",
 );
 assert.match(

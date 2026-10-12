@@ -18,6 +18,7 @@ import {
 } from "@/server/domain/commerce/contracts";
 import {
   applyVerifiedCommercePaymentEvent,
+  assertCommercePaymentOrderIdentity,
   normalizeVerifiedCommercePaymentEvent,
 } from "@/server/domain/commerce/payment-state";
 
@@ -121,6 +122,57 @@ function orderSnapshot(order: {
   };
 }
 
+async function assertCheckoutSessionIdentity(
+  tx: Prisma.TransactionClient,
+  order: { id: string; stripeCheckoutSessionId: string | null },
+  event: VerifiedCommercePaymentEvent,
+) {
+  const sessionId = event.stripeCheckoutSessionId;
+  if (!sessionId) return;
+  if (order.stripeCheckoutSessionId && order.stripeCheckoutSessionId !== sessionId) {
+    throw new Error(COMMERCE_PAYMENT_IDENTITY_CONFLICT);
+  }
+
+  const owner = await tx.commerceOrder.findUnique({
+    where: { stripeCheckoutSessionId: sessionId },
+    select: { id: true },
+  });
+  if (owner && owner.id !== order.id) {
+    throw new Error(COMMERCE_PAYMENT_IDENTITY_CONFLICT);
+  }
+}
+
+async function attachCheckoutSessionIfNeeded(
+  tx: Prisma.TransactionClient,
+  orderId: string,
+  sessionId: string | undefined,
+) {
+  if (!sessionId) return;
+  const current = await tx.commerceOrder.findUnique({
+    where: { id: orderId },
+    select: { stripeCheckoutSessionId: true },
+  });
+  if (!current) throw new Error(COMMERCE_ORDER_NOT_FOUND);
+  if (current.stripeCheckoutSessionId === sessionId) return;
+  if (current.stripeCheckoutSessionId !== null) {
+    throw new Error(COMMERCE_PAYMENT_IDENTITY_CONFLICT);
+  }
+
+  const attached = await tx.commerceOrder.updateMany({
+    where: { id: orderId, stripeCheckoutSessionId: null },
+    data: { stripeCheckoutSessionId: sessionId },
+  });
+  if (attached.count === 1) return;
+
+  const latest = await tx.commerceOrder.findUnique({
+    where: { id: orderId },
+    select: { stripeCheckoutSessionId: true },
+  });
+  if (latest?.stripeCheckoutSessionId !== sessionId) {
+    throw new Error(COMMERCE_PAYMENT_IDENTITY_CONFLICT);
+  }
+}
+
 function paidAtForStatus(
   current: Date | null,
   status: CommercePaymentSnapshot["status"],
@@ -150,6 +202,9 @@ async function processInTransaction(
     },
   });
   if (!order) throw new Error(COMMERCE_ORDER_NOT_FOUND);
+  if (event.clientCaseId && order.clientCaseId !== event.clientCaseId) {
+    throw new Error(COMMERCE_PAYMENT_IDENTITY_CONFLICT);
+  }
 
   const existingEvent = await tx.commercePaymentEvent.findUnique({
     where: {
@@ -163,6 +218,11 @@ async function processInTransaction(
   if (existingEvent) {
     if (!eventMatchesExisting(existingEvent, order.id, event)) {
       throw new Error(COMMERCE_PAYMENT_EVENT_CONFLICT);
+    }
+
+    if (existingEvent.processingStatus === "APPLIED" || existingEvent.processingStatus === "IGNORED") {
+      await assertCheckoutSessionIdentity(tx, order, event);
+      await attachCheckoutSessionIfNeeded(tx, order.id, event.stripeCheckoutSessionId);
     }
 
     const currentPayment = await tx.commercePayment.findUnique({
@@ -197,10 +257,12 @@ async function processInTransaction(
     },
   });
 
+  const paymentBelongsToOrder =
+    !existingPayment || existingPayment.orderId === order.id;
   const receivedEvent = await tx.commercePaymentEvent.create({
     data: {
       orderId: order.id,
-      paymentId: existingPayment?.id ?? null,
+      paymentId: paymentBelongsToOrder ? existingPayment?.id ?? null : null,
       provider: event.provider,
       providerEventId: event.eventId,
       providerPaymentId: event.paymentId,
@@ -217,6 +279,13 @@ async function processInTransaction(
 
   let transition;
   try {
+    await assertCheckoutSessionIdentity(tx, order, event);
+    if (existingPayment) {
+      assertCommercePaymentOrderIdentity({
+        orderId: order.id,
+        paymentOrderId: existingPayment.orderId,
+      });
+    }
     transition = applyVerifiedCommercePaymentEvent({
       order: orderSnapshot(order),
       payment: paymentSnapshot(existingPayment),
@@ -316,6 +385,34 @@ async function processInTransaction(
       throw new Error(COMMERCE_PAYMENT_CONCURRENT_UPDATE);
     }
   }
+
+  if (transition.orderBecamePaid && order.clientCaseId) {
+    if (!order.previousPlanId) {
+      throw new Error(COMMERCE_PAYMENT_IDENTITY_CONFLICT);
+    }
+    const caseUpdated = await tx.clientCase.updateMany({
+      where: { id: order.clientCaseId, planId: order.previousPlanId },
+      data: { planId: order.planId },
+    });
+    if (caseUpdated.count !== 1) {
+      throw new Error(COMMERCE_PAYMENT_CONCURRENT_UPDATE);
+    }
+  }
+
+  if (
+    transition.applied &&
+    order.status !== transition.orderStatus &&
+    (transition.orderStatus === "REFUNDED" || transition.orderStatus === "CHARGEBACK") &&
+    order.clientCaseId &&
+    order.previousPlanId
+  ) {
+    await tx.clientCase.updateMany({
+      where: { id: order.clientCaseId, planId: order.planId },
+      data: { planId: order.previousPlanId },
+    });
+  }
+
+  await attachCheckoutSessionIfNeeded(tx, order.id, event.stripeCheckoutSessionId);
 
   await tx.commercePaymentEvent.update({
     where: { id: receivedEvent.id },

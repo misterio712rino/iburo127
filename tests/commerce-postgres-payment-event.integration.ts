@@ -1,3 +1,5 @@
+import "dotenv/config";
+
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
@@ -8,7 +10,12 @@ import {
   type VerifiedCommercePaymentEvent,
 } from "@/server/domain/commerce/contracts";
 import { PrismaCommercePaymentEventRepository } from "@/server/repositories/prisma/commerce-payment-event-repository";
+import {
+  assertIsolatedCiMigrationHistory,
+  requireCommercePostgresIntegrationTarget,
+} from "./commerce-postgres-integration-target";
 
+const integrationTarget = await requireCommercePostgresIntegrationTarget("COMMERCE_POSTGRES_PAYMENT_EVENT");
 const prisma = getPrismaClient();
 const repository = new PrismaCommercePaymentEventRepository();
 const runId = randomUUID();
@@ -67,7 +74,9 @@ function event(
 
 async function scenarioAppliedAndReplay() {
   const order = await createOrder("replay");
-  const input = event(order, "replay", "SUCCEEDED", t1);
+  const input = event(order, "replay", "SUCCEEDED", t1, {
+    stripeCheckoutSessionId: `cs_${runId}_replay`,
+  });
 
   const first = await repository.processVerifiedEvent(input);
   const second = await repository.processVerifiedEvent(input);
@@ -103,6 +112,7 @@ async function scenarioAppliedAndReplay() {
   assert.equal(eventCount, 1);
   assert.equal(paymentCount, 1);
   assert.equal(persistedOrder.status, "PAID");
+  assert.equal(persistedOrder.stripeCheckoutSessionId, `cs_${runId}_replay`);
   assert.equal(persistedOrder.version, 2);
   assert.ok(persistedOrder.paidAt instanceof Date);
 }
@@ -183,7 +193,7 @@ async function scenarioEventIdConflict() {
 
 async function scenarioOutOfOrderMonotonicRecovery() {
   const order = await createOrder("out-of-order");
-  const failed = event(order, "out-of-order", "FAILED", t3);
+  const failed = event(order, "out-of-order", "FAILED", t1);
   const delayedSuccess = event(order, "out-of-order-success", "SUCCEEDED", t2, {
     paymentId: failed.paymentId,
   });
@@ -227,6 +237,34 @@ async function scenarioOutOfOrderMonotonicRecovery() {
   assert.ok(payment.refundedAt instanceof Date);
 }
 
+async function scenarioCheckoutSessionIdentityConflict() {
+  const ownerOrder = await createOrder("session-owner");
+  const foreignOrder = await createOrder("session-foreign");
+  const sessionId = `cs_${runId}_identity`;
+  await prisma.commerceOrder.update({
+    where: { id: ownerOrder.id },
+    data: { stripeCheckoutSessionId: sessionId },
+  });
+
+  const result = await repository.processVerifiedEvent(
+    event(foreignOrder, "session-identity", "SUCCEEDED", t1, {
+      paymentId: `payment-session-identity-${runId}`,
+      stripeCheckoutSessionId: sessionId,
+    }),
+  );
+  assert.equal(result.processingStatus, "REJECTED");
+  assert.equal(result.rejectionCode, "COMMERCE_PAYMENT_IDENTITY_CONFLICT");
+  assert.equal(result.orderStatus, "PENDING_PAYMENT");
+  assert.equal(result.paymentStatus, null);
+
+  const [persistedForeignOrder, foreignPayments] = await Promise.all([
+    prisma.commerceOrder.findUniqueOrThrow({ where: { id: foreignOrder.id } }),
+    prisma.commercePayment.count({ where: { orderId: foreignOrder.id } }),
+  ]);
+  assert.equal(persistedForeignOrder.stripeCheckoutSessionId, null);
+  assert.equal(foreignPayments, 0);
+}
+
 async function scenarioProvisionedRefundSignalsPauseOnly() {
   const order = await createOrder("refund");
   const success = event(order, "refund", "SUCCEEDED", t1);
@@ -261,11 +299,28 @@ async function scenarioProvisionedRefundSignalsPauseOnly() {
 }
 
 try {
+  const identity = await prisma.$queryRaw<Array<{ databaseName: string; databaseUser: string }>>`
+    SELECT current_database() AS "databaseName", current_user AS "databaseUser"
+  `;
+  assert.equal(identity[0]?.databaseName, integrationTarget.expectedDatabaseName);
+  assert.equal(identity[0]?.databaseUser, integrationTarget.expectedUser);
+  if (integrationTarget.mode === "github-actions-isolated") {
+    const appliedMigrations = await prisma.$queryRaw<Array<{
+      migrationName: string;
+      finishedAt: Date | null;
+      rolledBackAt: Date | null;
+    }>>`
+      SELECT migration_name AS "migrationName", finished_at AS "finishedAt", rolled_back_at AS "rolledBackAt"
+      FROM "_prisma_migrations"
+    `;
+    assertIsolatedCiMigrationHistory(integrationTarget.migrationHistory, appliedMigrations);
+  }
   await scenarioAppliedAndReplay();
   await scenarioConcurrentDuplicate();
   await scenarioRejectedMismatch();
   await scenarioEventIdConflict();
   await scenarioOutOfOrderMonotonicRecovery();
+  await scenarioCheckoutSessionIdentityConflict();
   await scenarioProvisionedRefundSignalsPauseOnly();
   console.log("COMMERCE_POSTGRES_PAYMENT_EVENT_PASS");
 } finally {

@@ -296,7 +296,11 @@ assert.doesNotMatch(
   /\b(?:INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE)\b/i,
   "staging DB probe must remain read-only",
 );
-assert.doesNotMatch(stagingDbProbe, /expectedHost|expectedUser/);
+assert.doesNotMatch(
+  stagingDbProbe,
+  /\b(?:expectedHost|expectedUser)\s*:/,
+  "the probe must not serialize target host or user fields in its response",
+);
 
 const stagingDeletionWorkerRoute = await readFile(
   resolve("app/%5Fiburo/staging-file-deletion-worker/route.ts"),

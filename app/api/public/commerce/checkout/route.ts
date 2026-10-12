@@ -1,9 +1,15 @@
 import {
+  COMMERCE_CASE_CHECKOUT_PENDING,
+  COMMERCE_CASE_NOT_FOUND,
+  COMMERCE_CASE_PLAN_UNCHANGED,
+  COMMERCE_CHECKOUT_NO_LONGER_PENDING,
+  COMMERCE_CHECKOUT_SESSION_RECOVERY_REQUIRED,
   COMMERCE_CHECKOUT_IDEMPOTENCY_CONFLICT,
   COMMERCE_INVALID_INPUT,
   COMMERCE_PLAN_UNAVAILABLE,
   COMMERCE_UNSUPPORTED_PLAN,
 } from "@/server/domain/commerce/contracts";
+import { requireRole } from "@/server/auth/contracts";
 import {
   commerceCheckoutCorsHeaders,
   isAllowedCommerceCheckoutOrigin,
@@ -14,9 +20,14 @@ import {
   CommerceCheckoutRateLimitError,
   enforceCommerceCheckoutRateLimit,
 } from "@/server/commerce/checkout-rate-limit";
+import { getStripeClient } from "@/server/commerce/stripe-client";
+import { StripeCheckoutGateway } from "@/server/commerce/stripe-checkout-gateway";
+import { CommerceCheckoutService } from "@/server/domain/commerce/checkout-service";
+import { createProductionSessionProvider } from "@/server/auth/production-session-provider";
+import { requireServerActor, UNAUTHENTICATED } from "@/server/auth/runtime";
 import { readBoundedJsonBody } from "@/server/http/bounded-json-body";
 import { privateJsonResponse } from "@/server/http/private-json";
-import { PrismaCommerceOrderRepository } from "@/server/repositories/prisma/commerce-order-repository";
+import { PrismaCommerceCaseCheckoutRepository } from "@/server/repositories/prisma/commerce-case-checkout-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,30 +41,18 @@ function unavailable() {
   );
 }
 
-function commerceResponse(
-  allowedOrigin: string,
-  body: unknown,
-  status = 200,
-  additionalHeaders?: HeadersInit,
-) {
+function commerceResponse(allowedOrigin: string, body: unknown, status = 200, additionalHeaders?: HeadersInit) {
   const headers = commerceCheckoutCorsHeaders(allowedOrigin);
   if (additionalHeaders) {
-    const extra = new Headers(additionalHeaders);
-    extra.forEach((value, key) => headers.set(key, value));
+    new Headers(additionalHeaders).forEach((value, key) => headers.set(key, value));
   }
   return privateJsonResponse(body, status, headers);
 }
 
 function withCors(response: Response, allowedOrigin: string) {
   const headers = new Headers(response.headers);
-  commerceCheckoutCorsHeaders(allowedOrigin).forEach((value, key) =>
-    headers.set(key, value),
-  );
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  });
+  commerceCheckoutCorsHeaders(allowedOrigin).forEach((value, key) => headers.set(key, value));
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
 export async function OPTIONS(request: Request) {
@@ -63,18 +62,13 @@ export async function OPTIONS(request: Request) {
   } catch {
     return unavailable();
   }
-
   if (!isAllowedCommerceCheckoutOrigin(request, config.allowedOrigin)) {
     return privateJsonResponse(
       { ok: false, error: { code: "COMMERCE_CHECKOUT_ORIGIN_REJECTED" } },
       403,
     );
   }
-
-  return new Response(null, {
-    status: 204,
-    headers: commerceCheckoutCorsHeaders(config.allowedOrigin),
-  });
+  return new Response(null, { status: 204, headers: commerceCheckoutCorsHeaders(config.allowedOrigin) });
 }
 
 export async function POST(request: Request) {
@@ -84,7 +78,6 @@ export async function POST(request: Request) {
   } catch {
     return unavailable();
   }
-
   if (!isAllowedCommerceCheckoutOrigin(request, config.allowedOrigin)) {
     return privateJsonResponse(
       { ok: false, error: { code: "COMMERCE_CHECKOUT_ORIGIN_REJECTED" } },
@@ -103,89 +96,81 @@ export async function POST(request: Request) {
         { "Retry-After": String(error.retryAfterSeconds) },
       );
     }
-    return commerceResponse(
-      config.allowedOrigin,
-      { ok: false, error: { code: "COMMERCE_CHECKOUT_UNAVAILABLE" } },
-      503,
-    );
+    return commerceResponse(config.allowedOrigin, { ok: false, error: { code: "COMMERCE_CHECKOUT_UNAVAILABLE" } }, 503);
   }
 
   const body = await readBoundedJsonBody(request, CHECKOUT_BODY_MAX_BYTES);
-  if (!body.ok) {
-    return withCors(body.response, config.allowedOrigin);
-  }
+  if (!body.ok) return withCors(body.response, config.allowedOrigin);
 
   let input;
   try {
     input = parseCommerceCheckoutBody(body.value);
   } catch (error) {
     if (error instanceof Error && error.message === COMMERCE_INVALID_INPUT) {
-      return commerceResponse(
-        config.allowedOrigin,
-        { ok: false, error: { code: "INVALID_CHECKOUT_REQUEST" } },
-        400,
-      );
+      return commerceResponse(config.allowedOrigin, { ok: false, error: { code: "INVALID_CHECKOUT_REQUEST" } }, 400);
     }
-    return commerceResponse(
-      config.allowedOrigin,
-      { ok: false, error: { code: "COMMERCE_CHECKOUT_UNAVAILABLE" } },
-      503,
-    );
+    return unavailable();
   }
 
   try {
-    const order = await new PrismaCommerceOrderRepository().createPendingOrder({
-      planCode: input.planCode,
-      customerEmail: input.email,
-      checkoutRequestId: input.requestId,
-      catalog: config.catalog,
-    });
+    const actor = await requireServerActor(createProductionSessionProvider());
+    requireRole(actor, "CLIENT");
 
+    const service = new CommerceCheckoutService(
+      new PrismaCommerceCaseCheckoutRepository(),
+      new StripeCheckoutGateway(getStripeClient()),
+    );
+    const result = await service.startCheckout({
+      userId: actor.userId,
+      clientCaseId: input.clientCaseId,
+      requestId: input.requestId,
+      planCode: input.planCode,
+      catalog: config.catalog,
+      origin: config.allowedOrigin,
+    });
     return commerceResponse(
       config.allowedOrigin,
       {
         ok: true,
         order: {
-          publicCheckoutId: order.publicCheckoutId,
-          planCode: order.planCode,
-          amountMinor: order.amountMinor,
-          currency: order.currency,
-          offerVersion: order.offerVersion,
-          status: order.status,
-          replayed: order.replayed,
+          publicCheckoutId: result.order.publicCheckoutId,
+          planCode: result.order.planCode,
+          amountMinor: result.order.amountMinor,
+          currency: result.order.currency,
+          offerVersion: result.order.offerVersion,
+          status: result.order.status,
+          replayed: result.replayed,
         },
+        checkoutUrl: result.checkoutUrl,
       },
-      order.replayed ? 200 : 201,
+      result.replayed ? 200 : 201,
     );
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message === COMMERCE_CHECKOUT_IDEMPOTENCY_CONFLICT
-    ) {
-      return commerceResponse(
-        config.allowedOrigin,
-        { ok: false, error: { code: "CHECKOUT_IDEMPOTENCY_CONFLICT" } },
-        409,
-      );
+    const code = error instanceof Error ? error.message : "";
+    if (code === UNAUTHENTICATED) {
+      return commerceResponse(config.allowedOrigin, { ok: false, error: { code: "UNAUTHENTICATED" } }, 401);
     }
-
-    if (
-      error instanceof Error &&
-      (error.message === COMMERCE_UNSUPPORTED_PLAN ||
-        error.message === COMMERCE_PLAN_UNAVAILABLE ||
-        error.message === COMMERCE_INVALID_INPUT)
-    ) {
-      return commerceResponse(
-        config.allowedOrigin,
-        { ok: false, error: { code: "INVALID_CHECKOUT_REQUEST" } },
-        400,
-      );
+    if (code === "FORBIDDEN") {
+      return commerceResponse(config.allowedOrigin, { ok: false, error: { code: "FORBIDDEN" } }, 403);
     }
-
-    return commerceResponse(
-      config.allowedOrigin,
-      { ok: false, error: { code: "COMMERCE_CHECKOUT_UNAVAILABLE" } },
-      503,
-    );
+    if (code === COMMERCE_CASE_NOT_FOUND) {
+      return commerceResponse(config.allowedOrigin, { ok: false, error: { code: "CASE_NOT_FOUND" } }, 404);
+    }
+    if (
+      code === COMMERCE_CHECKOUT_NO_LONGER_PENDING ||
+      code === COMMERCE_CHECKOUT_SESSION_RECOVERY_REQUIRED
+    ) {
+      return commerceResponse(config.allowedOrigin, { ok: false, error: { code } }, 409);
+    }
+    if (code === COMMERCE_CASE_CHECKOUT_PENDING || code === COMMERCE_CASE_PLAN_UNCHANGED) {
+      return commerceResponse(config.allowedOrigin, { ok: false, error: { code } }, 409);
+    }
+    if (code === COMMERCE_CHECKOUT_IDEMPOTENCY_CONFLICT) {
+      return commerceResponse(config.allowedOrigin, { ok: false, error: { code: "CHECKOUT_IDEMPOTENCY_CONFLICT" } }, 409);
+    }
+    if (code === COMMERCE_INVALID_INPUT || code === COMMERCE_UNSUPPORTED_PLAN || code === COMMERCE_PLAN_UNAVAILABLE) {
+      return commerceResponse(config.allowedOrigin, { ok: false, error: { code: "INVALID_CHECKOUT_REQUEST" } }, 400);
+    }
+    return commerceResponse(config.allowedOrigin, { ok: false, error: { code: "COMMERCE_CHECKOUT_UNAVAILABLE" } }, 503);
   }
 }
