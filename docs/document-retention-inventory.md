@@ -18,6 +18,18 @@
 
 Код включает staging Vercel Blob только для точного Preview deployment на `audit/production-readiness` с `IB_RUNTIME_TARGET=staging`. Поэтому наличие Blob token само по себе не доказывает, что он активен для текущей ветки. Значения секретов не запрашивались и не выводились. Фактически подключённый провайдер и работоспособность storage credentials этим read-only просмотром не подтверждены.
 
+### Staging readiness probe — 2026-10-13
+
+Защищённый GET `/_iburo/staging-external-readiness` выполнен для staging Preview. Ответ подтвердил deployment `audit/production-readiness`, commit `1d7cb0b5e9b6e2fee71ded11953cc93f00d85d0a`, runtime target `staging`.
+
+- Storage readiness: `ready=true`, provider `vercel-blob`, 4/4 требуемых конфигурационных параметров присутствуют.
+- Scanner readiness: `ready=false`, provider `vercel-blob`, 6/12 параметров присутствуют. Отсутствуют `IB_FILE_SCANNER_TARGET`, staging origin/fingerprint, два fixture key и confirmation.
+- Endpoint указал `networkAccessed=false`, `valuesPrinted=false`. Он не обращался к bucket и не проверял создание URL, фактический HEAD/GET/DELETE, versioning, lifecycle, резервные копии или сроки хранения.
+- Содержимое объектов и записи БД не читались; файлы не загружались, не удалялись и не сканировались.
+
+Итог: активный staging runtime конфигурирован на Vercel Blob, но bucket-level metadata, фактическое удаление и scanner-путь остаются непроверенными. Для bucket-level проверки существует отдельная защищённая операция; она требует POST-confirmation и сетевой проверки credential/token. До её выполнения не считать bucket или удаление проверенными.
+
+
 
 ## Что входит в материалы дела
 
