@@ -40,6 +40,9 @@ assert.equal(target.bucket, "private-iburo-staging-files");
 const readiness = buildProviderAwareStagingStorageReadiness(stagingEnv);
 assert.equal(readiness.storage.provider, "timeweb-object-storage");
 assert.equal(readiness.storage.ready, true);
+assert.equal(readiness.scanner.provider, "timeweb-object-storage");
+assert.equal(readiness.scanner.ready, false);
+assert.ok(readiness.scanner.invalidOrInconsistent.includes("SCANNER_SOURCE_HOST_UNSUPPORTED"));
 assert.throws(
   () => readTimewebObjectStorageConfig({ TIMEWEB_STORAGE_BUCKET: "bad bucket" } as unknown as NodeJS.ProcessEnv),
   /PRODUCTION_CONFIG_ERROR:TIMEWEB_STORAGE_BUCKET/,
