@@ -25,7 +25,11 @@ function claimed(attemptCount = 1): ClaimedFileRetentionDecision {
 }
 
 class FakeRepository implements FileRetentionWorkerRepository {
-  nextClaim: ClaimedFileRetentionDecision | null = claimed();
+  nextClaim: ClaimedFileRetentionDecision | null;
+
+  constructor(nextClaim: ClaimedFileRetentionDecision | null = claimed()) {
+    this.nextClaim = nextClaim;
+  }
   processResult: FileRetentionDecisionProcessResult = "COMPLETED";
   processError: Error | null = null;
   rescheduled: Parameters<FileRetentionWorkerRepository["rescheduleDecision"]>[0] | null = null;
