@@ -136,6 +136,13 @@ try {
   assert.equal(requests.at(-1)?.url, "/api/internal/maintenance/file-deletions");
   assert.equal(requests.at(-1)?.authorization, `Bearer ${secret}`);
 
+  const fileRetentionResult = await runRunner("file-retention");
+  assert.equal(fileRetentionResult.code, 0);
+  assert.match(fileRetentionResult.stdout, /MAINTENANCE_SCHEDULER_PASS job=file-retention status=200/);
+  assert.equal(requests.at(-1)?.method, "POST");
+  assert.equal(requests.at(-1)?.url, "/api/internal/maintenance/file-retention");
+  assert.equal(requests.at(-1)?.authorization, `Bearer ${secret}`);
+
   const fileDeletionHealthResult = await runRunner("file-deletion-health");
   assert.equal(fileDeletionHealthResult.code, 0);
   assert.match(fileDeletionHealthResult.stdout, /MAINTENANCE_SCHEDULER_PASS job=file-deletion-health status=200/);
@@ -167,6 +174,8 @@ try {
     fileDeletionResult.stderr,
     fileDeletionHealthResult.stdout,
     fileDeletionHealthResult.stderr,
+    fileRetentionResult.stdout,
+    fileRetentionResult.stderr,
     aiAuditHealthResult.stdout,
     aiAuditHealthResult.stderr,
   ]) {
