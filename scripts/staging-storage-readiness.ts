@@ -436,6 +436,7 @@ export function buildProviderAwareStagingStorageReadiness(
   if (resolved.provider === TIMEWEB_OBJECT_STORAGE_PROVIDER) {
     const storageInvalid = timewebStorageInvalid(env);
     const scannerInvalid = unique([
+      "SCANNER_SOURCE_HOST_UNSUPPORTED",
       ...scannerCoreInvalid(env, resolved.provider),
       ...timewebStorageInvalid({
         ...env,
