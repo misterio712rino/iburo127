@@ -15,7 +15,7 @@ Relevant code inspected:
 ## Current state
 
 - The policy helper calculates a client-authorized choice after case completion: immediate deletion, or deletion five calendar years after `ClientCase.closedAt`.
-- `ClientCaseFileRetentionDecision` is modeled and a migration exists on this branch, but no persistence service, client endpoint, or UI flow was found to record the choice.
+- `ClientCaseFileRetentionDecision` is modeled and a migration exists on this branch. A domain decision service and idempotent Prisma repository have now been added with tests for owner authorization, immutable retries, and conflicting choices. There is still no client endpoint or UI flow; the service is not exposed until the decision is connected to actual deletion.
 - The existing durable deletion queue processes an individual `StoredFile` after a deletion request. Its maintenance route processes one queue item per request.
 - GitHub Actions already runs the existing durable file-deletion queue every five minutes through a target-guarded maintenance runner. That runner processes queued objects; it does not select completed cases by retention deadline or enqueue their files.
 - The current per-file queue removes the database `StoredFile` row before asynchronous object-storage deletion. It retains deletion metadata for audit and retry.
