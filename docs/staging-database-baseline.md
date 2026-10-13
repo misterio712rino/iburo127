@@ -1,5 +1,22 @@
 # Staging database baseline and migration runbook
 
+
+## Additional read-only staging inspection — 2026-10-13
+
+The connected Neon project `iburo127-staging-neon`, its ready default branch `main`, and database `neondb` were checked through read-only Neon tools. The database catalog summary was:
+
+- one user schema (`public`);
+- 32 base tables, 271 columns, 50 enum labels, 97 indexes, and 265 constraints;
+- four successfully applied migrations and zero unfinished migrations;
+- one historical rolled-back migration attempt for `20260831_initial_baseline`, followed by its successful application;
+- no commerce tables yet, consistent with the unapplied commerce foundation migration.
+
+The inspection queried PostgreSQL catalog metadata and migration history only; it did not query customer, case, document, or payment rows. The application endpoint also confirms the required 21 domain tables, 12 enums, stored-file contracts, and all six Better Auth tables.
+
+Backup metadata was checked read-only: no snapshot schedule is configured for the staging branch. One manual snapshot is listed, created on 2026-09-07 (`pre-durable-deletion-94c737-20260907`). No restore validation was run, so this is not evidence of a current, tested recovery point.
+
+This remains a partial baseline review rather than an approved migration gate: the exact full structural snapshot from the repository inspector has not been preserved for reconciliation, the approved migration-history SHA-256 is still absent, and backup/restore readiness is unverified. No migration or restore operation has been run.
+
 ## Current repository status
 
 The authoritative staging database baseline is not confirmed yet. This working copy contains `prisma/schema.prisma` and 10 Prisma migration directories, including the initial baseline and the Stripe checkout/recovery migrations. Their presence in the repository does not prove that staging was inspected against this history, that the history is the approved one, or that these migrations have been applied there. Do not create a replacement baseline or apply migrations until the actual staging structure has been inspected and reconciled with this history.
