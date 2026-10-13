@@ -15,9 +15,9 @@ The connected Neon project `iburo127-staging-neon`, its ready default branch `ma
 
 The inspection queried PostgreSQL catalog metadata and migration history only; it did not query customer, case, document, or payment rows. The application endpoint also confirms the required 21 domain tables, 12 enums, stored-file contracts, and all six Better Auth tables.
 
-Backup metadata was checked read-only: no snapshot schedule is configured for the staging branch. One manual snapshot is listed, created on 2026-09-07 (`pre-durable-deletion-94c737-20260907`). No restore validation was run, so this is not evidence of a current, tested recovery point.
+Backup metadata was checked read-only: no snapshot schedule is configured for the staging branch. One manual snapshot is listed, created on 2026-09-07 (`pre-durable-deletion-94c737-20260907`). A fresh snapshot attempt on 2026-10-13 was rejected because the project snapshot limit was exceeded. Creating a temporary branch with custom compute settings was also rejected by an account restriction; no branch was created. No restore validation was run, so this is not evidence of a current, tested recovery point.
 
-This remains a partial baseline review rather than an approved migration gate: the exact full structural snapshot from the repository inspector has not been preserved for reconciliation, the approved migration-history SHA-256 is still absent, and backup/restore readiness is unverified. No migration or restore operation has been run.
+This remains a partial baseline review rather than an approved migration gate: the exact full structural snapshot from the repository inspector has not been preserved for reconciliation, and backup/restore readiness is unverified. The migration-history SHA-256 was approved for the feature Preview branch and configured there; this does not authorize a migration. No migration or restore operation has been run.
 
 ## Current repository status
 
@@ -99,7 +99,7 @@ Until the authoritative staging database has been inspected, reconciled with the
 - Vercel project metadata shows `IB_DB_TARGET` and `DATABASE_URL` are configured as sensitive variables for Preview branch `audit/production-readiness`. Their values were not retrieved.
 - The local `vercel env run -e preview --git-branch audit/production-readiness` attempt did not pass these variables to the baseline inspector; its staging target guard stopped execution before opening a PostgreSQL connection. Vercel documents branch-specific `env run` syntax, while sensitive variable values are not readable after creation. See [Vercel CLI env](https://vercel.com/docs/cli/env) and [sensitive environment variables](https://vercel.com/docs/environment-variables/sensitive-environment-variables). Do not change the variables from sensitive to readable merely to make local inspection work.
 - The Vercel metadata comment for `DATABASE_URL` labels it as a Neon staging database, and `.github/workflows/staging-revision-migration-proof.yml` expects database name `neondb`. The actual connection host was not verified because the value is hidden. Reconcile this with any older infrastructure notes before connecting.
-- `IB_STAGING_MIGRATION_HISTORY_SHA256` is not configured for that Preview branch. Migration checks remain blocked until the staging owner approves the exact fingerprint for the reviewed committed history.
+- `IB_STAGING_MIGRATION_HISTORY_SHA256` remains absent on `audit/production-readiness`. It is configured only on Preview branch `feature/document-intake-retention-20261013` with the owner-approved fingerprint recorded below.
 - The repository already has a read-only `/_iburo/staging-db-baseline` Preview probe referenced by `.github/workflows/staging-revision-migration-proof.yml`. Use that controlled path to inspect the database identity and migration state; this note does not authorize running it or any database mutation.
 
 
@@ -125,5 +125,5 @@ A candidate migration-history fingerprint was independently calculated from the 
 2f4717f9f881e7a468c7490c5bdf426cfaa9551e0e07aacf5f67de3e001ce765
 ```
 
-This is a review candidate only. It has not been approved by the staging owner, verified by running `npm run db:inspect:migrations` in the project checkout, or configured in Preview. Do not use it as a migration authorization.
+This fingerprint was approved by the staging owner for the feature Preview branch and configured as `IB_STAGING_MIGRATION_HISTORY_SHA256`. It has not yet been independently verified by running `npm run db:inspect:migrations` in the project checkout, and it does not authorize a staging migration. The existing staging migration endpoint is still deployed from `audit/production-readiness`, where the fingerprint remains unset.
 
