@@ -122,6 +122,17 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
   }) {
     const prisma = getPrismaClient();
     return prisma.$transaction(async (tx) => {
+      const locked = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "ClientCase" WHERE "id" = ${input.clientCaseId}::uuid FOR UPDATE
+      `;
+      if (locked.length !== 1) throw new Error("FILE_CASE_NOT_FOUND");
+
+      const retentionDecision = await tx.clientCaseFileRetentionDecision.findUnique({
+        where: { clientCaseId: input.clientCaseId },
+        select: { clientCaseId: true },
+      });
+      if (retentionDecision) throw new Error("FILE_UPLOAD_FORBIDDEN");
+
       const row = await tx.storedFile.create({
         data: {
           ...input,
