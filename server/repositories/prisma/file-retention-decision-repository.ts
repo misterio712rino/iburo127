@@ -196,7 +196,6 @@ export class PrismaFileRetentionDecisionRepository
             status: "REQUIRES_ATTENTION",
             leaseUntil: null,
             leaseToken: null,
-            nextAttemptAt: null,
             lastErrorCode: "FILE_RETENTION_FILE_DELETION_REQUIRES_ATTENTION",
           },
         });
@@ -217,8 +216,7 @@ export class PrismaFileRetentionDecisionRepository
         data: {
           status: "COMPLETED",
           completedAt: input.now,
-          nextAttemptAt: null,
-          leaseUntil: null,
+            leaseUntil: null,
           leaseToken: null,
           lastErrorCode: null,
         },
@@ -265,7 +263,6 @@ export class PrismaFileRetentionDecisionRepository
       },
       data: {
         status: "REQUIRES_ATTENTION",
-        nextAttemptAt: null,
         leaseUntil: null,
         leaseToken: null,
         lastErrorCode: input.errorCode,
