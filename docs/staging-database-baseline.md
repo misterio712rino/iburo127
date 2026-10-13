@@ -74,3 +74,11 @@ Because the staging baseline and the approved fingerprint for the current migrat
 ## Current blocker
 
 Until the authoritative staging database has been inspected, reconciled with the existing migration history, and the exact reviewed history fingerprint has been approved by the staging owner, staging migration status is **BLOCKED_BASELINE**. This is expected and must not be bypassed.
+
+## Preview environment access findings (2026-10-13)
+
+- Vercel project metadata shows `IB_DB_TARGET` and `DATABASE_URL` are configured as sensitive variables for Preview branch `audit/production-readiness`. Their values were not retrieved.
+- The local `vercel env run -e preview --git-branch audit/production-readiness` attempt did not pass these variables to the baseline inspector; its staging target guard stopped execution before opening a PostgreSQL connection. Vercel documents branch-specific `env run` syntax, while sensitive variable values are not readable after creation. See [Vercel CLI env](https://vercel.com/docs/cli/env) and [sensitive environment variables](https://vercel.com/docs/environment-variables/sensitive-environment-variables). Do not change the variables from sensitive to readable merely to make local inspection work.
+- The Vercel metadata comment for `DATABASE_URL` labels it as a Neon staging database, and `.github/workflows/staging-revision-migration-proof.yml` expects database name `neondb`. The actual connection host was not verified because the value is hidden. Reconcile this with any older infrastructure notes before connecting.
+- `IB_STAGING_MIGRATION_HISTORY_SHA256` is not configured for that Preview branch. Migration checks remain blocked until the staging owner approves the exact fingerprint for the reviewed committed history.
+- The repository already has a read-only `/_iburo/staging-db-baseline` Preview probe referenced by `.github/workflows/staging-revision-migration-proof.yml`. Use that controlled path to inspect the database identity and migration state; this note does not authorize running it or any database mutation.
