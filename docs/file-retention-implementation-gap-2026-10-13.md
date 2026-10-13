@@ -15,9 +15,9 @@ Relevant code inspected:
 ## Current state
 
 - The policy helper calculates a client-authorized choice after case completion: immediate deletion, or deletion five calendar years after `ClientCase.closedAt`.
-- `ClientCaseFileRetentionDecision` is modeled and a migration exists on this branch. A domain decision service and idempotent Prisma repository have now been added with tests for owner authorization, immutable retries, and conflicting choices. There is still no client endpoint or UI flow; the service is not exposed until the decision is connected to actual deletion.
+- `ClientCaseFileRetentionDecision` is modeled and a migration exists on this branch. A domain decision service, immutable decision persistence, and a due-case worker are implemented on the feature branch. The Prisma repository serializes decision creation with upload registration, queues eligible files for durable deletion, waits for object-storage completion, and retries lease-protected work. A protected maintenance route and default-disabled five-minute scheduler are present. There is still no client endpoint or UI flow.
 - The existing durable deletion queue processes an individual `StoredFile` after a deletion request. Its maintenance route processes one queue item per request.
-- GitHub Actions already runs the existing durable file-deletion queue every five minutes through a target-guarded maintenance runner. That runner processes queued objects; it does not select completed cases by retention deadline or enqueue their files.
+- GitHub Actions runs the existing durable file-deletion queue every five minutes through a target-guarded maintenance runner. The new retention scheduler is separately guarded by `IB_FILE_RETENTION_SCHEDULER_ENABLED` and only queues due files; the existing deletion scheduler must also be enabled to remove their objects.
 - The current per-file queue removes the database `StoredFile` row before asynchronous object-storage deletion. It retains deletion metadata for audit and retry.
 - Generated document revisions are stored in `CaseDocumentRevision.sourceData` (JSON), while questionnaire answers are stored in `CaseQuestionnaire.answers`. These are additional data stores to assess; deleting uploaded object storage files alone will not erase them.
 
@@ -32,4 +32,4 @@ Relevant code inspected:
 
 ## Release gate
 
-The 5-year policy helper and the file-object deletion worker are foundations only. They do not yet enforce whole-case retention. Do not describe automatic deletion after five years as active until the endpoint, due-case scheduler, complete data-scope cleanup, and operational checks are implemented and verified.
+The due-file worker and its schedule are implemented on the feature branch, but the schedule is default-disabled and the database migration has not been applied. Do not describe automatic deletion after five years as active until the full data-scope cleanup, client-facing choice, database-backed tests, migration approval, and operational checks are implemented and verified.
