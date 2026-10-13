@@ -10,6 +10,8 @@ The connected Neon project `iburo127-staging-neon`, its ready default branch `ma
 - four successfully applied migrations and zero unfinished migrations;
 - one historical rolled-back migration attempt for `20260831_initial_baseline`, followed by its successful application;
 - no commerce tables yet, consistent with the unapplied commerce foundation migration.
+- the staging database has only the first four of the feature branch's ten migration directories applied; six migrations remain unapplied relative to that branch (document revisions, commerce foundation/idempotency, and the three newer checkout/recovery migrations). The probe's `pendingCount: 3` refers only to the seven-entry history in the deployed `audit/production-readiness` revision.
+
 
 The inspection queried PostgreSQL catalog metadata and migration history only; it did not query customer, case, document, or payment rows. The application endpoint also confirms the required 21 domain tables, 12 enums, stored-file contracts, and all six Better Auth tables.
 
