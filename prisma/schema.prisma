@@ -82,6 +82,13 @@ enum ClientCaseFileRetentionChoice {
   KEEP_UNTIL_AUTOMATIC_DELETION
 }
 
+enum ClientCaseFileRetentionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  REQUIRES_ATTENTION
+}
+
 enum NotificationDeliveryChannel {
   EMAIL
 }
@@ -596,6 +603,8 @@ model ClientCaseFileRetentionDecision {
   requestedBy User @relation("FileRetentionDecisionActors", fields: [requestedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([choice, deleteAt])
+  @@index([status, nextAttemptAt, deleteAt])
+  @@index([status, leaseUntil])
   @@index([requestedByUserId, decidedAt])
 }
 
