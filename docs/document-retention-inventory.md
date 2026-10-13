@@ -12,6 +12,13 @@
 
 Следствие: не считать поддержку загрузки/удаления одним провайдером доказательством сквозной поддержки сканирования. До переключения на Timeweb нужно добавить и проверить его в allowlist сканера либо не использовать этот провайдер для файлов, проходящих текущий scan-worker.
 
+### Проверка Vercel environment metadata — 2026-10-13
+
+Проверен список имён переменных проекта `iburo127.online-app` для Preview без расшифровки значений. Ветка текущей работы `feature/document-intake-retention-20261013` не имеет в branch-scoped списке `IB_RUNTIME_TARGET`, `IB_STORAGE_TARGET` или `IB_OBJECT_STORAGE_PROVIDER`; для неё видна настройка migration fingerprint. Отдельные storage/scanner runtime-переменные ограничены веткой `audit/production-readiness`; общий Preview Blob token присутствует.
+
+Код включает staging Vercel Blob только для точного Preview deployment на `audit/production-readiness` с `IB_RUNTIME_TARGET=staging`. Поэтому наличие Blob token само по себе не доказывает, что он активен для текущей ветки. Значения секретов не запрашивались и не выводились. Фактически подключённый провайдер и работоспособность storage credentials этим read-only просмотром не подтверждены.
+
+
 ## Что входит в материалы дела
 
 | Категория | Что хранится | Удаление по текущей реализации | Ограничение / действие до запуска |
