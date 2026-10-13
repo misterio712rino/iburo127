@@ -116,3 +116,12 @@ The user authorized a read-only baseline probe. The protected Preview endpoint r
 The probe reads PostgreSQL catalog metadata and migration history only; it does not return customer, document, or payment records. It does **not** return the full structural snapshot or its fingerprint, so the authoritative full structural baseline remains unconfirmed. The endpoint is deployed from `audit/production-readiness` and checks seven migration entries. The current feature branch contains ten entries, including three newer commerce migrations; this probe did not reconcile those three against staging.
 
 Migration deployment remains blocked until the full staging structure is reconciled, the exact ten-migration history fingerprint is approved and configured, and backup/restore readiness is confirmed. Do not treat the successful bounded probe as migration approval.
+
+A candidate migration-history fingerprint was independently calculated from the ten committed migration SQL files and `migration_lock.toml` using the repository guard's algorithm:
+
+```text
+2f4717f9f881e7a468c7490c5bdf426cfaa9551e0e07aacf5f67de3e001ce765
+```
+
+This is a review candidate only. It has not been approved by the staging owner, verified by running `npm run db:inspect:migrations` in the project checkout, or configured in Preview. Do not use it as a migration authorization.
+
