@@ -47,11 +47,12 @@ export class FileRetentionDecisionService {
     const clientCase = await this.repository.findCase(input.clientCaseId);
     if (!clientCase) throw new Error(RETENTION_CASE_NOT_FOUND);
 
+    const decidedAt = input.decidedAt ?? new Date();
     const schedule = createAuthorizedFileRetentionSchedule({
       actor: input.actor,
       clientCase,
       choice: input.choice,
-      decidedAt: input.decidedAt ?? new Date(),
+      decidedAt,
     });
 
     const existing = await this.repository.findDecision(clientCase.id);
@@ -72,7 +73,7 @@ export class FileRetentionDecisionService {
       policyVersion: schedule.policyVersion,
       procedureCompletedAt: clientCase.closedAt!,
       deleteAt: schedule.deleteAt,
-      decidedAt: input.decidedAt ?? new Date(),
+      decidedAt,
     });
 
     // The repository uses an immutable upsert, so a concurrent retry can only
