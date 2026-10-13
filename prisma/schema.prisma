@@ -589,18 +589,25 @@ model StoredFileDeletion {
 }
 
 model ClientCaseFileRetentionDecision {
-  clientCaseId         String                      @id @db.Uuid
-  requestedByUserId    String                      @db.Uuid
+  clientCaseId         String                         @id @db.Uuid
+  requestedByUserId    String                         @db.Uuid
   choice               ClientCaseFileRetentionChoice
   policyVersion        String
   procedureCompletedAt DateTime
   deleteAt             DateTime
   decidedAt            DateTime
-  createdAt            DateTime                    @default(now())
-  updatedAt            DateTime                    @updatedAt
+  status               ClientCaseFileRetentionStatus  @default(PENDING)
+  attemptCount         Int                            @default(0)
+  nextAttemptAt        DateTime                       @default(now())
+  leaseUntil           DateTime?
+  leaseToken           String?                        @db.Uuid
+  lastErrorCode        String?
+  completedAt          DateTime?
+  createdAt            DateTime                       @default(now())
+  updatedAt            DateTime                       @updatedAt
 
-  clientCase ClientCase @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  requestedBy User @relation("FileRetentionDecisionActors", fields: [requestedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  clientCase  ClientCase @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  requestedBy User       @relation("FileRetentionDecisionActors", fields: [requestedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([choice, deleteAt])
   @@index([status, nextAttemptAt, deleteAt])
