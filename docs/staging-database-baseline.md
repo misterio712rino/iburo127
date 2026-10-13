@@ -25,7 +25,8 @@ The catalog snapshot was compared with `prisma/schema.prisma` from `feature/docu
 
 - All columns for the 25 Prisma models already present in staging match the feature schema; six additional tables are Better Auth tables, plus `_prisma_migrations`.
 - Five Prisma models are absent from staging: `ClientCaseFileRetentionDecision`, `CommerceOrder`, `CommercePayment`, `CommercePaymentEvent`, and `CommerceCheckoutSessionRecovery`. The five Prisma enums missing from staging are the retention-choice enum and the four commerce enums.
-- The pending `20260917_case_document_revisions` migration creates `CaseDocumentRevision` and `CaseDocumentRevisionStatus`, but neither is present in the current `prisma/schema.prisma`. The migration history therefore needs reconciliation with the schema before any deployment; blindly applying all six pending directories would create an object Prisma does not model.
+- None of the ten committed migration directories creates `ClientCaseFileRetentionDecision`. The current Prisma schema therefore cannot be reached by applying the committed history; a new reviewed migration is required for the retention-choice feature. Adding it will change the history fingerprint and needs a new owner-approved hash before a migration can be considered.
+- The pending `20260917_case_document_revisions` migration creates `CaseDocumentRevision` and `CaseDocumentRevisionStatus`, but neither is present in the current `prisma/schema.prisma`. Reconcile this committed migration with Prisma (or confirm the intended unmanaged-table design) before deployment; blindly applying all six pending directories would create an object Prisma does not model.
 - Four of ten feature-branch migrations are applied. The six pending directories include the revision migration, commerce foundation/idempotency, and three checkout/recovery migrations.
 
 These are structural differences only. No application records were read.
