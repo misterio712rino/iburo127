@@ -10,6 +10,7 @@ const JOB_PATHS = Object.freeze({
   "file-scans": "/api/internal/maintenance/file-scans",
   "file-scan-health": "/api/internal/maintenance/file-scan-health",
   "file-deletions": "/api/internal/maintenance/file-deletions",
+  "file-retention": "/api/internal/maintenance/file-retention",
   "file-deletion-health": "/api/internal/maintenance/file-deletion-health",
   "ai-audit-health": "/api/internal/maintenance/ai-audit-health",
 });
