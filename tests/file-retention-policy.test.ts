@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
 import {
+  FileRetentionDecisionService,
+  RETENTION_CASE_NOT_FOUND,
+  RETENTION_DECISION_CONFLICT,
+} from "../server/domain/files/retention-decision-service";
+import type { RetentionDecision } from "../server/domain/files/retention-decision-service";
+import {
   addCalendarYearsUtc,
   createAuthorizedFileRetentionSchedule,
   createFileRetentionSchedule,
@@ -101,11 +107,6 @@ assert.throws(
 );
 
 
-import {
-  FileRetentionDecisionService,
-  RETENTION_CASE_NOT_FOUND,
-  RETENTION_DECISION_CONFLICT,
-} from "../server/domain/files/retention-decision-service";
 
 const decisionCase = {
   id: "case-1",
@@ -113,9 +114,7 @@ const decisionCase = {
   status: "COMPLETED",
   closedAt: completedAt,
 };
-let persistedDecision: Awaited<ReturnType<
-  import("../server/domain/files/retention-decision-service").FileRetentionDecisionRepository["findDecision"]
->> = null;
+let persistedDecision: RetentionDecision | null = null;
 const decisionService = new FileRetentionDecisionService({
   async findCase(caseId) {
     return caseId === decisionCase.id ? decisionCase : null;
