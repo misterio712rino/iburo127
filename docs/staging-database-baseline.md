@@ -6,18 +6,29 @@
 The connected Neon project `iburo127-staging-neon`, its ready default branch `main`, and database `neondb` were checked through read-only Neon tools. The database catalog summary was:
 
 - one user schema (`public`);
-- 32 base tables, 271 columns, 50 enum labels, 97 indexes, and 265 constraints;
+- 32 base tables, 271 columns, 14 enum types containing 50 labels, 97 indexes, and 265 constraints; no views.
 - four successfully applied migrations and zero unfinished migrations;
 - one historical rolled-back migration attempt for `20260831_initial_baseline`, followed by its successful application;
 - no commerce tables yet, consistent with the unapplied commerce foundation migration.
 - the staging database has only the first four of the feature branch's ten migration directories applied; six migrations remain unapplied relative to that branch (document revisions, commerce foundation/idempotency, and the three newer checkout/recovery migrations). The probe's `pendingCount: 3` refers only to the seven-entry history in the deployed `audit/production-readiness` revision.
 
 
-The inspection queried PostgreSQL catalog metadata and migration history only; it did not query customer, case, document, or payment rows. The application endpoint also confirms the required 21 domain tables, 12 enums, stored-file contracts, and all six Better Auth tables.
+The inspection queried PostgreSQL catalog metadata and migration history only; it did not query customer, case, document, or payment rows. A full catalog snapshot is preserved in [`staging-schema-snapshot-2026-10-13.json`](./staging-schema-snapshot-2026-10-13.json). It includes table/column definitions, enum labels, constraints, indexes, and views, with no row data.
 
 Backup metadata was checked read-only: no snapshot schedule is configured for the staging branch. One manual snapshot is listed, created on 2026-09-07 (`pre-durable-deletion-94c737-20260907`). A fresh snapshot attempt on 2026-10-13 was rejected because the project snapshot limit was exceeded. Creating a temporary branch with custom compute settings was also rejected by an account restriction; no branch was created. No restore validation was run, so this is not evidence of a current, tested recovery point.
 
-This remains a partial baseline review rather than an approved migration gate: the exact full structural snapshot from the repository inspector has not been preserved for reconciliation, and backup/restore readiness is unverified. The migration-history SHA-256 was approved for the feature Preview branch and configured there; this does not authorize a migration. No migration or restore operation has been run.
+The full PostgreSQL catalog snapshot is preserved, but the repository inspector's own fingerprint has not been independently generated, and backup/restore readiness remains unverified. The migration-history SHA-256 was approved for the feature Preview branch and configured there; this does not authorize a migration. No migration or restore operation has been run.
+
+## Schema reconciliation against the feature branch — 2026-10-13
+
+The catalog snapshot was compared with `prisma/schema.prisma` from `feature/document-intake-retention-20261013`:
+
+- All columns for the 25 Prisma models already present in staging match the feature schema; six additional tables are Better Auth tables, plus `_prisma_migrations`.
+- Five Prisma models are absent from staging: `ClientCaseFileRetentionDecision`, `CommerceOrder`, `CommercePayment`, `CommercePaymentEvent`, and `CommerceCheckoutSessionRecovery`. The five Prisma enums missing from staging are the retention-choice enum and the four commerce enums.
+- The pending `20260917_case_document_revisions` migration creates `CaseDocumentRevision` and `CaseDocumentRevisionStatus`, but neither is present in the current `prisma/schema.prisma`. The migration history therefore needs reconciliation with the schema before any deployment; blindly applying all six pending directories would create an object Prisma does not model.
+- Four of ten feature-branch migrations are applied. The six pending directories include the revision migration, commerce foundation/idempotency, and three checkout/recovery migrations.
+
+These are structural differences only. No application records were read.
 
 ## Current repository status
 
@@ -115,9 +126,9 @@ The user authorized a read-only baseline probe. The protected Preview endpoint r
 - Better Auth tables: 6/6;
 - deployed migration history: 4 applied, 3 pending, 0 unfinished, 7 expected; applied history is an exact prefix of the deployed revision's reviewed history.
 
-The probe reads PostgreSQL catalog metadata and migration history only; it does not return customer, document, or payment records. It does **not** return the full structural snapshot or its fingerprint, so the authoritative full structural baseline remains unconfirmed. The endpoint is deployed from `audit/production-readiness` and checks seven migration entries. The current feature branch contains ten entries, including three newer commerce migrations; this probe did not reconcile those three against staging.
+The probe reads PostgreSQL catalog metadata and migration history only; it does not return customer, document, or payment records. It does **not** return the full structural snapshot; a separate catalog-only query is now preserved in the JSON artifact above. The endpoint is deployed from `audit/production-readiness` and checks seven migration entries. The current feature branch contains ten entries; the separate schema comparison exposed the unmodeled revision migration and the missing retention/commerce schema objects.
 
-Migration deployment remains blocked until the full staging structure is reconciled, the exact ten-migration history fingerprint is approved and configured, and backup/restore readiness is confirmed. Do not treat the successful bounded probe as migration approval.
+Migration deployment remains blocked until the schema/migration-history discrepancy is resolved and a current backup has passed restore validation. The exact ten-migration history fingerprint is configured for the feature Preview branch, but does not authorize deployment. Do not treat the successful bounded probe as migration approval.
 
 A candidate migration-history fingerprint was independently calculated from the ten committed migration SQL files and `migration_lock.toml` using the repository guard's algorithm:
 
@@ -125,5 +136,5 @@ A candidate migration-history fingerprint was independently calculated from the 
 2f4717f9f881e7a468c7490c5bdf426cfaa9551e0e07aacf5f67de3e001ce765
 ```
 
-This fingerprint was approved by the staging owner for the feature Preview branch and configured as `IB_STAGING_MIGRATION_HISTORY_SHA256`. It has not yet been independently verified by running `npm run db:inspect:migrations` in the project checkout, and it does not authorize a staging migration. The existing staging migration endpoint is still deployed from `audit/production-readiness`, where the fingerprint remains unset.
+This fingerprint was approved by the staging owner for the feature Preview branch and configured as `IB_STAGING_MIGRATION_HISTORY_SHA256`. It has not yet been independently verified by running `npm run db:inspect:migrations` in the project checkout, and it does not authorize a staging migration. The existing staging migration endpoint is still deployed from `audit/production-readiness`, where the fingerprint remains unset. Reconcile the schema/migration-history discrepancy and restore readiness before treating it as a usable migration gate.
 
