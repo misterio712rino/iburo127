@@ -174,4 +174,35 @@ await assert.rejects(
   /RETENTION_FORBIDDEN/,
 );
 
+
+let raceDecision: RetentionDecision | null = null;
+const raceService = new FileRetentionDecisionService({
+  async findCase() {
+    return decisionCase;
+  },
+  async findDecision() {
+    return null;
+  },
+  async saveDecision(decision) {
+    raceDecision ??= decision;
+    return raceDecision;
+  },
+});
+const raceResults = await Promise.allSettled([
+  raceService.decide({
+    actor: ownerActor,
+    clientCaseId: decisionCase.id,
+    choice: "DELETE_NOW",
+    decidedAt: decisionTime,
+  }),
+  raceService.decide({
+    actor: ownerActor,
+    clientCaseId: decisionCase.id,
+    choice: "KEEP_UNTIL_AUTOMATIC_DELETION",
+    decidedAt: decisionTime,
+  }),
+]);
+assert.equal(raceResults.filter((result) => result.status === "fulfilled").length, 1);
+assert.equal(raceResults.filter((result) => result.status === "rejected").length, 1);
+
 console.log("FILE_RETENTION_POLICY_PASS");
