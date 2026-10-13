@@ -82,3 +82,20 @@ Until the authoritative staging database has been inspected, reconciled with the
 - The Vercel metadata comment for `DATABASE_URL` labels it as a Neon staging database, and `.github/workflows/staging-revision-migration-proof.yml` expects database name `neondb`. The actual connection host was not verified because the value is hidden. Reconcile this with any older infrastructure notes before connecting.
 - `IB_STAGING_MIGRATION_HISTORY_SHA256` is not configured for that Preview branch. Migration checks remain blocked until the staging owner approves the exact fingerprint for the reviewed committed history.
 - The repository already has a read-only `/_iburo/staging-db-baseline` Preview probe referenced by `.github/workflows/staging-revision-migration-proof.yml`. Use that controlled path to inspect the database identity and migration state; this note does not authorize running it or any database mutation.
+
+
+## Read-only probe result — 2026-10-13
+
+The user authorized a read-only baseline probe. The protected Preview endpoint returned HTTP 200 and confirmed:
+
+- service `iburo127`, environment `preview`, branch `audit/production-readiness`, runtime target `staging`;
+- deployment commit `1d7cb0b5e9b6e2fee71ded11953cc93f00d85d0a`;
+- database identity `neondb.public`;
+- read-only mode and overall probe checks passed;
+- required domain tables: 21/21; required enums: 12/12; stored-file scan/status contracts passed;
+- Better Auth tables: 6/6;
+- deployed migration history: 4 applied, 3 pending, 0 unfinished, 7 expected; applied history is an exact prefix of the deployed revision's reviewed history.
+
+The probe reads PostgreSQL catalog metadata and migration history only; it does not return customer, document, or payment records. It does **not** return the full structural snapshot or its fingerprint, so the authoritative full structural baseline remains unconfirmed. The endpoint is deployed from `audit/production-readiness` and checks seven migration entries. The current feature branch contains ten entries, including three newer commerce migrations; this probe did not reconcile those three against staging.
+
+Migration deployment remains blocked until the full staging structure is reconciled, the exact ten-migration history fingerprint is approved and configured, and backup/restore readiness is confirmed. Do not treat the successful bounded probe as migration approval.
