@@ -36,7 +36,7 @@ assert.equal(deleteNow.kind, "DELETE_NOW");
 assert.equal(deleteNow.deleteAt.toISOString(), deleteNowAt.toISOString());
 assert.notEqual(deleteNow.deleteAt, deleteNowAt);
 
-const ownerActor = { userId: "owner", roles: ["CLIENT"] };
+const ownerActor = { userId: "owner", roles: ["CLIENT"] as const };
 const completedCase = { clientId: "owner", status: "COMPLETED", closedAt: completedAt };
 const authorized = createAuthorizedFileRetentionSchedule({
   actor: ownerActor,
@@ -49,7 +49,7 @@ assert.equal(authorized.deleteAt.toISOString(), "2031-03-15T10:20:30.123Z");
 
 assert.throws(
   () => createAuthorizedFileRetentionSchedule({
-    actor: { userId: "intruder", roles: ["CLIENT"] },
+    actor: { userId: "intruder", roles: ["CLIENT"] as const },
     clientCase: completedCase,
     choice: "DELETE_NOW",
     decidedAt: new Date(),
@@ -166,7 +166,7 @@ await assert.rejects(
 );
 await assert.rejects(
   decisionService.decide({
-    actor: { userId: "intruder", roles: ["CLIENT"] },
+    actor: { userId: "intruder", roles: ["CLIENT"] as const },
     clientCaseId: decisionCase.id,
     choice: "DELETE_NOW",
     decidedAt: decisionTime,
