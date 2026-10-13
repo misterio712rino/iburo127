@@ -1,0 +1,4991 @@
+{
+  "formatVersion": 1,
+  "capturedAt": "2026-10-13",
+  "target": {
+    "environment": "staging",
+    "database": "neondb",
+    "schema": "public"
+  },
+  "collection": {
+    "method": "PostgreSQL information_schema and pg_catalog SELECT",
+    "readOnly": true,
+    "customerRowsRead": false
+  },
+  "snapshot": {
+    "enums": [
+      {
+        "name": "CaseDocumentStatus",
+        "labels": [
+          "WAITING_DATA",
+          "DRAFT",
+          "READY_FOR_REVIEW",
+          "SENT_FOR_REVIEW",
+          "REVIEWED"
+        ],
+        "schema": "public"
+      },
+      {
+        "name": "ClientCaseStatus",
+        "labels": [
+          "DRAFT",
+          "ACTIVE",
+          "PAUSED",
+          "COMPLETED",
+          "ARCHIVED"
+        ],
+        "schema": "public"
+      },
+      {
+        "name": "NotificationDeliveryChannel",
+        "labels": [
+          "EMAIL"
+        ],
+        "schema": "public"
+      },
+      {
+        "name": "NotificationDeliveryStatus",
+        "labels": [
+          "PENDING",
+          "PROCESSING",
+          "SENT",
+          "DEAD"
+        ],
+        "schema": "public"
+      },
+      {
+        "name": "PotentialClientLeadContactType",
+        "labels": [
+          "EMAIL",
+          "PHONE"
+        ],
+        "schema": "public"
+      },
+      {
+        "name": "PotentialClientLeadStatus",
+        "labels": [
+          "NEW",
+          "CONVERTED",
+          "ARCHIVED"
+        ],
+        "schema": "public"
+      },
+      {
+        "name": "PracticumHomeworkReviewDecision",
+        "labels": [
+          "CHANGES_REQUESTED",
+          "ACCEPTED"
+        ],
+        "schema": "public"
+      },
+      {
+        "name": "PracticumHomeworkStatus",
+        "labels": [
+          "NOT_STARTED",
+          "DRAFT",
+          "SUBMITTED",
+          "IN_REVIEW",
+          "CHANGES_REQUESTED",
+          "ACCEPTED"
+        ],
+        "schema": "public"
+      },
+      {
+        "name": "PracticumProgressStatus",
+        "labels": [
+          "NOT_STARTED",
+          "IN_PROGRESS",
+          "COMPLETED"
+        ],
+        "schema": "public"
+      },
+      {
+        "name": "QuestionnaireStatus",
+        "labels": [
+          "NOT_STARTED",
+          "IN_PROGRESS",
+          "COMPLETED"
+        ],
+        "schema": "public"
+      },
+      {
+        "name": "StoredFileDeletionStatus",
+        "labels": [
+          "PENDING",
+          "PROCESSING",
+          "COMPLETED",
+          "REQUIRES_ATTENTION"
+        ],
+        "schema": "public"
+      },
+      {
+        "name": "StoredFileStatus",
+        "labels": [
+          "PENDING_UPLOAD",
+          "PENDING_SCAN",
+          "SCANNING",
+          "READY",
+          "QUARANTINED",
+          "SCAN_FAILED"
+        ],
+        "schema": "public"
+      },
+      {
+        "name": "TaskStatus",
+        "labels": [
+          "NEW",
+          "WORKING",
+          "DONE"
+        ],
+        "schema": "public"
+      },
+      {
+        "name": "UserStatus",
+        "labels": [
+          "ACTIVE",
+          "SUSPENDED",
+          "ARCHIVED"
+        ],
+        "schema": "public"
+      }
+    ],
+    "views": null,
+    "tables": [
+      {
+        "kind": "BASE TABLE",
+        "name": "AuthIdentity",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "id",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "userId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "provider",
+            "type": "text",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "subject",
+            "type": "text",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "createdAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 5,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "updatedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 6,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "CaseActivityEvent",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "id",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "clientCaseId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "actorUserId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "YES"
+          },
+          {
+            "udt": "text",
+            "name": "type",
+            "type": "text",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "NO"
+          },
+          {
+            "udt": "jsonb",
+            "name": "metadata",
+            "type": "jsonb",
+            "default": null,
+            "ordinal": 5,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "createdAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 6,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "CaseDocument",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "id",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "clientCaseId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "documentCode",
+            "type": "text",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "CaseDocumentStatus",
+            "name": "status",
+            "type": "USER-DEFINED",
+            "default": "'WAITING_DATA'::\"CaseDocumentStatus\"",
+            "ordinal": 4,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "regeneratedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 5,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "sentForReviewAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 6,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "reviewedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 7,
+            "nullable": "YES"
+          },
+          {
+            "udt": "int4",
+            "name": "version",
+            "type": "integer",
+            "default": "1",
+            "ordinal": 8,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "createdAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 9,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "updatedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 10,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "CasePracticumHomework",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "id",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "clientCaseId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "lessonId",
+            "type": "text",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "PracticumHomeworkStatus",
+            "name": "status",
+            "type": "USER-DEFINED",
+            "default": "'NOT_STARTED'::\"PracticumHomeworkStatus\"",
+            "ordinal": 4,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "draftText",
+            "type": "text",
+            "default": "''::text",
+            "ordinal": 5,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "submittedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 6,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "reviewedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 7,
+            "nullable": "YES"
+          },
+          {
+            "udt": "int4",
+            "name": "version",
+            "type": "integer",
+            "default": "1",
+            "ordinal": 8,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "createdAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 9,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "updatedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 10,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "CasePracticumHomeworkRevision",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "id",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "homeworkId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "int4",
+            "name": "revisionNumber",
+            "type": "integer",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "submittedByUserId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "answerText",
+            "type": "text",
+            "default": null,
+            "ordinal": 5,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "submittedAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 6,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "reviewedByUserId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 7,
+            "nullable": "YES"
+          },
+          {
+            "udt": "PracticumHomeworkReviewDecision",
+            "name": "reviewDecision",
+            "type": "USER-DEFINED",
+            "default": null,
+            "ordinal": 8,
+            "nullable": "YES"
+          },
+          {
+            "udt": "text",
+            "name": "reviewComment",
+            "type": "text",
+            "default": null,
+            "ordinal": 9,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "reviewedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 10,
+            "nullable": "YES"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "CasePracticumLessonMessage",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "id",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "clientCaseId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "lessonId",
+            "type": "text",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "authorUserId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "body",
+            "type": "text",
+            "default": null,
+            "ordinal": 5,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "createdAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 6,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "CasePracticumLessonReadState",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "clientCaseId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "lessonId",
+            "type": "text",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "userId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "lastReadAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 4,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "updatedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 5,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "CasePracticumProgress",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "clientCaseId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "PracticumProgressStatus",
+            "name": "status",
+            "type": "USER-DEFINED",
+            "default": "'NOT_STARTED'::\"PracticumProgressStatus\"",
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "_text",
+            "name": "completedLessonIds",
+            "type": "ARRAY",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "startedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "completedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 5,
+            "nullable": "YES"
+          },
+          {
+            "udt": "int4",
+            "name": "version",
+            "type": "integer",
+            "default": "1",
+            "ordinal": 6,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "createdAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 7,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "updatedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 8,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "CaseQuestionnaire",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "clientCaseId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "int4",
+            "name": "schemaVersion",
+            "type": "integer",
+            "default": "1",
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "QuestionnaireStatus",
+            "name": "status",
+            "type": "USER-DEFINED",
+            "default": "'NOT_STARTED'::\"QuestionnaireStatus\"",
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "jsonb",
+            "name": "answers",
+            "type": "jsonb",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "NO"
+          },
+          {
+            "udt": "_text",
+            "name": "completedSectionIds",
+            "type": "ARRAY",
+            "default": null,
+            "ordinal": 5,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "startedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 6,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "completedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 7,
+            "nullable": "YES"
+          },
+          {
+            "udt": "int4",
+            "name": "version",
+            "type": "integer",
+            "default": "1",
+            "ordinal": 8,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "createdAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 9,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "updatedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 10,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "CaseStage",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "id",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "code",
+            "type": "text",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "name",
+            "type": "text",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "description",
+            "type": "text",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "YES"
+          },
+          {
+            "udt": "int4",
+            "name": "sortOrder",
+            "type": "integer",
+            "default": null,
+            "ordinal": 5,
+            "nullable": "NO"
+          },
+          {
+            "udt": "bool",
+            "name": "isActive",
+            "type": "boolean",
+            "default": "true",
+            "ordinal": 6,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "createdAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 7,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "updatedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 8,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "CaseTask",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "id",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "clientCaseId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "assigneeId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "title",
+            "type": "text",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "description",
+            "type": "text",
+            "default": null,
+            "ordinal": 5,
+            "nullable": "YES"
+          },
+          {
+            "udt": "TaskStatus",
+            "name": "status",
+            "type": "USER-DEFINED",
+            "default": "'NEW'::\"TaskStatus\"",
+            "ordinal": 6,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "dueAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 7,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "startedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 8,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "completedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 9,
+            "nullable": "YES"
+          },
+          {
+            "udt": "int4",
+            "name": "version",
+            "type": "integer",
+            "default": "1",
+            "ordinal": 10,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "createdAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 11,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "updatedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 12,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "ClientCase",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "id",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "caseNumber",
+            "type": "text",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "clientId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "planId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "stageId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 5,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "assignedLawyerId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 6,
+            "nullable": "YES"
+          },
+          {
+            "udt": "ClientCaseStatus",
+            "name": "status",
+            "type": "USER-DEFINED",
+            "default": "'DRAFT'::\"ClientCaseStatus\"",
+            "ordinal": 7,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "openedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 8,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "closedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 9,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "createdAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 10,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "updatedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 11,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "Feature",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "id",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "code",
+            "type": "text",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "name",
+            "type": "text",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "description",
+            "type": "text",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "createdAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 5,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "updatedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 6,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "Notification",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "id",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "userId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "clientCaseId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "YES"
+          },
+          {
+            "udt": "text",
+            "name": "dedupeKey",
+            "type": "text",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "YES"
+          },
+          {
+            "udt": "text",
+            "name": "type",
+            "type": "text",
+            "default": null,
+            "ordinal": 5,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "title",
+            "type": "text",
+            "default": null,
+            "ordinal": 6,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "body",
+            "type": "text",
+            "default": null,
+            "ordinal": 7,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "readAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 8,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "createdAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 9,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "NotificationDelivery",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "id",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "notificationId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "NotificationDeliveryChannel",
+            "name": "channel",
+            "type": "USER-DEFINED",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "NotificationDeliveryStatus",
+            "name": "status",
+            "type": "USER-DEFINED",
+            "default": "'PENDING'::\"NotificationDeliveryStatus\"",
+            "ordinal": 4,
+            "nullable": "NO"
+          },
+          {
+            "udt": "int4",
+            "name": "attemptCount",
+            "type": "integer",
+            "default": "0",
+            "ordinal": 5,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "nextAttemptAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 6,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "leaseUntil",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 7,
+            "nullable": "YES"
+          },
+          {
+            "udt": "uuid",
+            "name": "leaseToken",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 8,
+            "nullable": "YES"
+          },
+          {
+            "udt": "text",
+            "name": "providerMessageId",
+            "type": "text",
+            "default": null,
+            "ordinal": 9,
+            "nullable": "YES"
+          },
+          {
+            "udt": "text",
+            "name": "lastErrorCode",
+            "type": "text",
+            "default": null,
+            "ordinal": 10,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "sentAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 11,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "createdAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 12,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "updatedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 13,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "Plan",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "id",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "code",
+            "type": "text",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "name",
+            "type": "text",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "description",
+            "type": "text",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "YES"
+          },
+          {
+            "udt": "bool",
+            "name": "isActive",
+            "type": "boolean",
+            "default": "true",
+            "ordinal": 5,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "createdAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 6,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "updatedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 7,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "PlanFeature",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "planId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "featureId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "createdAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 3,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "PotentialClientLead",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "id",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "PotentialClientLeadContactType",
+            "name": "contactType",
+            "type": "USER-DEFINED",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "contactKey",
+            "type": "text",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "email",
+            "type": "text",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "YES"
+          },
+          {
+            "udt": "text",
+            "name": "phone",
+            "type": "text",
+            "default": null,
+            "ordinal": 5,
+            "nullable": "YES"
+          },
+          {
+            "udt": "text",
+            "name": "source",
+            "type": "text",
+            "default": "'AUTH_GATE'::text",
+            "ordinal": 6,
+            "nullable": "NO"
+          },
+          {
+            "udt": "PotentialClientLeadStatus",
+            "name": "status",
+            "type": "USER-DEFINED",
+            "default": "'NEW'::\"PotentialClientLeadStatus\"",
+            "ordinal": 7,
+            "nullable": "NO"
+          },
+          {
+            "udt": "int4",
+            "name": "attemptCount",
+            "type": "integer",
+            "default": "1",
+            "ordinal": 8,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "firstSeenAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 9,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "lastSeenAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 10,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "createdAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 11,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "updatedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 12,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "Role",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "id",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "code",
+            "type": "text",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "name",
+            "type": "text",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "description",
+            "type": "text",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "createdAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 5,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "updatedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 6,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "StoredFile",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "id",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "clientCaseId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "uploadedById",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "YES"
+          },
+          {
+            "udt": "StoredFileStatus",
+            "name": "status",
+            "type": "USER-DEFINED",
+            "default": "'PENDING_UPLOAD'::\"StoredFileStatus\"",
+            "ordinal": 4,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "storageProvider",
+            "type": "text",
+            "default": null,
+            "ordinal": 5,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "objectKey",
+            "type": "text",
+            "default": null,
+            "ordinal": 6,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "fileName",
+            "type": "text",
+            "default": null,
+            "ordinal": 7,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "mimeType",
+            "type": "text",
+            "default": null,
+            "ordinal": 8,
+            "nullable": "NO"
+          },
+          {
+            "udt": "int8",
+            "name": "sizeBytes",
+            "type": "bigint",
+            "default": null,
+            "ordinal": 9,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "checksumSha256",
+            "type": "text",
+            "default": null,
+            "ordinal": 10,
+            "nullable": "YES"
+          },
+          {
+            "udt": "int4",
+            "name": "scanAttemptCount",
+            "type": "integer",
+            "default": "0",
+            "ordinal": 11,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "scanNextAttemptAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 12,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "scanLeaseUntil",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 13,
+            "nullable": "YES"
+          },
+          {
+            "udt": "uuid",
+            "name": "scanLeaseToken",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 14,
+            "nullable": "YES"
+          },
+          {
+            "udt": "text",
+            "name": "scanProvider",
+            "type": "text",
+            "default": null,
+            "ordinal": 15,
+            "nullable": "YES"
+          },
+          {
+            "udt": "text",
+            "name": "scanLastErrorCode",
+            "type": "text",
+            "default": null,
+            "ordinal": 16,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "scannedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 17,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "quarantinedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 18,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "readyAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 19,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "createdAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 20,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "StoredFileDeletion",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "fileId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "clientCaseId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "requestedByUserId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "storageProvider",
+            "type": "text",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "objectKey",
+            "type": "text",
+            "default": null,
+            "ordinal": 5,
+            "nullable": "NO"
+          },
+          {
+            "udt": "StoredFileStatus",
+            "name": "originalFileStatus",
+            "type": "USER-DEFINED",
+            "default": null,
+            "ordinal": 6,
+            "nullable": "NO"
+          },
+          {
+            "udt": "StoredFileDeletionStatus",
+            "name": "status",
+            "type": "USER-DEFINED",
+            "default": "'PENDING'::\"StoredFileDeletionStatus\"",
+            "ordinal": 7,
+            "nullable": "NO"
+          },
+          {
+            "udt": "int4",
+            "name": "attemptCount",
+            "type": "integer",
+            "default": "0",
+            "ordinal": 8,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "nextAttemptAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 9,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "leaseUntil",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 10,
+            "nullable": "YES"
+          },
+          {
+            "udt": "uuid",
+            "name": "leaseToken",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 11,
+            "nullable": "YES"
+          },
+          {
+            "udt": "text",
+            "name": "lastErrorCode",
+            "type": "text",
+            "default": null,
+            "ordinal": 12,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "requestedAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 13,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "storageConfirmedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 14,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "completedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 15,
+            "nullable": "YES"
+          },
+          {
+            "udt": "uuid",
+            "name": "completionActivityEventId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 16,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamp",
+            "name": "createdAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 17,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "updatedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 18,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "TaskStatusEvent",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "id",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "taskId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "actorUserId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "TaskStatus",
+            "name": "fromStatus",
+            "type": "USER-DEFINED",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "NO"
+          },
+          {
+            "udt": "TaskStatus",
+            "name": "toStatus",
+            "type": "USER-DEFINED",
+            "default": null,
+            "ordinal": 5,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "createdAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 6,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "User",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "id",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "email",
+            "type": "text",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "YES"
+          },
+          {
+            "udt": "text",
+            "name": "phone",
+            "type": "text",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "YES"
+          },
+          {
+            "udt": "text",
+            "name": "displayName",
+            "type": "text",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "YES"
+          },
+          {
+            "udt": "UserStatus",
+            "name": "status",
+            "type": "USER-DEFINED",
+            "default": "'ACTIVE'::\"UserStatus\"",
+            "ordinal": 5,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "createdAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 6,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "updatedAt",
+            "type": "timestamp without time zone",
+            "default": null,
+            "ordinal": 7,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "UserRole",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "userId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "roleId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "assignedAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 3,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "UserSecurityEvent",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "uuid",
+            "name": "id",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "uuid",
+            "name": "userId",
+            "type": "uuid",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "type",
+            "type": "text",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamp",
+            "name": "createdAt",
+            "type": "timestamp without time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 4,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "_prisma_migrations",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "varchar",
+            "name": "id",
+            "type": "character varying",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "varchar",
+            "name": "checksum",
+            "type": "character varying",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamptz",
+            "name": "finished_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "YES"
+          },
+          {
+            "udt": "varchar",
+            "name": "migration_name",
+            "type": "character varying",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "logs",
+            "type": "text",
+            "default": null,
+            "ordinal": 5,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamptz",
+            "name": "rolled_back_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "ordinal": 6,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamptz",
+            "name": "started_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "ordinal": 7,
+            "nullable": "NO"
+          },
+          {
+            "udt": "int4",
+            "name": "applied_steps_count",
+            "type": "integer",
+            "default": "0",
+            "ordinal": 8,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "account",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "text",
+            "name": "id",
+            "type": "text",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "issuer",
+            "type": "text",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "YES"
+          },
+          {
+            "udt": "text",
+            "name": "accountId",
+            "type": "text",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "providerId",
+            "type": "text",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "userId",
+            "type": "text",
+            "default": null,
+            "ordinal": 5,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "accessToken",
+            "type": "text",
+            "default": null,
+            "ordinal": 6,
+            "nullable": "YES"
+          },
+          {
+            "udt": "text",
+            "name": "refreshToken",
+            "type": "text",
+            "default": null,
+            "ordinal": 7,
+            "nullable": "YES"
+          },
+          {
+            "udt": "text",
+            "name": "idToken",
+            "type": "text",
+            "default": null,
+            "ordinal": 8,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamptz",
+            "name": "accessTokenExpiresAt",
+            "type": "timestamp with time zone",
+            "default": null,
+            "ordinal": 9,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamptz",
+            "name": "refreshTokenExpiresAt",
+            "type": "timestamp with time zone",
+            "default": null,
+            "ordinal": 10,
+            "nullable": "YES"
+          },
+          {
+            "udt": "text",
+            "name": "scope",
+            "type": "text",
+            "default": null,
+            "ordinal": 11,
+            "nullable": "YES"
+          },
+          {
+            "udt": "text",
+            "name": "password",
+            "type": "text",
+            "default": null,
+            "ordinal": 12,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamptz",
+            "name": "createdAt",
+            "type": "timestamp with time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 13,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamptz",
+            "name": "updatedAt",
+            "type": "timestamp with time zone",
+            "default": null,
+            "ordinal": 14,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "rateLimit",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "text",
+            "name": "id",
+            "type": "text",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "key",
+            "type": "text",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "int4",
+            "name": "count",
+            "type": "integer",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "int8",
+            "name": "lastRequest",
+            "type": "bigint",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "session",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "text",
+            "name": "id",
+            "type": "text",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamptz",
+            "name": "expiresAt",
+            "type": "timestamp with time zone",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "token",
+            "type": "text",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamptz",
+            "name": "createdAt",
+            "type": "timestamp with time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 4,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamptz",
+            "name": "updatedAt",
+            "type": "timestamp with time zone",
+            "default": null,
+            "ordinal": 5,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "ipAddress",
+            "type": "text",
+            "default": null,
+            "ordinal": 6,
+            "nullable": "YES"
+          },
+          {
+            "udt": "text",
+            "name": "userAgent",
+            "type": "text",
+            "default": null,
+            "ordinal": 7,
+            "nullable": "YES"
+          },
+          {
+            "udt": "text",
+            "name": "userId",
+            "type": "text",
+            "default": null,
+            "ordinal": 8,
+            "nullable": "NO"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "twoFactor",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "text",
+            "name": "id",
+            "type": "text",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "secret",
+            "type": "text",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "backupCodes",
+            "type": "text",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "userId",
+            "type": "text",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "NO"
+          },
+          {
+            "udt": "bool",
+            "name": "verified",
+            "type": "boolean",
+            "default": null,
+            "ordinal": 5,
+            "nullable": "YES"
+          },
+          {
+            "udt": "int4",
+            "name": "failedVerificationCount",
+            "type": "integer",
+            "default": null,
+            "ordinal": 6,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamptz",
+            "name": "lockedUntil",
+            "type": "timestamp with time zone",
+            "default": null,
+            "ordinal": 7,
+            "nullable": "YES"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "user",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "text",
+            "name": "id",
+            "type": "text",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "name",
+            "type": "text",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "email",
+            "type": "text",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "bool",
+            "name": "emailVerified",
+            "type": "boolean",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "image",
+            "type": "text",
+            "default": null,
+            "ordinal": 5,
+            "nullable": "YES"
+          },
+          {
+            "udt": "timestamptz",
+            "name": "createdAt",
+            "type": "timestamp with time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 6,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamptz",
+            "name": "updatedAt",
+            "type": "timestamp with time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 7,
+            "nullable": "NO"
+          },
+          {
+            "udt": "bool",
+            "name": "twoFactorEnabled",
+            "type": "boolean",
+            "default": null,
+            "ordinal": 8,
+            "nullable": "YES"
+          }
+        ]
+      },
+      {
+        "kind": "BASE TABLE",
+        "name": "verification",
+        "schema": "public",
+        "columns": [
+          {
+            "udt": "text",
+            "name": "id",
+            "type": "text",
+            "default": null,
+            "ordinal": 1,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "identifier",
+            "type": "text",
+            "default": null,
+            "ordinal": 2,
+            "nullable": "NO"
+          },
+          {
+            "udt": "text",
+            "name": "value",
+            "type": "text",
+            "default": null,
+            "ordinal": 3,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamptz",
+            "name": "expiresAt",
+            "type": "timestamp with time zone",
+            "default": null,
+            "ordinal": 4,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamptz",
+            "name": "createdAt",
+            "type": "timestamp with time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 5,
+            "nullable": "NO"
+          },
+          {
+            "udt": "timestamptz",
+            "name": "updatedAt",
+            "type": "timestamp with time zone",
+            "default": "CURRENT_TIMESTAMP",
+            "ordinal": 6,
+            "nullable": "NO"
+          }
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "AuthIdentity_pkey",
+        "table": "AuthIdentity",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"AuthIdentity_pkey\" ON public.\"AuthIdentity\" USING btree (id)"
+      },
+      {
+        "name": "AuthIdentity_provider_subject_key",
+        "table": "AuthIdentity",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"AuthIdentity_provider_subject_key\" ON public.\"AuthIdentity\" USING btree (provider, subject)"
+      },
+      {
+        "name": "AuthIdentity_userId_idx",
+        "table": "AuthIdentity",
+        "schema": "public",
+        "definition": "CREATE INDEX \"AuthIdentity_userId_idx\" ON public.\"AuthIdentity\" USING btree (\"userId\")"
+      },
+      {
+        "name": "CaseActivityEvent_actorUserId_idx",
+        "table": "CaseActivityEvent",
+        "schema": "public",
+        "definition": "CREATE INDEX \"CaseActivityEvent_actorUserId_idx\" ON public.\"CaseActivityEvent\" USING btree (\"actorUserId\")"
+      },
+      {
+        "name": "CaseActivityEvent_clientCaseId_createdAt_idx",
+        "table": "CaseActivityEvent",
+        "schema": "public",
+        "definition": "CREATE INDEX \"CaseActivityEvent_clientCaseId_createdAt_idx\" ON public.\"CaseActivityEvent\" USING btree (\"clientCaseId\", \"createdAt\")"
+      },
+      {
+        "name": "CaseActivityEvent_pkey",
+        "table": "CaseActivityEvent",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"CaseActivityEvent_pkey\" ON public.\"CaseActivityEvent\" USING btree (id)"
+      },
+      {
+        "name": "CaseActivityEvent_type_idx",
+        "table": "CaseActivityEvent",
+        "schema": "public",
+        "definition": "CREATE INDEX \"CaseActivityEvent_type_idx\" ON public.\"CaseActivityEvent\" USING btree (type)"
+      },
+      {
+        "name": "CaseDocument_clientCaseId_documentCode_key",
+        "table": "CaseDocument",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"CaseDocument_clientCaseId_documentCode_key\" ON public.\"CaseDocument\" USING btree (\"clientCaseId\", \"documentCode\")"
+      },
+      {
+        "name": "CaseDocument_clientCaseId_status_idx",
+        "table": "CaseDocument",
+        "schema": "public",
+        "definition": "CREATE INDEX \"CaseDocument_clientCaseId_status_idx\" ON public.\"CaseDocument\" USING btree (\"clientCaseId\", status)"
+      },
+      {
+        "name": "CaseDocument_pkey",
+        "table": "CaseDocument",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"CaseDocument_pkey\" ON public.\"CaseDocument\" USING btree (id)"
+      },
+      {
+        "name": "CasePracticumHomework_clientCaseId_lessonId_key",
+        "table": "CasePracticumHomework",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"CasePracticumHomework_clientCaseId_lessonId_key\" ON public.\"CasePracticumHomework\" USING btree (\"clientCaseId\", \"lessonId\")"
+      },
+      {
+        "name": "CasePracticumHomework_clientCaseId_status_updatedAt_idx",
+        "table": "CasePracticumHomework",
+        "schema": "public",
+        "definition": "CREATE INDEX \"CasePracticumHomework_clientCaseId_status_updatedAt_idx\" ON public.\"CasePracticumHomework\" USING btree (\"clientCaseId\", status, \"updatedAt\")"
+      },
+      {
+        "name": "CasePracticumHomework_pkey",
+        "table": "CasePracticumHomework",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"CasePracticumHomework_pkey\" ON public.\"CasePracticumHomework\" USING btree (id)"
+      },
+      {
+        "name": "CasePracticumHomework_status_submittedAt_idx",
+        "table": "CasePracticumHomework",
+        "schema": "public",
+        "definition": "CREATE INDEX \"CasePracticumHomework_status_submittedAt_idx\" ON public.\"CasePracticumHomework\" USING btree (status, \"submittedAt\")"
+      },
+      {
+        "name": "CasePracticumHomeworkRevision_homeworkId_revisionNumber_key",
+        "table": "CasePracticumHomeworkRevision",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"CasePracticumHomeworkRevision_homeworkId_revisionNumber_key\" ON public.\"CasePracticumHomeworkRevision\" USING btree (\"homeworkId\", \"revisionNumber\")"
+      },
+      {
+        "name": "CasePracticumHomeworkRevision_homeworkId_submittedAt_idx",
+        "table": "CasePracticumHomeworkRevision",
+        "schema": "public",
+        "definition": "CREATE INDEX \"CasePracticumHomeworkRevision_homeworkId_submittedAt_idx\" ON public.\"CasePracticumHomeworkRevision\" USING btree (\"homeworkId\", \"submittedAt\")"
+      },
+      {
+        "name": "CasePracticumHomeworkRevision_pkey",
+        "table": "CasePracticumHomeworkRevision",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"CasePracticumHomeworkRevision_pkey\" ON public.\"CasePracticumHomeworkRevision\" USING btree (id)"
+      },
+      {
+        "name": "CasePracticumHomeworkRevision_reviewedByUserId_reviewedAt_idx",
+        "table": "CasePracticumHomeworkRevision",
+        "schema": "public",
+        "definition": "CREATE INDEX \"CasePracticumHomeworkRevision_reviewedByUserId_reviewedAt_idx\" ON public.\"CasePracticumHomeworkRevision\" USING btree (\"reviewedByUserId\", \"reviewedAt\")"
+      },
+      {
+        "name": "CasePracticumHomeworkRevision_submittedByUserId_idx",
+        "table": "CasePracticumHomeworkRevision",
+        "schema": "public",
+        "definition": "CREATE INDEX \"CasePracticumHomeworkRevision_submittedByUserId_idx\" ON public.\"CasePracticumHomeworkRevision\" USING btree (\"submittedByUserId\")"
+      },
+      {
+        "name": "CasePracticumLessonMessage_authorUserId_createdAt_idx",
+        "table": "CasePracticumLessonMessage",
+        "schema": "public",
+        "definition": "CREATE INDEX \"CasePracticumLessonMessage_authorUserId_createdAt_idx\" ON public.\"CasePracticumLessonMessage\" USING btree (\"authorUserId\", \"createdAt\")"
+      },
+      {
+        "name": "CasePracticumLessonMessage_clientCaseId_lessonId_createdAt_idx",
+        "table": "CasePracticumLessonMessage",
+        "schema": "public",
+        "definition": "CREATE INDEX \"CasePracticumLessonMessage_clientCaseId_lessonId_createdAt_idx\" ON public.\"CasePracticumLessonMessage\" USING btree (\"clientCaseId\", \"lessonId\", \"createdAt\")"
+      },
+      {
+        "name": "CasePracticumLessonMessage_pkey",
+        "table": "CasePracticumLessonMessage",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"CasePracticumLessonMessage_pkey\" ON public.\"CasePracticumLessonMessage\" USING btree (id)"
+      },
+      {
+        "name": "CasePracticumLessonReadState_pkey",
+        "table": "CasePracticumLessonReadState",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"CasePracticumLessonReadState_pkey\" ON public.\"CasePracticumLessonReadState\" USING btree (\"clientCaseId\", \"lessonId\", \"userId\")"
+      },
+      {
+        "name": "CasePracticumLessonReadState_userId_lastReadAt_idx",
+        "table": "CasePracticumLessonReadState",
+        "schema": "public",
+        "definition": "CREATE INDEX \"CasePracticumLessonReadState_userId_lastReadAt_idx\" ON public.\"CasePracticumLessonReadState\" USING btree (\"userId\", \"lastReadAt\")"
+      },
+      {
+        "name": "CasePracticumProgress_pkey",
+        "table": "CasePracticumProgress",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"CasePracticumProgress_pkey\" ON public.\"CasePracticumProgress\" USING btree (\"clientCaseId\")"
+      },
+      {
+        "name": "CaseQuestionnaire_pkey",
+        "table": "CaseQuestionnaire",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"CaseQuestionnaire_pkey\" ON public.\"CaseQuestionnaire\" USING btree (\"clientCaseId\")"
+      },
+      {
+        "name": "CaseStage_code_key",
+        "table": "CaseStage",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"CaseStage_code_key\" ON public.\"CaseStage\" USING btree (code)"
+      },
+      {
+        "name": "CaseStage_pkey",
+        "table": "CaseStage",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"CaseStage_pkey\" ON public.\"CaseStage\" USING btree (id)"
+      },
+      {
+        "name": "CaseStage_sortOrder_idx",
+        "table": "CaseStage",
+        "schema": "public",
+        "definition": "CREATE INDEX \"CaseStage_sortOrder_idx\" ON public.\"CaseStage\" USING btree (\"sortOrder\")"
+      },
+      {
+        "name": "CaseTask_assigneeId_status_dueAt_idx",
+        "table": "CaseTask",
+        "schema": "public",
+        "definition": "CREATE INDEX \"CaseTask_assigneeId_status_dueAt_idx\" ON public.\"CaseTask\" USING btree (\"assigneeId\", status, \"dueAt\")"
+      },
+      {
+        "name": "CaseTask_clientCaseId_idx",
+        "table": "CaseTask",
+        "schema": "public",
+        "definition": "CREATE INDEX \"CaseTask_clientCaseId_idx\" ON public.\"CaseTask\" USING btree (\"clientCaseId\")"
+      },
+      {
+        "name": "CaseTask_pkey",
+        "table": "CaseTask",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"CaseTask_pkey\" ON public.\"CaseTask\" USING btree (id)"
+      },
+      {
+        "name": "ClientCase_assignedLawyerId_idx",
+        "table": "ClientCase",
+        "schema": "public",
+        "definition": "CREATE INDEX \"ClientCase_assignedLawyerId_idx\" ON public.\"ClientCase\" USING btree (\"assignedLawyerId\")"
+      },
+      {
+        "name": "ClientCase_caseNumber_key",
+        "table": "ClientCase",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"ClientCase_caseNumber_key\" ON public.\"ClientCase\" USING btree (\"caseNumber\")"
+      },
+      {
+        "name": "ClientCase_clientId_idx",
+        "table": "ClientCase",
+        "schema": "public",
+        "definition": "CREATE INDEX \"ClientCase_clientId_idx\" ON public.\"ClientCase\" USING btree (\"clientId\")"
+      },
+      {
+        "name": "ClientCase_pkey",
+        "table": "ClientCase",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"ClientCase_pkey\" ON public.\"ClientCase\" USING btree (id)"
+      },
+      {
+        "name": "ClientCase_planId_idx",
+        "table": "ClientCase",
+        "schema": "public",
+        "definition": "CREATE INDEX \"ClientCase_planId_idx\" ON public.\"ClientCase\" USING btree (\"planId\")"
+      },
+      {
+        "name": "ClientCase_stageId_idx",
+        "table": "ClientCase",
+        "schema": "public",
+        "definition": "CREATE INDEX \"ClientCase_stageId_idx\" ON public.\"ClientCase\" USING btree (\"stageId\")"
+      },
+      {
+        "name": "ClientCase_status_idx",
+        "table": "ClientCase",
+        "schema": "public",
+        "definition": "CREATE INDEX \"ClientCase_status_idx\" ON public.\"ClientCase\" USING btree (status)"
+      },
+      {
+        "name": "Feature_code_key",
+        "table": "Feature",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"Feature_code_key\" ON public.\"Feature\" USING btree (code)"
+      },
+      {
+        "name": "Feature_pkey",
+        "table": "Feature",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"Feature_pkey\" ON public.\"Feature\" USING btree (id)"
+      },
+      {
+        "name": "Notification_clientCaseId_idx",
+        "table": "Notification",
+        "schema": "public",
+        "definition": "CREATE INDEX \"Notification_clientCaseId_idx\" ON public.\"Notification\" USING btree (\"clientCaseId\")"
+      },
+      {
+        "name": "Notification_pkey",
+        "table": "Notification",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"Notification_pkey\" ON public.\"Notification\" USING btree (id)"
+      },
+      {
+        "name": "Notification_userId_dedupeKey_key",
+        "table": "Notification",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"Notification_userId_dedupeKey_key\" ON public.\"Notification\" USING btree (\"userId\", \"dedupeKey\")"
+      },
+      {
+        "name": "Notification_userId_readAt_createdAt_idx",
+        "table": "Notification",
+        "schema": "public",
+        "definition": "CREATE INDEX \"Notification_userId_readAt_createdAt_idx\" ON public.\"Notification\" USING btree (\"userId\", \"readAt\", \"createdAt\")"
+      },
+      {
+        "name": "NotificationDelivery_channel_status_nextAttemptAt_idx",
+        "table": "NotificationDelivery",
+        "schema": "public",
+        "definition": "CREATE INDEX \"NotificationDelivery_channel_status_nextAttemptAt_idx\" ON public.\"NotificationDelivery\" USING btree (channel, status, \"nextAttemptAt\")"
+      },
+      {
+        "name": "NotificationDelivery_notificationId_channel_key",
+        "table": "NotificationDelivery",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"NotificationDelivery_notificationId_channel_key\" ON public.\"NotificationDelivery\" USING btree (\"notificationId\", channel)"
+      },
+      {
+        "name": "NotificationDelivery_pkey",
+        "table": "NotificationDelivery",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"NotificationDelivery_pkey\" ON public.\"NotificationDelivery\" USING btree (id)"
+      },
+      {
+        "name": "NotificationDelivery_status_leaseUntil_idx",
+        "table": "NotificationDelivery",
+        "schema": "public",
+        "definition": "CREATE INDEX \"NotificationDelivery_status_leaseUntil_idx\" ON public.\"NotificationDelivery\" USING btree (status, \"leaseUntil\")"
+      },
+      {
+        "name": "Plan_code_key",
+        "table": "Plan",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"Plan_code_key\" ON public.\"Plan\" USING btree (code)"
+      },
+      {
+        "name": "Plan_pkey",
+        "table": "Plan",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"Plan_pkey\" ON public.\"Plan\" USING btree (id)"
+      },
+      {
+        "name": "PlanFeature_featureId_idx",
+        "table": "PlanFeature",
+        "schema": "public",
+        "definition": "CREATE INDEX \"PlanFeature_featureId_idx\" ON public.\"PlanFeature\" USING btree (\"featureId\")"
+      },
+      {
+        "name": "PlanFeature_pkey",
+        "table": "PlanFeature",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"PlanFeature_pkey\" ON public.\"PlanFeature\" USING btree (\"planId\", \"featureId\")"
+      },
+      {
+        "name": "PotentialClientLead_contactKey_key",
+        "table": "PotentialClientLead",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"PotentialClientLead_contactKey_key\" ON public.\"PotentialClientLead\" USING btree (\"contactKey\")"
+      },
+      {
+        "name": "PotentialClientLead_contactType_lastSeenAt_idx",
+        "table": "PotentialClientLead",
+        "schema": "public",
+        "definition": "CREATE INDEX \"PotentialClientLead_contactType_lastSeenAt_idx\" ON public.\"PotentialClientLead\" USING btree (\"contactType\", \"lastSeenAt\")"
+      },
+      {
+        "name": "PotentialClientLead_pkey",
+        "table": "PotentialClientLead",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"PotentialClientLead_pkey\" ON public.\"PotentialClientLead\" USING btree (id)"
+      },
+      {
+        "name": "PotentialClientLead_status_lastSeenAt_idx",
+        "table": "PotentialClientLead",
+        "schema": "public",
+        "definition": "CREATE INDEX \"PotentialClientLead_status_lastSeenAt_idx\" ON public.\"PotentialClientLead\" USING btree (status, \"lastSeenAt\")"
+      },
+      {
+        "name": "Role_code_key",
+        "table": "Role",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"Role_code_key\" ON public.\"Role\" USING btree (code)"
+      },
+      {
+        "name": "Role_pkey",
+        "table": "Role",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"Role_pkey\" ON public.\"Role\" USING btree (id)"
+      },
+      {
+        "name": "StoredFile_clientCaseId_status_createdAt_idx",
+        "table": "StoredFile",
+        "schema": "public",
+        "definition": "CREATE INDEX \"StoredFile_clientCaseId_status_createdAt_idx\" ON public.\"StoredFile\" USING btree (\"clientCaseId\", status, \"createdAt\")"
+      },
+      {
+        "name": "StoredFile_objectKey_key",
+        "table": "StoredFile",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"StoredFile_objectKey_key\" ON public.\"StoredFile\" USING btree (\"objectKey\")"
+      },
+      {
+        "name": "StoredFile_pkey",
+        "table": "StoredFile",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"StoredFile_pkey\" ON public.\"StoredFile\" USING btree (id)"
+      },
+      {
+        "name": "StoredFile_status_scanLeaseUntil_idx",
+        "table": "StoredFile",
+        "schema": "public",
+        "definition": "CREATE INDEX \"StoredFile_status_scanLeaseUntil_idx\" ON public.\"StoredFile\" USING btree (status, \"scanLeaseUntil\")"
+      },
+      {
+        "name": "StoredFile_status_scanNextAttemptAt_idx",
+        "table": "StoredFile",
+        "schema": "public",
+        "definition": "CREATE INDEX \"StoredFile_status_scanNextAttemptAt_idx\" ON public.\"StoredFile\" USING btree (status, \"scanNextAttemptAt\")"
+      },
+      {
+        "name": "StoredFile_uploadedById_idx",
+        "table": "StoredFile",
+        "schema": "public",
+        "definition": "CREATE INDEX \"StoredFile_uploadedById_idx\" ON public.\"StoredFile\" USING btree (\"uploadedById\")"
+      },
+      {
+        "name": "StoredFileDeletion_clientCaseId_requestedAt_idx",
+        "table": "StoredFileDeletion",
+        "schema": "public",
+        "definition": "CREATE INDEX \"StoredFileDeletion_clientCaseId_requestedAt_idx\" ON public.\"StoredFileDeletion\" USING btree (\"clientCaseId\", \"requestedAt\")"
+      },
+      {
+        "name": "StoredFileDeletion_completionActivityEventId_key",
+        "table": "StoredFileDeletion",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"StoredFileDeletion_completionActivityEventId_key\" ON public.\"StoredFileDeletion\" USING btree (\"completionActivityEventId\")"
+      },
+      {
+        "name": "StoredFileDeletion_pkey",
+        "table": "StoredFileDeletion",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"StoredFileDeletion_pkey\" ON public.\"StoredFileDeletion\" USING btree (\"fileId\")"
+      },
+      {
+        "name": "StoredFileDeletion_requestedByUserId_requestedAt_idx",
+        "table": "StoredFileDeletion",
+        "schema": "public",
+        "definition": "CREATE INDEX \"StoredFileDeletion_requestedByUserId_requestedAt_idx\" ON public.\"StoredFileDeletion\" USING btree (\"requestedByUserId\", \"requestedAt\")"
+      },
+      {
+        "name": "StoredFileDeletion_status_leaseUntil_idx",
+        "table": "StoredFileDeletion",
+        "schema": "public",
+        "definition": "CREATE INDEX \"StoredFileDeletion_status_leaseUntil_idx\" ON public.\"StoredFileDeletion\" USING btree (status, \"leaseUntil\")"
+      },
+      {
+        "name": "StoredFileDeletion_status_nextAttemptAt_idx",
+        "table": "StoredFileDeletion",
+        "schema": "public",
+        "definition": "CREATE INDEX \"StoredFileDeletion_status_nextAttemptAt_idx\" ON public.\"StoredFileDeletion\" USING btree (status, \"nextAttemptAt\")"
+      },
+      {
+        "name": "StoredFileDeletion_storageProvider_objectKey_key",
+        "table": "StoredFileDeletion",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"StoredFileDeletion_storageProvider_objectKey_key\" ON public.\"StoredFileDeletion\" USING btree (\"storageProvider\", \"objectKey\")"
+      },
+      {
+        "name": "TaskStatusEvent_actorUserId_idx",
+        "table": "TaskStatusEvent",
+        "schema": "public",
+        "definition": "CREATE INDEX \"TaskStatusEvent_actorUserId_idx\" ON public.\"TaskStatusEvent\" USING btree (\"actorUserId\")"
+      },
+      {
+        "name": "TaskStatusEvent_pkey",
+        "table": "TaskStatusEvent",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"TaskStatusEvent_pkey\" ON public.\"TaskStatusEvent\" USING btree (id)"
+      },
+      {
+        "name": "TaskStatusEvent_taskId_createdAt_idx",
+        "table": "TaskStatusEvent",
+        "schema": "public",
+        "definition": "CREATE INDEX \"TaskStatusEvent_taskId_createdAt_idx\" ON public.\"TaskStatusEvent\" USING btree (\"taskId\", \"createdAt\")"
+      },
+      {
+        "name": "User_email_key",
+        "table": "User",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"User_email_key\" ON public.\"User\" USING btree (email)"
+      },
+      {
+        "name": "User_pkey",
+        "table": "User",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"User_pkey\" ON public.\"User\" USING btree (id)"
+      },
+      {
+        "name": "UserRole_pkey",
+        "table": "UserRole",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"UserRole_pkey\" ON public.\"UserRole\" USING btree (\"userId\", \"roleId\")"
+      },
+      {
+        "name": "UserRole_roleId_idx",
+        "table": "UserRole",
+        "schema": "public",
+        "definition": "CREATE INDEX \"UserRole_roleId_idx\" ON public.\"UserRole\" USING btree (\"roleId\")"
+      },
+      {
+        "name": "UserSecurityEvent_pkey",
+        "table": "UserSecurityEvent",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"UserSecurityEvent_pkey\" ON public.\"UserSecurityEvent\" USING btree (id)"
+      },
+      {
+        "name": "UserSecurityEvent_type_createdAt_idx",
+        "table": "UserSecurityEvent",
+        "schema": "public",
+        "definition": "CREATE INDEX \"UserSecurityEvent_type_createdAt_idx\" ON public.\"UserSecurityEvent\" USING btree (type, \"createdAt\")"
+      },
+      {
+        "name": "UserSecurityEvent_userId_createdAt_idx",
+        "table": "UserSecurityEvent",
+        "schema": "public",
+        "definition": "CREATE INDEX \"UserSecurityEvent_userId_createdAt_idx\" ON public.\"UserSecurityEvent\" USING btree (\"userId\", \"createdAt\")"
+      },
+      {
+        "name": "_prisma_migrations_pkey",
+        "table": "_prisma_migrations",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX _prisma_migrations_pkey ON public._prisma_migrations USING btree (id)"
+      },
+      {
+        "name": "account_pkey",
+        "table": "account",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX account_pkey ON public.account USING btree (id)"
+      },
+      {
+        "name": "account_userId_idx",
+        "table": "account",
+        "schema": "public",
+        "definition": "CREATE INDEX \"account_userId_idx\" ON public.account USING btree (\"userId\")"
+      },
+      {
+        "name": "rateLimit_key_key",
+        "table": "rateLimit",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"rateLimit_key_key\" ON public.\"rateLimit\" USING btree (key)"
+      },
+      {
+        "name": "rateLimit_pkey",
+        "table": "rateLimit",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"rateLimit_pkey\" ON public.\"rateLimit\" USING btree (id)"
+      },
+      {
+        "name": "session_pkey",
+        "table": "session",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX session_pkey ON public.session USING btree (id)"
+      },
+      {
+        "name": "session_token_key",
+        "table": "session",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX session_token_key ON public.session USING btree (token)"
+      },
+      {
+        "name": "session_userId_idx",
+        "table": "session",
+        "schema": "public",
+        "definition": "CREATE INDEX \"session_userId_idx\" ON public.session USING btree (\"userId\")"
+      },
+      {
+        "name": "twoFactor_pkey",
+        "table": "twoFactor",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX \"twoFactor_pkey\" ON public.\"twoFactor\" USING btree (id)"
+      },
+      {
+        "name": "twoFactor_secret_idx",
+        "table": "twoFactor",
+        "schema": "public",
+        "definition": "CREATE INDEX \"twoFactor_secret_idx\" ON public.\"twoFactor\" USING btree (secret)"
+      },
+      {
+        "name": "twoFactor_userId_idx",
+        "table": "twoFactor",
+        "schema": "public",
+        "definition": "CREATE INDEX \"twoFactor_userId_idx\" ON public.\"twoFactor\" USING btree (\"userId\")"
+      },
+      {
+        "name": "user_email_key",
+        "table": "user",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX user_email_key ON public.\"user\" USING btree (email)"
+      },
+      {
+        "name": "user_pkey",
+        "table": "user",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX user_pkey ON public.\"user\" USING btree (id)"
+      },
+      {
+        "name": "verification_identifier_idx",
+        "table": "verification",
+        "schema": "public",
+        "definition": "CREATE INDEX verification_identifier_idx ON public.verification USING btree (identifier)"
+      },
+      {
+        "name": "verification_pkey",
+        "table": "verification",
+        "schema": "public",
+        "definition": "CREATE UNIQUE INDEX verification_pkey ON public.verification USING btree (id)"
+      }
+    ],
+    "schemas": [
+      "public"
+    ],
+    "constraints": [
+      {
+        "name": "AuthIdentity_createdAt_not_null",
+        "type": "n",
+        "table": "AuthIdentity",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "AuthIdentity_id_not_null",
+        "type": "n",
+        "table": "AuthIdentity",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "AuthIdentity_pkey",
+        "type": "p",
+        "table": "AuthIdentity",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "AuthIdentity_provider_not_null",
+        "type": "n",
+        "table": "AuthIdentity",
+        "schema": "public",
+        "definition": "NOT NULL provider"
+      },
+      {
+        "name": "AuthIdentity_subject_not_null",
+        "type": "n",
+        "table": "AuthIdentity",
+        "schema": "public",
+        "definition": "NOT NULL subject"
+      },
+      {
+        "name": "AuthIdentity_updatedAt_not_null",
+        "type": "n",
+        "table": "AuthIdentity",
+        "schema": "public",
+        "definition": "NOT NULL \"updatedAt\""
+      },
+      {
+        "name": "AuthIdentity_userId_fkey",
+        "type": "f",
+        "table": "AuthIdentity",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"userId\") REFERENCES \"User\"(id) ON UPDATE CASCADE ON DELETE CASCADE"
+      },
+      {
+        "name": "AuthIdentity_userId_not_null",
+        "type": "n",
+        "table": "AuthIdentity",
+        "schema": "public",
+        "definition": "NOT NULL \"userId\""
+      },
+      {
+        "name": "CaseActivityEvent_actorUserId_fkey",
+        "type": "f",
+        "table": "CaseActivityEvent",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"actorUserId\") REFERENCES \"User\"(id) ON UPDATE CASCADE ON DELETE SET NULL"
+      },
+      {
+        "name": "CaseActivityEvent_clientCaseId_fkey",
+        "type": "f",
+        "table": "CaseActivityEvent",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"clientCaseId\") REFERENCES \"ClientCase\"(id) ON UPDATE CASCADE ON DELETE CASCADE"
+      },
+      {
+        "name": "CaseActivityEvent_clientCaseId_not_null",
+        "type": "n",
+        "table": "CaseActivityEvent",
+        "schema": "public",
+        "definition": "NOT NULL \"clientCaseId\""
+      },
+      {
+        "name": "CaseActivityEvent_createdAt_not_null",
+        "type": "n",
+        "table": "CaseActivityEvent",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "CaseActivityEvent_id_not_null",
+        "type": "n",
+        "table": "CaseActivityEvent",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "CaseActivityEvent_pkey",
+        "type": "p",
+        "table": "CaseActivityEvent",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "CaseActivityEvent_type_not_null",
+        "type": "n",
+        "table": "CaseActivityEvent",
+        "schema": "public",
+        "definition": "NOT NULL type"
+      },
+      {
+        "name": "CaseDocument_clientCaseId_fkey",
+        "type": "f",
+        "table": "CaseDocument",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"clientCaseId\") REFERENCES \"ClientCase\"(id) ON UPDATE CASCADE ON DELETE CASCADE"
+      },
+      {
+        "name": "CaseDocument_clientCaseId_not_null",
+        "type": "n",
+        "table": "CaseDocument",
+        "schema": "public",
+        "definition": "NOT NULL \"clientCaseId\""
+      },
+      {
+        "name": "CaseDocument_createdAt_not_null",
+        "type": "n",
+        "table": "CaseDocument",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "CaseDocument_documentCode_not_null",
+        "type": "n",
+        "table": "CaseDocument",
+        "schema": "public",
+        "definition": "NOT NULL \"documentCode\""
+      },
+      {
+        "name": "CaseDocument_id_not_null",
+        "type": "n",
+        "table": "CaseDocument",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "CaseDocument_pkey",
+        "type": "p",
+        "table": "CaseDocument",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "CaseDocument_status_not_null",
+        "type": "n",
+        "table": "CaseDocument",
+        "schema": "public",
+        "definition": "NOT NULL status"
+      },
+      {
+        "name": "CaseDocument_updatedAt_not_null",
+        "type": "n",
+        "table": "CaseDocument",
+        "schema": "public",
+        "definition": "NOT NULL \"updatedAt\""
+      },
+      {
+        "name": "CaseDocument_version_not_null",
+        "type": "n",
+        "table": "CaseDocument",
+        "schema": "public",
+        "definition": "NOT NULL version"
+      },
+      {
+        "name": "CasePracticumHomework_clientCaseId_fkey",
+        "type": "f",
+        "table": "CasePracticumHomework",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"clientCaseId\") REFERENCES \"ClientCase\"(id) ON UPDATE CASCADE ON DELETE CASCADE"
+      },
+      {
+        "name": "CasePracticumHomework_clientCaseId_not_null",
+        "type": "n",
+        "table": "CasePracticumHomework",
+        "schema": "public",
+        "definition": "NOT NULL \"clientCaseId\""
+      },
+      {
+        "name": "CasePracticumHomework_createdAt_not_null",
+        "type": "n",
+        "table": "CasePracticumHomework",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "CasePracticumHomework_draftText_not_null",
+        "type": "n",
+        "table": "CasePracticumHomework",
+        "schema": "public",
+        "definition": "NOT NULL \"draftText\""
+      },
+      {
+        "name": "CasePracticumHomework_id_not_null",
+        "type": "n",
+        "table": "CasePracticumHomework",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "CasePracticumHomework_lessonId_not_null",
+        "type": "n",
+        "table": "CasePracticumHomework",
+        "schema": "public",
+        "definition": "NOT NULL \"lessonId\""
+      },
+      {
+        "name": "CasePracticumHomework_pkey",
+        "type": "p",
+        "table": "CasePracticumHomework",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "CasePracticumHomework_status_not_null",
+        "type": "n",
+        "table": "CasePracticumHomework",
+        "schema": "public",
+        "definition": "NOT NULL status"
+      },
+      {
+        "name": "CasePracticumHomework_updatedAt_not_null",
+        "type": "n",
+        "table": "CasePracticumHomework",
+        "schema": "public",
+        "definition": "NOT NULL \"updatedAt\""
+      },
+      {
+        "name": "CasePracticumHomework_version_not_null",
+        "type": "n",
+        "table": "CasePracticumHomework",
+        "schema": "public",
+        "definition": "NOT NULL version"
+      },
+      {
+        "name": "CasePracticumHomeworkRevision_answerText_not_null",
+        "type": "n",
+        "table": "CasePracticumHomeworkRevision",
+        "schema": "public",
+        "definition": "NOT NULL \"answerText\""
+      },
+      {
+        "name": "CasePracticumHomeworkRevision_homeworkId_fkey",
+        "type": "f",
+        "table": "CasePracticumHomeworkRevision",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"homeworkId\") REFERENCES \"CasePracticumHomework\"(id) ON UPDATE CASCADE ON DELETE CASCADE"
+      },
+      {
+        "name": "CasePracticumHomeworkRevision_homeworkId_not_null",
+        "type": "n",
+        "table": "CasePracticumHomeworkRevision",
+        "schema": "public",
+        "definition": "NOT NULL \"homeworkId\""
+      },
+      {
+        "name": "CasePracticumHomeworkRevision_id_not_null",
+        "type": "n",
+        "table": "CasePracticumHomeworkRevision",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "CasePracticumHomeworkRevision_pkey",
+        "type": "p",
+        "table": "CasePracticumHomeworkRevision",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "CasePracticumHomeworkRevision_reviewedByUserId_fkey",
+        "type": "f",
+        "table": "CasePracticumHomeworkRevision",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"reviewedByUserId\") REFERENCES \"User\"(id) ON UPDATE CASCADE ON DELETE SET NULL"
+      },
+      {
+        "name": "CasePracticumHomeworkRevision_revisionNumber_not_null",
+        "type": "n",
+        "table": "CasePracticumHomeworkRevision",
+        "schema": "public",
+        "definition": "NOT NULL \"revisionNumber\""
+      },
+      {
+        "name": "CasePracticumHomeworkRevision_submittedAt_not_null",
+        "type": "n",
+        "table": "CasePracticumHomeworkRevision",
+        "schema": "public",
+        "definition": "NOT NULL \"submittedAt\""
+      },
+      {
+        "name": "CasePracticumHomeworkRevision_submittedByUserId_fkey",
+        "type": "f",
+        "table": "CasePracticumHomeworkRevision",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"submittedByUserId\") REFERENCES \"User\"(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+      },
+      {
+        "name": "CasePracticumHomeworkRevision_submittedByUserId_not_null",
+        "type": "n",
+        "table": "CasePracticumHomeworkRevision",
+        "schema": "public",
+        "definition": "NOT NULL \"submittedByUserId\""
+      },
+      {
+        "name": "CasePracticumLessonMessage_authorUserId_fkey",
+        "type": "f",
+        "table": "CasePracticumLessonMessage",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"authorUserId\") REFERENCES \"User\"(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+      },
+      {
+        "name": "CasePracticumLessonMessage_authorUserId_not_null",
+        "type": "n",
+        "table": "CasePracticumLessonMessage",
+        "schema": "public",
+        "definition": "NOT NULL \"authorUserId\""
+      },
+      {
+        "name": "CasePracticumLessonMessage_body_not_null",
+        "type": "n",
+        "table": "CasePracticumLessonMessage",
+        "schema": "public",
+        "definition": "NOT NULL body"
+      },
+      {
+        "name": "CasePracticumLessonMessage_clientCaseId_fkey",
+        "type": "f",
+        "table": "CasePracticumLessonMessage",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"clientCaseId\") REFERENCES \"ClientCase\"(id) ON UPDATE CASCADE ON DELETE CASCADE"
+      },
+      {
+        "name": "CasePracticumLessonMessage_clientCaseId_not_null",
+        "type": "n",
+        "table": "CasePracticumLessonMessage",
+        "schema": "public",
+        "definition": "NOT NULL \"clientCaseId\""
+      },
+      {
+        "name": "CasePracticumLessonMessage_createdAt_not_null",
+        "type": "n",
+        "table": "CasePracticumLessonMessage",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "CasePracticumLessonMessage_id_not_null",
+        "type": "n",
+        "table": "CasePracticumLessonMessage",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "CasePracticumLessonMessage_lessonId_not_null",
+        "type": "n",
+        "table": "CasePracticumLessonMessage",
+        "schema": "public",
+        "definition": "NOT NULL \"lessonId\""
+      },
+      {
+        "name": "CasePracticumLessonMessage_pkey",
+        "type": "p",
+        "table": "CasePracticumLessonMessage",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "CasePracticumLessonReadState_clientCaseId_fkey",
+        "type": "f",
+        "table": "CasePracticumLessonReadState",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"clientCaseId\") REFERENCES \"ClientCase\"(id) ON UPDATE CASCADE ON DELETE CASCADE"
+      },
+      {
+        "name": "CasePracticumLessonReadState_clientCaseId_not_null",
+        "type": "n",
+        "table": "CasePracticumLessonReadState",
+        "schema": "public",
+        "definition": "NOT NULL \"clientCaseId\""
+      },
+      {
+        "name": "CasePracticumLessonReadState_lastReadAt_not_null",
+        "type": "n",
+        "table": "CasePracticumLessonReadState",
+        "schema": "public",
+        "definition": "NOT NULL \"lastReadAt\""
+      },
+      {
+        "name": "CasePracticumLessonReadState_lessonId_not_null",
+        "type": "n",
+        "table": "CasePracticumLessonReadState",
+        "schema": "public",
+        "definition": "NOT NULL \"lessonId\""
+      },
+      {
+        "name": "CasePracticumLessonReadState_pkey",
+        "type": "p",
+        "table": "CasePracticumLessonReadState",
+        "schema": "public",
+        "definition": "PRIMARY KEY (\"clientCaseId\", \"lessonId\", \"userId\")"
+      },
+      {
+        "name": "CasePracticumLessonReadState_updatedAt_not_null",
+        "type": "n",
+        "table": "CasePracticumLessonReadState",
+        "schema": "public",
+        "definition": "NOT NULL \"updatedAt\""
+      },
+      {
+        "name": "CasePracticumLessonReadState_userId_fkey",
+        "type": "f",
+        "table": "CasePracticumLessonReadState",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"userId\") REFERENCES \"User\"(id) ON UPDATE CASCADE ON DELETE CASCADE"
+      },
+      {
+        "name": "CasePracticumLessonReadState_userId_not_null",
+        "type": "n",
+        "table": "CasePracticumLessonReadState",
+        "schema": "public",
+        "definition": "NOT NULL \"userId\""
+      },
+      {
+        "name": "CasePracticumProgress_clientCaseId_fkey",
+        "type": "f",
+        "table": "CasePracticumProgress",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"clientCaseId\") REFERENCES \"ClientCase\"(id) ON UPDATE CASCADE ON DELETE CASCADE"
+      },
+      {
+        "name": "CasePracticumProgress_clientCaseId_not_null",
+        "type": "n",
+        "table": "CasePracticumProgress",
+        "schema": "public",
+        "definition": "NOT NULL \"clientCaseId\""
+      },
+      {
+        "name": "CasePracticumProgress_createdAt_not_null",
+        "type": "n",
+        "table": "CasePracticumProgress",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "CasePracticumProgress_pkey",
+        "type": "p",
+        "table": "CasePracticumProgress",
+        "schema": "public",
+        "definition": "PRIMARY KEY (\"clientCaseId\")"
+      },
+      {
+        "name": "CasePracticumProgress_status_not_null",
+        "type": "n",
+        "table": "CasePracticumProgress",
+        "schema": "public",
+        "definition": "NOT NULL status"
+      },
+      {
+        "name": "CasePracticumProgress_updatedAt_not_null",
+        "type": "n",
+        "table": "CasePracticumProgress",
+        "schema": "public",
+        "definition": "NOT NULL \"updatedAt\""
+      },
+      {
+        "name": "CasePracticumProgress_version_not_null",
+        "type": "n",
+        "table": "CasePracticumProgress",
+        "schema": "public",
+        "definition": "NOT NULL version"
+      },
+      {
+        "name": "CaseQuestionnaire_answers_not_null",
+        "type": "n",
+        "table": "CaseQuestionnaire",
+        "schema": "public",
+        "definition": "NOT NULL answers"
+      },
+      {
+        "name": "CaseQuestionnaire_clientCaseId_fkey",
+        "type": "f",
+        "table": "CaseQuestionnaire",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"clientCaseId\") REFERENCES \"ClientCase\"(id) ON UPDATE CASCADE ON DELETE CASCADE"
+      },
+      {
+        "name": "CaseQuestionnaire_clientCaseId_not_null",
+        "type": "n",
+        "table": "CaseQuestionnaire",
+        "schema": "public",
+        "definition": "NOT NULL \"clientCaseId\""
+      },
+      {
+        "name": "CaseQuestionnaire_createdAt_not_null",
+        "type": "n",
+        "table": "CaseQuestionnaire",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "CaseQuestionnaire_pkey",
+        "type": "p",
+        "table": "CaseQuestionnaire",
+        "schema": "public",
+        "definition": "PRIMARY KEY (\"clientCaseId\")"
+      },
+      {
+        "name": "CaseQuestionnaire_schemaVersion_not_null",
+        "type": "n",
+        "table": "CaseQuestionnaire",
+        "schema": "public",
+        "definition": "NOT NULL \"schemaVersion\""
+      },
+      {
+        "name": "CaseQuestionnaire_status_not_null",
+        "type": "n",
+        "table": "CaseQuestionnaire",
+        "schema": "public",
+        "definition": "NOT NULL status"
+      },
+      {
+        "name": "CaseQuestionnaire_updatedAt_not_null",
+        "type": "n",
+        "table": "CaseQuestionnaire",
+        "schema": "public",
+        "definition": "NOT NULL \"updatedAt\""
+      },
+      {
+        "name": "CaseQuestionnaire_version_not_null",
+        "type": "n",
+        "table": "CaseQuestionnaire",
+        "schema": "public",
+        "definition": "NOT NULL version"
+      },
+      {
+        "name": "CaseStage_code_not_null",
+        "type": "n",
+        "table": "CaseStage",
+        "schema": "public",
+        "definition": "NOT NULL code"
+      },
+      {
+        "name": "CaseStage_createdAt_not_null",
+        "type": "n",
+        "table": "CaseStage",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "CaseStage_id_not_null",
+        "type": "n",
+        "table": "CaseStage",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "CaseStage_isActive_not_null",
+        "type": "n",
+        "table": "CaseStage",
+        "schema": "public",
+        "definition": "NOT NULL \"isActive\""
+      },
+      {
+        "name": "CaseStage_name_not_null",
+        "type": "n",
+        "table": "CaseStage",
+        "schema": "public",
+        "definition": "NOT NULL name"
+      },
+      {
+        "name": "CaseStage_pkey",
+        "type": "p",
+        "table": "CaseStage",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "CaseStage_sortOrder_not_null",
+        "type": "n",
+        "table": "CaseStage",
+        "schema": "public",
+        "definition": "NOT NULL \"sortOrder\""
+      },
+      {
+        "name": "CaseStage_updatedAt_not_null",
+        "type": "n",
+        "table": "CaseStage",
+        "schema": "public",
+        "definition": "NOT NULL \"updatedAt\""
+      },
+      {
+        "name": "CaseTask_assigneeId_fkey",
+        "type": "f",
+        "table": "CaseTask",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"assigneeId\") REFERENCES \"User\"(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+      },
+      {
+        "name": "CaseTask_assigneeId_not_null",
+        "type": "n",
+        "table": "CaseTask",
+        "schema": "public",
+        "definition": "NOT NULL \"assigneeId\""
+      },
+      {
+        "name": "CaseTask_clientCaseId_fkey",
+        "type": "f",
+        "table": "CaseTask",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"clientCaseId\") REFERENCES \"ClientCase\"(id) ON UPDATE CASCADE ON DELETE CASCADE"
+      },
+      {
+        "name": "CaseTask_clientCaseId_not_null",
+        "type": "n",
+        "table": "CaseTask",
+        "schema": "public",
+        "definition": "NOT NULL \"clientCaseId\""
+      },
+      {
+        "name": "CaseTask_createdAt_not_null",
+        "type": "n",
+        "table": "CaseTask",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "CaseTask_id_not_null",
+        "type": "n",
+        "table": "CaseTask",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "CaseTask_pkey",
+        "type": "p",
+        "table": "CaseTask",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "CaseTask_status_not_null",
+        "type": "n",
+        "table": "CaseTask",
+        "schema": "public",
+        "definition": "NOT NULL status"
+      },
+      {
+        "name": "CaseTask_title_not_null",
+        "type": "n",
+        "table": "CaseTask",
+        "schema": "public",
+        "definition": "NOT NULL title"
+      },
+      {
+        "name": "CaseTask_updatedAt_not_null",
+        "type": "n",
+        "table": "CaseTask",
+        "schema": "public",
+        "definition": "NOT NULL \"updatedAt\""
+      },
+      {
+        "name": "CaseTask_version_not_null",
+        "type": "n",
+        "table": "CaseTask",
+        "schema": "public",
+        "definition": "NOT NULL version"
+      },
+      {
+        "name": "ClientCase_assignedLawyerId_fkey",
+        "type": "f",
+        "table": "ClientCase",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"assignedLawyerId\") REFERENCES \"User\"(id) ON UPDATE CASCADE ON DELETE SET NULL"
+      },
+      {
+        "name": "ClientCase_caseNumber_not_null",
+        "type": "n",
+        "table": "ClientCase",
+        "schema": "public",
+        "definition": "NOT NULL \"caseNumber\""
+      },
+      {
+        "name": "ClientCase_clientId_fkey",
+        "type": "f",
+        "table": "ClientCase",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"clientId\") REFERENCES \"User\"(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+      },
+      {
+        "name": "ClientCase_clientId_not_null",
+        "type": "n",
+        "table": "ClientCase",
+        "schema": "public",
+        "definition": "NOT NULL \"clientId\""
+      },
+      {
+        "name": "ClientCase_createdAt_not_null",
+        "type": "n",
+        "table": "ClientCase",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "ClientCase_id_not_null",
+        "type": "n",
+        "table": "ClientCase",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "ClientCase_pkey",
+        "type": "p",
+        "table": "ClientCase",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "ClientCase_planId_fkey",
+        "type": "f",
+        "table": "ClientCase",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"planId\") REFERENCES \"Plan\"(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+      },
+      {
+        "name": "ClientCase_planId_not_null",
+        "type": "n",
+        "table": "ClientCase",
+        "schema": "public",
+        "definition": "NOT NULL \"planId\""
+      },
+      {
+        "name": "ClientCase_stageId_fkey",
+        "type": "f",
+        "table": "ClientCase",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"stageId\") REFERENCES \"CaseStage\"(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+      },
+      {
+        "name": "ClientCase_stageId_not_null",
+        "type": "n",
+        "table": "ClientCase",
+        "schema": "public",
+        "definition": "NOT NULL \"stageId\""
+      },
+      {
+        "name": "ClientCase_status_not_null",
+        "type": "n",
+        "table": "ClientCase",
+        "schema": "public",
+        "definition": "NOT NULL status"
+      },
+      {
+        "name": "ClientCase_updatedAt_not_null",
+        "type": "n",
+        "table": "ClientCase",
+        "schema": "public",
+        "definition": "NOT NULL \"updatedAt\""
+      },
+      {
+        "name": "Feature_code_not_null",
+        "type": "n",
+        "table": "Feature",
+        "schema": "public",
+        "definition": "NOT NULL code"
+      },
+      {
+        "name": "Feature_createdAt_not_null",
+        "type": "n",
+        "table": "Feature",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "Feature_id_not_null",
+        "type": "n",
+        "table": "Feature",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "Feature_name_not_null",
+        "type": "n",
+        "table": "Feature",
+        "schema": "public",
+        "definition": "NOT NULL name"
+      },
+      {
+        "name": "Feature_pkey",
+        "type": "p",
+        "table": "Feature",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "Feature_updatedAt_not_null",
+        "type": "n",
+        "table": "Feature",
+        "schema": "public",
+        "definition": "NOT NULL \"updatedAt\""
+      },
+      {
+        "name": "Notification_body_not_null",
+        "type": "n",
+        "table": "Notification",
+        "schema": "public",
+        "definition": "NOT NULL body"
+      },
+      {
+        "name": "Notification_clientCaseId_fkey",
+        "type": "f",
+        "table": "Notification",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"clientCaseId\") REFERENCES \"ClientCase\"(id) ON UPDATE CASCADE ON DELETE CASCADE"
+      },
+      {
+        "name": "Notification_createdAt_not_null",
+        "type": "n",
+        "table": "Notification",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "Notification_id_not_null",
+        "type": "n",
+        "table": "Notification",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "Notification_pkey",
+        "type": "p",
+        "table": "Notification",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "Notification_title_not_null",
+        "type": "n",
+        "table": "Notification",
+        "schema": "public",
+        "definition": "NOT NULL title"
+      },
+      {
+        "name": "Notification_type_not_null",
+        "type": "n",
+        "table": "Notification",
+        "schema": "public",
+        "definition": "NOT NULL type"
+      },
+      {
+        "name": "Notification_userId_fkey",
+        "type": "f",
+        "table": "Notification",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"userId\") REFERENCES \"User\"(id) ON UPDATE CASCADE ON DELETE CASCADE"
+      },
+      {
+        "name": "Notification_userId_not_null",
+        "type": "n",
+        "table": "Notification",
+        "schema": "public",
+        "definition": "NOT NULL \"userId\""
+      },
+      {
+        "name": "NotificationDelivery_attemptCount_not_null",
+        "type": "n",
+        "table": "NotificationDelivery",
+        "schema": "public",
+        "definition": "NOT NULL \"attemptCount\""
+      },
+      {
+        "name": "NotificationDelivery_channel_not_null",
+        "type": "n",
+        "table": "NotificationDelivery",
+        "schema": "public",
+        "definition": "NOT NULL channel"
+      },
+      {
+        "name": "NotificationDelivery_createdAt_not_null",
+        "type": "n",
+        "table": "NotificationDelivery",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "NotificationDelivery_id_not_null",
+        "type": "n",
+        "table": "NotificationDelivery",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "NotificationDelivery_nextAttemptAt_not_null",
+        "type": "n",
+        "table": "NotificationDelivery",
+        "schema": "public",
+        "definition": "NOT NULL \"nextAttemptAt\""
+      },
+      {
+        "name": "NotificationDelivery_notificationId_fkey",
+        "type": "f",
+        "table": "NotificationDelivery",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"notificationId\") REFERENCES \"Notification\"(id) ON UPDATE CASCADE ON DELETE CASCADE"
+      },
+      {
+        "name": "NotificationDelivery_notificationId_not_null",
+        "type": "n",
+        "table": "NotificationDelivery",
+        "schema": "public",
+        "definition": "NOT NULL \"notificationId\""
+      },
+      {
+        "name": "NotificationDelivery_pkey",
+        "type": "p",
+        "table": "NotificationDelivery",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "NotificationDelivery_status_not_null",
+        "type": "n",
+        "table": "NotificationDelivery",
+        "schema": "public",
+        "definition": "NOT NULL status"
+      },
+      {
+        "name": "NotificationDelivery_updatedAt_not_null",
+        "type": "n",
+        "table": "NotificationDelivery",
+        "schema": "public",
+        "definition": "NOT NULL \"updatedAt\""
+      },
+      {
+        "name": "Plan_code_not_null",
+        "type": "n",
+        "table": "Plan",
+        "schema": "public",
+        "definition": "NOT NULL code"
+      },
+      {
+        "name": "Plan_createdAt_not_null",
+        "type": "n",
+        "table": "Plan",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "Plan_id_not_null",
+        "type": "n",
+        "table": "Plan",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "Plan_isActive_not_null",
+        "type": "n",
+        "table": "Plan",
+        "schema": "public",
+        "definition": "NOT NULL \"isActive\""
+      },
+      {
+        "name": "Plan_name_not_null",
+        "type": "n",
+        "table": "Plan",
+        "schema": "public",
+        "definition": "NOT NULL name"
+      },
+      {
+        "name": "Plan_pkey",
+        "type": "p",
+        "table": "Plan",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "Plan_updatedAt_not_null",
+        "type": "n",
+        "table": "Plan",
+        "schema": "public",
+        "definition": "NOT NULL \"updatedAt\""
+      },
+      {
+        "name": "PlanFeature_createdAt_not_null",
+        "type": "n",
+        "table": "PlanFeature",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "PlanFeature_featureId_fkey",
+        "type": "f",
+        "table": "PlanFeature",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"featureId\") REFERENCES \"Feature\"(id) ON UPDATE CASCADE ON DELETE CASCADE"
+      },
+      {
+        "name": "PlanFeature_featureId_not_null",
+        "type": "n",
+        "table": "PlanFeature",
+        "schema": "public",
+        "definition": "NOT NULL \"featureId\""
+      },
+      {
+        "name": "PlanFeature_pkey",
+        "type": "p",
+        "table": "PlanFeature",
+        "schema": "public",
+        "definition": "PRIMARY KEY (\"planId\", \"featureId\")"
+      },
+      {
+        "name": "PlanFeature_planId_fkey",
+        "type": "f",
+        "table": "PlanFeature",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"planId\") REFERENCES \"Plan\"(id) ON UPDATE CASCADE ON DELETE CASCADE"
+      },
+      {
+        "name": "PlanFeature_planId_not_null",
+        "type": "n",
+        "table": "PlanFeature",
+        "schema": "public",
+        "definition": "NOT NULL \"planId\""
+      },
+      {
+        "name": "PotentialClientLead_attemptCount_not_null",
+        "type": "n",
+        "table": "PotentialClientLead",
+        "schema": "public",
+        "definition": "NOT NULL \"attemptCount\""
+      },
+      {
+        "name": "PotentialClientLead_contactKey_not_null",
+        "type": "n",
+        "table": "PotentialClientLead",
+        "schema": "public",
+        "definition": "NOT NULL \"contactKey\""
+      },
+      {
+        "name": "PotentialClientLead_contactType_not_null",
+        "type": "n",
+        "table": "PotentialClientLead",
+        "schema": "public",
+        "definition": "NOT NULL \"contactType\""
+      },
+      {
+        "name": "PotentialClientLead_createdAt_not_null",
+        "type": "n",
+        "table": "PotentialClientLead",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "PotentialClientLead_firstSeenAt_not_null",
+        "type": "n",
+        "table": "PotentialClientLead",
+        "schema": "public",
+        "definition": "NOT NULL \"firstSeenAt\""
+      },
+      {
+        "name": "PotentialClientLead_id_not_null",
+        "type": "n",
+        "table": "PotentialClientLead",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "PotentialClientLead_lastSeenAt_not_null",
+        "type": "n",
+        "table": "PotentialClientLead",
+        "schema": "public",
+        "definition": "NOT NULL \"lastSeenAt\""
+      },
+      {
+        "name": "PotentialClientLead_pkey",
+        "type": "p",
+        "table": "PotentialClientLead",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "PotentialClientLead_source_not_null",
+        "type": "n",
+        "table": "PotentialClientLead",
+        "schema": "public",
+        "definition": "NOT NULL source"
+      },
+      {
+        "name": "PotentialClientLead_status_not_null",
+        "type": "n",
+        "table": "PotentialClientLead",
+        "schema": "public",
+        "definition": "NOT NULL status"
+      },
+      {
+        "name": "PotentialClientLead_updatedAt_not_null",
+        "type": "n",
+        "table": "PotentialClientLead",
+        "schema": "public",
+        "definition": "NOT NULL \"updatedAt\""
+      },
+      {
+        "name": "Role_code_not_null",
+        "type": "n",
+        "table": "Role",
+        "schema": "public",
+        "definition": "NOT NULL code"
+      },
+      {
+        "name": "Role_createdAt_not_null",
+        "type": "n",
+        "table": "Role",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "Role_id_not_null",
+        "type": "n",
+        "table": "Role",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "Role_name_not_null",
+        "type": "n",
+        "table": "Role",
+        "schema": "public",
+        "definition": "NOT NULL name"
+      },
+      {
+        "name": "Role_pkey",
+        "type": "p",
+        "table": "Role",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "Role_updatedAt_not_null",
+        "type": "n",
+        "table": "Role",
+        "schema": "public",
+        "definition": "NOT NULL \"updatedAt\""
+      },
+      {
+        "name": "StoredFile_clientCaseId_fkey",
+        "type": "f",
+        "table": "StoredFile",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"clientCaseId\") REFERENCES \"ClientCase\"(id) ON UPDATE CASCADE ON DELETE CASCADE"
+      },
+      {
+        "name": "StoredFile_clientCaseId_not_null",
+        "type": "n",
+        "table": "StoredFile",
+        "schema": "public",
+        "definition": "NOT NULL \"clientCaseId\""
+      },
+      {
+        "name": "StoredFile_createdAt_not_null",
+        "type": "n",
+        "table": "StoredFile",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "StoredFile_fileName_not_null",
+        "type": "n",
+        "table": "StoredFile",
+        "schema": "public",
+        "definition": "NOT NULL \"fileName\""
+      },
+      {
+        "name": "StoredFile_id_not_null",
+        "type": "n",
+        "table": "StoredFile",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "StoredFile_mimeType_not_null",
+        "type": "n",
+        "table": "StoredFile",
+        "schema": "public",
+        "definition": "NOT NULL \"mimeType\""
+      },
+      {
+        "name": "StoredFile_objectKey_not_null",
+        "type": "n",
+        "table": "StoredFile",
+        "schema": "public",
+        "definition": "NOT NULL \"objectKey\""
+      },
+      {
+        "name": "StoredFile_pkey",
+        "type": "p",
+        "table": "StoredFile",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "StoredFile_scanAttemptCount_not_null",
+        "type": "n",
+        "table": "StoredFile",
+        "schema": "public",
+        "definition": "NOT NULL \"scanAttemptCount\""
+      },
+      {
+        "name": "StoredFile_sizeBytes_not_null",
+        "type": "n",
+        "table": "StoredFile",
+        "schema": "public",
+        "definition": "NOT NULL \"sizeBytes\""
+      },
+      {
+        "name": "StoredFile_status_not_null",
+        "type": "n",
+        "table": "StoredFile",
+        "schema": "public",
+        "definition": "NOT NULL status"
+      },
+      {
+        "name": "StoredFile_storageProvider_not_null",
+        "type": "n",
+        "table": "StoredFile",
+        "schema": "public",
+        "definition": "NOT NULL \"storageProvider\""
+      },
+      {
+        "name": "StoredFile_uploadedById_fkey",
+        "type": "f",
+        "table": "StoredFile",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"uploadedById\") REFERENCES \"User\"(id) ON UPDATE CASCADE ON DELETE SET NULL"
+      },
+      {
+        "name": "StoredFileDeletion_attemptCount_not_null",
+        "type": "n",
+        "table": "StoredFileDeletion",
+        "schema": "public",
+        "definition": "NOT NULL \"attemptCount\""
+      },
+      {
+        "name": "StoredFileDeletion_clientCaseId_not_null",
+        "type": "n",
+        "table": "StoredFileDeletion",
+        "schema": "public",
+        "definition": "NOT NULL \"clientCaseId\""
+      },
+      {
+        "name": "StoredFileDeletion_createdAt_not_null",
+        "type": "n",
+        "table": "StoredFileDeletion",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "StoredFileDeletion_fileId_not_null",
+        "type": "n",
+        "table": "StoredFileDeletion",
+        "schema": "public",
+        "definition": "NOT NULL \"fileId\""
+      },
+      {
+        "name": "StoredFileDeletion_objectKey_not_null",
+        "type": "n",
+        "table": "StoredFileDeletion",
+        "schema": "public",
+        "definition": "NOT NULL \"objectKey\""
+      },
+      {
+        "name": "StoredFileDeletion_originalFileStatus_not_null",
+        "type": "n",
+        "table": "StoredFileDeletion",
+        "schema": "public",
+        "definition": "NOT NULL \"originalFileStatus\""
+      },
+      {
+        "name": "StoredFileDeletion_pkey",
+        "type": "p",
+        "table": "StoredFileDeletion",
+        "schema": "public",
+        "definition": "PRIMARY KEY (\"fileId\")"
+      },
+      {
+        "name": "StoredFileDeletion_requestedAt_not_null",
+        "type": "n",
+        "table": "StoredFileDeletion",
+        "schema": "public",
+        "definition": "NOT NULL \"requestedAt\""
+      },
+      {
+        "name": "StoredFileDeletion_requestedByUserId_not_null",
+        "type": "n",
+        "table": "StoredFileDeletion",
+        "schema": "public",
+        "definition": "NOT NULL \"requestedByUserId\""
+      },
+      {
+        "name": "StoredFileDeletion_status_not_null",
+        "type": "n",
+        "table": "StoredFileDeletion",
+        "schema": "public",
+        "definition": "NOT NULL status"
+      },
+      {
+        "name": "StoredFileDeletion_storageProvider_not_null",
+        "type": "n",
+        "table": "StoredFileDeletion",
+        "schema": "public",
+        "definition": "NOT NULL \"storageProvider\""
+      },
+      {
+        "name": "StoredFileDeletion_updatedAt_not_null",
+        "type": "n",
+        "table": "StoredFileDeletion",
+        "schema": "public",
+        "definition": "NOT NULL \"updatedAt\""
+      },
+      {
+        "name": "TaskStatusEvent_actorUserId_fkey",
+        "type": "f",
+        "table": "TaskStatusEvent",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"actorUserId\") REFERENCES \"User\"(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+      },
+      {
+        "name": "TaskStatusEvent_actorUserId_not_null",
+        "type": "n",
+        "table": "TaskStatusEvent",
+        "schema": "public",
+        "definition": "NOT NULL \"actorUserId\""
+      },
+      {
+        "name": "TaskStatusEvent_createdAt_not_null",
+        "type": "n",
+        "table": "TaskStatusEvent",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "TaskStatusEvent_fromStatus_not_null",
+        "type": "n",
+        "table": "TaskStatusEvent",
+        "schema": "public",
+        "definition": "NOT NULL \"fromStatus\""
+      },
+      {
+        "name": "TaskStatusEvent_id_not_null",
+        "type": "n",
+        "table": "TaskStatusEvent",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "TaskStatusEvent_pkey",
+        "type": "p",
+        "table": "TaskStatusEvent",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "TaskStatusEvent_taskId_fkey",
+        "type": "f",
+        "table": "TaskStatusEvent",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"taskId\") REFERENCES \"CaseTask\"(id) ON UPDATE CASCADE ON DELETE CASCADE"
+      },
+      {
+        "name": "TaskStatusEvent_taskId_not_null",
+        "type": "n",
+        "table": "TaskStatusEvent",
+        "schema": "public",
+        "definition": "NOT NULL \"taskId\""
+      },
+      {
+        "name": "TaskStatusEvent_toStatus_not_null",
+        "type": "n",
+        "table": "TaskStatusEvent",
+        "schema": "public",
+        "definition": "NOT NULL \"toStatus\""
+      },
+      {
+        "name": "User_createdAt_not_null",
+        "type": "n",
+        "table": "User",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "User_id_not_null",
+        "type": "n",
+        "table": "User",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "User_pkey",
+        "type": "p",
+        "table": "User",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "User_status_not_null",
+        "type": "n",
+        "table": "User",
+        "schema": "public",
+        "definition": "NOT NULL status"
+      },
+      {
+        "name": "User_updatedAt_not_null",
+        "type": "n",
+        "table": "User",
+        "schema": "public",
+        "definition": "NOT NULL \"updatedAt\""
+      },
+      {
+        "name": "UserRole_assignedAt_not_null",
+        "type": "n",
+        "table": "UserRole",
+        "schema": "public",
+        "definition": "NOT NULL \"assignedAt\""
+      },
+      {
+        "name": "UserRole_pkey",
+        "type": "p",
+        "table": "UserRole",
+        "schema": "public",
+        "definition": "PRIMARY KEY (\"userId\", \"roleId\")"
+      },
+      {
+        "name": "UserRole_roleId_fkey",
+        "type": "f",
+        "table": "UserRole",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"roleId\") REFERENCES \"Role\"(id) ON UPDATE CASCADE ON DELETE CASCADE"
+      },
+      {
+        "name": "UserRole_roleId_not_null",
+        "type": "n",
+        "table": "UserRole",
+        "schema": "public",
+        "definition": "NOT NULL \"roleId\""
+      },
+      {
+        "name": "UserRole_userId_fkey",
+        "type": "f",
+        "table": "UserRole",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"userId\") REFERENCES \"User\"(id) ON UPDATE CASCADE ON DELETE CASCADE"
+      },
+      {
+        "name": "UserRole_userId_not_null",
+        "type": "n",
+        "table": "UserRole",
+        "schema": "public",
+        "definition": "NOT NULL \"userId\""
+      },
+      {
+        "name": "UserSecurityEvent_createdAt_not_null",
+        "type": "n",
+        "table": "UserSecurityEvent",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "UserSecurityEvent_id_not_null",
+        "type": "n",
+        "table": "UserSecurityEvent",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "UserSecurityEvent_pkey",
+        "type": "p",
+        "table": "UserSecurityEvent",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "UserSecurityEvent_type_not_null",
+        "type": "n",
+        "table": "UserSecurityEvent",
+        "schema": "public",
+        "definition": "NOT NULL type"
+      },
+      {
+        "name": "UserSecurityEvent_userId_fkey",
+        "type": "f",
+        "table": "UserSecurityEvent",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"userId\") REFERENCES \"User\"(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+      },
+      {
+        "name": "UserSecurityEvent_userId_not_null",
+        "type": "n",
+        "table": "UserSecurityEvent",
+        "schema": "public",
+        "definition": "NOT NULL \"userId\""
+      },
+      {
+        "name": "_prisma_migrations_applied_steps_count_not_null",
+        "type": "n",
+        "table": "_prisma_migrations",
+        "schema": "public",
+        "definition": "NOT NULL applied_steps_count"
+      },
+      {
+        "name": "_prisma_migrations_checksum_not_null",
+        "type": "n",
+        "table": "_prisma_migrations",
+        "schema": "public",
+        "definition": "NOT NULL checksum"
+      },
+      {
+        "name": "_prisma_migrations_id_not_null",
+        "type": "n",
+        "table": "_prisma_migrations",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "_prisma_migrations_migration_name_not_null",
+        "type": "n",
+        "table": "_prisma_migrations",
+        "schema": "public",
+        "definition": "NOT NULL migration_name"
+      },
+      {
+        "name": "_prisma_migrations_pkey",
+        "type": "p",
+        "table": "_prisma_migrations",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "_prisma_migrations_started_at_not_null",
+        "type": "n",
+        "table": "_prisma_migrations",
+        "schema": "public",
+        "definition": "NOT NULL started_at"
+      },
+      {
+        "name": "account_accountId_not_null",
+        "type": "n",
+        "table": "account",
+        "schema": "public",
+        "definition": "NOT NULL \"accountId\""
+      },
+      {
+        "name": "account_createdAt_not_null",
+        "type": "n",
+        "table": "account",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "account_id_not_null",
+        "type": "n",
+        "table": "account",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "account_pkey",
+        "type": "p",
+        "table": "account",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "account_providerId_not_null",
+        "type": "n",
+        "table": "account",
+        "schema": "public",
+        "definition": "NOT NULL \"providerId\""
+      },
+      {
+        "name": "account_updatedAt_not_null",
+        "type": "n",
+        "table": "account",
+        "schema": "public",
+        "definition": "NOT NULL \"updatedAt\""
+      },
+      {
+        "name": "account_userId_fkey",
+        "type": "f",
+        "table": "account",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"userId\") REFERENCES \"user\"(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "account_userId_not_null",
+        "type": "n",
+        "table": "account",
+        "schema": "public",
+        "definition": "NOT NULL \"userId\""
+      },
+      {
+        "name": "rateLimit_count_not_null",
+        "type": "n",
+        "table": "rateLimit",
+        "schema": "public",
+        "definition": "NOT NULL count"
+      },
+      {
+        "name": "rateLimit_id_not_null",
+        "type": "n",
+        "table": "rateLimit",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "rateLimit_key_key",
+        "type": "u",
+        "table": "rateLimit",
+        "schema": "public",
+        "definition": "UNIQUE (key)"
+      },
+      {
+        "name": "rateLimit_key_not_null",
+        "type": "n",
+        "table": "rateLimit",
+        "schema": "public",
+        "definition": "NOT NULL key"
+      },
+      {
+        "name": "rateLimit_lastRequest_not_null",
+        "type": "n",
+        "table": "rateLimit",
+        "schema": "public",
+        "definition": "NOT NULL \"lastRequest\""
+      },
+      {
+        "name": "rateLimit_pkey",
+        "type": "p",
+        "table": "rateLimit",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "session_createdAt_not_null",
+        "type": "n",
+        "table": "session",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "session_expiresAt_not_null",
+        "type": "n",
+        "table": "session",
+        "schema": "public",
+        "definition": "NOT NULL \"expiresAt\""
+      },
+      {
+        "name": "session_id_not_null",
+        "type": "n",
+        "table": "session",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "session_pkey",
+        "type": "p",
+        "table": "session",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "session_token_key",
+        "type": "u",
+        "table": "session",
+        "schema": "public",
+        "definition": "UNIQUE (token)"
+      },
+      {
+        "name": "session_token_not_null",
+        "type": "n",
+        "table": "session",
+        "schema": "public",
+        "definition": "NOT NULL token"
+      },
+      {
+        "name": "session_updatedAt_not_null",
+        "type": "n",
+        "table": "session",
+        "schema": "public",
+        "definition": "NOT NULL \"updatedAt\""
+      },
+      {
+        "name": "session_userId_fkey",
+        "type": "f",
+        "table": "session",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"userId\") REFERENCES \"user\"(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "session_userId_not_null",
+        "type": "n",
+        "table": "session",
+        "schema": "public",
+        "definition": "NOT NULL \"userId\""
+      },
+      {
+        "name": "twoFactor_backupCodes_not_null",
+        "type": "n",
+        "table": "twoFactor",
+        "schema": "public",
+        "definition": "NOT NULL \"backupCodes\""
+      },
+      {
+        "name": "twoFactor_id_not_null",
+        "type": "n",
+        "table": "twoFactor",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "twoFactor_pkey",
+        "type": "p",
+        "table": "twoFactor",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "twoFactor_secret_not_null",
+        "type": "n",
+        "table": "twoFactor",
+        "schema": "public",
+        "definition": "NOT NULL secret"
+      },
+      {
+        "name": "twoFactor_userId_fkey",
+        "type": "f",
+        "table": "twoFactor",
+        "schema": "public",
+        "definition": "FOREIGN KEY (\"userId\") REFERENCES \"user\"(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "twoFactor_userId_not_null",
+        "type": "n",
+        "table": "twoFactor",
+        "schema": "public",
+        "definition": "NOT NULL \"userId\""
+      },
+      {
+        "name": "user_createdAt_not_null",
+        "type": "n",
+        "table": "user",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "user_emailVerified_not_null",
+        "type": "n",
+        "table": "user",
+        "schema": "public",
+        "definition": "NOT NULL \"emailVerified\""
+      },
+      {
+        "name": "user_email_key",
+        "type": "u",
+        "table": "user",
+        "schema": "public",
+        "definition": "UNIQUE (email)"
+      },
+      {
+        "name": "user_email_not_null",
+        "type": "n",
+        "table": "user",
+        "schema": "public",
+        "definition": "NOT NULL email"
+      },
+      {
+        "name": "user_id_not_null",
+        "type": "n",
+        "table": "user",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "user_name_not_null",
+        "type": "n",
+        "table": "user",
+        "schema": "public",
+        "definition": "NOT NULL name"
+      },
+      {
+        "name": "user_pkey",
+        "type": "p",
+        "table": "user",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "user_updatedAt_not_null",
+        "type": "n",
+        "table": "user",
+        "schema": "public",
+        "definition": "NOT NULL \"updatedAt\""
+      },
+      {
+        "name": "verification_createdAt_not_null",
+        "type": "n",
+        "table": "verification",
+        "schema": "public",
+        "definition": "NOT NULL \"createdAt\""
+      },
+      {
+        "name": "verification_expiresAt_not_null",
+        "type": "n",
+        "table": "verification",
+        "schema": "public",
+        "definition": "NOT NULL \"expiresAt\""
+      },
+      {
+        "name": "verification_id_not_null",
+        "type": "n",
+        "table": "verification",
+        "schema": "public",
+        "definition": "NOT NULL id"
+      },
+      {
+        "name": "verification_identifier_not_null",
+        "type": "n",
+        "table": "verification",
+        "schema": "public",
+        "definition": "NOT NULL identifier"
+      },
+      {
+        "name": "verification_pkey",
+        "type": "p",
+        "table": "verification",
+        "schema": "public",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "verification_updatedAt_not_null",
+        "type": "n",
+        "table": "verification",
+        "schema": "public",
+        "definition": "NOT NULL \"updatedAt\""
+      },
+      {
+        "name": "verification_value_not_null",
+        "type": "n",
+        "table": "verification",
+        "schema": "public",
+        "definition": "NOT NULL value"
+      }
+    ]
+  }
+}
