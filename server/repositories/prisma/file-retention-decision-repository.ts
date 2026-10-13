@@ -207,6 +207,15 @@ export class PrismaFileRetentionDecisionRepository
       );
       if (outstandingDeletion) return "WAITING_FOR_FILE_DELETIONS";
 
+      // Purge extracted answers and generated-document source payloads only
+      // after every uploaded object has a durable, confirmed storage deletion.
+      await tx.caseDocumentRevision.deleteMany({
+        where: { caseDocument: { is: { clientCaseId: input.clientCaseId } } },
+      });
+      await tx.caseQuestionnaire.deleteMany({
+        where: { clientCaseId: input.clientCaseId },
+      });
+
       const completed = await tx.clientCaseFileRetentionDecision.updateMany({
         where: {
           clientCaseId: input.clientCaseId,
