@@ -6,6 +6,13 @@ CREATE TYPE "ClientCaseFileRetentionChoice" AS ENUM (
   'KEEP_UNTIL_AUTOMATIC_DELETION'
 );
 
+CREATE TYPE "ClientCaseFileRetentionStatus" AS ENUM (
+  'PENDING',
+  'PROCESSING',
+  'COMPLETED',
+  'REQUIRES_ATTENTION'
+);
+
 -- CreateTable
 CREATE TABLE "ClientCaseFileRetentionDecision" (
   "clientCaseId" UUID NOT NULL,
@@ -15,6 +22,13 @@ CREATE TABLE "ClientCaseFileRetentionDecision" (
   "procedureCompletedAt" TIMESTAMP(3) NOT NULL,
   "deleteAt" TIMESTAMP(3) NOT NULL,
   "decidedAt" TIMESTAMP(3) NOT NULL,
+  "status" "ClientCaseFileRetentionStatus" NOT NULL DEFAULT 'PENDING',
+  "attemptCount" INTEGER NOT NULL DEFAULT 0,
+  "nextAttemptAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "leaseUntil" TIMESTAMP(3),
+  "leaseToken" UUID,
+  "lastErrorCode" TEXT,
+  "completedAt" TIMESTAMP(3),
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -24,6 +38,12 @@ CREATE TABLE "ClientCaseFileRetentionDecision" (
 -- CreateIndex
 CREATE INDEX "ClientCaseFileRetentionDecision_choice_deleteAt_idx"
   ON "ClientCaseFileRetentionDecision"("choice", "deleteAt");
+
+CREATE INDEX "ClientCaseFileRetentionDecision_status_nextAttemptAt_deleteAt_idx"
+  ON "ClientCaseFileRetentionDecision"("status", "nextAttemptAt", "deleteAt");
+
+CREATE INDEX "ClientCaseFileRetentionDecision_status_leaseUntil_idx"
+  ON "ClientCaseFileRetentionDecision"("status", "leaseUntil");
 
 -- CreateIndex
 CREATE INDEX "ClientCaseFileRetentionDecision_requestedByUserId_decidedAt_idx"
