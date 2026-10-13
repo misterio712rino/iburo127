@@ -108,7 +108,7 @@ Request body:
 
 The application does **not** send file name, `clientCaseId`, user ID, questionnaire data, document content in JSON, database identifiers or application auth credentials to the scanner service.
 
-The source URL must be HTTPS, target Yandex Object Storage and contain a signed `X-Amz-Signature` query parameter. The scanner client refuses redirects.
+The source URL must be HTTPS and target either Yandex Object Storage with exactly one signed `X-Amz-Signature` parameter or private Vercel Blob with the expected delegation/signature parameters. The scanner client refuses redirects. Timeweb S3 is not accepted as a scanner source; staging readiness must fail for that provider.
 
 The response must be bounded and exactly one of:
 
