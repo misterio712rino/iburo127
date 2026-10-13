@@ -100,4 +100,79 @@ assert.throws(
   /RETENTION_INVALID_POLICY_VERSION/,
 );
 
+
+import {
+  FileRetentionDecisionService,
+  RETENTION_CASE_NOT_FOUND,
+  RETENTION_DECISION_CONFLICT,
+} from "../server/domain/files/retention-decision-service";
+
+const decisionCase = {
+  id: "case-1",
+  clientId: "owner",
+  status: "COMPLETED",
+  closedAt: completedAt,
+};
+let persistedDecision: Awaited<ReturnType<
+  import("../server/domain/files/retention-decision-service").FileRetentionDecisionRepository["findDecision"]
+>> = null;
+const decisionService = new FileRetentionDecisionService({
+  async findCase(caseId) {
+    return caseId === decisionCase.id ? decisionCase : null;
+  },
+  async findDecision() {
+    return persistedDecision;
+  },
+  async saveDecision(decision) {
+    persistedDecision ??= decision;
+    return persistedDecision;
+  },
+});
+const decisionTime = new Date("2026-03-16T12:00:00.000Z");
+const savedDecision = await decisionService.decide({
+  actor: ownerActor,
+  clientCaseId: decisionCase.id,
+  choice: "KEEP_UNTIL_AUTOMATIC_DELETION",
+  decidedAt: decisionTime,
+});
+assert.equal(savedDecision.deleteAt.toISOString(), "2031-03-15T10:20:30.123Z");
+assert.equal(savedDecision.decidedAt.toISOString(), decisionTime.toISOString());
+assert.equal(
+  await decisionService.decide({
+    actor: ownerActor,
+    clientCaseId: decisionCase.id,
+    choice: "KEEP_UNTIL_AUTOMATIC_DELETION",
+    decidedAt: new Date("2026-03-17T00:00:00.000Z"),
+  }),
+  savedDecision,
+  "retries with the same choice must return the original immutable decision",
+);
+await assert.rejects(
+  decisionService.decide({
+    actor: ownerActor,
+    clientCaseId: decisionCase.id,
+    choice: "DELETE_NOW",
+    decidedAt: decisionTime,
+  }),
+  new RegExp(RETENTION_DECISION_CONFLICT),
+);
+await assert.rejects(
+  decisionService.decide({
+    actor: ownerActor,
+    clientCaseId: "missing",
+    choice: "DELETE_NOW",
+    decidedAt: decisionTime,
+  }),
+  new RegExp(RETENTION_CASE_NOT_FOUND),
+);
+await assert.rejects(
+  decisionService.decide({
+    actor: { userId: "intruder", roles: ["CLIENT"] },
+    clientCaseId: decisionCase.id,
+    choice: "DELETE_NOW",
+    decidedAt: decisionTime,
+  }),
+  /RETENTION_FORBIDDEN/,
+);
+
 console.log("FILE_RETENTION_POLICY_PASS");
