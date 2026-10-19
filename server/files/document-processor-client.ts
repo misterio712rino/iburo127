@@ -18,6 +18,20 @@ export type ExtractedDocumentText = {
 
 type FetchLike = typeof fetch;
 
+function isPrivateIpv4(hostname: string) {
+  const octets = hostname.split(".");
+  if (octets.length !== 4 || octets.some((part) => !/^\d{1,3}$/.test(part))) return false;
+  const [first, second, third, fourth] = octets.map(Number);
+  if ([first, second, third, fourth].some((part) => part < 0 || part > 255)) return false;
+  return (
+    first === 10 ||
+    first === 127 ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168) ||
+    (first === 169 && second === 254)
+  );
+}
+
 function isAllowedProcessorUrl(value: string) {
   let url: URL;
   try {
@@ -25,15 +39,17 @@ function isAllowedProcessorUrl(value: string) {
   } catch {
     return false;
   }
-  const localHttpHost =
-    url.hostname === "localhost" ||
-    url.hostname === "127.0.0.1" ||
-    url.hostname === "::1" ||
-    url.hostname === "document-processor" ||
-    url.hostname.endsWith(".internal") ||
-    url.hostname.endsWith(".local");
+  const hostname = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  const privateHost =
+    hostname === "localhost" ||
+    hostname === "::1" ||
+    hostname === "document-processor" ||
+    hostname.endsWith(".internal") ||
+    hostname.endsWith(".local") ||
+    isPrivateIpv4(hostname);
   return (
-    (url.protocol === "https:" || (url.protocol === "http:" && localHttpHost)) &&
+    privateHost &&
+    (url.protocol === "https:" || url.protocol === "http:") &&
     !url.username &&
     !url.password &&
     url.pathname === "/" &&

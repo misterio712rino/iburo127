@@ -12,6 +12,10 @@ const config = readDocumentProcessorConfig({
 });
 assert.equal(config.baseUrl, "http://document-processor:8080");
 assert.throws(() => readDocumentProcessorConfig({
+  IB_DOCUMENT_PROCESSOR_URL: "https://processor.example/",
+  IB_DOCUMENT_PROCESSOR_TOKEN: token,
+}), /DOCUMENT_PROCESSOR_INVALID_CONFIG:URL/);
+assert.throws(() => readDocumentProcessorConfig({
   IB_DOCUMENT_PROCESSOR_URL: "https://user:pass@example.com/",
   IB_DOCUMENT_PROCESSOR_TOKEN: token,
 }), /DOCUMENT_PROCESSOR_INVALID_CONFIG:URL/);
