@@ -19,6 +19,7 @@ import {
   readBetterAuthHookIdentity,
 } from "@/server/auth/security-audit-core";
 import { getAuthSecurityAuditRecorder } from "@/server/auth/security-audit-runtime";
+import { getBetterAuthTrustedOrigins } from "@/server/auth/better-auth-trusted-origins";
 
 function assertTrustedAuthUrl(value: string, expectedOrigin: string) {
   let parsed: URL;
@@ -65,6 +66,7 @@ function createBetterAuthInstance() {
     appName: "iБюро",
     secret: runtime.secret,
     baseURL: runtime.baseUrl,
+    trustedOrigins: getBetterAuthTrustedOrigins(process.env, runtime.baseUrl),
     database: pool,
     rateLimit: {
       enabled: true,
