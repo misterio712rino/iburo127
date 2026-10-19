@@ -1,6 +1,6 @@
 {
   "@prisma/engines": {
-    "version": "7.9.1",
+    "version": "7.10.1",
     "lockfilePath": "node_modules/@prisma/engines"
   },
   "esbuild": {
@@ -12,7 +12,7 @@
     "lockfilePath": "node_modules/fsevents"
   },
   "prisma": {
-    "version": "7.9.1",
+    "version": "7.10.1",
     "lockfilePath": "node_modules/prisma-cli"
   },
   "unrs-resolver": {
