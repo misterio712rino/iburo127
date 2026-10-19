@@ -108,6 +108,7 @@ export function createOidcScopedScannerSmokeStorage(
       return signed(input.pathname, "put");
     },
     async createPrivateDownloadUrl(input) { return signed(input.pathname, "get"); },
+    async readPrivateBlob() { return fail(); },
     async statPrivateBlob(pathname) {
       const headUrl = await signed(pathname, "head");
       let response = await request(headUrl, {
