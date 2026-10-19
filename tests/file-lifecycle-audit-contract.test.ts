@@ -190,7 +190,7 @@ assert.match(
 );
 assert.match(
   nextConfigSource,
-  /connect-src 'self' https:\/\/storage\.yandexcloud\.net https:\/\/vercel\.com/,
+  /connect-src 'self' https:\/\/storage\.yandexcloud\.net https:\/\/s3\.twcstorage\.ru https:\/\/vercel\.com/,
   "portal CSP must allow the exact Vercel Blob browser upload origin",
 );
 assert.match(
