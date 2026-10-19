@@ -11,6 +11,7 @@ import {
   assertVercelPreviewBackendAllowed,
   isVercelPreviewBackendAllowed,
 } from "@/server/config/vercel-preview-boundary";
+import { VERCEL_STAGING_AUTH_ORIGIN } from "../server/auth/better-auth-trusted-origins";
 import {
   PLATFORM_MUTATION_ORIGIN_NOT_CONFIGURED,
   PLATFORM_MUTATION_ORIGIN_REJECTED,
@@ -186,6 +187,41 @@ assert.deepEqual(
   ),
   { allowed: true },
   "same-origin non-browser client may omit Fetch Metadata",
+);
+
+assert.deepEqual(
+  evaluatePlatformMutationOrigin(
+    request("POST", { origin: VERCEL_STAGING_AUTH_ORIGIN }),
+    confirmedPreviewEnv,
+  ),
+  { allowed: true },
+  "the exact audit Preview origin is trusted only by the confirmed staging deployment",
+);
+
+assert.deepEqual(
+  evaluatePlatformMutationOrigin(
+    request("POST", { origin: VERCEL_STAGING_AUTH_ORIGIN }),
+    productionEnv,
+  ),
+  {
+    allowed: false,
+    status: 403,
+    code: PLATFORM_MUTATION_ORIGIN_REJECTED,
+  },
+  "production must reject the staging Preview origin",
+);
+
+assert.deepEqual(
+  evaluatePlatformMutationOrigin(
+    request("POST", { origin: VERCEL_STAGING_AUTH_ORIGIN }),
+    { ...confirmedPreviewEnv, VERCEL_GIT_COMMIT_REF: "feature/other-preview" },
+  ),
+  {
+    allowed: false,
+    status: 403,
+    code: PLATFORM_MUTATION_ORIGIN_REJECTED,
+  },
+  "unrelated Preview branches must reject the audit staging origin",
 );
 
 assert.deepEqual(

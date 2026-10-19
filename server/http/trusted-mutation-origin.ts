@@ -2,6 +2,7 @@ import {
   VERCEL_STAGING_BRANCH,
   isVercelPreviewBackendAllowed,
 } from "@/server/config/vercel-preview-boundary";
+import { getBetterAuthTrustedOrigins } from "@/server/auth/better-auth-trusted-origins";
 
 export const PLATFORM_MUTATION_ORIGIN_REJECTED = "PLATFORM_MUTATION_ORIGIN_REJECTED";
 export const PLATFORM_MUTATION_ORIGIN_NOT_CONFIGURED = "PLATFORM_MUTATION_ORIGIN_NOT_CONFIGURED";
@@ -116,7 +117,8 @@ export function evaluatePlatformMutationOrigin(
   if (isConfirmedStagingMachineRequest(request, env)) return { allowed: true };
 
   const requestOrigin = parseRequestOrigin(request.headers.get("origin"));
-  if (requestOrigin !== expectedOrigin) {
+  const trustedOrigins = new Set(getBetterAuthTrustedOrigins(env, expectedOrigin));
+  if (!requestOrigin || !trustedOrigins.has(requestOrigin)) {
     return {
       allowed: false,
       status: 403,
