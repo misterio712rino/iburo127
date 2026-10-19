@@ -28,12 +28,16 @@ let call: { url: string; init?: RequestInit } | undefined;
 const client = new DocumentProcessorClient(config, (async (input, init) => {
   call = { url: String(input), init };
   return Response.json(
-    { ok: true, data: { text: "Распознанный текст", pages: 2 } },
+    { ok: true, data: { pageTexts: ["Страница 1", "Страница 2"], pages: 2 } },
     { headers: { "Cache-Control": "private, no-store" } },
   );
 }) as typeof fetch);
 const result = await client.extract({ bytes: new Uint8Array([1, 2, 3]), mimeType: "application/pdf" });
-assert.deepEqual(result, { text: "Распознанный текст", pages: 2 });
+assert.deepEqual(result, {
+  text: ["Страница 1", "Страница 2"].join("\n\n"),
+  pageTexts: ["Страница 1", "Страница 2"],
+  pages: 2,
+});
 assert.equal(call?.url, "http://document-processor:8080/v1/extract");
 assert.equal(call?.init?.method, "POST");
 assert.equal(call?.init?.cache, "no-store");
@@ -49,6 +53,14 @@ const rejectingClient = new DocumentProcessorClient(config, (async () =>
 await assert.rejects(
   rejectingClient.extract({ bytes: new Uint8Array([1]), mimeType: "image/jpeg" }),
   /DOCUMENT_PROCESSOR_REQUEST_FAILED:UNSUPPORTED_MEDIA_TYPE/,
+);
+
+const mismatchedPageClient = new DocumentProcessorClient(config, (async () =>
+  Response.json({ ok: true, data: { pageTexts: ["only one"], pages: 2 } })
+) as typeof fetch);
+await assert.rejects(
+  mismatchedPageClient.extract({ bytes: new Uint8Array([1]), mimeType: "application/pdf" }),
+  /INVALID_RESPONSE/,
 );
 
 const oversizedClient = new DocumentProcessorClient(config, (async () =>

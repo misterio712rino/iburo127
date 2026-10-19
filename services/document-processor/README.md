@@ -11,7 +11,9 @@ The service is intended for a private application network only. Do not publish p
 
 Successful response:
 
-{"ok":true,"data":{"text":"...","pages":1}}
+{"ok":true,"data":{"pageTexts":["page 1 text","page 2 text"],"pages":2}}
+
+Each array item maps to the PDF page with the same one-based position; images return one item. The application client joins page text for whole-document search while keeping the page boundaries available for fact provenance.
 
 The caller must send Content-Length and no more than 50 MiB. The service checks content magic bytes against the declared media type. PDFs are limited to 40 pages. PDF text layers are extracted directly; scanned pages are rasterized one at a time and OCRed using Tesseract rus+eng. Requests are serialized to one active processing job; concurrent extraction requests receive 429 PROCESSOR_BUSY.
 

@@ -13,6 +13,7 @@ export type DocumentProcessorConfig = {
 
 export type ExtractedDocumentText = {
   text: string;
+  pageTexts: readonly string[];
   pages: number;
 };
 
@@ -171,17 +172,27 @@ export class DocumentProcessorClient {
       throw new Error(`${DOCUMENT_PROCESSOR_REQUEST_FAILED}:INVALID_RESPONSE`);
     }
     const data = (payload as { data?: unknown }).data;
+    if (!data || typeof data !== "object") {
+      throw new Error(`${DOCUMENT_PROCESSOR_REQUEST_FAILED}:INVALID_RESPONSE`);
+    }
+    const pageTexts = (data as { pageTexts?: unknown }).pageTexts;
+    const pages = (data as { pages?: unknown }).pages;
     if (
-      !data ||
-      typeof data !== "object" ||
-      typeof (data as { text?: unknown }).text !== "string" ||
-      !Number.isInteger((data as { pages?: unknown }).pages) ||
-      (data as { pages: number }).pages < 1 ||
-      (data as { pages: number }).pages > 40 ||
-      (data as { text: string }).text.length > 500_000
+      !Array.isArray(pageTexts) ||
+      !Number.isInteger(pages) ||
+      (pages as number) < 1 ||
+      (pages as number) > 40 ||
+      pageTexts.length !== pages ||
+      pageTexts.some((pageText) => typeof pageText !== "string") ||
+      pageTexts.reduce((total, pageText) => total + pageText.length, 0) > 500_000
     ) {
       throw new Error(`${DOCUMENT_PROCESSOR_REQUEST_FAILED}:INVALID_RESPONSE`);
     }
-    return { text: (data as { text: string }).text, pages: (data as { pages: number }).pages };
+    const typedPageTexts = pageTexts as string[];
+    return {
+      text: typedPageTexts.join("\n\n"),
+      pageTexts: typedPageTexts,
+      pages: pages as number,
+    };
   }
 }

@@ -4,15 +4,41 @@ import sys
 import threading
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from server import MAX_UPLOAD_BYTES, ProcessorError, ProcessorServer, extract_document, sniff_mime_type
+from server import MAX_UPLOAD_BYTES, ProcessorError, ProcessorServer, _extract_pdf, extract_document, sniff_mime_type
 
 
 TOKEN = "test-token-with-at-least-thirty-two-characters"
 
 
 class DocumentTypeTests(unittest.TestCase):
+    def test_pdf_text_is_returned_with_page_boundaries(self):
+        def fake_run(command, **kwargs):
+            if command[0] == "pdfinfo":
+                return b"Pages: 2\n"
+            if command[0] == "pdftotext":
+                page = command[command.index("-f") + 1]
+                if page == "1":
+                    return b"Page one embedded text with enough characters."
+                return b""
+            if command[0] == "pdftoppm":
+                Path(command[-1] + ".jpg").write_bytes(b"image")
+                return b""
+            if command[0] == "tesseract":
+                return b"Page two scanned text."
+            raise AssertionError(command[0])
+
+        with patch("server._run", side_effect=fake_run):
+            page_texts, pages = _extract_pdf(b"%PDF-1.7 synthetic")
+
+        self.assertEqual(pages, 2)
+        self.assertEqual(page_texts, [
+            "Page one embedded text with enough characters.",
+            "Page two scanned text.",
+        ])
+
     def test_detects_supported_magic_bytes(self):
         self.assertEqual(sniff_mime_type(b"%PDF-1.7 test"), "application/pdf")
         self.assertEqual(sniff_mime_type(b"\xff\xd8\xffimage"), "image/jpeg")
@@ -39,7 +65,7 @@ class ApiTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         def fake_processor(data, mime_type):
-            return "Распознанный текст для проверки", 1
+            return ["Распознанный текст для проверки"], 1
 
         cls.server = ProcessorServer(("127.0.0.1", 0), TOKEN, processor=fake_processor)
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
@@ -75,7 +101,7 @@ class ApiTests(unittest.TestCase):
         response = connection.getresponse()
         payload = json.loads(response.read().decode("utf-8"))
         self.assertEqual(response.status, 200)
-        self.assertEqual(payload["data"]["text"], "Распознанный текст для проверки")
+        self.assertEqual(payload["data"]["pageTexts"], ["Распознанный текст для проверки"])
         self.assertEqual(payload["data"]["pages"], 1)
         self.assertEqual(response.getheader("Cache-Control"), "private, no-store")
         connection.close()

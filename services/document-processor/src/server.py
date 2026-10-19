@@ -62,15 +62,22 @@ def _bounded_text(value: str) -> str:
     return text
 
 
-def _extract_image(data: bytes) -> tuple[str, int]:
+def _bounded_page_texts(values: list[str]) -> list[str]:
+    page_texts = [_bounded_text(value) for value in values]
+    if sum(map(len, page_texts)) > MAX_TEXT_CHARS:
+        raise ProcessorError("EXTRACTED_TEXT_TOO_LARGE", 413)
+    return page_texts
+
+
+def _extract_image(data: bytes) -> tuple[list[str], int]:
     raw = _run(
         ["tesseract", "stdin", "stdout", "-l", "rus+eng", "--psm", "3"],
         input_bytes=data, timeout=PROCESS_TIMEOUT_SECONDS,
     )
-    return _bounded_text(raw.decode("utf-8", errors="replace")), 1
+    return _bounded_page_texts([raw.decode("utf-8", errors="replace")]), 1
 
 
-def _extract_pdf(data: bytes) -> tuple[str, int]:
+def _extract_pdf(data: bytes) -> tuple[list[str], int]:
     with tempfile.TemporaryDirectory(prefix="iburo-doc-") as directory:
         pdf_path = Path(directory) / "input.pdf"
         pdf_path.write_bytes(data)
@@ -84,16 +91,18 @@ def _extract_pdf(data: bytes) -> tuple[str, int]:
         if page_count > MAX_PDF_PAGES:
             raise ProcessorError("PAGE_LIMIT_EXCEEDED", 413)
 
-        embedded = _run(
-            ["pdftotext", "-layout", "-enc", "UTF-8", str(pdf_path), "-"],
-            timeout=PROCESS_TIMEOUT_SECONDS,
-        ).decode("utf-8", errors="replace")
-        embedded = _bounded_text(embedded)
-        if len(embedded) >= 24:
-            return embedded, page_count
-
-        page_text: list[str] = []
+        page_texts: list[str] = []
         for page in range(1, page_count + 1):
+            embedded = _run(
+                ["pdftotext", "-f", str(page), "-l", str(page), "-layout", "-enc",
+                 "UTF-8", str(pdf_path), "-"],
+                timeout=PROCESS_TIMEOUT_SECONDS,
+            ).decode("utf-8", errors="replace")
+            embedded = _bounded_text(embedded)
+            if len(embedded) >= 24:
+                page_texts.append(embedded)
+                continue
+
             prefix = Path(directory) / f"page-{page}"
             _run(
                 ["pdftoppm", "-f", str(page), "-l", str(page), "-singlefile",
@@ -108,13 +117,14 @@ def _extract_pdf(data: bytes) -> tuple[str, int]:
                 )
             finally:
                 image_path.unlink(missing_ok=True)
-            page_text.append(raw.decode("utf-8", errors="replace"))
-            if sum(map(len, page_text)) > MAX_TEXT_CHARS:
+            page_texts.append(raw.decode("utf-8", errors="replace"))
+            if sum(map(len, page_texts)) > MAX_TEXT_CHARS:
                 raise ProcessorError("EXTRACTED_TEXT_TOO_LARGE", 413)
-        return _bounded_text("\n\n".join(page_text)), page_count
+
+        return _bounded_page_texts(page_texts), page_count
 
 
-def extract_document(data: bytes, declared_mime_type: str) -> tuple[str, int]:
+def extract_document(data: bytes, declared_mime_type: str) -> tuple[list[str], int]:
     if not data or len(data) > MAX_UPLOAD_BYTES:
         raise ProcessorError("INVALID_DOCUMENT_SIZE", 413 if data else 400)
     if declared_mime_type not in SUPPORTED_MIME_TYPES:
@@ -207,9 +217,11 @@ class ProcessorHandler(BaseHTTPRequestHandler):
             if len(data) != size:
                 self._send_json(400, {"ok": False, "error": {"code": "INCOMPLETE_REQUEST_BODY"}})
                 return
-            text, pages = self.server.processor(data, mime)
+            page_texts, pages = self.server.processor(data, mime)
+            if len(page_texts) != pages:
+                raise ProcessorError("INVALID_PROCESSOR_RESULT", 500)
             response = json.dumps(
-                {"ok": True, "data": {"text": text, "pages": pages}},
+                {"ok": True, "data": {"pageTexts": page_texts, "pages": pages}},
                 ensure_ascii=False, separators=(",", ":"),
             ).encode("utf-8")
             if len(response) > MAX_RESPONSE_BYTES:
