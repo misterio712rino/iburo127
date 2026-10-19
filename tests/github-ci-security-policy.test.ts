@@ -311,6 +311,7 @@ assert.match(
 );
 
 await import("./npm-audit-retrieval.test.mjs");
+await import("./npm-audit-policy.test.mjs");
 await import("./file-scanner-staging-infrastructure-contract.test.mjs");
 
 console.log("GITHUB_CI_SECURITY_POLICY_TEST_PASS");

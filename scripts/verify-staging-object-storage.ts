@@ -8,7 +8,7 @@ import {
   S3Client,
   type CORSRule,
 } from "@aws-sdk/client-s3";
-import { VERCEL_BLOB_STORAGE_PROVIDER } from "@/server/files/object-storage-provider";
+import { TIMEWEB_OBJECT_STORAGE_PROVIDER, VERCEL_BLOB_STORAGE_PROVIDER } from "@/server/files/object-storage-provider";
 import { assertStagingStorageTarget } from "./staging-storage-target-guard";
 import { verifyVercelBlobStagingAccess } from "./staging-vercel-blob-verification";
 
@@ -113,10 +113,11 @@ if (target.provider === VERCEL_BLOB_STORAGE_PROVIDER) {
   process.exit(0);
 }
 
-const endpoint = "https://storage.yandexcloud.net";
+const isTimeweb = target.provider === TIMEWEB_OBJECT_STORAGE_PROVIDER;
 const client = new S3Client({
-  endpoint,
-  region: "ru-central1",
+  endpoint: isTimeweb ? "https://s3.twcstorage.ru" : "https://storage.yandexcloud.net",
+  region: isTimeweb ? "ru-1" : "ru-central1",
+  forcePathStyle: isTimeweb,
   credentials: {
     accessKeyId: target.accessKeyId,
     secretAccessKey: target.secretAccessKey,

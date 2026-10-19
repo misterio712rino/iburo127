@@ -16,6 +16,7 @@ import { VercelBlobPrivateObjectStorage } from "@/server/files/vercel-blob-objec
 import { createVercelBlobSignedUrlDriver } from "@/server/files/vercel-blob-signed-url-driver";
 import { YandexPrivateObjectStorage } from "@/server/files/yandex-object-storage";
 import { AwsSdkYandexObjectStorageSigner } from "@/server/files/yandex-s3-signer";
+import { AwsSdkTimewebObjectStorageSigner, TimewebPrivateObjectStorage } from "@/server/files/timeweb-s3-object-storage";
 
 let storage: PrivateObjectStorage | undefined;
 let storageProvider: PrivateObjectStorageProvider | undefined;
@@ -51,6 +52,10 @@ export function getPrivateObjectStorage() {
         config.bucket,
         new AwsSdkYandexObjectStorageSigner(),
       );
+    },
+    createTimeweb: () => {
+      const signer = new AwsSdkTimewebObjectStorageSigner();
+      return new TimewebPrivateObjectStorage(signer.config.bucket, signer);
     },
   });
   storageProvider = provider;

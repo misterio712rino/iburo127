@@ -15,7 +15,7 @@ for (const directive of [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data:",
   "font-src 'self' data:",
-  "connect-src 'self' https://storage.yandexcloud.net https://vercel.com",
+  "connect-src 'self' https://storage.yandexcloud.net https://s3.twcstorage.ru https://vercel.com",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -33,7 +33,7 @@ const connectSrcMatch = source.match(/connect-src 'self' ([^`\n]+)/);
 assert.ok(connectSrcMatch, "CSP connect-src must remain explicit");
 assert.equal(
   connectSrcMatch[1],
-  "https://storage.yandexcloud.net https://vercel.com${isDevelopment ? \" ws: http:\" : \"\"}",
+  "https://storage.yandexcloud.net https://s3.twcstorage.ru https://vercel.com${isDevelopment ? \" ws: http:\" : \"\"}",
   "CSP must allow only the audited storage/upload origins plus development transports",
 );
 assert.doesNotMatch(
