@@ -10,6 +10,8 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { PRODUCTION_CONFIG_ERROR } from "@/server/config/production";
 import {
+  assertSafeObjectReadLimit,
+  collectBoundedPrivateObjectBytes,
   assertSafeSignedUrlTtl,
   type CreateDownloadUrlInput,
   type CreateUploadUrlInput,
@@ -63,6 +65,7 @@ export type TimewebObjectStorageSigner = {
   signUpload(input: { bucket: string; objectKey: string; mimeType: string; expiresInSeconds: number }): Promise<string>;
   signDownload(input: { bucket: string; objectKey: string; fileName?: string; expiresInSeconds: number }): Promise<string>;
   statObject(input: { bucket: string; objectKey: string }): Promise<StoredObjectMetadata | null>;
+  readObject(input: { bucket: string; objectKey: string; maxBytes: number }): Promise<Uint8Array>;
   deleteObject(input: { bucket: string; objectKey: string }): Promise<void>;
 };
 
@@ -102,6 +105,16 @@ export class AwsSdkTimewebObjectStorageSigner implements TimewebObjectStorageSig
       if (isAwsS3NotFoundError(error)) return null;
       throw error;
     }
+  }
+
+  async readObject(input: { bucket: string; objectKey: string; maxBytes: number }) {
+    assertSafeObjectReadLimit(input.maxBytes);
+    const result = await this.client.send(new GetObjectCommand({ Bucket: input.bucket, Key: input.objectKey }));
+    return collectBoundedPrivateObjectBytes({
+      body: result.Body as AsyncIterable<Uint8Array> | null | undefined,
+      expectedBytes: result.ContentLength,
+      maxBytes: input.maxBytes,
+    });
   }
 
   async deleteObject(input: { bucket: string; objectKey: string }) {
@@ -146,6 +159,12 @@ export class TimewebPrivateObjectStorage implements PrivateObjectStorage {
   async statObject(objectKey: string) {
     assertSafeObjectKey(objectKey);
     return this.signer.statObject({ bucket: this.bucket, objectKey });
+  }
+
+  async readObject(objectKey: string, maxBytes: number) {
+    assertSafeObjectKey(objectKey);
+    assertSafeObjectReadLimit(maxBytes);
+    return this.signer.readObject({ bucket: this.bucket, objectKey, maxBytes });
   }
 
   async deleteObject(objectKey: string) {
