@@ -21,7 +21,7 @@ jobs:
       deletion_strict: ${{ steps.aggregate.outputs.deletion_strict }}
       deletion_unknown: ${{ steps.aggregate.outputs.deletion_unknown }}
     env:
-      IB_STAGING_BASE_URL: https://iburo127-app-git-audit-producti-0d0d70-misterio712rino-projects.vercel.app
+      IB_STAGING_BASE_URL: https://iburo127online-app-git-audit-pr-6caf2a-misterio712rino-projects.vercel.app
 
     steps:
       - name: Verify exact protected Preview and classify maintenance backlog
