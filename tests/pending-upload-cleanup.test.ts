@@ -150,7 +150,7 @@ class FakeStorage implements PrivateObjectStorage {
     return null;
   }
 
-  async readObject() {
+  async readObject(): Promise<Uint8Array> {
     throw new Error("TEST_ONLY_NOT_IMPLEMENTED");
   }
 
