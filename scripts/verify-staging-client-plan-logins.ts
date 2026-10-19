@@ -13,9 +13,31 @@ const FIXTURES = [
 
 type Envelope = Record<string, unknown> & {
   ok?: boolean;
+  code?: unknown;
   data?: { state?: unknown; challenge?: unknown; roles?: unknown };
   error?: { code?: unknown };
 };
+
+const SIGN_IN_DIAGNOSTIC_CODES = new Set([
+  "ACCESS_CHALLENGE_INVALID",
+  "ACCESS_GATE_UNAVAILABLE",
+  "EMAIL_NOT_VERIFIED",
+  "FORBIDDEN_ORIGIN",
+  "INVALID_CREDENTIALS",
+  "INVALID_EMAIL_OR_PASSWORD",
+  "INVALID_ORIGIN",
+  "USER_BANNED",
+  "USER_NOT_FOUND",
+]);
+
+function safeSignInDiagnosticCode(envelope: Envelope): string {
+  const candidates = [envelope.code, envelope.error?.code];
+  const code = candidates.find(
+    (value): value is string =>
+      typeof value === "string" && SIGN_IN_DIAGNOSTIC_CODES.has(value),
+  );
+  return code ?? "UNCLASSIFIED";
+}
 
 function fail(message: string): never {
   throw new Error(`${FAIL}: ${message}`);
@@ -104,8 +126,12 @@ async function verifyFixture(baseUrl: URL, email: string, password: string) {
       password,
     });
     requireNoStore(signInResponse, "client sign-in");
-    if (signInResponse.status !== 200) fail(`client sign-in expected 200, got ${signInResponse.status}`);
     const signIn = await readJson(signInResponse);
+    if (signInResponse.status !== 200) {
+      fail(
+        `client sign-in expected 200, got ${signInResponse.status}, code=${safeSignInDiagnosticCode(signIn)}`,
+      );
+    }
     if (signIn.twoFactorRedirect === true) fail("client fixture unexpectedly requires MFA");
 
     const sessionResponse = await request(baseUrl, jar, "GET", "/api/platform/session");
