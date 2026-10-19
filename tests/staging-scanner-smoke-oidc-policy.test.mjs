@@ -25,7 +25,7 @@ jobs:
     if: github.ref_name == 'audit/production-readiness'
     runs-on: ubuntu-24.04
     env:
-      IB_STAGING_BASE_URL: https://iburo127-app-git-audit-producti-0d0d70-misterio712rino-projects.vercel.app
+      IB_STAGING_BASE_URL: https://iburo127online-app-git-audit-pr-6caf2a-misterio712rino-projects.vercel.app
       IB_STAGING_SCANNER_FIXTURE_AUTH_MODE: github-oidc
 `;
 }
