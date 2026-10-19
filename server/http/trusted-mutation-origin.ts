@@ -118,7 +118,7 @@ export function evaluatePlatformMutationOrigin(
 
   const requestOrigin = parseRequestOrigin(request.headers.get("origin"));
   const trustedOrigins = new Set(getBetterAuthTrustedOrigins(env, expectedOrigin));
-  if (!trustedOrigins.has(requestOrigin)) {
+  if (!requestOrigin || !trustedOrigins.has(requestOrigin)) {
     return {
       allowed: false,
       status: 403,
