@@ -1,5 +1,6 @@
 import { VERCEL_STAGING_BRANCH } from "@/server/config/vercel-preview-boundary";
 import {
+  TIMEWEB_OBJECT_STORAGE_PROVIDER,
   VERCEL_BLOB_STORAGE_PROVIDER,
   YANDEX_OBJECT_STORAGE_PROVIDER,
   type PrivateObjectStorageProvider,
@@ -67,6 +68,18 @@ const YANDEX_SCANNER_STORAGE_REQUIREMENTS = [
   "YANDEX_STORAGE_SECRET_ACCESS_KEY",
 ] as const;
 
+const TIMEWEB_STORAGE_REQUIREMENTS = [
+  "IB_RUNTIME_TARGET",
+  "IB_STAGING_BASE_URL",
+  "IB_STORAGE_TARGET",
+  "IB_STAGING_STORAGE_BUCKET",
+  "IB_STAGING_STORAGE_ALLOWED_ORIGIN",
+  "IB_STAGING_STORAGE_ACCESS_KEY_ID",
+  "TIMEWEB_STORAGE_BUCKET",
+  "TIMEWEB_STORAGE_ACCESS_KEY_ID",
+  "TIMEWEB_STORAGE_SECRET_ACCESS_KEY",
+] as const;
+
 function isConfigured(value: string | undefined): boolean {
   if (!value) return false;
   const trimmed = value.trim();
@@ -130,7 +143,11 @@ function resolveProvider(env: StagingStorageReadinessEnvironment): {
 } {
   const explicit = env.IB_OBJECT_STORAGE_PROVIDER?.trim();
   if (explicit) {
-    if (explicit === YANDEX_OBJECT_STORAGE_PROVIDER || explicit === VERCEL_BLOB_STORAGE_PROVIDER) {
+    if (
+      explicit === YANDEX_OBJECT_STORAGE_PROVIDER ||
+      explicit === TIMEWEB_OBJECT_STORAGE_PROVIDER ||
+      explicit === VERCEL_BLOB_STORAGE_PROVIDER
+    ) {
       return { provider: explicit, invalid: [] };
     }
     return { provider: null, invalid: ["IB_OBJECT_STORAGE_PROVIDER"] };
@@ -216,6 +233,51 @@ function yandexStorageInvalid(env: StagingStorageReadinessEnvironment): string[]
     "YANDEX_STORAGE_ACCESS_KEY_ID",
     "IB_STAGING_STORAGE_ACCESS_KEY_ID",
     "YANDEX_STORAGE_SECRET_ACCESS_KEY",
+  ]) {
+    if (hasUnsafeControlCharacters(env[name])) invalid.add(name);
+  }
+  const allowedOrigin = safeOrigin(env.IB_STAGING_STORAGE_ALLOWED_ORIGIN, true);
+  if (
+    isConfigured(env.IB_STAGING_STORAGE_ALLOWED_ORIGIN) &&
+    (!allowedOrigin || isProductionHostname(allowedOrigin))
+  ) {
+    invalid.add("IB_STAGING_STORAGE_ALLOWED_ORIGIN");
+  }
+  const stagingBase = safeOrigin(env.IB_STAGING_BASE_URL, true);
+  if (stagingBase && allowedOrigin && stagingBase.origin !== allowedOrigin.origin) {
+    invalid.add("IB_STAGING_BASE_URL");
+    invalid.add("IB_STAGING_STORAGE_ALLOWED_ORIGIN");
+  }
+  return [...invalid].sort();
+}
+
+function timewebStorageInvalid(env: StagingStorageReadinessEnvironment): string[] {
+  const invalid = new Set<string>(commonStorageInvalid(env));
+  for (const bucketName of ["TIMEWEB_STORAGE_BUCKET", "IB_STAGING_STORAGE_BUCKET"]) {
+    if (isConfigured(env[bucketName]) && !isValidYandexStorageBucketName(env[bucketName]!.trim())) {
+      invalid.add(bucketName);
+    }
+  }
+  if (
+    isConfigured(env.TIMEWEB_STORAGE_BUCKET) &&
+    isConfigured(env.IB_STAGING_STORAGE_BUCKET) &&
+    env.TIMEWEB_STORAGE_BUCKET?.trim() !== env.IB_STAGING_STORAGE_BUCKET?.trim()
+  ) {
+    invalid.add("TIMEWEB_STORAGE_BUCKET");
+    invalid.add("IB_STAGING_STORAGE_BUCKET");
+  }
+  if (
+    isConfigured(env.TIMEWEB_STORAGE_ACCESS_KEY_ID) &&
+    isConfigured(env.IB_STAGING_STORAGE_ACCESS_KEY_ID) &&
+    env.TIMEWEB_STORAGE_ACCESS_KEY_ID?.trim() !== env.IB_STAGING_STORAGE_ACCESS_KEY_ID?.trim()
+  ) {
+    invalid.add("TIMEWEB_STORAGE_ACCESS_KEY_ID");
+    invalid.add("IB_STAGING_STORAGE_ACCESS_KEY_ID");
+  }
+  for (const name of [
+    "TIMEWEB_STORAGE_ACCESS_KEY_ID",
+    "IB_STAGING_STORAGE_ACCESS_KEY_ID",
+    "TIMEWEB_STORAGE_SECRET_ACCESS_KEY",
   ]) {
     if (hasUnsafeControlCharacters(env[name])) invalid.add(name);
   }
@@ -364,6 +426,27 @@ export function buildProviderAwareStagingStorageReadiness(
       storage: phase(YANDEX_STORAGE_REQUIREMENTS, storageInvalid, env, resolved.provider),
       scanner: phase(
         [...SCANNER_CORE_REQUIREMENTS, ...YANDEX_SCANNER_STORAGE_REQUIREMENTS],
+        scannerInvalid,
+        env,
+        resolved.provider,
+      ),
+    };
+  }
+
+  if (resolved.provider === TIMEWEB_OBJECT_STORAGE_PROVIDER) {
+    const storageInvalid = timewebStorageInvalid(env);
+    const scannerInvalid = unique([
+      ...scannerCoreInvalid(env, resolved.provider),
+      ...timewebStorageInvalid({
+        ...env,
+        IB_STAGING_BASE_URL: undefined,
+        IB_STAGING_STORAGE_ALLOWED_ORIGIN: undefined,
+      }),
+    ]);
+    return {
+      storage: phase(TIMEWEB_STORAGE_REQUIREMENTS, storageInvalid, env, resolved.provider),
+      scanner: phase(
+        [...SCANNER_CORE_REQUIREMENTS, ...TIMEWEB_STORAGE_REQUIREMENTS.slice(2)],
         scannerInvalid,
         env,
         resolved.provider,

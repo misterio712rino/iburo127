@@ -201,6 +201,22 @@ Architecture decision: see `docs/AUTH_PROVIDER_DECISION.md`.
 - [x] Staging malware-scanner target/smoke verification documented in `docs/STAGING_FILE_SCANNER_VERIFICATION.md` and implemented as `npm run check:staging:file-scanner`; remote execution remains an external gate.
 - [x] Read-only staging authorization fixture verification documented in `docs/STAGING_AUTHZ_VERIFICATION.md` and implemented as `npm run check:staging:authz`.
 
+## Payments / provider and checkout gates
+
+Stripe integration code and local tests do not establish that Stripe may serve this business or its intended clients. Before enabling paid checkout:
+
+- [ ] Confirm the merchant legal entity, Stripe account country and intended customer countries against Stripe's current supported-country, restricted-business and sanctions requirements.
+- [ ] Obtain provider confirmation that the specific legal services and customer market are eligible. Stripe currently lists its supported payment countries at https://stripe.com/global; its Russia/Belarus guidance says it does not support users located in Russia, and Russian-issued card transactions are unlikely to succeed: https://support.stripe.com/questions/sanctions-on-russia-and-belarus.
+- [ ] If the intended business/customer market is not eligible, select a payment provider authorized for that market before enabling checkout; do not work around provider restrictions with a foreign account or inaccurate business details.
+- [ ] After eligibility is confirmed, run the checkout and webhook lifecycle in provider test mode for the actual supported merchant account and intended payment methods.
+- [x] Persist the first Checkout Session create-attempt time before calling Stripe; if the Session ID is still missing after a 20-hour safety window, fail closed before creating another session. Unit tests cover the bounded retry and stale-attempt block. Stripe may prune idempotency keys after they are at least 24 hours old: https://docs.stripe.com/api/idempotent_requests.
+- [x] Signed Checkout Session webhook events atomically bind their Session ID to the matching order; cross-order Session identity conflicts are rejected. A PostgreSQL integration scenario is added but remains unexecuted until an approved test database is available.
+- [x] Read-only operator investigation for stale Checkout attempts documented in `docs/STRIPE_CHECKOUT_SESSION_RECOVERY_RUNBOOK.md`, including bounded/paginated Stripe Session matching and fail-closed escalation.
+- [x] MANAGER/MFA-protected operation reattaches only an already-existing Stripe `open` Session after server-side identity/amount verification; the operator, evidence reference, order update and audit record are persisted atomically. Local domain tests cover authorization, stale eligibility, identity mismatches, replay and rejected payment/event states.
+- [ ] On an approved staging test database, run `npm run test:commerce:postgres-checkout-recovery`; it verifies atomic Session/audit persistence, later webhook processing and the webhook-wins race. The command requires the exact staging target and pinned migration history.
+- [x] MVP policy for a missing Checkout Session is explicit: do not reopen automatically, even after a complete no-match scan; keep the order blocked and escalate for manual provider review. The service fails closed after 20 hours, and its local unit test verifies Stripe is not called.
+- [ ] If product requirements later call for reopening, implement it as a separate audited, dual-approval operation and verify it against an approved staging PostgreSQL database.
+
 ## Release safety
 
 - Never run `prisma db push` against production as a substitute for reviewed migrations.

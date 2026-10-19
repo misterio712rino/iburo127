@@ -13,6 +13,7 @@ import {
 } from "@/server/domain/commerce/contracts";
 import {
   applyVerifiedCommercePaymentEvent,
+  assertCommercePaymentOrderIdentity,
   normalizeVerifiedCommercePaymentEvent,
   resolveCommerceCheckoutQuote,
 } from "@/server/domain/commerce/payment-state";
@@ -226,17 +227,35 @@ function payment(
 
 
 {
-  const delayedSuccess = applyVerifiedCommercePaymentEvent({
+  const olderSuccessAfterNewerFailure = applyVerifiedCommercePaymentEvent({
     order: order("PAYMENT_FAILED"),
     payment: payment("FAILED", t3),
     event: event("SUCCEEDED", t2),
   });
-  assert.equal(delayedSuccess.applied, true);
-  assert.equal(delayedSuccess.stale, false);
-  assert.equal(delayedSuccess.paymentStatus, "SUCCEEDED");
-  assert.equal(delayedSuccess.orderStatus, "PAID");
-  assert.equal(delayedSuccess.orderBecamePaid, true);
-  assert.equal(delayedSuccess.providerOccurredAt?.getTime(), t3.getTime());
+  assert.equal(olderSuccessAfterNewerFailure.applied, false);
+  assert.equal(olderSuccessAfterNewerFailure.stale, true);
+  assert.equal(olderSuccessAfterNewerFailure.paymentStatus, "FAILED");
+  assert.equal(olderSuccessAfterNewerFailure.orderStatus, "PAYMENT_FAILED");
+  assert.equal(olderSuccessAfterNewerFailure.orderBecamePaid, false);
+  assert.equal(olderSuccessAfterNewerFailure.providerOccurredAt?.getTime(), t3.getTime());
+
+  const olderSuccessAfterCancellation = applyVerifiedCommercePaymentEvent({
+    order: order("CANCELLED"),
+    payment: payment("CANCELLED", t3),
+    event: event("SUCCEEDED", t2),
+  });
+  assert.equal(olderSuccessAfterCancellation.stale, true);
+  assert.equal(olderSuccessAfterCancellation.paymentStatus, "CANCELLED");
+  assert.equal(olderSuccessAfterCancellation.orderStatus, "CANCELLED");
+
+  const laterSuccess = applyVerifiedCommercePaymentEvent({
+    order: order("PAYMENT_FAILED"),
+    payment: payment("FAILED", t1),
+    event: event("SUCCEEDED", t2),
+  });
+  assert.equal(laterSuccess.stale, false);
+  assert.equal(laterSuccess.paymentStatus, "SUCCEEDED");
+  assert.equal(laterSuccess.orderStatus, "PAID");
 }
 
 {
@@ -264,6 +283,40 @@ function payment(
   assert.equal(delayedChargeback.paymentStatus, "CHARGEBACK");
   assert.equal(delayedChargeback.orderStatus, "CHARGEBACK");
   assert.equal(delayedChargeback.providerOccurredAt?.getTime(), t3.getTime());
+}
+
+{
+  const delayedLossAfterWin = applyVerifiedCommercePaymentEvent({
+    order: order("PAID"),
+    payment: payment("SUCCEEDED", t3),
+    event: event("CHARGEBACK", t2),
+  });
+  assert.equal(delayedLossAfterWin.stale, true);
+  assert.equal(delayedLossAfterWin.paymentStatus, "SUCCEEDED");
+  assert.equal(delayedLossAfterWin.orderStatus, "PAID");
+}
+
+{
+  const wonAfterLoss = applyVerifiedCommercePaymentEvent({
+    order: order("CHARGEBACK"),
+    payment: payment("CHARGEBACK", t2),
+    event: event("SUCCEEDED", t3),
+  });
+  assert.equal(wonAfterLoss.applied, true);
+  assert.equal(wonAfterLoss.paymentStatus, "SUCCEEDED");
+  assert.equal(wonAfterLoss.orderStatus, "PAID");
+  assert.equal(wonAfterLoss.orderBecamePaid, true);
+}
+
+{
+  const delayedOldWin = applyVerifiedCommercePaymentEvent({
+    order: order("CHARGEBACK"),
+    payment: payment("CHARGEBACK", t3),
+    event: event("SUCCEEDED", t2),
+  });
+  assert.equal(delayedOldWin.stale, true);
+  assert.equal(delayedOldWin.paymentStatus, "CHARGEBACK");
+  assert.equal(delayedOldWin.orderStatus, "CHARGEBACK");
 }
 
 for (const [overrides, code] of [
@@ -297,8 +350,18 @@ for (const existing of [
   );
 }
 
+assertCommercePaymentOrderIdentity({ orderId: "order-a", paymentOrderId: "order-a" });
+assert.throws(
+  () => assertCommercePaymentOrderIdentity({ orderId: "order-b", paymentOrderId: "order-a" }),
+  new RegExp(COMMERCE_PAYMENT_IDENTITY_CONFLICT),
+);
+
 assert.throws(
   () => normalizeVerifiedCommercePaymentEvent(event("SUCCEEDED", t1, { rawBodySha256: "bad" })),
+  new RegExp(COMMERCE_INVALID_INPUT),
+);
+assert.throws(
+  () => normalizeVerifiedCommercePaymentEvent(event("SUCCEEDED", t1, { stripeCheckoutSessionId: "" })),
   new RegExp(COMMERCE_INVALID_INPUT),
 );
 

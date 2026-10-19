@@ -228,6 +228,7 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
         throw new Error(PRACTICUM_WORKSPACE_STATE_CONFLICT);
       }
 
+      const createdInThisTransaction = !homework;
       if (!homework) {
         try {
           homework = await tx.casePracticumHomework.create({
@@ -278,7 +279,7 @@ export class PrismaPracticumWorkspaceRepository implements PracticumWorkspaceRep
           draftText: input.answerText,
           submittedAt: now,
           reviewedAt: null,
-          version: { increment: 1 },
+          version: createdInThisTransaction ? homework.version : { increment: 1 },
         },
       });
       if (updated.count !== 1) throw new Error(PRACTICUM_WORKSPACE_STATE_CONFLICT);

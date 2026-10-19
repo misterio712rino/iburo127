@@ -1,4 +1,5 @@
 import {
+  TIMEWEB_OBJECT_STORAGE_PROVIDER,
   VERCEL_BLOB_STORAGE_PROVIDER,
   YANDEX_OBJECT_STORAGE_PROVIDER,
   readPrivateObjectStorageProvider,
@@ -24,6 +25,14 @@ export type YandexStagingStorageTarget = {
   allowedOrigin: string;
 };
 
+export type TimewebStagingStorageTarget = {
+  provider: typeof TIMEWEB_OBJECT_STORAGE_PROVIDER;
+  bucket: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  allowedOrigin: string;
+};
+
 export type VercelBlobStagingStorageTarget = {
   provider: typeof VERCEL_BLOB_STORAGE_PROVIDER;
   auth: VercelBlobAuthConfig;
@@ -31,7 +40,7 @@ export type VercelBlobStagingStorageTarget = {
   commitSha: string;
 };
 
-export type StagingStorageTarget = YandexStagingStorageTarget | VercelBlobStagingStorageTarget;
+export type StagingStorageTarget = YandexStagingStorageTarget | TimewebStagingStorageTarget | VercelBlobStagingStorageTarget;
 
 function fail(reason: string): never {
   throw new Error(`${STAGING_STORAGE_TARGET_GUARD}:${reason}`);
@@ -150,6 +159,32 @@ function assertYandexTarget(env: Environment, stagingUrl: URL): YandexStagingSto
   };
 }
 
+function assertTimewebTarget(env: Environment, stagingUrl: URL): TimewebStagingStorageTarget {
+  const bucket = required(env, "TIMEWEB_STORAGE_BUCKET");
+  const expectedBucket = required(env, "IB_STAGING_STORAGE_BUCKET");
+  if (!isValidYandexStorageBucketName(bucket)) {
+    fail("TIMEWEB_STORAGE_BUCKET is not a valid S3 bucket name");
+  }
+  if (!isValidYandexStorageBucketName(expectedBucket)) {
+    fail("IB_STAGING_STORAGE_BUCKET is not a valid S3 bucket name");
+  }
+  if (bucket !== expectedBucket) {
+    fail("TIMEWEB_STORAGE_BUCKET must match IB_STAGING_STORAGE_BUCKET");
+  }
+
+  const accessKeyId = safeCredential(env, "TIMEWEB_STORAGE_ACCESS_KEY_ID");
+  const expectedAccessKeyId = safeCredential(env, "IB_STAGING_STORAGE_ACCESS_KEY_ID");
+  if (accessKeyId !== expectedAccessKeyId) {
+    fail("TIMEWEB_STORAGE_ACCESS_KEY_ID must match IB_STAGING_STORAGE_ACCESS_KEY_ID");
+  }
+  const secretAccessKey = safeCredential(env, "TIMEWEB_STORAGE_SECRET_ACCESS_KEY");
+  const allowedOrigin = normalizeAllowedOrigin(required(env, "IB_STAGING_STORAGE_ALLOWED_ORIGIN"));
+  if (allowedOrigin !== stagingUrl.origin) {
+    fail("IB_STAGING_STORAGE_ALLOWED_ORIGIN must match IB_STAGING_BASE_URL origin");
+  }
+  return { provider: TIMEWEB_OBJECT_STORAGE_PROVIDER, bucket, accessKeyId, secretAccessKey, allowedOrigin };
+}
+
 export function assertStagingStorageTarget(
   env: Environment = process.env,
 ): StagingStorageTarget {
@@ -161,6 +196,9 @@ export function assertStagingStorageTarget(
   const provider = effectiveProvider(env);
   if (provider === VERCEL_BLOB_STORAGE_PROVIDER) {
     return assertExactVercelBlobPreview(env, stagingUrl);
+  }
+  if (provider === TIMEWEB_OBJECT_STORAGE_PROVIDER) {
+    return assertTimewebTarget(env, stagingUrl);
   }
   return assertYandexTarget(env, stagingUrl);
 }

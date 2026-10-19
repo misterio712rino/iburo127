@@ -1,10 +1,12 @@
 export const YANDEX_OBJECT_STORAGE_PROVIDER = "yandex-object-storage";
+export const TIMEWEB_OBJECT_STORAGE_PROVIDER = "timeweb-object-storage";
 export const VERCEL_BLOB_STORAGE_PROVIDER = "vercel-blob";
 export const OBJECT_STORAGE_PROVIDER_CONFIG_ERROR = "OBJECT_STORAGE_PROVIDER_CONFIG_ERROR";
 export const OBJECT_STORAGE_PROVIDER_UNAVAILABLE = "OBJECT_STORAGE_PROVIDER_UNAVAILABLE";
 
 export type PrivateObjectStorageProvider =
   | typeof YANDEX_OBJECT_STORAGE_PROVIDER
+  | typeof TIMEWEB_OBJECT_STORAGE_PROVIDER
   | typeof VERCEL_BLOB_STORAGE_PROVIDER;
 
 type ObjectStorageProviderEnvironment = {
@@ -21,6 +23,7 @@ export function readPrivateObjectStorageProvider(
 
   if (
     configured === YANDEX_OBJECT_STORAGE_PROVIDER ||
+    configured === TIMEWEB_OBJECT_STORAGE_PROVIDER ||
     configured === VERCEL_BLOB_STORAGE_PROVIDER
   ) {
     return configured;

@@ -8,9 +8,7 @@ import {
   isAllowedCommerceCheckoutOrigin,
   parseCommerceCheckoutBody,
 } from "@/server/domain/commerce/checkout-http";
-import {
-  COMMERCE_INVALID_INPUT,
-} from "@/server/domain/commerce/contracts";
+import { COMMERCE_INVALID_INPUT } from "@/server/domain/commerce/contracts";
 
 const env = {
   IB_COMMERCE_CHECKOUT_ORIGIN: "https://www.iburo127.ru",
@@ -45,48 +43,36 @@ for (const [key, value] of [
   ["IB_COMMERCE_PRO_AMOUNT_MINOR", "1.5"],
   ["IB_COMMERCE_OFFER_VERSION", ""],
 ] as const) {
-  assert.throws(
-    () => readCommerceCheckoutRuntimeConfig({ ...env, [key]: value }),
-    /COMMERCE_CONFIG_INVALID/,
-  );
+  assert.throws(() => readCommerceCheckoutRuntimeConfig({ ...env, [key]: value }), /COMMERCE_CONFIG_INVALID/);
 }
 
 for (const missing of Object.keys(env)) {
   const candidate = { ...env };
   delete candidate[missing as keyof typeof candidate];
-  assert.throws(
-    () => readCommerceCheckoutRuntimeConfig(candidate),
-    /COMMERCE_CONFIG_INVALID/,
-  );
+  assert.throws(() => readCommerceCheckoutRuntimeConfig(candidate), /COMMERCE_CONFIG_INVALID/);
 }
 
-const parsed = parseCommerceCheckoutBody({
+const clientCaseId = "550e8400-e29b-41d4-a716-446655440000";
+const requestId = "550e8400-e29b-41d4-a716-446655440001";
+assert.deepEqual(parseCommerceCheckoutBody({ clientCaseId, planCode: "LITE", requestId }), {
+  clientCaseId,
   planCode: "LITE",
-  email: "  Customer@Example.TEST  ",
-  requestId: "550e8400-e29b-41d4-a716-446655440000",
-});
-assert.deepEqual(parsed, {
-  planCode: "LITE",
-  email: "customer@example.test",
-  requestId: "550e8400-e29b-41d4-a716-446655440000",
+  requestId,
 });
 
 for (const invalid of [
   null,
   [],
   {},
-  { planCode: "INDIVIDUAL", email: "a@example.test", requestId: "550e8400-e29b-41d4-a716-446655440000" },
-  { planCode: "LITE", email: "invalid", requestId: "550e8400-e29b-41d4-a716-446655440000" },
-  { planCode: "LITE", email: "a@example.test" },
-  { planCode: "LITE", email: "a@example.test", requestId: "not-a-uuid" },
-  { planCode: "LITE", email: "a@example.test", requestId: "550e8400-e29b-41d4-a716-446655440000", amountMinor: 1 },
-  { planCode: "LITE", email: "a@example.test", requestId: "550e8400-e29b-41d4-a716-446655440000", status: "PAID" },
-  { planCode: "LITE", email: "a@example.test", requestId: "550e8400-e29b-41d4-a716-446655440000", role: "ADMIN" },
+  { clientCaseId, planCode: "INDIVIDUAL", requestId },
+  { clientCaseId: "not-a-uuid", planCode: "LITE", requestId },
+  { clientCaseId, planCode: "LITE", requestId: "not-a-uuid" },
+  { clientCaseId, planCode: "LITE", requestId, email: "client@example.test" },
+  { clientCaseId, planCode: "LITE", requestId, amountMinor: 1 },
+  { clientCaseId, planCode: "LITE", requestId, status: "PAID" },
+  { clientCaseId, planCode: "LITE", requestId, role: "ADMIN" },
 ]) {
-  assert.throws(
-    () => parseCommerceCheckoutBody(invalid),
-    new RegExp(COMMERCE_INVALID_INPUT),
-  );
+  assert.throws(() => parseCommerceCheckoutBody(invalid), new RegExp(COMMERCE_INVALID_INPUT));
 }
 
 const allowedRequest = new Request("https://iburo127.online/api/public/commerce/checkout", {
@@ -95,14 +81,8 @@ const allowedRequest = new Request("https://iburo127.online/api/public/commerce/
 const deniedRequest = new Request("https://iburo127.online/api/public/commerce/checkout", {
   headers: { Origin: "https://evil.example" },
 });
-assert.equal(
-  isAllowedCommerceCheckoutOrigin(allowedRequest, "https://www.iburo127.ru"),
-  true,
-);
-assert.equal(
-  isAllowedCommerceCheckoutOrigin(deniedRequest, "https://www.iburo127.ru"),
-  false,
-);
+assert.equal(isAllowedCommerceCheckoutOrigin(allowedRequest, "https://www.iburo127.ru"), true);
+assert.equal(isAllowedCommerceCheckoutOrigin(deniedRequest, "https://www.iburo127.ru"), false);
 
 const cors = commerceCheckoutCorsHeaders("https://www.iburo127.ru");
 assert.equal(cors.get("access-control-allow-origin"), "https://www.iburo127.ru");
@@ -111,34 +91,61 @@ assert.equal(cors.get("access-control-allow-headers"), "Content-Type");
 assert.equal(cors.get("access-control-allow-credentials"), null);
 assert.equal(cors.get("vary"), "Origin");
 
-const route = await readFile(
-  resolve("app/api/public/commerce/checkout/route.ts"),
+const route = await readFile(resolve("app/api/public/commerce/checkout/route.ts"), "utf8");
+const clientCheckout = await readFile(resolve("components/portal/ClientPlanUpgradeCheckout.tsx"), "utf8");
+const stripeGateway = await readFile(resolve("server/commerce/stripe-checkout-gateway.ts"), "utf8");
+const webhookRoute = await readFile(resolve("app/api/public/commerce/webhook/route.ts"), "utf8");
+const paymentRepository = await readFile(resolve("server/repositories/prisma/commerce-payment-event-repository.ts"), "utf8");
+const migration = await readFile(resolve("prisma/migrations/20261007_commerce_stripe_checkout/migration.sql"), "utf8");
+const checkoutSessionRecoveryMigration = await readFile(
+  resolve("prisma/migrations/20261008_commerce_checkout_session_recovery/migration.sql"),
   "utf8",
 );
-const limiter = await readFile(
-  resolve("server/commerce/checkout-rate-limit.ts"),
-  "utf8",
-);
+const limiter = await readFile(resolve("server/commerce/checkout-rate-limit.ts"), "utf8");
 
 assert.match(route, /CHECKOUT_BODY_MAX_BYTES = 4 \* 1024/);
-assert.match(route, /readCommerceCheckoutRuntimeConfig/);
-assert.match(route, /isAllowedCommerceCheckoutOrigin/);
-assert.match(route, /enforceCommerceCheckoutRateLimit/);
-assert.match(route, /readBoundedJsonBody/);
-assert.match(route, /PrismaCommerceOrderRepository/);
-assert.match(route, /checkoutRequestId: input\.requestId/);
-assert.match(route, /status: order\.status/);
-assert.match(route, /replayed: order\.replayed/);
-assert.match(route, /order\.replayed \? 200 : 201/);
+assert.match(route, /requireServerActor/);
+assert.match(route, /requireRole\(actor, "CLIENT"\)/);
+assert.match(route, /PrismaCommerceCaseCheckoutRepository/);
+assert.match(route, /CommerceCheckoutService/);
 assert.match(route, /CHECKOUT_IDEMPOTENCY_CONFLICT/);
-assert.match(route, /replayed: order\.replayed/);
-assert.match(route, /order\.replayed \? 200 : 201/);
-assert.match(route, /CHECKOUT_IDEMPOTENCY_CONFLICT/);
-assert.match(route, /409/);
-assert.doesNotMatch(route, /customerEmail:\s*order\./);
-assert.doesNotMatch(route, /userId:\s*order\./);
-assert.doesNotMatch(route, /clientCaseId:\s*order\./);
-assert.doesNotMatch(route, /provider|webhook|merchant|role/i);
+assert.ok(
+  route.includes("code === COMMERCE_CHECKOUT_NO_LONGER_PENDING") &&
+    route.includes("code === COMMERCE_CHECKOUT_SESSION_RECOVERY_REQUIRED") &&
+    route.includes("{ ok: false, error: { code } }, 409"),
+  "terminal checkout replay and ambiguous session recovery must return specific conflicts",
+);
+assert.match(route, /COMMERCE_CASE_CHECKOUT_PENDING/);
+assert.ok(clientCheckout.includes("COMMERCE_CHECKOUT_NO_LONGER_PENDING"));
+assert.ok(clientCheckout.includes("COMMERCE_CHECKOUT_SESSION_RECOVERY_REQUIRED"));
+assert.ok(route.includes("COMMERCE_CHECKOUT_SESSION_RECOVERY_REQUIRED"));
+assert.match(checkoutSessionRecoveryMigration, /stripeCheckoutSessionCreateStartedAt/);
+assert.ok(clientCheckout.includes("sessionStorage.removeItem(checkoutRequestStorageKey(caseId))"));
+assert.match(route, /checkoutUrl: result\.checkoutUrl/);
+assert.doesNotMatch(route, /customerEmail:\s*input/);
+assert.doesNotMatch(route, /STRIPE_SECRET_KEY|STRIPE_WEBHOOK_SECRET/);
+
+assert.match(stripeGateway, /clientCaseId:\s*input\.order\.clientCaseId/);
+assert.match(stripeGateway, /publicCheckoutId:\s*input\.order\.publicCheckoutId/);
+assert.match(stripeGateway, /payment_intent_data:\s*\{ metadata \}/);
+assert.match(stripeGateway, /idempotencyKey:/);
+
+assert.match(webhookRoute, /stripe-signature/);
+assert.match(webhookRoute, /readRawBody/);
+assert.match(webhookRoute, /reader\.read\(\)/);
+assert.match(webhookRoute, /STRIPE_SIGNATURE_INVALID/);
+assert.match(webhookRoute, /COMMERCE_WEBHOOK_RETRY/);
+assert.match(webhookRoute, /}, 500\)/);
+
+assert.match(paymentRepository, /isolationLevel: "Serializable"/);
+assert.match(paymentRepository, /tx\.commercePaymentEvent\.create/);
+assert.match(paymentRepository, /tx\.clientCase\.updateMany/);
+assert.match(paymentRepository, /assertCheckoutSessionIdentity/);
+assert.match(paymentRepository, /attachCheckoutSessionIfNeeded/);
+assert.match(migration, /DROP INDEX IF EXISTS "CommerceOrder_clientCaseId_key"/);
+assert.match(migration, /CREATE UNIQUE INDEX "CommerceOrder_one_pending_per_case_key"/);
+assert.match(migration, /"status" = 'PENDING_PAYMENT'/);
+assert.match(migration, /previousPlanId/);
 
 const rateIndex = route.indexOf("enforceCommerceCheckoutRateLimit");
 const bodyIndex = route.indexOf("readBoundedJsonBody(request");

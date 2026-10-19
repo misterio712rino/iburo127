@@ -8,6 +8,11 @@ export const COMMERCE_ORDER_NOT_FOUND = "COMMERCE_ORDER_NOT_FOUND";
 export const COMMERCE_PAYMENT_EVENT_CONFLICT = "COMMERCE_PAYMENT_EVENT_CONFLICT";
 export const COMMERCE_PAYMENT_CONCURRENT_UPDATE = "COMMERCE_PAYMENT_CONCURRENT_UPDATE";
 export const COMMERCE_CHECKOUT_IDEMPOTENCY_CONFLICT = "COMMERCE_CHECKOUT_IDEMPOTENCY_CONFLICT";
+export const COMMERCE_CASE_CHECKOUT_PENDING = "COMMERCE_CASE_CHECKOUT_PENDING";
+export const COMMERCE_CASE_NOT_FOUND = "COMMERCE_CASE_NOT_FOUND";
+export const COMMERCE_CASE_PLAN_UNCHANGED = "COMMERCE_CASE_PLAN_UNCHANGED";
+export const COMMERCE_CHECKOUT_NO_LONGER_PENDING = "COMMERCE_CHECKOUT_NO_LONGER_PENDING";
+export const COMMERCE_CHECKOUT_SESSION_RECOVERY_REQUIRED = "COMMERCE_CHECKOUT_SESSION_RECOVERY_REQUIRED";
 
 export const COMMERCE_ONLINE_PLAN_CODES = ["LITE", "PRO"] as const;
 
@@ -85,6 +90,8 @@ export type VerifiedCommercePaymentEvent = {
   eventId: string;
   paymentId: string;
   publicCheckoutId: string;
+  stripeCheckoutSessionId?: string;
+  clientCaseId?: string;
   kind: CommercePaymentEventKind;
   amountMinor: number;
   currency: string;
@@ -113,6 +120,19 @@ export type CommerceVerifiedEventProcessingResult = {
   shouldPauseProvisionedCase: boolean;
 };
 
+
+export type CommerceCaseCheckoutOrder = {
+  publicCheckoutId: string;
+  clientCaseId: string;
+  planCode: CommerceOnlinePlanCode;
+  amountMinor: number;
+  currency: string;
+  offerVersion: string;
+  status: CommerceOrderStatus;
+  replayed: boolean;
+  stripeCheckoutSessionId: string | null;
+  customerEmail: string;
+};
 
 export type CommerceCreatedOrder = {
   publicCheckoutId: string;

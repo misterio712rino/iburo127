@@ -161,6 +161,7 @@ model User {
   practicumLessonMessages      CasePracticumLessonMessage[]     @relation("PracticumLessonMessageAuthors")
   practicumLessonReadStates    CasePracticumLessonReadState[]
   commerceOrders               CommerceOrder[]                    @relation("CommerceOrderUser")
+  checkoutSessionRecoveries    CommerceCheckoutSessionRecovery[] @relation("CommerceCheckoutRecoveryOperators")
 }
 
 model Role {
@@ -223,7 +224,8 @@ model Plan {
 
   features       PlanFeature[]
   clientCases    ClientCase[]
-  commerceOrders CommerceOrder[]
+  commerceOrders     CommerceOrder[]
+  previousPlanOrders CommerceOrder[] @relation("CommerceOrderPreviousPlan")
 }
 
 model Feature {
@@ -292,7 +294,7 @@ model ClientCase {
   activityEvents            CaseActivityEvent[]
   notifications             Notification[]
   storedFiles               StoredFile[]
-  commerceOrder             CommerceOrder?
+  commerceOrders            CommerceOrder[]
 
   @@index([clientId])
   @@index([planId])
@@ -573,30 +575,36 @@ model StoredFileDeletion {
 }
 
 model CommerceOrder {
-  id                String              @id @default(uuid()) @db.Uuid
-  publicCheckoutId  String              @unique
-  checkoutRequestId String?             @unique @db.Uuid
-  planId            String              @db.Uuid
-  userId           String?             @db.Uuid
-  clientCaseId     String?             @unique @db.Uuid
-  customerEmail    String
-  amountMinor      Int
-  currency         String
-  offerVersion     String
-  status           CommerceOrderStatus @default(PENDING_PAYMENT)
-  paidAt           DateTime?
-  provisionedAt    DateTime?
-  refundedAt       DateTime?
-  version          Int                 @default(1)
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
+  id                       String              @id @default(uuid()) @db.Uuid
+  publicCheckoutId         String              @unique
+  checkoutRequestId        String?             @unique @db.Uuid
+  stripeCheckoutSessionId  String?             @unique
+  stripeCheckoutSessionCreateStartedAt DateTime?
+  planId                   String              @db.Uuid
+  previousPlanId           String?             @db.Uuid
+  userId                   String?             @db.Uuid
+  clientCaseId             String?             @db.Uuid
+  customerEmail            String
+  amountMinor              Int
+  currency                 String
+  offerVersion             String
+  status                   CommerceOrderStatus @default(PENDING_PAYMENT)
+  paidAt                   DateTime?
+  provisionedAt            DateTime?
+  refundedAt               DateTime?
+  version                  Int                 @default(1)
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
 
-  plan       Plan        @relation(fields: [planId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  user       User?       @relation("CommerceOrderUser", fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  clientCase ClientCase? @relation(fields: [clientCaseId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  payments   CommercePayment[]
-  events     CommercePaymentEvent[]
+  plan         Plan        @relation(fields: [planId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  previousPlan Plan?       @relation("CommerceOrderPreviousPlan", fields: [previousPlanId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user         User?       @relation("CommerceOrderUser", fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  clientCase   ClientCase? @relation(fields: [clientCaseId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  payments                CommercePayment[]
+  events                  CommercePaymentEvent[]
+  checkoutSessionRecovery CommerceCheckoutSessionRecovery?
 
+  @@index([clientCaseId])
   @@index([planId, status, createdAt])
   @@index([userId, status, createdAt])
   @@index([status, createdAt])
@@ -650,6 +658,20 @@ model CommercePaymentEvent {
   @@index([paymentId, receivedAt])
   @@index([provider, providerPaymentId, providerOccurredAt])
   @@index([processingStatus, receivedAt])
+}
+
+model CommerceCheckoutSessionRecovery {
+  id                    String   @id @default(uuid()) @db.Uuid
+  orderId               String   @unique @db.Uuid
+  operatorUserId        String   @db.Uuid
+  stripeCheckoutSessionId String  @unique
+  evidenceReference     String
+  createdAt             DateTime @default(now())
+
+  order    CommerceOrder @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  operator User          @relation("CommerceCheckoutRecoveryOperators", fields: [operatorUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([operatorUserId, createdAt])
 }
 
 model PotentialClientLead {
