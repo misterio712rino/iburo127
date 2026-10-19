@@ -24,10 +24,10 @@ assert.equal(readPrivateObjectStorageProvider({ IB_OBJECT_STORAGE_PROVIDER: "tim
 const stagingEnv = {
   IB_OBJECT_STORAGE_PROVIDER: "timeweb-object-storage",
   IB_RUNTIME_TARGET: "staging",
-  IB_STAGING_BASE_URL: "https://staging-app.example.com",
+  IB_STAGING_BASE_URL: "https://staging-app.invalid",
   IB_STORAGE_TARGET: "staging",
   IB_STAGING_STORAGE_BUCKET: "private-iburo-staging-files",
-  IB_STAGING_STORAGE_ALLOWED_ORIGIN: "https://staging-app.example.com",
+  IB_STAGING_STORAGE_ALLOWED_ORIGIN: "https://staging-app.invalid",
   IB_STAGING_STORAGE_ACCESS_KEY_ID: "staging-key-id",
   TIMEWEB_STORAGE_BUCKET: "private-iburo-staging-files",
   TIMEWEB_STORAGE_ACCESS_KEY_ID: "staging-key-id",
