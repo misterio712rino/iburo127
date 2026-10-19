@@ -68,6 +68,7 @@ const legacyMarketingRoutes = [
 ] as const;
 
 const nextConfig: NextConfig = {
+  ...(!process.env.VERCEL_ENV ? { output: "standalone" as const } : {}),
   poweredByHeader: false,
   skipTrailingSlashRedirect: true,
   async redirects() {

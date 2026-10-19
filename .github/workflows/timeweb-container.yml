@@ -1,0 +1,64 @@
+name: Timeweb Container Build
+
+on:
+  pull_request:
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "next.config.ts"
+      - "app/api/healthz/**"
+      - "scripts/run-maintenance-job.mjs"
+      - ".github/workflows/timeweb-container.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  container:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Exact candidate checkout
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$EXPECTED_SHA" ]; then
+            echo "TIMEWEB_CONTAINER_CHECKOUT_FAIL: expected=$EXPECTED_SHA actual=$actual_sha" >&2
+            exit 1
+          fi
+          echo "TIMEWEB_CONTAINER_CHECKOUT_PASS: $actual_sha"
+
+      - name: Build application image
+        run: docker build --target web --tag iburo127-web:ci .
+
+      - name: Build maintenance runner image
+        run: docker build --target maintenance-runner --tag iburo127-maintenance:ci .
+
+      - name: Run liveness smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          container="iburo127-web-ci-${GITHUB_RUN_ID}"
+          trap 'docker rm --force "$container" >/dev/null 2>&1 || true' EXIT
+          docker run --detach --name "$container" --publish 127.0.0.1:38080:3000 iburo127-web:ci >/dev/null
+
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:38080/api/healthz >/dev/null; then
+              echo "TIMEWEB_CONTAINER_LIVENESS_PASS"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs "$container"
+          echo "TIMEWEB_CONTAINER_LIVENESS_FAIL" >&2
+          exit 1
