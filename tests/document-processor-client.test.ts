@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {
-  DOCUMENT_PROCESSOR_MAX_UPLOAD_BYTES,
+  DOCUMENT_PROCESSOR_MAX_RESPONSE_BYTES,
   DocumentProcessorClient,
   readDocumentProcessorConfig,
 } from "../server/files/document-processor-client";
@@ -48,7 +48,7 @@ await assert.rejects(
 );
 
 const oversizedClient = new DocumentProcessorClient(config, (async () =>
-  new Response(new Uint8Array(DOCUMENT_PROCESSOR_MAX_UPLOAD_BYTES + 1), {
+  new Response(new Uint8Array(DOCUMENT_PROCESSOR_MAX_RESPONSE_BYTES + 1), {
     status: 200,
     headers: { "content-type": "application/json" },
   })
