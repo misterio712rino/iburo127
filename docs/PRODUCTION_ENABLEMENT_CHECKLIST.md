@@ -34,7 +34,22 @@ This checklist defines the conditions for switching any platform workflow from i
 - [x] Questionnaire, practicum and document create-on-first-use repositories recover safely from concurrent unique-key creation races.
 - [ ] Production logs verified not to contain questionnaire answers, document contents or other sensitive payloads.
 
+## Document-first intake gates
+
+The agreed client workflow is document-first: clients upload evidence, review/correct extracted facts, and receive drafts of the исковое заявление, опись имущества and список кредиторов. They do not complete the legacy questionnaire as the primary data-entry flow. See `docs/DOCUMENT_FIRST_INTAKE.md` for implementation and privacy requirements.
+
+- [ ] Dockerized OCR/extraction service and asynchronous processing-job lifecycle implemented.
+- [ ] Processing only accepts malware-scanned `READY` files and enforces case-scoped authorization.
+- [ ] Extracted debtor, income, assets, creditor and debt facts retain source provenance and review state.
+- [ ] Client confirmation/correction flow asks only for ambiguous or missing facts.
+- [ ] All three target documents generate as drafts from confirmed facts and support assigned staff review.
+- [ ] Privacy, retention/deletion, audit and operational health requirements reviewed for OCR text and extracted facts.
+- [ ] Synthetic staging E2E verifies upload -> scan -> OCR/extraction -> fact review -> draft generation -> staff review.
+- [ ] Client portal no longer requires manual questionnaire completion for this workflow.
+
 ## Questionnaire gates
+
+> Legacy capability: the gates below describe the existing questionnaire implementation. They are not acceptance criteria for the agreed client document-first intake flow; use the gates above for that flow.
 
 Repository/server foundation is complete; activation still requires:
 
