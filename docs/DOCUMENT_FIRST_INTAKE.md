@@ -22,6 +22,8 @@ The production portal already has private file upload, malware-scan lifecycle an
 
 An isolated OCR service now exists at `services/document-processor`, and CI builds and inspects its Docker image. A bounded, bearer-authenticated server-to-server TypeScript client now calls its extraction endpoint with redirects disabled and no-store caching. The client is not yet called by the application's file lifecycle, and there is no durable processing queue. The container is not deployed. A typed validator for untrusted fact candidates now defines case/file/page provenance, exact minor-unit money values, confidence bounds and a mandatory `NEEDS_REVIEW` status, but no extractor emits these candidates, they are not persisted or reviewed in the portal, and the three target documents are not generated. The legacy questionnaire remains in the client portal today. Therefore, document-first intake is not release-ready until the gates below are implemented and verified.
 
+See [DOCUMENT_FIRST_FACT_CATALOG.md](./DOCUMENT_FIRST_FACT_CATALOG.md) for the draft crosswalk between current intake fields, candidate facts, and the three planned outputs. The catalog is not a legal checklist; product and insolvency counsel must approve it before it drives extraction or templates.
+
 ## Processing and privacy requirements
 
 - Processing is case-scoped and authenticated; a client, lawyer or manager can only access cases allowed by the existing case authorization rules.
