@@ -20,7 +20,7 @@ Generated documents are drafts. The service must not file documents with a court
 
 The production portal already has private file upload, malware-scan lifecycle and a separate document list/review lifecycle. Malware scanning establishes whether a file is safe to expose; it does not perform OCR, extract facts or generate legal documents.
 
-The current repository does not yet implement OCR, structured document extraction, a recognition job lifecycle, extracted-fact review, or generation of the three target documents from uploaded evidence. The legacy questionnaire remains in the client portal today. Therefore, document-first intake is not release-ready until the gates below are implemented and verified.
+An isolated OCR service now exists at `services/document-processor`. It extracts text from PDF and raster-image uploads, but it has not yet been built or deployed as a container, connected to the application's file lifecycle, or given a durable job queue. Structured fact extraction, extracted-fact review and generation of the three target documents are also not implemented. The legacy questionnaire remains in the client portal today. Therefore, document-first intake is not release-ready until the gates below are implemented and verified.
 
 ## Processing and privacy requirements
 
