@@ -33,7 +33,7 @@ assert.doesNotMatch(pageSource, /<ProductionDemoClientDashboard/);
 assert.doesNotMatch(dashboardSource, /DemoIdentityProvider|useDemoIdentity|localStorage|\/app\/client/);
 assert.match(dashboardSource, /caseDisplayNumber/);
 assert.doesNotMatch(dashboardSource, /IBR-\d/);
-assert.match(dashboardSource, /Продолжить анкету|Открыть документы/);
+assert.match(dashboardSource, /Загрузите документы по делу[\s\S]*href=\{`\$\{base\}\/files`\}/);
 assert.match(dashboardSource, /Последние события/);
 assert.match(dashboardSource, /humanSupportAvailable/);
 assert.match(dashboardSource, /Самостоятельно \+ AI/);
