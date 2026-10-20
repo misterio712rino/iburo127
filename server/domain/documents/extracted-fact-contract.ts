@@ -16,6 +16,8 @@ export type ExtractedFactCandidate = {
   caseId: string;
   sourceFileId: string;
   fieldPath: string;
+  /** Identifies one repeated record within a source file (e.g. creditor-1). */
+  recordKey: string;
   sourcePage: number;
   value: ExtractedFactValue;
   confidence: number;
@@ -104,6 +106,7 @@ export function parseExtractedFactCandidate(input: unknown): ExtractedFactCandid
       "caseId",
       "sourceFileId",
       "fieldPath",
+      "recordKey",
       "sourcePage",
       "value",
       "confidence",
@@ -114,6 +117,9 @@ export function parseExtractedFactCandidate(input: unknown): ExtractedFactCandid
     typeof input.fieldPath !== "string" ||
     input.fieldPath.length > 200 ||
     !/^[a-z][a-zA-Z0-9]*(?:\.[a-z][a-zA-Z0-9]*){1,7}$/.test(input.fieldPath) ||
+    typeof input.recordKey !== "string" ||
+    input.recordKey.length > 80 ||
+    !/^[a-z][a-zA-Z0-9_-]{0,79}$/.test(input.recordKey) ||
     !Number.isInteger(input.sourcePage) ||
     (input.sourcePage as number) < 1 ||
     (input.sourcePage as number) > EXTRACTED_FACT_MAX_SOURCE_PAGE ||
@@ -133,6 +139,7 @@ export function parseExtractedFactCandidate(input: unknown): ExtractedFactCandid
     caseId: input.caseId,
     sourceFileId: input.sourceFileId,
     fieldPath: input.fieldPath,
+    recordKey: input.recordKey,
     sourcePage: input.sourcePage as number,
     value,
     confidence: input.confidence,

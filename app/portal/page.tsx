@@ -50,7 +50,7 @@ function withDisplayCaseNumber(clientCase: ClientCaseRecord): ClientCaseRecord {
   };
 }
 
-export function selectPrimaryClientCase(cases: readonly ClientCaseRecord[]) {
+function selectPrimaryClientCase(cases: readonly ClientCaseRecord[]) {
   return [...cases].sort((left, right) => {
     const statusDelta = STATUS_PRIORITY[right.status] - STATUS_PRIORITY[left.status];
     if (statusDelta !== 0) return statusDelta;

@@ -11,9 +11,9 @@ The service is intended for a private application network only. Do not publish p
 
 Successful response:
 
-{"ok":true,"data":{"pageTexts":["page 1 text","page 2 text"],"pages":2}}
+{"ok":true,"data":{"pageTexts":["page 1 text","page 2 text"],"pageLines":[[{"text":"page 1 text","box":{"left":10,"top":20,"width":100,"height":18},"confidence":91.2}],[{"text":"page 2 text","box":null,"confidence":null}]],"pages":2}}
 
-Each array item maps to the PDF page with the same one-based position; images return one item. The application client joins page text for whole-document search while keeping the page boundaries available for fact provenance.
+Each `pageTexts` and `pageLines` array item maps to the PDF page with the same one-based position; images return one item. OCR lines include Tesseract word-box bounds and mean confidence. Text-layer PDF lines have `box` and `confidence` set to `null`, because those values are not available from the current PDF text extraction path. The application client keeps page boundaries and line layout available for fact extraction; OCR confidence is a review hint, not proof that a value is correct.
 
 The caller must send Content-Length and no more than 50 MiB. The service checks content magic bytes against the declared media type. PDFs are limited to 40 pages. PDF text layers are extracted directly; scanned pages are rasterized one at a time and OCRed using Tesseract rus+eng. Requests are serialized to one active processing job; concurrent extraction requests receive 429 PROCESSOR_BUSY.
 

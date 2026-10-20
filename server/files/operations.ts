@@ -9,6 +9,7 @@ import { getStoredFileDeletionRequestService } from "@/server/files/deletion-req
 import { createStoredFileObjectKey } from "@/server/files/object-key";
 import { getPrivateObjectStorage } from "@/server/files/object-storage-runtime";
 import { storedFileService } from "@/server/files/runtime";
+import { PrismaDocumentProcessingJobRepository } from "@/server/repositories/prisma/document-processing-job-repository";
 
 export const FILE_UPLOAD_INCOMPLETE = "FILE_UPLOAD_INCOMPLETE";
 export const FILE_UPLOAD_METADATA_MISMATCH = "FILE_UPLOAD_METADATA_MISMATCH";
@@ -27,6 +28,26 @@ const MIME_EXTENSIONS: Record<string, string> = {
 export async function listStoredFiles(sessionProvider: SessionProvider, clientCaseId: string) {
   const actor = await requireServerActor(sessionProvider);
   return storedFileService.list(actor, clientCaseId);
+}
+
+export async function listDocumentProcessingStatuses(
+  sessionProvider: SessionProvider,
+  clientCaseId: string,
+) {
+  const files = await listStoredFiles(sessionProvider, clientCaseId);
+  const jobs = await new PrismaDocumentProcessingJobRepository().listSummariesBySourceFileIds(
+    files.map((file) => file.id),
+  );
+  const jobsBySourceFileId = new Map(jobs.map((job) => [job.sourceFileId, job]));
+  return files.map((file) => {
+    const job = jobsBySourceFileId.get(file.id);
+    return {
+      fileId: file.id,
+      fileStatus: file.status,
+      processingStatus: job?.status ?? null,
+      pageCount: job?.pageCount ?? null,
+    };
+  });
 }
 
 export async function getStoredFile(sessionProvider: SessionProvider, fileId: string) {

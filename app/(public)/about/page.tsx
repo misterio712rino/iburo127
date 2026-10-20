@@ -40,8 +40,6 @@ const advantages = [
   },
 ];
 
-export const metadataBase = undefined;
-
 export default function AboutPage() {
   return (
     <main className="bg-[#F7F5F2]">

@@ -73,12 +73,21 @@ function makeWorker(repository: FakeRepository, storage = new FakeStorage(), ext
 async function testSuccessPersistsPageBoundariesWithoutReturningText() {
   const repo = new FakeRepository();
   const store = new FakeStorage();
-  const result = await makeWorker(repo, store, async () => ({ text: "joined", pageTexts: ["page 1", "page 2"], pages: 2 }))
+  const result = await makeWorker(repo, store, async () => ({
+    text: "joined", pageTexts: ["ФИО: Иванов Иван Иванович", "Дата рождения: 17.04.1990"], pages: 2,
+  }))
     .runBatch({ now, limit: 4 });
   assert.deepEqual(result, { claimed: 1, completed: 1, cancelled: 0, retried: 0, failed: 0, leaseLost: 0 });
   assert.equal(store.readCalls, 1);
-  assert.deepEqual(repo.completedInput?.pageTexts, ["page 1", "page 2"]);
+  assert.deepEqual(repo.completedInput?.pageTexts, ["ФИО: Иванов Иван Иванович", "Дата рождения: 17.04.1990"]);
   assert.equal(repo.completedInput?.completedAt.getTime(), now.getTime() + 30_000);
+  assert.deepEqual(repo.completedInput?.factCandidates.map((candidate) => ({
+    caseId: candidate.caseId, sourceFileId: candidate.sourceFileId,
+    fieldPath: candidate.fieldPath, recordKey: candidate.recordKey, sourcePage: candidate.sourcePage,
+  })), [
+    { caseId: "case-1", sourceFileId: "file-1", fieldPath: "subject.fullName", recordKey: "default", sourcePage: 1 },
+    { caseId: "case-1", sourceFileId: "file-1", fieldPath: "subject.birthDate", recordKey: "default", sourcePage: 2 },
+  ]);
   assert.deepEqual(Object.keys(result), ["claimed", "completed", "cancelled", "retried", "failed", "leaseLost"]);
 }
 

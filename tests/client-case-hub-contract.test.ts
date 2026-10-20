@@ -43,7 +43,7 @@ assert.match(clientDashboardV2Source, /mortgageAvailable/);
 assert.doesNotMatch(clientDashboardV2Source, /DemoIdentityProvider|useDemoIdentity|localStorage|\/app\/client/);
 assert.doesNotMatch(clientDashboardV2Source, /Дмитрий Волков|Анна Орлова|IBR-2026/);
 
-assert.match(clientShellV2Source, /Главная[\s\S]*Практикум[\s\S]*Анкета[\s\S]*Документы[\s\S]*AI-помощник[\s\S]*Прогресс[\s\S]*Профиль/);
+assert.match(clientShellV2Source, /Главная[\s\S]*Практикум[\s\S]*Файлы[\s\S]*Документы[\s\S]*Анкета[\s\S]*AI-помощник[\s\S]*Прогресс[\s\S]*Профиль/);
 assert.match(clientShellV2Source, /\/portal\/notifications\?caseId=\$\{caseId\}/);
 assert.match(clientShellV2Source, /\/portal\/profile\?caseId=\$\{caseId\}/);
 assert.match(clientShellV2Source, /route === "\/portal\/profile"[\s\S]*pathname === "\/portal\/security"/);

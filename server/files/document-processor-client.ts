@@ -17,7 +17,14 @@ export type DocumentProcessorConfig = {
 export type ExtractedDocumentText = {
   text: string;
   pageTexts: readonly string[];
+  pageLines?: readonly (readonly ExtractedDocumentLine[])[];
   pages: number;
+};
+
+export type ExtractedDocumentLine = {
+  text: string;
+  box: null | { left: number; top: number; width: number; height: number };
+  confidence: number | null;
 };
 
 type FetchLike = typeof fetch;
@@ -220,6 +227,7 @@ export class DocumentProcessorClient {
       throw new Error(`${DOCUMENT_PROCESSOR_REQUEST_FAILED}:INVALID_RESPONSE`);
     }
     const pageTexts = (data as { pageTexts?: unknown }).pageTexts;
+    const pageLines = (data as { pageLines?: unknown }).pageLines;
     const pages = (data as { pages?: unknown }).pages;
     if (
       !Array.isArray(pageTexts) ||
@@ -233,9 +241,51 @@ export class DocumentProcessorClient {
       throw new Error(`${DOCUMENT_PROCESSOR_REQUEST_FAILED}:INVALID_RESPONSE`);
     }
     const typedPageTexts = pageTexts as string[];
+    let typedPageLines: ExtractedDocumentLine[][];
+    if (pageLines === undefined) {
+      typedPageLines = typedPageTexts.map((pageText) => pageText.split(/\r?\n/u)
+        .filter((line) => line.trim().length > 0)
+        .map((text) => ({ text, box: null, confidence: null })));
+    } else {
+      if (!Array.isArray(pageLines) || pageLines.length !== pages) {
+        throw new Error(`${DOCUMENT_PROCESSOR_REQUEST_FAILED}:INVALID_RESPONSE`);
+      }
+      let totalLines = 0;
+      typedPageLines = pageLines.map((page) => {
+        if (!Array.isArray(page) || page.length > 3_000) {
+          throw new Error(`${DOCUMENT_PROCESSOR_REQUEST_FAILED}:INVALID_RESPONSE`);
+        }
+        totalLines += page.length;
+        if (totalLines > 10_000) throw new Error(`${DOCUMENT_PROCESSOR_REQUEST_FAILED}:INVALID_RESPONSE`);
+        return page.map((line): ExtractedDocumentLine => {
+          if (!line || typeof line !== "object" || Array.isArray(line)) {
+            throw new Error(`${DOCUMENT_PROCESSOR_REQUEST_FAILED}:INVALID_RESPONSE`);
+          }
+          const record = line as Record<string, unknown>;
+          const box = record.box;
+          const validBox = box === null || (
+            !!box && typeof box === "object" && !Array.isArray(box) &&
+            ["left", "top", "width", "height"].every((key) => Number.isSafeInteger((box as Record<string, unknown>)[key])) &&
+            ["left", "top", "width", "height"].every((key) => ((box as Record<string, number>)[key] ?? -1) >= 0) &&
+            (box as Record<string, number>).width > 0 && (box as Record<string, number>).height > 0
+          );
+          if (
+            typeof record.text !== "string" || record.text.length < 1 || record.text.length > 2_000 ||
+            !validBox ||
+            !(record.confidence === null || (typeof record.confidence === "number" && Number.isFinite(record.confidence) && record.confidence >= 0 && record.confidence <= 100))
+          ) throw new Error(`${DOCUMENT_PROCESSOR_REQUEST_FAILED}:INVALID_RESPONSE`);
+          return {
+            text: record.text,
+            box: box as ExtractedDocumentLine["box"],
+            confidence: record.confidence as number | null,
+          };
+        });
+      });
+    }
     return {
       text: typedPageTexts.join("\n\n"),
       pageTexts: typedPageTexts,
+      pageLines: typedPageLines,
       pages: pages as number,
     };
   }

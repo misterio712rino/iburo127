@@ -85,6 +85,12 @@ enum DocumentProcessingStatus {
   CANCELLED
 }
 
+enum ExtractedFactReviewStatus {
+  NEEDS_REVIEW
+  CONFIRMED
+  REJECTED
+}
+
 enum NotificationDeliveryChannel {
   EMAIL
 }
@@ -164,6 +170,7 @@ model User {
   documentRevisionsCreated     CaseDocumentRevision[]             @relation("CaseDocumentRevisionCreator")
   documentRevisionsSubmitted   CaseDocumentRevision[]             @relation("CaseDocumentRevisionSubmitter")
   documentRevisionsReviewed    CaseDocumentRevision[]             @relation("CaseDocumentRevisionReviewer")
+  extractedFactsReviewed      ExtractedFactCandidate[]             @relation("ExtractedFactReviewer")
   practicumHomeworkSubmissions CasePracticumHomeworkRevision[]  @relation("PracticumHomeworkSubmitters")
   practicumHomeworkReviews     CasePracticumHomeworkRevision[]  @relation("PracticumHomeworkReviewers")
   practicumLessonMessages      CasePracticumLessonMessage[]     @relation("PracticumLessonMessageAuthors")
@@ -549,6 +556,7 @@ model StoredFile {
   clientCase ClientCase @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   uploadedBy User?       @relation("StoredFileUploaders", fields: [uploadedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
   documentProcessingJob DocumentProcessingJob?
+  extractedFactCandidates ExtractedFactCandidate[]
 
   @@index([clientCaseId, status, createdAt])
   @@index([status, scanNextAttemptAt])
@@ -581,6 +589,29 @@ model DocumentProcessingJob {
   @@index([status, leaseUntil])
   @@index([clientCaseId, createdAt])
   @@unique([sourceFileId, clientCaseId])
+}
+
+model ExtractedFactCandidate {
+  id             String                    @id @default(uuid()) @db.Uuid
+  clientCaseId   String                    @db.Uuid
+  sourceFileId   String                    @db.Uuid
+  fieldPath      String                    @db.VarChar(200)
+  recordKey      String                    @default("default") @db.VarChar(80)
+  sourcePage     Int
+  value          Json
+  confidence     Float
+  reviewStatus   ExtractedFactReviewStatus @default(NEEDS_REVIEW)
+  reviewedAt     DateTime?
+  reviewedById   String?                   @db.Uuid
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  sourceFile StoredFile @relation(fields: [sourceFileId, clientCaseId], references: [id, clientCaseId], onDelete: Cascade, onUpdate: Cascade)
+  reviewedBy User?      @relation("ExtractedFactReviewer", fields: [reviewedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@unique([sourceFileId, clientCaseId, recordKey, fieldPath, sourcePage])
+  @@index([clientCaseId, reviewStatus, createdAt])
+  @@index([reviewedById, reviewedAt])
 }
 
 model StoredFileDeletion {

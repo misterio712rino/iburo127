@@ -2,6 +2,7 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { getPrismaClient } from "@/server/database/prisma";
+import { parseExtractedFactCandidate } from "@/server/domain/documents/extracted-fact-contract";
 import type {
   ClaimedDocumentProcessingJob,
   DocumentProcessingJobRepository,
@@ -20,6 +21,21 @@ function isPageTexts(value: readonly string[], pageCount: number) {
 }
 
 export class PrismaDocumentProcessingJobRepository implements DocumentProcessingJobRepository {
+  async listSummariesBySourceFileIds(sourceFileIds: readonly string[]) {
+    if (sourceFileIds.length === 0) return [];
+    const prisma = getPrismaClient();
+    return prisma.documentProcessingJob.findMany({
+      where: { sourceFileId: { in: [...sourceFileIds] } },
+      orderBy: { createdAt: "desc" },
+      select: {
+        sourceFileId: true,
+        status: true,
+        pageCount: true,
+        updatedAt: true,
+      },
+    });
+  }
+
   async claimDue(input: { now: Date; leaseUntil: Date }) {
     const prisma = getPrismaClient();
     const eligible = {
@@ -99,27 +115,61 @@ export class PrismaDocumentProcessingJobRepository implements DocumentProcessing
     if (!isPageTexts(input.pageTexts, input.pageCount)) {
       throw new Error("DOCUMENT_PROCESSING_FAILED:INVALID_OCR_OUTPUT");
     }
+    try {
+      for (const candidate of input.factCandidates) {
+        parseExtractedFactCandidate(candidate);
+        if (candidate.sourcePage > input.pageCount) return false;
+      }
+    } catch {
+      return false;
+    }
     const prisma = getPrismaClient();
-    const updated = await prisma.documentProcessingJob.updateMany({
-      where: {
-        id: input.jobId,
-        status: "PROCESSING",
-        leaseToken: input.leaseToken,
-        sourceFile: { is: { status: "READY" } },
-      },
-      data: {
-        status: "COMPLETED",
-        pageTexts: [...input.pageTexts],
-        pageCount: input.pageCount,
-        completedAt: input.completedAt,
-        failedAt: null,
-        cancelledAt: null,
-        lastErrorCode: null,
-        leaseUntil: null,
-        leaseToken: null,
-      },
+    return prisma.$transaction(async (tx) => {
+      const job = await tx.documentProcessingJob.findFirst({
+        where: { id: input.jobId, status: "PROCESSING", leaseToken: input.leaseToken },
+        select: { clientCaseId: true, sourceFileId: true },
+      });
+      if (!job || input.factCandidates.some((candidate) =>
+        candidate.caseId !== job.clientCaseId || candidate.sourceFileId !== job.sourceFileId
+      )) return false;
+
+      const updated = await tx.documentProcessingJob.updateMany({
+        where: {
+          id: input.jobId,
+          status: "PROCESSING",
+          leaseToken: input.leaseToken,
+          sourceFile: { is: { status: "READY" } },
+        },
+        data: {
+          status: "COMPLETED",
+          pageTexts: [...input.pageTexts],
+          pageCount: input.pageCount,
+          completedAt: input.completedAt,
+          failedAt: null,
+          cancelledAt: null,
+          lastErrorCode: null,
+          leaseUntil: null,
+          leaseToken: null,
+        },
+      });
+      if (updated.count !== 1) return false;
+      if (input.factCandidates.length > 0) {
+        await tx.extractedFactCandidate.createMany({
+          data: input.factCandidates.map((candidate) => ({
+            clientCaseId: job.clientCaseId,
+            sourceFileId: job.sourceFileId,
+            fieldPath: candidate.fieldPath,
+            recordKey: candidate.recordKey,
+            sourcePage: candidate.sourcePage,
+            value: candidate.value,
+            confidence: candidate.confidence,
+            reviewStatus: "NEEDS_REVIEW" as const,
+          })),
+          skipDuplicates: true,
+        });
+      }
+      return true;
     });
-    return updated.count === 1;
   }
 
   async reschedule(input: Parameters<DocumentProcessingJobRepository["reschedule"]>[0]) {

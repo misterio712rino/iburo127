@@ -6,6 +6,7 @@ import {
   createStoredFileDownloadUrl,
   deleteStoredFile,
   getStoredFile,
+  listDocumentProcessingStatuses,
   listStoredFiles,
   prepareStoredFileUpload,
 } from "@/server/files/operations";
@@ -25,6 +26,18 @@ export function handleListStoredFiles(sessionProvider: SessionProvider, clientCa
     const files = await listStoredFiles(sessionProvider, parseStoredFileClientCaseId(clientCaseId));
     return files.map(toStoredFileTransportRecord);
   });
+}
+
+export function handleListDocumentProcessingStatuses(
+  sessionProvider: SessionProvider,
+  clientCaseId: unknown,
+) {
+  return executeStoredFileOperation(() =>
+    listDocumentProcessingStatuses(
+      sessionProvider,
+      parseStoredFileClientCaseId(clientCaseId),
+    ),
+  );
 }
 
 export function handleGetStoredFile(sessionProvider: SessionProvider, fileId: unknown) {
