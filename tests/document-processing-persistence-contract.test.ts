@@ -67,7 +67,7 @@ assert.match(repository, /status: "FAILED"/);
 assert.match(repository, /status: "CANCELLED"/);
 assert.match(documentJobRepository, /throw new Error\("DOCUMENT_PROCESSING_FAILED:INVALID_OCR_OUTPUT"\)/);
 assert.match(fileRepository, /documentProcessingJob\.findUnique/);
-assert.match(fileRepository, /processingJob: processingJob/);
+assert.ok(fileRepository.includes("processingJob: processingJob ?"));
 assert.match(fileRepository, /documentProcessingJob\.create/);
 assert.match(fileOperations, /const deletionSnapshot = await storedFileService\.takeOwnedForDeletion/);
 assert.match(fileOperations, /storedFileService\.restoreDeleted\(deletionSnapshot\)/);
