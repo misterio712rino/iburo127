@@ -66,14 +66,6 @@ function specialistInitials(name: string) {
   );
 }
 
-function nextActionLabel(segment: string) {
-  if (segment === "practicum") return "Продолжить практикум";
-  if (segment === "questionnaire") return "Продолжить анкету";
-  if (segment === "documents") return "Открыть документы";
-  if (segment === "progress") return "Открыть прогресс";
-  return "Перейти";
-}
-
 function QuickAction({
   href,
   label,
@@ -175,20 +167,6 @@ export function IBuroClientDashboardV2(props: DashboardProps) {
           />
         ) : null}
 
-        <section className={`${styles.card} flex flex-col gap-5 border-[#7B2330]/15 bg-[#7B2330]/[0.035] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7`} aria-labelledby="upload-documents-title">
-          <div className="flex min-w-0 items-start gap-4">
-            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[#7B2330]/10 text-[#7B2330]"><UploadCloud className="size-6" aria-hidden="true" /></span>
-            <div className="min-w-0">
-              <h2 id="upload-documents-title" className="text-xl font-bold text-slate-900">Начните с загрузки документов</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Добавьте доступные документы по делу. Файлы проходят проверку безопасности и появятся в списке после её завершения.</p>
-              {props.readyFileCount > 0 ? <p className="mt-2 text-xs font-semibold text-slate-500">Уже доступно файлов: {props.readyFileCount}</p> : null}
-            </div>
-          </div>
-          <Link className={styles.nextCta} style={{ color: "var(--ib2-red)" }} href={`${base}/files`}>
-            Загрузить документы <ArrowRight aria-hidden="true" />
-          </Link>
-        </section>
-
         <section className={styles.primaryGrid} aria-label="Главное по делу">
           <article
             className={styles.nextCard}
@@ -197,11 +175,12 @@ export function IBuroClientDashboardV2(props: DashboardProps) {
                 "radial-gradient(circle at 92% 12%, rgba(255,255,255,.18), transparent 28%), linear-gradient(145deg, var(--ib2-theme-hero-start) 0%, var(--ib2-theme-hero-mid) 57%, var(--ib2-theme-hero-end) 100%)",
             }}
           >
-            <p className={styles.nextLabel}>Следующий шаг</p>
-            <h2>{props.nextAction.title}</h2>
-            <p className={styles.nextDescription}>{props.nextAction.description}</p>
-            <Link className={styles.nextCta} style={{ color: "var(--ib2-red)" }} href={`${base}/${props.nextAction.segment}`}>
-              {nextActionLabel(props.nextAction.segment)} <ArrowRight aria-hidden="true" />
+            <p className={styles.nextLabel}>Начните с документов</p>
+            <h2>Загрузите документы по делу</h2>
+            <p className={styles.nextDescription}>Добавьте доступные документы. После проверки безопасности файлы появятся в разделе дела.</p>
+            {props.readyFileCount > 0 ? <p className="mt-3 text-sm font-semibold text-white/85">Уже доступно файлов: {props.readyFileCount}</p> : null}
+            <Link className={styles.nextCta} style={{ color: "var(--ib2-red)" }} href={`${base}/files`}>
+              Загрузить документы <ArrowRight aria-hidden="true" />
             </Link>
           </article>
 
