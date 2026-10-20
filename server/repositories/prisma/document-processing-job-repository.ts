@@ -81,6 +81,20 @@ export class PrismaDocumentProcessingJobRepository implements DocumentProcessing
     return null;
   }
 
+  async extendLease(input: Parameters<DocumentProcessingJobRepository["extendLease"]>[0]) {
+    const prisma = getPrismaClient();
+    const updated = await prisma.documentProcessingJob.updateMany({
+      where: {
+        id: input.jobId,
+        status: "PROCESSING",
+        leaseToken: input.leaseToken,
+        leaseUntil: { gt: input.now },
+      },
+      data: { leaseUntil: input.leaseUntil },
+    });
+    return updated.count === 1;
+  }
+
   async complete(input: Parameters<DocumentProcessingJobRepository["complete"]>[0]) {
     if (!isPageTexts(input.pageTexts, input.pageCount)) {
       throw new Error("DOCUMENT_PROCESSING_FAILED:INVALID_OCR_OUTPUT");

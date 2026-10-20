@@ -7,6 +7,13 @@ on:
       - ".dockerignore"
       - "next.config.ts"
       - "app/api/healthz/**"
+      - "server/domain/documents/**"
+      - "server/files/document-processor-client.ts"
+      - "server/files/document-processing-worker-runtime.ts"
+      - "server/config/document-processing-runtime.ts"
+      - "server/repositories/prisma/document-processing-job-repository.ts"
+      - "scripts/document-processing-worker.ts"
+      - "services/document-processor/deploy/docker-compose.timeweb.yml"
       - "scripts/run-maintenance-job.mjs"
       - ".github/workflows/timeweb-container.yml"
   workflow_dispatch:
@@ -42,6 +49,9 @@ jobs:
 
       - name: Build maintenance runner image
         run: docker build --target maintenance-runner --tag iburo127-maintenance:ci .
+
+      - name: Build document processing worker image
+        run: docker build --target document-processing-worker --tag iburo127-document-worker:ci .
 
       - name: Run liveness smoke test
         shell: bash

@@ -29,6 +29,8 @@ export type ClaimedDocumentProcessingJob = {
 export interface DocumentProcessingJobRepository {
   /** Claim atomically and only for a job whose source belongs to its case. */
   claimDue(input: { now: Date; leaseUntil: Date }): Promise<ClaimedDocumentProcessingJob | null>;
+  /** Extend the active claim while a long OCR task is running. */
+  extendLease(input: { jobId: string; leaseToken: string; now: Date; leaseUntil: Date }): Promise<boolean>;
   /** Persist page text under the job's case and source-file scope. */
   complete(input: {
     jobId: string;
@@ -88,6 +90,11 @@ export function assertDocumentProcessingWorkerConfig(config: DocumentProcessingW
   requireIntegerInRange(config.maxUploadBytes, 1, DOCUMENT_PROCESSOR_MAX_UPLOAD_BYTES, "maxUploadBytes");
 }
 
+export function documentProcessingLeaseHeartbeatIntervalMs(leaseSeconds: number) {
+  requireIntegerInRange(leaseSeconds, 30, 900, "leaseSeconds");
+  return Math.max(10_000, Math.floor((leaseSeconds * 1000) / 3));
+}
+
 export function documentProcessingRetryDelaySeconds(attemptCount: number, baseSeconds: number, maxSeconds: number) {
   requireIntegerInRange(attemptCount, 1, 1000, "attemptCount");
   requireIntegerInRange(baseSeconds, 1, 86400, "baseSeconds");
@@ -117,6 +124,7 @@ export class DocumentProcessingWorker {
     private readonly storage: PrivateObjectStorage,
     private readonly processor: Pick<DocumentProcessorClient, "extract">,
     private readonly config: DocumentProcessingWorkerConfig,
+    private readonly clock: () => Date = () => new Date(),
   ) {
     assertDocumentProcessingWorkerConfig(config);
   }
@@ -125,7 +133,7 @@ export class DocumentProcessingWorker {
     const file = job.sourceFile;
     if (!file || file.clientCaseId !== job.clientCaseId || file.status !== "READY") {
       const cancelled = await this.repository.cancel({
-        jobId: job.id, leaseToken: job.leaseToken, cancelledAt: now,
+        jobId: job.id, leaseToken: job.leaseToken, cancelledAt: this.clock(),
         reasonCode: DOCUMENT_PROCESSING_SOURCE_NOT_READY,
       });
       if (cancelled) result.cancelled += 1;
@@ -134,7 +142,7 @@ export class DocumentProcessingWorker {
     }
     if (file.storageProvider !== this.storage.providerCode) {
       const failed = await this.repository.fail({
-        jobId: job.id, leaseToken: job.leaseToken, failedAt: now,
+        jobId: job.id, leaseToken: job.leaseToken, failedAt: this.clock(),
         errorCode: DOCUMENT_PROCESSING_STORAGE_PROVIDER_MISMATCH,
       });
       if (failed) result.failed += 1;
@@ -158,7 +166,7 @@ export class DocumentProcessingWorker {
       }
       const extracted: ExtractedDocumentText = await this.processor.extract({ bytes, mimeType: file.mimeType });
       const completed = await this.repository.complete({
-        jobId: job.id, leaseToken: job.leaseToken, completedAt: now,
+        jobId: job.id, leaseToken: job.leaseToken, completedAt: this.clock(),
         pageTexts: extracted.pageTexts, pageCount: extracted.pages,
       });
       if (completed) result.completed += 1;
@@ -178,7 +186,7 @@ export class DocumentProcessingWorker {
       );
       const retried = await this.repository.reschedule({
         jobId: job.id, leaseToken: job.leaseToken,
-        nextAttemptAt: new Date(now.getTime() + delaySeconds * 1000), errorCode,
+        nextAttemptAt: new Date(this.clock().getTime() + delaySeconds * 1000), errorCode,
       });
       if (retried) result.retried += 1;
       else result.leaseLost += 1;
@@ -199,7 +207,30 @@ export class DocumentProcessingWorker {
       });
       if (!job) break;
       result.claimed += 1;
-      await this.processClaim(job, input.now, result);
+      let heartbeatRunning = false;
+      const heartbeat = setInterval(async () => {
+        if (heartbeatRunning) return;
+        heartbeatRunning = true;
+        try {
+          const heartbeatNow = new Date();
+          await this.repository.extendLease({
+            jobId: job.id,
+            leaseToken: job.leaseToken,
+            now: heartbeatNow,
+            leaseUntil: new Date(heartbeatNow.getTime() + this.config.leaseSeconds * 1000),
+          });
+        } catch {
+          // A failed heartbeat never grants ownership; the lease token still gates all writes.
+        } finally {
+          heartbeatRunning = false;
+        }
+      }, documentProcessingLeaseHeartbeatIntervalMs(this.config.leaseSeconds));
+      heartbeat.unref?.();
+      try {
+        await this.processClaim(job, input.now, result);
+      } finally {
+        clearInterval(heartbeat);
+      }
     }
     return result;
   }

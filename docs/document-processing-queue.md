@@ -1,48 +1,26 @@
 # Document processing queue
 
-The document OCR worker runs only after the malware scanner marks a stored file `READY`.
-The READY transition and creation of the `DocumentProcessingJob` row share one database
-transaction, so callers cannot observe a clean file without its OCR job.
+OCR jobs are created in the same database transaction that marks a scanned file `READY`. The worker reads only `READY` files, checks case/file ownership, and persists page text under the job's case scope.
 
-## Processing lifecycle
+## Runtime
 
-Jobs move through `PENDING`, `PROCESSING`, and one terminal state: `COMPLETED`,
-`FAILED`, or `CANCELLED`. Claims use a random lease token and a bounded lease. A
-worker may reclaim an expired lease; all result and state writes require the active
-token. Transient OCR errors use bounded exponential backoff.
+Run OCR in the dedicated Timeweb worker container, not through the web maintenance endpoint. The queue is durable in PostgreSQL; the worker polls one job at a time. During processing it renews the database lease every third of the configured lease period. If the worker stops, the lease expires and another worker can reclaim the job. All result writes remain fenced by the active lease token.
 
-A completed job stores OCR text as an ordered JSON array in `pageTexts`, preserving
-page boundaries. The result is internal source material: it is not a court document,
-is not sent to a client, and does not establish that any fact is absent. Any future
-fact extraction must create candidates marked for human review. The maintenance
-route returns aggregate counters only and never returns page text or file identifiers.
+The processor accepts PDFs up to 40 pages. A scanned page can run three subprocesses, each bounded at 30 seconds (PDF text extraction, rasterization, and Tesseract), so one request can exceed web request limits. The processor client deadline is 65 minutes: 40 pages × 3 subprocesses × 30 seconds = 60 minutes, plus 5 minutes of response/overhead margin. The worker runs outside the HTTP request lifecycle.
 
-Deleting the source file cascades to its processing job and stored OCR text. The
-legacy delete flow snapshots the matching processing job before that cascade and restores
-both rows if object-storage deletion fails. The composite foreign key also guarantees
-that the job's case ID matches its source file.
+The worker and processor have no published ports in the staging Compose file. The processor is reachable only on the Compose network. The worker requires the application database URL, the selected private storage credentials, and the processor bearer token. Store them in host-side files outside the repository:
 
-## Enabling the worker
+- `/etc/iburo/document-processor.env`: `IB_DOCUMENT_PROCESSOR_TOKEN`.
+- `/etc/iburo/document-processing-worker.env`: staging runtime identity and database guard variables from `.env.example` (`IB_DB_TARGET=staging`, database host/name/user and schema), staging database URL, `IB_OBJECT_STORAGE_PROVIDER=timeweb-object-storage`, Timeweb object-storage credentials, processor URL `http://document-processor:8080/`, and the same processor token. The worker validates the URL host, database name, and user against the staging guard variables before connecting.
 
-Before enabling the GitHub Actions scheduler:
+The worker logs aggregate counters only. It does not log OCR text, filenames, object keys, or case/file IDs.
 
-1. Apply all pending Prisma migrations to the intended environment. The staging
-   baseline last inspected had 4 of the existing 10 migrations applied, so the
-   earlier six migrations must be applied before this new migration.
-2. Configure `IB_DOCUMENT_PROCESSOR_URL` and `IB_DOCUMENT_PROCESSOR_TOKEN` in the
-   application runtime. For a public Timeweb endpoint, also set
-   `IB_DOCUMENT_PROCESSOR_ALLOWED_PUBLIC_HOST` to the exact DNS hostname, without a
-   scheme or path (for example, `ocr.example.ru`). The URL must use HTTPS and its
-   hostname must exactly match this pin. Private/local/internal URLs remain supported
-   without the public-host setting. This hostname pin does not pin DNS answers; rely on
-   operator-controlled DNS and valid TLS for that hostname. The service must accept
-   the authenticated `POST /v1/extract` contract.
-3. Verify the document processor's authenticated health and a synthetic PDF against
-   staging, without processing client documents.
-4. Enable the repository variable `IB_DOCUMENT_PROCESSING_SCHEDULER_ENABLED=true`
-   only after the staging verification is complete. The scheduler remains disabled
-   unless this explicit variable is set and runs only from the default branch.
+## Staging enablement
 
-The checked-in scheduler is inert by default. No database migration or OCR processing
-is performed by CI. Do not enable the production scheduler until staging verification
-and the production migration plan have been reviewed.
+1. Apply the reviewed Prisma migrations to the intended staging database using the existing guarded migration workflow. Do not run migrations from either container.
+2. Build and publish immutable web-worker and processor images, then set the image references in the host-side Compose environment.
+3. Start the two staging services with `services/document-processor/deploy/docker-compose.timeweb.yml`. Confirm both containers are healthy and inspect only aggregate worker logs.
+4. Send a synthetic PDF through the staging upload and scan flow. Confirm the OCR job reaches `COMPLETED` and page boundaries are preserved. Do not use a client document for this check.
+5. Keep `IB_DOCUMENT_PROCESSING_SCHEDULER_ENABLED` unset/false. The web maintenance route is not the long-running OCR executor.
+
+The scheduler workflow remains inert by default. The existing job queue does not return OCR text through maintenance responses. OCR text is internal source material; future fact extraction must create candidates for human review, and generated legal documents require lawyer review before delivery.

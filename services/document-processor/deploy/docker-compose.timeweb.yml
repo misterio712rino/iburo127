@@ -1,0 +1,40 @@
+services:
+  document-processor:
+    image: "${DOCUMENT_PROCESSOR_IMAGE:?set an immutable image reference}"
+    container_name: iburo-document-processor
+    restart: unless-stopped
+    env_file:
+      - /etc/iburo/document-processor.env
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=512m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 128
+    cpus: 2.0
+    mem_limit: 6g
+    expose:
+      - "8080"
+
+  document-processing-worker:
+    image: "${IBURO_WORKER_IMAGE:?set an immutable image reference}"
+    container_name: iburo-document-processing-worker
+    restart: unless-stopped
+    env_file:
+      - /etc/iburo/document-processing-worker.env
+    depends_on:
+      document-processor:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 128
+    cpus: 2.0
+    mem_limit: 2g
+    stop_grace_period: 2m
