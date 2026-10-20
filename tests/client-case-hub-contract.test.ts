@@ -34,7 +34,7 @@ assert.match(hubSource, /buildCaseActivityView\(activityRecords, "CLIENT"\)/);
 assert.match(hubSource, /listNotifications\(sessionProvider, 100\)/);
 assert.match(hubSource, /getClientCaseDisplayNumber\(clientCase\.caseNumber\)/);
 
-assert.match(clientDashboardV2Source, /Следующий шаг/);
+assert.match(clientDashboardV2Source, /Начните с документов/);
 assert.match(clientDashboardV2Source, /Моё дело/);
 assert.match(clientDashboardV2Source, /Последние события/);
 assert.match(clientDashboardV2Source, /История сопровождения/);

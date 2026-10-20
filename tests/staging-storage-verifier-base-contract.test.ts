@@ -46,6 +46,9 @@ function fakeStorage(providerCode: string): PrivateObjectStorage {
     async statObject() {
       return null;
     },
+    async readObject() {
+      throw new Error("TEST_ONLY_NOT_IMPLEMENTED");
+    },
     async deleteObject() {},
   };
 }

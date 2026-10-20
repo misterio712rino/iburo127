@@ -9,6 +9,10 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { readYandexObjectStorageConfig } from "@/server/config/production";
+import {
+  assertSafeObjectReadLimit,
+  collectBoundedPrivateObjectBytes,
+} from "@/server/files/object-storage-contract";
 import { isAwsS3NotFoundError } from "@/server/files/aws-s3-object-storage-errors";
 import type { YandexObjectStorageSigner } from "@/server/files/yandex-object-storage";
 
@@ -49,6 +53,16 @@ export class AwsSdkYandexObjectStorageSigner implements YandexObjectStorageSigne
       if (isAwsS3NotFoundError(error)) return null;
       throw error;
     }
+  }
+
+  async readObject(input: { bucket: string; objectKey: string; maxBytes: number }) {
+    assertSafeObjectReadLimit(input.maxBytes);
+    const result = await this.client.send(new GetObjectCommand({ Bucket: input.bucket, Key: input.objectKey }));
+    return collectBoundedPrivateObjectBytes({
+      body: result.Body as AsyncIterable<Uint8Array> | null | undefined,
+      expectedBytes: result.ContentLength,
+      maxBytes: input.maxBytes,
+    });
   }
 
   async deleteObject(input: { bucket: string; objectKey: string }) {

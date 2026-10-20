@@ -58,6 +58,24 @@ const BETTER_AUTH_TABLES = [
   "rateLimit",
 ] as const;
 const EXACT_GIT_SHA_PATTERN = /^[a-f0-9]{40}$/i;
+const MAX_SCHEMA_CATALOG_BYTES = 128 * 1024;
+const MAX_SCHEMA_CATALOG_ROWS = 2_000;
+
+type SchemaCatalog = {
+  tables: string[];
+  columns: Array<{
+    table: string;
+    name: string;
+    type: string;
+    nullable: boolean;
+    maxLength: number | null;
+    numericPrecision: number | null;
+    numericScale: number | null;
+  }>;
+  constraints: Array<{ table: string; name: string; type: string; definition: string }>;
+  indexes: Array<{ table: string; name: string; definition: string }>;
+  enums: Array<{ name: string; values: string[] }>;
+};
 
 type MigrationRow = {
   migration_name: string;
@@ -135,9 +153,12 @@ function reviewedMigrationState(appliedMigrations: readonly MigrationRow[]) {
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const env = process.env;
   if (!isExactStagingPreview(env)) return unavailable();
+  const query = new URL(request.url).searchParams;
+  const includeSchemaCatalog = query.get("schema") === "1";
+  if (query.has("schema") && !includeSchemaCatalog) return unavailable(400);
 
   let target: ReturnType<typeof requireStagingDatabaseTarget>;
   try {
@@ -363,6 +384,103 @@ export async function GET() {
             ? "complete"
             : "partial";
 
+      let schemaCatalog: SchemaCatalog | undefined;
+      if (includeSchemaCatalog) {
+        failureStage = "catalog";
+        const [columnResult, constraintResult, indexResult, enumValueResult] = await Promise.all([
+          client.query<{
+            table_name: string;
+            column_name: string;
+            udt_name: string;
+            is_nullable: string;
+            character_maximum_length: number | null;
+            numeric_precision: number | null;
+            numeric_scale: number | null;
+          }>(`
+            select table_name, column_name, udt_name, is_nullable,
+              character_maximum_length, numeric_precision, numeric_scale
+            from information_schema.columns
+            where table_schema = 'public'
+            order by table_name, ordinal_position
+            limit ${MAX_SCHEMA_CATALOG_ROWS + 1}
+          `),
+          client.query<{
+            table_name: string;
+            constraint_name: string;
+            constraint_type: string;
+            definition: string;
+          }>(`
+            select c.relname as table_name, con.conname as constraint_name,
+              con.contype::text as constraint_type, pg_get_constraintdef(con.oid, true) as definition
+            from pg_constraint con
+            join pg_class c on c.oid = con.conrelid
+            join pg_namespace n on n.oid = c.relnamespace
+            where n.nspname = 'public' and c.relkind in ('r', 'p')
+            order by c.relname, con.conname
+            limit ${MAX_SCHEMA_CATALOG_ROWS + 1}
+          `),
+          client.query<{ table_name: string; index_name: string; definition: string }>(`
+            select tablename as table_name, indexname as index_name, indexdef as definition
+            from pg_indexes
+            where schemaname = 'public'
+            order by tablename, indexname
+            limit ${MAX_SCHEMA_CATALOG_ROWS + 1}
+          `),
+          client.query<{ enum_name: string; enum_value: string }>(`
+            select t.typname as enum_name, e.enumlabel as enum_value
+            from pg_type t
+            join pg_namespace n on n.oid = t.typnamespace
+            join pg_enum e on e.enumtypid = t.oid
+            where n.nspname = 'public'
+            order by t.typname, e.enumsortorder
+            limit ${MAX_SCHEMA_CATALOG_ROWS + 1}
+          `),
+        ]);
+        const catalogRows = [
+          columnResult.rows.length,
+          constraintResult.rows.length,
+          indexResult.rows.length,
+          enumValueResult.rows.length,
+        ];
+        if (tableNames.length > 200 || catalogRows.some((count) => count > MAX_SCHEMA_CATALOG_ROWS)) {
+          throw new Error("staging schema catalog exceeds the bounded response limits");
+        }
+
+        const enumValues = new Map<string, string[]>();
+        for (const row of enumValueResult.rows) {
+          const values = enumValues.get(row.enum_name) ?? [];
+          values.push(row.enum_value);
+          enumValues.set(row.enum_name, values);
+        }
+        schemaCatalog = {
+          tables: tableNames,
+          columns: columnResult.rows.map((row) => ({
+            table: row.table_name,
+            name: row.column_name,
+            type: row.udt_name,
+            nullable: row.is_nullable === "YES",
+            maxLength: row.character_maximum_length,
+            numericPrecision: row.numeric_precision,
+            numericScale: row.numeric_scale,
+          })),
+          constraints: constraintResult.rows.map((row) => ({
+            table: row.table_name,
+            name: row.constraint_name,
+            type: row.constraint_type,
+            definition: row.definition,
+          })),
+          indexes: indexResult.rows.map((row) => ({
+            table: row.table_name,
+            name: row.index_name,
+            definition: row.definition,
+          })),
+          enums: [...enumValues.entries()].map(([name, values]) => ({ name, values })),
+        };
+        if (Buffer.byteLength(JSON.stringify(schemaCatalog), "utf8") > MAX_SCHEMA_CATALOG_BYTES) {
+          throw new Error("staging schema catalog exceeds the bounded response size");
+        }
+      }
+
       failureStage = "rollback";
       await client.query("ROLLBACK");
       transactionOpen = false;
@@ -437,6 +555,7 @@ export async function GET() {
             expected: BETTER_AUTH_TABLES.length,
             state: betterAuthState,
           },
+          ...(schemaCatalog ? { schemaCatalog } : {}),
           pass: true,
         },
         { headers: NO_STORE_HEADERS },

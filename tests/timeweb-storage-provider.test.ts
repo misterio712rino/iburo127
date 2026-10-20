@@ -59,6 +59,10 @@ const adapter = new TimewebPrivateObjectStorage("private-iburo-staging-files", {
     calls.push(`head:${input.bucket}:${input.objectKey}`);
     return { sizeBytes: BigInt(12), mimeType: "application/pdf" };
   },
+  async readObject(input) {
+    calls.push(`read:${input.bucket}:${input.objectKey}:${input.maxBytes}`);
+    return new Uint8Array([37, 80, 68, 70]);
+  },
   async deleteObject(input) {
     calls.push(`delete:${input.bucket}:${input.objectKey}`);
   },
@@ -77,7 +81,11 @@ assert.deepEqual(await adapter.statObject("security-fixtures/clean.txt"), {
   sizeBytes: BigInt(12),
   mimeType: "application/pdf",
 });
+assert.deepEqual(await adapter.readObject("security-fixtures/clean.txt", 1024), new Uint8Array([37, 80, 68, 70]));
+await assert.rejects(adapter.readObject("security-fixtures/clean.txt", 50 * 1024 * 1024 + 1), /OBJECT_STORAGE_READ_INVALID_LIMIT/);
+await assert.rejects(adapter.readObject("../private.txt", 1024), /OBJECT_STORAGE_INVALID_KEY/);
 await adapter.deleteObject("security-fixtures/clean.txt");
-assert.equal(calls.length, 3);
+assert.equal(calls.length, 4);
+assert.equal(calls[2], "read:private-iburo-staging-files:security-fixtures/clean.txt:1024");
 
 console.log("Timeweb object storage tests: PASS");

@@ -150,6 +150,10 @@ class FakeStorage implements PrivateObjectStorage {
     return null;
   }
 
+  async readObject(): Promise<Uint8Array> {
+    throw new Error("TEST_ONLY_NOT_IMPLEMENTED");
+  }
+
   async deleteObject() {
     this.deleteCalls += 1;
     if (this.failDelete) throw new Error("simulated storage failure");

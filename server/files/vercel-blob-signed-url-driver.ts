@@ -1,6 +1,12 @@
 import "server-only";
 
-import type { StoredObjectMetadata } from "@/server/files/object-storage-contract";
+import {
+  assertSafeObjectReadLimit,
+  collectBoundedPrivateObjectBytes,
+  OBJECT_STORAGE_READ_TOO_LARGE,
+  OBJECT_STORAGE_READ_UNAVAILABLE,
+  type StoredObjectMetadata,
+} from "@/server/files/object-storage-contract";
 import type { VercelBlobSdkCredentialOptions } from "@/server/files/vercel-blob-driver-auth";
 import { isVercelBlobDeleteSuccessStatus } from "@/server/files/vercel-blob-delete-semantics";
 import type { VercelBlobStorageDriver } from "@/server/files/vercel-blob-object-storage";
@@ -154,6 +160,45 @@ export function createVercelBlobSignedUrlDriver(
       if (response.status === 404) return null;
       await requireSuccessfulResponse(response, "head");
       return parseStoredObjectMetadata(response);
+    },
+
+    async readPrivateBlob(pathname, maxBytes) {
+      assertSafeObjectReadLimit(maxBytes);
+      const url = await signOperation(dependencies, credentials, {
+        operation: "get",
+        pathname,
+        expiresInSeconds: INTERNAL_OPERATION_TTL_SECONDS,
+        useCache: false,
+      });
+      const parsedUrl = new URL(url);
+      if (
+        parsedUrl.protocol !== "https:" ||
+        !parsedUrl.hostname.endsWith(".private.blob.vercel-storage.com")
+      ) {
+        throw new Error(VERCEL_BLOB_DRIVER_ERROR + ":unsafe-private-read-url");
+      }
+      const response = await dependencies.request(url, {
+        method: "GET",
+        redirect: "error",
+        cache: "no-store",
+      });
+      if (response.status !== 200) {
+        throw new Error(VERCEL_BLOB_DRIVER_ERROR + ":get:" + response.status);
+      }
+      const contentLength = response.headers.get("content-length")?.trim();
+      if (!contentLength || !/^\d+$/.test(contentLength)) {
+        throw new Error(OBJECT_STORAGE_READ_UNAVAILABLE);
+      }
+      const expectedBytes = Number(contentLength);
+      if (!Number.isSafeInteger(expectedBytes) || expectedBytes < 1) {
+        throw new Error(OBJECT_STORAGE_READ_UNAVAILABLE);
+      }
+      if (expectedBytes > maxBytes) throw new Error(OBJECT_STORAGE_READ_TOO_LARGE);
+      return collectBoundedPrivateObjectBytes({
+        body: response.body as unknown as AsyncIterable<Uint8Array> | null,
+        expectedBytes,
+        maxBytes,
+      });
     },
 
     async deletePrivateBlob(pathname) {

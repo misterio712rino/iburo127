@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  assertSafeObjectReadLimit,
   assertSafeSignedUrlTtl,
   toSafeUploadSizeNumber,
   type CreateDownloadUrlInput,
@@ -26,6 +27,7 @@ export type VercelBlobStorageDriver = {
     expiresInSeconds: number;
   }): Promise<string>;
   statPrivateBlob(pathname: string): Promise<StoredObjectMetadata | null>;
+  readPrivateBlob(pathname: string, maxBytes: number): Promise<Uint8Array>;
   deletePrivateBlob(pathname: string): Promise<void>;
 };
 
@@ -77,6 +79,12 @@ export class VercelBlobPrivateObjectStorage implements PrivateObjectStorage {
   async statObject(objectKey: string) {
     assertSafeObjectKey(objectKey);
     return this.driver.statPrivateBlob(objectKey);
+  }
+
+  async readObject(objectKey: string, maxBytes: number) {
+    assertSafeObjectKey(objectKey);
+    assertSafeObjectReadLimit(maxBytes);
+    return this.driver.readPrivateBlob(objectKey, maxBytes);
   }
 
   async deleteObject(objectKey: string) {

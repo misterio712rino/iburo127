@@ -5,10 +5,10 @@ import {
   Bot,
   ChartNoAxesColumnIncreasing,
   ClipboardList,
-  FileCheck2,
   FileText,
   Home,
   Sparkles,
+  UploadCloud,
 } from "lucide-react";
 
 import { formatProfileDisplayName } from "@/lib/platform/profile-display-name";
@@ -45,7 +45,6 @@ type DashboardProps = {
   questionnaire: { completed: number; total: number; percent: number };
   documents: { total: number; reviewed: number; sentForReview: number };
   readyFileCount: number;
-  nextAction: { title: string; description: string; segment: string };
   activity: readonly ActivityItem[];
   checkoutAvailable: boolean;
   checkoutStatus: "success" | "cancelled" | null;
@@ -64,14 +63,6 @@ function specialistInitials(name: string) {
       .map((part) => part[0]?.toUpperCase() ?? "")
       .join("") || "iБ"
   );
-}
-
-function nextActionLabel(segment: string) {
-  if (segment === "practicum") return "Продолжить практикум";
-  if (segment === "questionnaire") return "Продолжить анкету";
-  if (segment === "documents") return "Открыть документы";
-  if (segment === "progress") return "Открыть прогресс";
-  return "Перейти";
 }
 
 function QuickAction({
@@ -183,11 +174,12 @@ export function IBuroClientDashboardV2(props: DashboardProps) {
                 "radial-gradient(circle at 92% 12%, rgba(255,255,255,.18), transparent 28%), linear-gradient(145deg, var(--ib2-theme-hero-start) 0%, var(--ib2-theme-hero-mid) 57%, var(--ib2-theme-hero-end) 100%)",
             }}
           >
-            <p className={styles.nextLabel}>Следующий шаг</p>
-            <h2>{props.nextAction.title}</h2>
-            <p className={styles.nextDescription}>{props.nextAction.description}</p>
-            <Link className={styles.nextCta} style={{ color: "var(--ib2-red)" }} href={`${base}/${props.nextAction.segment}`}>
-              {nextActionLabel(props.nextAction.segment)} <ArrowRight aria-hidden="true" />
+            <p className={styles.nextLabel}>Начните с документов</p>
+            <h2>Загрузите документы по делу</h2>
+            <p className={styles.nextDescription}>Добавьте доступные документы. После проверки безопасности файлы появятся в разделе дела.</p>
+            {props.readyFileCount > 0 ? <p className="mt-3 text-sm font-semibold text-white/85">Уже доступно файлов: {props.readyFileCount}</p> : null}
+            <Link className={styles.nextCta} style={{ color: "var(--ib2-red)" }} href={`${base}/files`}>
+              Загрузить документы <ArrowRight aria-hidden="true" />
             </Link>
           </article>
 
@@ -226,7 +218,7 @@ export function IBuroClientDashboardV2(props: DashboardProps) {
           <QuickAction href={`${base}/documents`} label="Документы" icon={FileText} />
           <QuickAction href={`${base}/progress`} label="Прогресс" icon={ChartNoAxesColumnIncreasing} />
           <QuickAction href={`${base}/ai`} label="AI-помощник" icon={Sparkles} />
-          <QuickAction href={`${base}/files`} label="Файлы" icon={FileCheck2} />
+          <QuickAction href={`${base}/files`} label="Загрузить документы" icon={UploadCloud} />
         </section>
 
         {props.mortgageAvailable ? (

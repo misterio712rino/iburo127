@@ -93,4 +93,5 @@ assert.equal(await emptyRegistry.getActive("bankruptcy-application"), null);
 assert.equal(DOCUMENT_TEMPLATE_NOT_REGISTERED, "DOCUMENT_TEMPLATE_NOT_REGISTERED");
 
 await import("./document-revision-service.test");
+await import("./extracted-fact-contract.test");
 console.log("DOCUMENT_REVISION_FOUNDATION_PASS");

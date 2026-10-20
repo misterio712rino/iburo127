@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  assertSafeObjectReadLimit,
   assertSafeSignedUrlTtl,
   type CreateDownloadUrlInput,
   type CreateUploadUrlInput,
@@ -16,6 +17,7 @@ export type YandexObjectStorageSigner = {
   signUpload(input: { bucket: string; objectKey: string; mimeType: string; expiresInSeconds: number }): Promise<string>;
   signDownload(input: { bucket: string; objectKey: string; fileName?: string; expiresInSeconds: number }): Promise<string>;
   statObject(input: { bucket: string; objectKey: string }): Promise<StoredObjectMetadata | null>;
+  readObject(input: { bucket: string; objectKey: string; maxBytes: number }): Promise<Uint8Array>;
   deleteObject(input: { bucket: string; objectKey: string }): Promise<void>;
 };
 
@@ -51,6 +53,12 @@ export class YandexPrivateObjectStorage implements PrivateObjectStorage {
   async statObject(objectKey: string) {
     assertSafeObjectKey(objectKey);
     return this.signer.statObject({ bucket: this.bucket, objectKey });
+  }
+
+  async readObject(objectKey: string, maxBytes: number) {
+    assertSafeObjectKey(objectKey);
+    assertSafeObjectReadLimit(maxBytes);
+    return this.signer.readObject({ bucket: this.bucket, objectKey, maxBytes });
   }
 
   async deleteObject(objectKey: string) {

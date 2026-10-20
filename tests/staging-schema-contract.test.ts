@@ -236,5 +236,15 @@ assert.match(stagingBaselineSource, /foundationMigrationApplied: migrationState\
 assert.match(stagingBaselineSource, /idempotencyMigrationApplied: migrationState\.commerceIdempotencyApplied/);
 assert.match(stagingBaselineSource, /schemaReady: migrationState\.commerceReady/);
 assert.doesNotMatch(stagingBaselineSource, /expectedCount: EXPECTED_PRISMA_MIGRATIONS\.length \+ 1/);
+assert.match(stagingBaselineSource, /client\.query\("BEGIN READ ONLY"\)/);
+assert.match(stagingBaselineSource, /query\.get\("schema"\) === "1"/);
+assert.match(stagingBaselineSource, /MAX_SCHEMA_CATALOG_BYTES = 128 \* 1024/);
+assert.match(stagingBaselineSource, /MAX_SCHEMA_CATALOG_ROWS = 2_000/);
+assert.match(stagingBaselineSource, /from information_schema\.columns/);
+assert.match(stagingBaselineSource, /from pg_indexes/);
+assert.match(stagingBaselineSource, /pg_get_constraintdef\(con\.oid, true\)/);
+assert.match(stagingBaselineSource, /Buffer\.byteLength\(JSON\.stringify\(schemaCatalog\), "utf8"\)/);
+assert.match(stagingBaselineSource, /\.\.\.\(schemaCatalog \? \{ schemaCatalog \} : \{\}\)/);
+assert.doesNotMatch(stagingBaselineSource, /select\s+\*\s+from\s+public\./i);
 
 console.log("STAGING_SCHEMA_CONTRACT_TEST_PASS");

@@ -87,8 +87,8 @@ assert.match(
 );
 assert.match(
   casePageSource,
-  /<IBuroClientDashboardV2[\s\S]*nextAction=\{\{ title: summary\.nextAction\.title, description: summary\.nextAction\.description, segment: summary\.nextAction\.segment \}\}/,
-  "the CLIENT dashboard must receive the next action directly from the shared server progress summary",
+  /<IBuroClientDashboardV2[\s\S]*readyFileCount=\{summary\.readyFileCount\}/,
+  "the CLIENT dashboard must receive the case-scoped ready-file count from the shared server progress summary",
 );
 assert.doesNotMatch(
   casePageSource,
@@ -103,18 +103,18 @@ assert.match(
 
 assert.match(
   clientDashboardSource,
-  /href=\{`\$\{base\}\/\$\{props\.nextAction\.segment\}`\}/,
-  "the primary CLIENT CTA must route to the production case module selected by the server next action",
+  /href=\{`\$\{base\}\/files`\}/,
+  "the primary CLIENT CTA must route to case file upload for document-first intake",
 );
 assert.match(
   clientDashboardSource,
-  /\{props\.nextAction\.title\}/,
-  "the primary CLIENT CTA title must remain server-derived rather than hard-coded from a design fixture",
+  /Начните с документов[\s\S]*Загрузите документы по делу[\s\S]*Загрузить документы/,
+  "the primary CLIENT CTA must direct clients to upload evidence before legacy questionnaire work",
 );
-assert.match(
+assert.doesNotMatch(
   clientDashboardSource,
-  /\{props\.nextAction\.description\}/,
-  "the primary CLIENT CTA description must remain server-derived",
+  /props\.nextAction/,
+  "the primary CLIENT CTA must not send clients back to the legacy questionnaire-first next action",
 );
 assert.doesNotMatch(
   clientDashboardSource,

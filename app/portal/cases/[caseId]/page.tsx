@@ -163,7 +163,6 @@ async function renderClientDashboard(
       questionnaire={{ completed: summary.questionnaire.completed, total: summary.questionnaire.total, percent: summary.questionnaire.percent }}
       documents={{ total: summary.documents.total, reviewed: summary.documents.reviewed, sentForReview: summary.documents.sentForReview }}
       readyFileCount={summary.readyFileCount}
-      nextAction={{ title: summary.nextAction.title, description: summary.nextAction.description, segment: summary.nextAction.segment }}
       activity={clientActivity}
       checkoutAvailable={checkoutAvailable}
       checkoutStatus={checkoutStatus}
