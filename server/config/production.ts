@@ -120,6 +120,11 @@ export type MaintenanceRuntimeConfig = {
   fileScanRetryMaxSeconds: number;
   fileScanHealthGraceMinutes: number;
   fileScanHealthBatchLimit: number;
+  documentProcessingBatchLimit: number;
+  documentProcessingLeaseSeconds: number;
+  documentProcessingMaxAttempts: number;
+  documentProcessingRetryBaseSeconds: number;
+  documentProcessingRetryMaxSeconds: number;
   aiAuditGraceMinutes: number;
   aiAuditBatchLimit: number;
 };
@@ -299,6 +304,24 @@ export function readMaintenanceRuntimeConfig(
     throw new Error(`${PRODUCTION_CONFIG_ERROR}:IB_FILE_SCAN_RETRY_MAX_SECONDS`);
   }
 
+  const documentProcessingRetryBaseSeconds = readIntegerEnv(
+    env,
+    "IB_DOCUMENT_PROCESSING_RETRY_BASE_SECONDS",
+    60,
+    10,
+    3_600,
+  );
+  const documentProcessingRetryMaxSeconds = readIntegerEnv(
+    env,
+    "IB_DOCUMENT_PROCESSING_RETRY_MAX_SECONDS",
+    3_600,
+    10,
+    86_400,
+  );
+  if (documentProcessingRetryMaxSeconds < documentProcessingRetryBaseSeconds) {
+    throw new Error(`${PRODUCTION_CONFIG_ERROR}:IB_DOCUMENT_PROCESSING_RETRY_MAX_SECONDS`);
+  }
+
   return {
     secret,
     staleUploadMaxAgeMinutes: readIntegerEnv(
@@ -357,6 +380,29 @@ export function readMaintenanceRuntimeConfig(
       1,
       200,
     ),
+    documentProcessingBatchLimit: readIntegerEnv(
+      env,
+      "IB_DOCUMENT_PROCESSING_BATCH_LIMIT",
+      1,
+      1,
+      1,
+    ),
+    documentProcessingLeaseSeconds: readIntegerEnv(
+      env,
+      "IB_DOCUMENT_PROCESSING_LEASE_SECONDS",
+      120,
+      60,
+      900,
+    ),
+    documentProcessingMaxAttempts: readIntegerEnv(
+      env,
+      "IB_DOCUMENT_PROCESSING_MAX_ATTEMPTS",
+      3,
+      1,
+      20,
+    ),
+    documentProcessingRetryBaseSeconds,
+    documentProcessingRetryMaxSeconds,
     aiAuditGraceMinutes: readIntegerEnv(
       env,
       "IB_AI_AUDIT_GRACE_MINUTES",

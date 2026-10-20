@@ -8,6 +8,7 @@ const JOB_PATHS = Object.freeze({
   "stale-uploads": "/api/internal/maintenance/stale-uploads",
   "stale-upload-health": "/api/internal/maintenance/stale-upload-health",
   "file-scans": "/api/internal/maintenance/file-scans",
+  "document-processing": "/api/internal/maintenance/document-processing",
   "file-scan-health": "/api/internal/maintenance/file-scan-health",
   "file-deletions": "/api/internal/maintenance/file-deletions",
   "file-deletion-health": "/api/internal/maintenance/file-deletion-health",
@@ -97,6 +98,9 @@ function readBoundedTimeout(env, name, fallback) {
 function readTimeoutMs(env, job) {
   if (job === "file-scans") {
     return readBoundedTimeout(env, "IB_MAINTENANCE_FILE_SCAN_TIMEOUT_MS", 120_000);
+  }
+  if (job === "document-processing") {
+    return readBoundedTimeout(env, "IB_MAINTENANCE_DOCUMENT_PROCESSING_TIMEOUT_MS", 120_000);
   }
   return readBoundedTimeout(env, "IB_MAINTENANCE_REQUEST_TIMEOUT_MS", 15_000);
 }

@@ -20,6 +20,7 @@ const expected = {
   "maintenance:run:stale-uploads": "node scripts/run-maintenance-job.mjs stale-uploads",
   "maintenance:run:stale-upload-health": "node scripts/run-maintenance-job.mjs stale-upload-health",
   "maintenance:run:file-scans": "node scripts/run-maintenance-job.mjs file-scans",
+  "maintenance:run:document-processing": "node scripts/run-maintenance-job.mjs document-processing",
   "maintenance:run:file-scan-health": "node scripts/run-maintenance-job.mjs file-scan-health",
   "maintenance:run:file-deletions": "node scripts/run-maintenance-job.mjs file-deletions",
   "maintenance:run:file-deletion-health": "node scripts/run-maintenance-job.mjs file-deletion-health",
@@ -31,6 +32,11 @@ for (const [name, command] of Object.entries(expected)) {
 }
 
 const runner = await readFile(resolve("scripts/run-maintenance-job.mjs"), "utf8");
+assert.match(
+  runner,
+  /"document-processing": "\/api\/internal\/maintenance\/document-processing"/,
+  "document processing scheduler must resolve to the guarded internal worker route",
+);
 assert.match(
   runner,
   /"file-deletions": "\/api\/internal\/maintenance\/file-deletions"/,

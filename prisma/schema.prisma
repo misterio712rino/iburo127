@@ -77,6 +77,14 @@ enum StoredFileDeletionStatus {
   REQUIRES_ATTENTION
 }
 
+enum DocumentProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
 enum NotificationDeliveryChannel {
   EMAIL
 }
@@ -540,11 +548,39 @@ model StoredFile {
 
   clientCase ClientCase @relation(fields: [clientCaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   uploadedBy User?       @relation("StoredFileUploaders", fields: [uploadedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  documentProcessingJob DocumentProcessingJob?
 
   @@index([clientCaseId, status, createdAt])
   @@index([status, scanNextAttemptAt])
   @@index([status, scanLeaseUntil])
   @@index([uploadedById])
+  @@unique([id, clientCaseId])
+}
+
+model DocumentProcessingJob {
+  id              String                  @id @default(uuid()) @db.Uuid
+  clientCaseId    String                  @db.Uuid
+  sourceFileId    String                  @db.Uuid
+  status          DocumentProcessingStatus @default(PENDING)
+  attemptCount    Int                     @default(0)
+  nextAttemptAt   DateTime                @default(now())
+  leaseUntil      DateTime?
+  leaseToken      String?                 @db.Uuid
+  lastErrorCode   String?
+  pageTexts       Json?
+  pageCount       Int?
+  completedAt     DateTime?
+  failedAt        DateTime?
+  cancelledAt     DateTime?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  sourceFile StoredFile @relation(fields: [sourceFileId, clientCaseId], references: [id, clientCaseId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@index([status, leaseUntil])
+  @@index([clientCaseId, createdAt])
+  @@unique([sourceFileId, clientCaseId])
 }
 
 model StoredFileDeletion {
