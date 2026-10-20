@@ -17,7 +17,6 @@ const fileRepository = await readFile(
 );
 const fileOperations = await readFile(resolve("server/files/operations.ts"), "utf8");
 const documentJobRepository = await readFile(resolve("server/repositories/prisma/document-processing-job-repository.ts"), "utf8");
-const fileOperations = await readFile(resolve("server/files/operations.ts"), "utf8");
 const repository = await readFile(
   resolve("server/repositories/prisma/document-processing-job-repository.ts"),
   "utf8",

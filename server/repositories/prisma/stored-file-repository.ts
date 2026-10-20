@@ -476,7 +476,15 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
         },
       });
       if (deleted.count !== 1) return null;
-      return { file: toRecord(current), processingJob };
+      return {
+        file: toRecord(current),
+        processingJob: processingJob
+          ? {
+              ...processingJob,
+              pageTexts: processingJob.pageTexts as unknown as string[] | null,
+            }
+          : null,
+      };
     });
   }
 
