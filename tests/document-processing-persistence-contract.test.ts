@@ -47,7 +47,6 @@ assert.match(migration, /DocumentProcessingJob_lease_check/);
 assert.match(migration, /DocumentProcessingJob_completion_check/);
 assert.match(completionGuardMigration, /"pageTexts" IS NOT NULL/);
 assert.match(completionGuardMigration, /ALTER TABLE "DocumentProcessingJob"/);
-assert.match(migration, /"pageTexts" IS NOT NULL/);
 assert.match(migration, /DocumentProcessingJob_failure_check/);
 assert.match(migration, /DocumentProcessingJob_cancellation_check/);
 assert.match(migration, /COMMIT;\s*$/);
