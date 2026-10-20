@@ -7,6 +7,10 @@ const migration = await readFile(
   resolve("prisma/migrations/20261020_document_processing_jobs/migration.sql"),
   "utf8",
 );
+const completionGuardMigration = await readFile(
+  resolve("prisma/migrations/20261020_document_processing_jobs_completion_guard/migration.sql"),
+  "utf8",
+);
 const fileRepository = await readFile(
   resolve("server/repositories/prisma/stored-file-repository.ts"),
   "utf8",
@@ -42,7 +46,8 @@ assert.match(migration, /DocumentProcessingJob_sourceFileId_clientCaseId_fkey/);
 assert.match(migration, /ON DELETE CASCADE/);
 assert.match(migration, /DocumentProcessingJob_lease_check/);
 assert.match(migration, /DocumentProcessingJob_completion_check/);
-assert.match(migration, /"pageTexts" IS NOT NULL/);
+assert.match(completionGuardMigration, /"pageTexts" IS NOT NULL/);
+assert.match(completionGuardMigration, /ALTER TABLE "DocumentProcessingJob"/);
 assert.match(migration, /"pageTexts" IS NOT NULL/);
 assert.match(migration, /DocumentProcessingJob_failure_check/);
 assert.match(migration, /DocumentProcessingJob_cancellation_check/);

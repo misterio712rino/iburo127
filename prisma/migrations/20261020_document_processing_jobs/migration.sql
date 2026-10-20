@@ -34,7 +34,7 @@ CREATE TABLE "DocumentProcessingJob" (
     OR ("status" <> 'PROCESSING' AND "leaseUntil" IS NULL AND "leaseToken" IS NULL)
   ),
   CONSTRAINT "DocumentProcessingJob_completion_check" CHECK (
-    ("status" = 'COMPLETED' AND "pageTexts" IS NOT NULL AND jsonb_typeof("pageTexts") = 'array' AND "pageCount" IS NOT NULL AND "completedAt" IS NOT NULL)
+    ("status" = 'COMPLETED' AND jsonb_typeof("pageTexts") = 'array' AND "pageCount" IS NOT NULL AND "completedAt" IS NOT NULL)
     OR ("status" <> 'COMPLETED' AND "completedAt" IS NULL)
   ),
   CONSTRAINT "DocumentProcessingJob_failure_check" CHECK (
