@@ -45,7 +45,6 @@ type DashboardProps = {
   questionnaire: { completed: number; total: number; percent: number };
   documents: { total: number; reviewed: number; sentForReview: number };
   readyFileCount: number;
-  nextAction: { title: string; description: string; segment: string };
   activity: readonly ActivityItem[];
   checkoutAvailable: boolean;
   checkoutStatus: "success" | "cancelled" | null;
