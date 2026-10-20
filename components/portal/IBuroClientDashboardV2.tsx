@@ -5,10 +5,10 @@ import {
   Bot,
   ChartNoAxesColumnIncreasing,
   ClipboardList,
-  FileCheck2,
   FileText,
   Home,
   Sparkles,
+  UploadCloud,
 } from "lucide-react";
 
 import { formatProfileDisplayName } from "@/lib/platform/profile-display-name";
@@ -175,6 +175,20 @@ export function IBuroClientDashboardV2(props: DashboardProps) {
           />
         ) : null}
 
+        <section className={`${styles.card} flex flex-col gap-5 border-[#7B2330]/15 bg-[#7B2330]/[0.035] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7`} aria-labelledby="upload-documents-title">
+          <div className="flex min-w-0 items-start gap-4">
+            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[#7B2330]/10 text-[#7B2330]"><UploadCloud className="size-6" aria-hidden="true" /></span>
+            <div className="min-w-0">
+              <h2 id="upload-documents-title" className="text-xl font-bold text-slate-900">Начните с загрузки документов</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Добавьте доступные документы по делу. Файлы проходят проверку безопасности и появятся в списке после её завершения.</p>
+              {props.readyFileCount > 0 ? <p className="mt-2 text-xs font-semibold text-slate-500">Уже доступно файлов: {props.readyFileCount}</p> : null}
+            </div>
+          </div>
+          <Link className={styles.nextCta} style={{ color: "var(--ib2-red)" }} href={`${base}/files`}>
+            Загрузить документы <ArrowRight aria-hidden="true" />
+          </Link>
+        </section>
+
         <section className={styles.primaryGrid} aria-label="Главное по делу">
           <article
             className={styles.nextCard}
@@ -226,7 +240,7 @@ export function IBuroClientDashboardV2(props: DashboardProps) {
           <QuickAction href={`${base}/documents`} label="Документы" icon={FileText} />
           <QuickAction href={`${base}/progress`} label="Прогресс" icon={ChartNoAxesColumnIncreasing} />
           <QuickAction href={`${base}/ai`} label="AI-помощник" icon={Sparkles} />
-          <QuickAction href={`${base}/files`} label="Файлы" icon={FileCheck2} />
+          <QuickAction href={`${base}/files`} label="Загрузить документы" icon={UploadCloud} />
         </section>
 
         {props.mortgageAvailable ? (
