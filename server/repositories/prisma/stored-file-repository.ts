@@ -279,6 +279,18 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
       });
       if (updated.count !== 1) return null;
 
+      await tx.documentProcessingJob.createMany({
+        data: [{
+          id: randomUUID(),
+          clientCaseId: current.clientCaseId,
+          sourceFileId: current.id,
+          status: "PENDING",
+          attemptCount: 0,
+          nextAttemptAt: input.scannedAt,
+        }],
+        skipDuplicates: true,
+      });
+
       await tx.caseActivityEvent.create({
         data: buildCaseActivityWrite({
           clientCaseId: current.clientCaseId,
