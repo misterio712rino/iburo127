@@ -28,11 +28,13 @@ Before enabling the GitHub Actions scheduler:
    baseline last inspected had 4 of the existing 10 migrations applied, so the
    earlier six migrations must be applied before this new migration.
 2. Configure `IB_DOCUMENT_PROCESSOR_URL` and `IB_DOCUMENT_PROCESSOR_TOKEN` in the
-   application runtime. The OCR service must be reachable from that runtime and must
-   accept the private `POST /v1/extract` contract. The current URL guard allows only
-   local/private/internal hosts; Vercel cannot call a Timeweb public hostname through
-   this configuration. Provide private network connectivity or add a reviewed exact
-   HTTPS host allowlist before connecting a public Timeweb endpoint.
+   application runtime. For a public Timeweb endpoint, also set
+   `IB_DOCUMENT_PROCESSOR_ALLOWED_PUBLIC_HOST` to the exact DNS hostname, without a
+   scheme or path (for example, `ocr.example.ru`). The URL must use HTTPS and its
+   hostname must exactly match this pin. Private/local/internal URLs remain supported
+   without the public-host setting. This hostname pin does not pin DNS answers; rely on
+   operator-controlled DNS and valid TLS for that hostname. The service must accept
+   the authenticated `POST /v1/extract` contract.
 3. Verify the document processor's authenticated health and a synthetic PDF against
    staging, without processing client documents.
 4. Enable the repository variable `IB_DOCUMENT_PROCESSING_SCHEDULER_ENABLED=true`

@@ -15,6 +15,33 @@ assert.throws(() => readDocumentProcessorConfig({
   IB_DOCUMENT_PROCESSOR_URL: "https://processor.example/",
   IB_DOCUMENT_PROCESSOR_TOKEN: token,
 }), /DOCUMENT_PROCESSOR_INVALID_CONFIG:URL/);
+const publicConfig = readDocumentProcessorConfig({
+  IB_DOCUMENT_PROCESSOR_URL: "https://ocr.timeweb.example/",
+  IB_DOCUMENT_PROCESSOR_ALLOWED_PUBLIC_HOST: "ocr.timeweb.example",
+  IB_DOCUMENT_PROCESSOR_TOKEN: token,
+});
+assert.equal(publicConfig.baseUrl, "https://ocr.timeweb.example");
+assert.equal(publicConfig.allowedPublicHost, "ocr.timeweb.example");
+assert.throws(() => readDocumentProcessorConfig({
+  IB_DOCUMENT_PROCESSOR_URL: "https://other.timeweb.example/",
+  IB_DOCUMENT_PROCESSOR_ALLOWED_PUBLIC_HOST: "ocr.timeweb.example",
+  IB_DOCUMENT_PROCESSOR_TOKEN: token,
+}), /DOCUMENT_PROCESSOR_INVALID_CONFIG:URL/);
+assert.throws(() => readDocumentProcessorConfig({
+  IB_DOCUMENT_PROCESSOR_URL: "http://ocr.timeweb.example/",
+  IB_DOCUMENT_PROCESSOR_ALLOWED_PUBLIC_HOST: "ocr.timeweb.example",
+  IB_DOCUMENT_PROCESSOR_TOKEN: token,
+}), /DOCUMENT_PROCESSOR_INVALID_CONFIG:URL/);
+assert.throws(() => readDocumentProcessorConfig({
+  IB_DOCUMENT_PROCESSOR_URL: "https://ocr.timeweb.example/private/",
+  IB_DOCUMENT_PROCESSOR_ALLOWED_PUBLIC_HOST: "ocr.timeweb.example",
+  IB_DOCUMENT_PROCESSOR_TOKEN: token,
+}), /DOCUMENT_PROCESSOR_INVALID_CONFIG:URL/);
+assert.throws(() => readDocumentProcessorConfig({
+  IB_DOCUMENT_PROCESSOR_URL: "https://ocr.timeweb.example/",
+  IB_DOCUMENT_PROCESSOR_ALLOWED_PUBLIC_HOST: "ocr.timeweb.example:8443",
+  IB_DOCUMENT_PROCESSOR_TOKEN: token,
+}), /DOCUMENT_PROCESSOR_INVALID_CONFIG:URL/);
 assert.throws(() => readDocumentProcessorConfig({
   IB_DOCUMENT_PROCESSOR_URL: "https://user:pass@example.com/",
   IB_DOCUMENT_PROCESSOR_TOKEN: token,
