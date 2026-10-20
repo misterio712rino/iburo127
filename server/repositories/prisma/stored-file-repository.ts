@@ -450,6 +450,12 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
   async takeOwnedForDeletion(fileId: string, uploadedById: string): Promise<StoredFileDeletionSnapshot | null> {
     const prisma = getPrismaClient();
     return prisma.$transaction(async (tx) => {
+      const lockedFiles = await tx.$queryRawUnsafe<Array<{ id: string }>>(
+        'SELECT "id" FROM "StoredFile" WHERE "id" = $1::uuid AND "uploadedById" = $2::uuid FOR UPDATE',
+        fileId,
+        uploadedById,
+      );
+      if (lockedFiles.length !== 1) return null;
       const current = await tx.storedFile.findUnique({ where: { id: fileId } });
       if (
         !current ||
@@ -460,6 +466,11 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
         return null;
       }
 
+      await tx.$queryRawUnsafe<Array<{ id: string }>>(
+        'SELECT "id" FROM "DocumentProcessingJob" WHERE "sourceFileId" = $1::uuid AND "clientCaseId" = $2::uuid FOR UPDATE',
+        current.id,
+        current.clientCaseId,
+      );
       const processingJob = await tx.documentProcessingJob.findUnique({
         where: {
           sourceFileId_clientCaseId: {

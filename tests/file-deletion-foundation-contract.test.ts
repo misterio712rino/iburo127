@@ -19,6 +19,7 @@ const [
   maintenanceRouteSource,
   workerRuntimeSource,
   stagingWorkerRouteSource,
+  storedFileRepositorySource,
 ] = await Promise.all([
   readFile(resolve("server/files/operations.ts"), "utf8"),
   readFile(resolve("server/files/deletion-mode.ts"), "utf8"),
@@ -32,6 +33,7 @@ const [
   readFile(resolve("app/api/internal/maintenance/file-deletions/route.ts"), "utf8"),
   readFile(resolve("server/files/deletion-worker-runtime.ts"), "utf8"),
   readFile(resolve("app/%5Fiburo/staging-file-deletion-worker/route.ts"), "utf8"),
+  readFile(resolve("server/repositories/prisma/stored-file-repository.ts"), "utf8"),
 ]);
 
 // Production and ordinary runtimes remain fail-closed on legacy when the flag
@@ -82,6 +84,7 @@ assert.match(
 assert.match(operationsSource, /return \{ fileId: deletion\.fileId \};/);
 assert.match(operationsSource, /storedFileService\.takeOwnedForDeletion\(actor, fileId\)/);
 assert.match(operationsSource, /storedFileService\.restoreDeleted\(deletionSnapshot\)/);
+assert.match(storedFileRepositorySource, /DocumentProcessingJob[\s\S]{0,180}FOR UPDATE/);
 assert.match(operationsSource, /const deleted = deletionSnapshot\.file/);
 assert.doesNotMatch(
   operationsSource,
