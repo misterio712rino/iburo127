@@ -31,8 +31,10 @@ class FakeRepository implements DocumentProcessingJobRepository {
   failedInput: Parameters<DocumentProcessingJobRepository["fail"]>[0] | null = null;
   cancelledInput: Parameters<DocumentProcessingJobRepository["cancel"]>[0] | null = null;
   loseLease = false;
+  completeError: Error | null = null;
   async claimDue() { const result = this.claim; this.claim = null; return result; }
   async complete(input: Parameters<DocumentProcessingJobRepository["complete"]>[0]) {
+    if (this.completeError) throw this.completeError;
     this.completedInput = input; return !this.loseLease;
   }
   async reschedule(input: Parameters<DocumentProcessingJobRepository["reschedule"]>[0]) {
@@ -112,6 +114,15 @@ async function testTransientFailureRetriesWithSafeCode() {
   assert.doesNotMatch(repo.rescheduledInput?.errorCode ?? "", /secret|token/i);
 }
 
+async function testInvalidRepositoryOutputIsRetriedInsteadOfCountedAsLeaseLoss() {
+  const repo = new FakeRepository();
+  repo.completeError = new Error("DOCUMENT_PROCESSING_FAILED:INVALID_OCR_OUTPUT");
+  const result = await makeWorker(repo).runBatch({ now, limit: 1 });
+  assert.equal(result.retried, 1);
+  assert.equal(result.leaseLost, 0);
+  assert.equal(repo.rescheduledInput?.errorCode, "DOCUMENT_PROCESSING_FAILED");
+}
+
 async function testAttemptsExhaustIntoFailureAndLeaseLossIsNotCountedAsSuccess() {
   const repo = new FakeRepository(); repo.claim = claimed("READY", 3);
   const result = await makeWorker(repo, new FakeStorage(), async () => { throw new Error("fail"); })
@@ -128,5 +139,6 @@ await testNonReadySourceNeverReadsOrCallsProcessor();
 await testCaseMismatchIsCancelledBeforeRead();
 await testProviderMismatchFailsClosed();
 await testTransientFailureRetriesWithSafeCode();
+await testInvalidRepositoryOutputIsRetriedInsteadOfCountedAsLeaseLoss();
 await testAttemptsExhaustIntoFailureAndLeaseLossIsNotCountedAsSuccess();
 console.log("Document processing worker tests passed");

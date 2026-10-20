@@ -1,6 +1,6 @@
 import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
 import { ClientCaseService } from "@/server/domain/client-cases/service";
-import type { StoredFileRecord, StoredFileRepository } from "@/server/domain/files/contracts";
+import type { StoredFileDeletionSnapshot, StoredFileRecord, StoredFileRepository } from "@/server/domain/files/contracts";
 
 export const FILE_CASE_NOT_FOUND = "FILE_CASE_NOT_FOUND";
 export const FILE_NOT_FOUND = "FILE_NOT_FOUND";
@@ -87,10 +87,10 @@ export class StoredFileService {
     return deleted;
   }
 
-  async restoreDeleted(file: StoredFileRecord) {
+  async restoreDeleted(snapshot: StoredFileDeletionSnapshot) {
     const restoreDeleted = this.repository.restoreDeleted;
     if (!restoreDeleted) return false;
-    return restoreDeleted.call(this.repository, file);
+    return restoreDeleted.call(this.repository, snapshot);
   }
 
   async registerPendingUpload(

@@ -110,12 +110,13 @@ export async function deleteStoredFile(sessionProvider: SessionProvider, fileId:
     throw new Error(FILE_STORAGE_PROVIDER_MISMATCH);
   }
 
-  const deleted = await storedFileService.takeOwnedForDeletion(actor, fileId);
+  const deletionSnapshot = await storedFileService.takeOwnedForDeletion(actor, fileId);
+  const deleted = deletionSnapshot.file;
 
   try {
     await storage.deleteObject(deleted.objectKey);
   } catch (error) {
-    const restored = await storedFileService.restoreDeleted(deleted);
+    const restored = await storedFileService.restoreDeleted(deletionSnapshot);
     if (!restored) throw new Error(FILE_DELETE_RESTORE_FAILED);
     throw error;
   }

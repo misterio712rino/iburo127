@@ -36,6 +36,30 @@ export type ClaimedStoredFileScan = StoredFileRecord & {
   scanLeaseToken: string;
 };
 
+export type DocumentProcessingJobDeletionSnapshot = {
+  id: string;
+  clientCaseId: string;
+  sourceFileId: string;
+  status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "CANCELLED";
+  attemptCount: number;
+  nextAttemptAt: Date;
+  leaseUntil: Date | null;
+  leaseToken: string | null;
+  lastErrorCode: string | null;
+  pageTexts: string[] | null;
+  pageCount: number | null;
+  completedAt: Date | null;
+  failedAt: Date | null;
+  cancelledAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type StoredFileDeletionSnapshot = {
+  file: StoredFileRecord;
+  processingJob: DocumentProcessingJobDeletionSnapshot | null;
+};
+
 export interface StoredFileRepository {
   listByCase(
     clientCaseId: string,
@@ -91,9 +115,9 @@ export interface StoredFileRepository {
     errorCode: string;
   }): Promise<boolean>;
   /** Optional capability used by the interactive client deletion flow. */
-  takeOwnedForDeletion?(fileId: string, uploadedById: string): Promise<StoredFileRecord | null>;
+  takeOwnedForDeletion?(fileId: string, uploadedById: string): Promise<StoredFileDeletionSnapshot | null>;
   /** Optional capability paired with takeOwnedForDeletion for storage-failure recovery. */
-  restoreDeleted?(file: StoredFileRecord): Promise<boolean>;
+  restoreDeleted?(snapshot: StoredFileDeletionSnapshot): Promise<boolean>;
   deletePending(fileId: string): Promise<boolean>;
   restorePending(file: StoredFileRecord): Promise<boolean>;
 }

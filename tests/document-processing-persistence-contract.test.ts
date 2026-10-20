@@ -11,6 +11,9 @@ const fileRepository = await readFile(
   resolve("server/repositories/prisma/stored-file-repository.ts"),
   "utf8",
 );
+const fileOperations = await readFile(resolve("server/files/operations.ts"), "utf8");
+const documentJobRepository = await readFile(resolve("server/repositories/prisma/document-processing-job-repository.ts"), "utf8");
+const fileOperations = await readFile(resolve("server/files/operations.ts"), "utf8");
 const repository = await readFile(
   resolve("server/repositories/prisma/document-processing-job-repository.ts"),
   "utf8",
@@ -39,6 +42,8 @@ assert.match(migration, /DocumentProcessingJob_sourceFileId_clientCaseId_fkey/);
 assert.match(migration, /ON DELETE CASCADE/);
 assert.match(migration, /DocumentProcessingJob_lease_check/);
 assert.match(migration, /DocumentProcessingJob_completion_check/);
+assert.match(migration, /"pageTexts" IS NOT NULL/);
+assert.match(migration, /"pageTexts" IS NOT NULL/);
 assert.match(migration, /DocumentProcessingJob_failure_check/);
 assert.match(migration, /DocumentProcessingJob_cancellation_check/);
 assert.match(migration, /COMMIT;\s*$/);
@@ -57,6 +62,17 @@ assert.match(repository, /pageCount <= MAX_PAGES/);
 assert.match(repository, /status: "COMPLETED"/);
 assert.match(repository, /status: "FAILED"/);
 assert.match(repository, /status: "CANCELLED"/);
+assert.match(documentJobRepository, /throw new Error\("DOCUMENT_PROCESSING_FAILED:INVALID_OCR_OUTPUT"\)/);
+assert.match(fileRepository, /documentProcessingJob\.findUnique/);
+assert.match(fileRepository, /processingJob: processingJob/);
+assert.match(fileRepository, /documentProcessingJob\.create/);
+assert.match(fileOperations, /const deletionSnapshot = await storedFileService\.takeOwnedForDeletion/);
+assert.match(fileOperations, /storedFileService\.restoreDeleted\(deletionSnapshot\)/);
+assert.match(fileRepository, /documentProcessingJob\.findUnique/);
+assert.match(fileRepository, /return \{ file: toRecord\(current\), processingJob \}/);
+assert.match(fileRepository, /documentProcessingJob\.create/);
+assert.match(fileOperations, /const deletionSnapshot = await storedFileService\.takeOwnedForDeletion/);
+assert.match(fileOperations, /storedFileService\.restoreDeleted\(deletionSnapshot\)/);
 assert.match(runtime, /DOCUMENT_PROCESSOR_TIMEOUT_MS >= maintenance\.documentProcessingLeaseSeconds \* 1000/);
 assert.match(runtime, /new PrismaDocumentProcessingJobRepository\(\)/);
 assert.match(productionConfig, /"IB_DOCUMENT_PROCESSING_BATCH_LIMIT",[\s\S]*?1,[\s\S]*?1,[\s\S]*?1/);
