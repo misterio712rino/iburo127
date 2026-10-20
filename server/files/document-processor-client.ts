@@ -1,4 +1,5 @@
 import "server-only";
+import { isIP } from "node:net";
 
 export const DOCUMENT_PROCESSOR_MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 export const DOCUMENT_PROCESSOR_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
@@ -9,6 +10,7 @@ export const DOCUMENT_PROCESSOR_REQUEST_FAILED = "DOCUMENT_PROCESSOR_REQUEST_FAI
 export type DocumentProcessorConfig = {
   baseUrl: string;
   token: string;
+  allowedPublicHost?: string;
 };
 
 export type ExtractedDocumentText = {
@@ -33,7 +35,31 @@ function isPrivateIpv4(hostname: string) {
   );
 }
 
-function isAllowedProcessorUrl(value: string) {
+function normalizeAllowedPublicHost(value: string | undefined) {
+  if (!value) return undefined;
+  let url: URL;
+  try {
+    url = new URL(`https://${value.trim()}`);
+  } catch {
+    return null;
+  }
+  const hostname = url.hostname.toLowerCase();
+  if (
+    !hostname ||
+    isIP(hostname.replace(/^\[|\]$/g, "")) ||
+    url.username ||
+    url.password ||
+    url.port ||
+    url.pathname !== "/" ||
+    url.search ||
+    url.hash
+  ) {
+    return null;
+  }
+  return hostname;
+}
+
+function isAllowedProcessorUrl(value: string, allowedPublicHost?: string) {
   let url: URL;
   try {
     url = new URL(value);
@@ -48,8 +74,13 @@ function isAllowedProcessorUrl(value: string) {
     hostname.endsWith(".internal") ||
     hostname.endsWith(".local") ||
     isPrivateIpv4(hostname);
+  const pinnedPublicHost =
+    url.protocol === "https:" &&
+    !!allowedPublicHost &&
+    hostname === allowedPublicHost &&
+    !isIP(hostname);
   return (
-    privateHost &&
+    (privateHost || pinnedPublicHost) &&
     (url.protocol === "https:" || url.protocol === "http:") &&
     !url.username &&
     !url.password &&
@@ -64,13 +95,22 @@ export function readDocumentProcessorConfig(
 ): DocumentProcessorConfig {
   const baseUrl = env.IB_DOCUMENT_PROCESSOR_URL?.trim();
   const token = env.IB_DOCUMENT_PROCESSOR_TOKEN?.trim();
-  if (!baseUrl || !isAllowedProcessorUrl(baseUrl)) {
+  const allowedPublicHost = normalizeAllowedPublicHost(env.IB_DOCUMENT_PROCESSOR_ALLOWED_PUBLIC_HOST);
+  if (
+    !baseUrl ||
+    allowedPublicHost === null ||
+    !isAllowedProcessorUrl(baseUrl, allowedPublicHost)
+  ) {
     throw new Error(`${DOCUMENT_PROCESSOR_INVALID_CONFIG}:URL`);
   }
   if (!token || token.length < 32 || /[\r\n\0]/.test(token)) {
     throw new Error(`${DOCUMENT_PROCESSOR_INVALID_CONFIG}:TOKEN`);
   }
-  return { baseUrl: new URL(baseUrl).origin, token };
+  return {
+    baseUrl: new URL(baseUrl).origin,
+    token,
+    ...(allowedPublicHost ? { allowedPublicHost } : {}),
+  };
 }
 
 async function readBoundedBody(response: Response): Promise<Uint8Array> {
@@ -119,7 +159,10 @@ export class DocumentProcessorClient {
     private readonly config: DocumentProcessorConfig,
     private readonly request: FetchLike = fetch,
   ) {
-    if (!isAllowedProcessorUrl(config.baseUrl) || config.token.trim().length < 32) {
+    if (
+      !isAllowedProcessorUrl(config.baseUrl, config.allowedPublicHost) ||
+      config.token.trim().length < 32
+    ) {
       throw new Error(DOCUMENT_PROCESSOR_INVALID_CONFIG);
     }
   }
