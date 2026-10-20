@@ -72,7 +72,7 @@ assert.match(fileRepository, /documentProcessingJob\.create/);
 assert.match(fileOperations, /const deletionSnapshot = await storedFileService\.takeOwnedForDeletion/);
 assert.match(fileOperations, /storedFileService\.restoreDeleted\(deletionSnapshot\)/);
 assert.match(fileRepository, /documentProcessingJob\.findUnique/);
-assert.match(fileRepository, /return \{ file: toRecord\(current\), processingJob \}/);
+assert.match(fileRepository, /processingJob: processingJob \\?/);
 assert.match(fileRepository, /documentProcessingJob\.create/);
 assert.match(fileOperations, /const deletionSnapshot = await storedFileService\.takeOwnedForDeletion/);
 assert.match(fileOperations, /storedFileService\.restoreDeleted\(deletionSnapshot\)/);
