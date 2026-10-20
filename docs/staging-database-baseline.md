@@ -29,6 +29,12 @@ The authoritative staging database baseline is not confirmed yet. This working c
 11. For the single staging migration operation, set `IB_STAGING_MIGRATION_CONFIRM=MIGRATE:<database-name>` and run `npm run db:deploy:staging`.
 12. Run `npm run db:verify:staging` and the remaining staging release checks.
 
+## Protected HTTP schema catalog
+
+The exact staging-branch preview route `/_iburo/staging-db-baseline` returns its compact readiness summary by default. Add `?schema=1` only when a full structural snapshot is needed. The optional catalog contains public table names, column types/nullability, enum values, index definitions, and constraint definitions; it never selects application table rows or column defaults. It runs in the same explicit `BEGIN READ ONLY` transaction and only after the exact staging preview guard and database identity checks pass.
+
+The optional response is bounded to 2,000 rows per catalog section, at most 200 tables, and 128 KiB of schema-catalog JSON. It fails closed if any limit is exceeded. Responses use private no-store headers. Treat schema metadata as internal operational information and do not paste it into public issues.
+
 ## Fail-closed behavior
 
 `db:deploy:staging` refuses to connect to PostgreSQL when any of the following is true:
