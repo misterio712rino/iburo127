@@ -213,12 +213,12 @@ export function IBuroClientDashboardV2(props: DashboardProps) {
         </section>
 
         <section className={styles.quickActions} aria-label="Быстрые действия">
+          <QuickAction href={`${base}/files`} label="Загрузить документы" icon={UploadCloud} />
           <QuickAction href={`${base}/practicum`} label="Практикум" icon={BookOpen} />
-          <QuickAction href={`${base}/questionnaire`} label="Анкета" icon={ClipboardList} />
           <QuickAction href={`${base}/documents`} label="Документы" icon={FileText} />
+          <QuickAction href={`${base}/questionnaire`} label="Анкета" icon={ClipboardList} />
           <QuickAction href={`${base}/progress`} label="Прогресс" icon={ChartNoAxesColumnIncreasing} />
           <QuickAction href={`${base}/ai`} label="AI-помощник" icon={Sparkles} />
-          <QuickAction href={`${base}/files`} label="Загрузить документы" icon={UploadCloud} />
         </section>
 
         {props.mortgageAvailable ? (

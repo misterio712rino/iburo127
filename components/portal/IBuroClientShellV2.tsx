@@ -193,9 +193,9 @@ export function IBuroClientShellV2({
     () => [
       { label: "Главная", href: base, icon: House },
       { label: "Практикум", href: `${base}/practicum`, icon: BookOpen },
-      { label: "Анкета", href: `${base}/questionnaire`, icon: ClipboardList },
-      { label: "Документы", href: `${base}/documents`, icon: FileText },
       { label: "Файлы", href: `${base}/files`, icon: FolderOpen },
+      { label: "Документы", href: `${base}/documents`, icon: FileText },
+      { label: "Анкета", href: `${base}/questionnaire`, icon: ClipboardList },
       { label: "AI-помощник", href: `${base}/ai`, icon: Sparkles },
       { label: "Прогресс", href: `${base}/progress`, icon: ChartNoAxesColumnIncreasing },
       { label: "История дела", href: `${base}/activity`, icon: History },

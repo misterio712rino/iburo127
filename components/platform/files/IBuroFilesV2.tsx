@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Download,
   FileCheck2,
@@ -31,6 +31,14 @@ type StoredFileView = {
   createdAt: string;
 };
 
+type DocumentProcessingStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "CANCELLED";
+type DocumentProcessingView = {
+  fileId: string;
+  fileStatus: StoredFileStatus;
+  processingStatus: DocumentProcessingStatus | null;
+  pageCount: number | null;
+};
+
 type ApiFailure = { ok: false; error: { code: string } };
 type ApiSuccess<T> = { ok: true; data: T };
 type ApiResult<T> = ApiSuccess<T> | ApiFailure;
@@ -43,7 +51,7 @@ type PreparedUpload = {
 };
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
-const ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx";
+const ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp";
 
 function formatSize(value: string) {
   const bytes = Number(value);
@@ -103,6 +111,22 @@ function getStatusPresentation(status: StoredFileStatus) {
   }
 }
 
+function getProcessingPresentation(status: DocumentProcessingStatus | null) {
+  switch (status) {
+    case "PROCESSING":
+      return { label: "Распознаётся", description: "Извлекаем текст из документа.", className: "text-indigo-700", icon: Loader2 };
+    case "COMPLETED":
+      return { label: "Текст распознан", description: "Распознанный текст пока не используется для заполнения фактов или подготовки черновиков.", className: "text-emerald-700", icon: FileCheck2 };
+    case "FAILED":
+      return { label: "Не распознан", description: "Не удалось извлечь текст. Файл останется в деле; потребуется повторная обработка.", className: "text-red-700", icon: FileWarning };
+    case "CANCELLED":
+      return { label: "Обработка отменена", description: "Файл не был передан на распознавание.", className: "text-slate-600", icon: FileWarning };
+    case "PENDING":
+    default:
+      return { label: "Ожидает распознавания", description: "Файл прошёл проверку безопасности и ожидает обработки.", className: "text-amber-700", icon: FileClock };
+  }
+}
+
 export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initialFiles: StoredFileView[] }) {
   const [files, setFiles] = useState(initialFiles);
   const [uploading, setUploading] = useState(false);
@@ -111,6 +135,7 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [processingByFileId, setProcessingByFileId] = useState<Record<string, DocumentProcessingView>>({});
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function refreshFiles() {
@@ -119,6 +144,45 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
     if (!result.ok) throw new Error(result.error.code);
     setFiles(result.data);
   }
+
+  useEffect(() => {
+    if (files.length === 0) return;
+    let disposed = false;
+    let timer: number | undefined;
+
+    async function refreshProcessing() {
+      let shouldContinue = false;
+      try {
+        const response = await fetch(`/api/platform/cases/${caseId}/document-processing`, {
+          method: "GET",
+          cache: "no-store",
+        });
+        const result = (await response.json()) as ApiResult<DocumentProcessingView[]>;
+        if (!result.ok) throw new Error(result.error.code);
+
+        const nextStatuses = Object.fromEntries(result.data.map((item) => [item.fileId, item]));
+        setProcessingByFileId(nextStatuses);
+        setFiles((current) => current.map((file) => {
+          const latest = nextStatuses[file.id] as DocumentProcessingView | undefined;
+          return latest ? { ...file, status: latest.fileStatus } : file;
+        }));
+        shouldContinue = result.data.some((item) =>
+          ["PENDING_UPLOAD", "PENDING_SCAN", "SCANNING"].includes(item.fileStatus) ||
+          (item.fileStatus === "READY" && (item.processingStatus === null || item.processingStatus === "PENDING" || item.processingStatus === "PROCESSING")),
+        );
+      } catch {
+        shouldContinue = true;
+      }
+
+      if (!disposed && shouldContinue) timer = window.setTimeout(() => void refreshProcessing(), 5000);
+    }
+
+    void refreshProcessing();
+    return () => {
+      disposed = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [caseId, files.length]);
 
   async function uploadOne(file: File) {
     const prepareResponse = await fetch(`/api/platform/cases/${caseId}/files`, {
@@ -176,7 +240,7 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
       await refreshFiles();
       if (uploadedCount > 0) {
         setNotice(
-          `Загружено и отправлено на проверку: ${uploadedCount}. Доступ к скачиванию появится после завершения проверки безопасности.`,
+          `Загружено и отправлено на проверку безопасности: ${uploadedCount}. После проверки поддерживаемые файлы перейдут к распознаванию текста.`,
         );
       }
       if (failedCount > 0) {
@@ -259,7 +323,7 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
         <div>
           <p className="text-sm font-semibold text-[var(--ib-plan-accent)]">Материалы дела</p>
           <h1 className="mt-2 font-[var(--font-iburo-display)] text-3xl font-semibold tracking-[-.04em] text-slate-950 sm:text-5xl">Файлы</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">Загружайте документы и изображения по делу. Сразу после загрузки вы увидите файл здесь, а скачать его можно будет после проверки безопасности.</p>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">Загружайте PDF и изображения по делу. После проверки безопасности для них запускается распознавание текста. Подготовка черновиков и подтверждение извлечённых данных по этому тексту пока не подключены.</p>
         </div>
         <span className="inline-flex min-h-9 w-fit items-center gap-2 rounded-xl border border-emerald-200/70 bg-emerald-50/70 px-3 py-1.5 text-xs font-semibold text-emerald-700">
           <ShieldCheck className="size-4" aria-hidden="true" />
@@ -276,7 +340,7 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
           <div className="max-w-2xl">
             <p className="text-xs font-semibold uppercase tracking-[.14em] text-[var(--ib-plan-accent)]">Загрузить документы</p>
             <h2 className="mt-3 text-2xl font-semibold tracking-[-.035em] sm:text-3xl">Передайте документы в дело</h2>
-            <p className="mt-3 text-sm leading-6 text-slate-500">Выберите один или несколько PDF, JPG, PNG, WEBP, DOC или DOCX размером до 50 МБ каждый. Файлы загрузятся по очереди; статус проверки будет виден в списке.</p>
+            <p className="mt-3 text-sm leading-6 text-slate-500">Выберите один или несколько PDF, JPG, PNG или WEBP размером до 50 МБ каждый. Файлы загрузятся по очереди; статус проверки и распознавания будет виден в списке.</p>
           </div>
           <label className="inline-flex min-h-12 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[var(--ib-plan-accent)] bg-[var(--ib-plan-accent)] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[var(--ib-plan-accent-hover)] focus-within:ring-4 focus-within:ring-[var(--ib-plan-accent)]/15 has-[input:disabled]:cursor-not-allowed has-[input:disabled]:opacity-60">
             {uploading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <UploadCloud className="size-4" aria-hidden="true" />}
@@ -313,6 +377,8 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
             {files.map((file) => {
               const status = getStatusPresentation(file.status);
               const StatusIcon = status.icon;
+              const processing = file.status === "READY" ? getProcessingPresentation(processingByFileId[file.id]?.processingStatus ?? null) : null;
+              const ProcessingIcon = processing?.icon;
               const canDownload = file.status === "READY";
               const canDelete = file.status !== "SCANNING";
               const busy = deletingId === file.id || downloadingId === file.id;
@@ -325,6 +391,12 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
                   </div>
                   <h3 className="mt-5 truncate text-lg font-semibold tracking-[-.025em] text-slate-950" title={file.fileName}>{file.fileName}</h3>
                   <p className="mt-2 text-xs leading-5 text-slate-500">{status.description}</p>
+                  {processing && ProcessingIcon ? (
+                    <div className={`mt-4 rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 ${processing.className}`} role="status">
+                      <p className="flex items-center gap-2 text-xs font-semibold"><ProcessingIcon className={`size-4 ${processingByFileId[file.id]?.processingStatus === "PROCESSING" ? "animate-spin" : ""}`} aria-hidden="true" />{processing.label}</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-600">{processing.description}</p>
+                    </div>
+                  ) : null}
                   <dl className="mt-4 grid grid-cols-2 gap-4 text-xs">
                     <div className="min-w-0"><dt className="text-slate-400">Размер</dt><dd className="mt-1 font-semibold text-slate-700">{formatSize(file.sizeBytes)}</dd></div>
                     <div className="min-w-0"><dt className="text-slate-400">Добавлен</dt><dd className="mt-1 font-semibold text-slate-700">{formatDate(file.createdAt)}</dd></div>

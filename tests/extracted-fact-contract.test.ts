@@ -8,6 +8,7 @@ const textCandidate: ExtractedFactCandidate = {
   caseId: "case_123",
   sourceFileId: "file_456",
   fieldPath: "subject.fullName",
+  recordKey: "default",
   sourcePage: 1,
   value: { kind: "TEXT", text: "Иванов Иван Иванович" },
   confidence: 0.91,
@@ -18,6 +19,7 @@ assert.deepEqual(parseExtractedFactCandidate(textCandidate), textCandidate);
 const moneyCandidate: ExtractedFactCandidate = {
   ...textCandidate,
   fieldPath: "creditors.amountTotal",
+  recordKey: "creditor-1",
   sourcePage: 3,
   value: {
     kind: "MONEY",
@@ -66,6 +68,10 @@ assert.throws(
 );
 assert.throws(
   () => parseExtractedFactCandidate({ ...textCandidate, unexpected: "value" }),
+  /EXTRACTED_FACT_INVALID/,
+);
+assert.throws(
+  () => parseExtractedFactCandidate({ ...textCandidate, recordKey: "../other-case" }),
   /EXTRACTED_FACT_INVALID/,
 );
 assert.throws(

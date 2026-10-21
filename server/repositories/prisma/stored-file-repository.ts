@@ -1,6 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
+import { Prisma } from "@/generated/prisma/client";
 import { getPrismaClient } from "@/server/database/prisma";
 import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
 import type {
@@ -471,6 +472,11 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
         current.id,
         current.clientCaseId,
       );
+      await tx.$queryRawUnsafe<Array<{ id: string }>>(
+        'SELECT "id" FROM "ExtractedFactCandidate" WHERE "sourceFileId" = $1::uuid AND "clientCaseId" = $2::uuid FOR UPDATE',
+        current.id,
+        current.clientCaseId,
+      );
       const processingJob = await tx.documentProcessingJob.findUnique({
         where: {
           sourceFileId_clientCaseId: {
@@ -478,6 +484,9 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
             clientCaseId: current.clientCaseId,
           },
         },
+      });
+      const extractedFacts = await tx.extractedFactCandidate.findMany({
+        where: { sourceFileId: current.id, clientCaseId: current.clientCaseId },
       });
       const deleted = await tx.storedFile.deleteMany({
         where: {
@@ -495,6 +504,7 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
               pageTexts: processingJob.pageTexts as unknown as string[] | null,
             }
           : null,
+        extractedFacts: extractedFacts.map((fact) => ({ ...fact, value: fact.value })),
       };
     });
   }
@@ -511,6 +521,11 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
               ...processingJobData,
               ...(pageTexts === null ? {} : { pageTexts }),
             },
+          });
+        }
+        for (const fact of snapshot.extractedFacts) {
+          await tx.extractedFactCandidate.create({
+            data: { ...fact, value: fact.value as Prisma.InputJsonValue },
           });
         }
       });
@@ -533,7 +548,15 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
           },
         },
       });
-      return snapshot.processingJob ? Boolean(existingProcessingJob) : !existingProcessingJob;
+      const existingFacts = await prisma.extractedFactCandidate.findMany({
+        where: { sourceFileId: snapshot.file.id, clientCaseId: snapshot.file.clientCaseId },
+        select: { id: true },
+      });
+      const expectedFactIds = snapshot.extractedFacts.map(({ id }) => id).sort();
+      const existingFactIds = existingFacts.map(({ id }) => id).sort();
+      return (snapshot.processingJob ? Boolean(existingProcessingJob) : !existingProcessingJob) &&
+        expectedFactIds.length === existingFactIds.length &&
+        expectedFactIds.every((id, index) => id === existingFactIds[index]);
     }
   }
 

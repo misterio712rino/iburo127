@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hmac
+import csv
+import io
 import json
 import os
 import re
@@ -15,7 +17,9 @@ from typing import Callable
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 MAX_PDF_PAGES = 40
 MAX_TEXT_CHARS = 500_000
-MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+MAX_PAGE_LINES = 3_000
+MAX_TOTAL_LINES = 10_000
+MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 PROCESS_TIMEOUT_SECONDS = 30
 TOKEN_MIN_LENGTH = 32
 SUPPORTED_MIME_TYPES = {"application/pdf", "image/jpeg", "image/png", "image/webp"}
@@ -69,15 +73,70 @@ def _bounded_page_texts(values: list[str]) -> list[str]:
     return page_texts
 
 
-def _extract_image(data: bytes) -> tuple[list[str], int]:
+def _bounded_page_lines(values: list[list[dict]]) -> list[list[dict]]:
+    if len(values) > MAX_PDF_PAGES or sum(map(len, values)) > MAX_TOTAL_LINES:
+        raise ProcessorError("EXTRACTED_LAYOUT_TOO_LARGE", 413)
+    for page in values:
+        if len(page) > MAX_PAGE_LINES:
+            raise ProcessorError("EXTRACTED_LAYOUT_TOO_LARGE", 413)
+        for line in page:
+            if not isinstance(line.get("text"), str) or len(line["text"]) > 2_000:
+                raise ProcessorError("INVALID_PROCESSOR_RESULT", 500)
+    return values
+
+
+def _lines_from_text(text: str) -> list[dict]:
+    return [
+        {"text": line.strip(), "box": None, "confidence": None}
+        for line in text.splitlines()
+        if line.strip()
+    ]
+
+
+def _parse_tesseract_tsv(tsv: str) -> tuple[str, list[dict]]:
+    rows = csv.DictReader(io.StringIO(tsv), delimiter="\t")
+    grouped: dict[tuple[str, str, str, str], list[dict]] = {}
+    for row in rows:
+        if row.get("level") != "5" or not (row.get("text") or "").strip():
+            continue
+        key = (row.get("page_num", "1"), row.get("block_num", "0"), row.get("par_num", "0"), row.get("line_num", "0"))
+        try:
+            word = {
+                "text": row["text"].strip(),
+                "left": int(row["left"]), "top": int(row["top"]),
+                "width": int(row["width"]), "height": int(row["height"]),
+                "confidence": float(row["conf"]),
+            }
+        except (KeyError, TypeError, ValueError):
+            continue
+        if word["confidence"] < 0:
+            continue
+        grouped.setdefault(key, []).append(word)
+
+    lines: list[dict] = []
+    for words in grouped.values():
+        left = min(word["left"] for word in words)
+        top = min(word["top"] for word in words)
+        right = max(word["left"] + word["width"] for word in words)
+        bottom = max(word["top"] + word["height"] for word in words)
+        lines.append({
+            "text": " ".join(word["text"] for word in words),
+            "box": {"left": left, "top": top, "width": right - left, "height": bottom - top},
+            "confidence": round(sum(word["confidence"] for word in words) / len(words), 1),
+        })
+    text = "\n".join(line["text"] for line in lines)
+    return _bounded_text(text), lines
+
+
+def _extract_image(data: bytes) -> tuple[str, list[dict]]:
     raw = _run(
-        ["tesseract", "stdin", "stdout", "-l", "rus+eng", "--psm", "3"],
+        ["tesseract", "stdin", "stdout", "-l", "rus+eng", "--psm", "3", "tsv"],
         input_bytes=data, timeout=PROCESS_TIMEOUT_SECONDS,
     )
-    return _bounded_page_texts([raw.decode("utf-8", errors="replace")]), 1
+    return _parse_tesseract_tsv(raw.decode("utf-8", errors="replace"))
 
 
-def _extract_pdf(data: bytes) -> tuple[list[str], int]:
+def _extract_pdf(data: bytes) -> tuple[list[str], list[list[dict]], int]:
     with tempfile.TemporaryDirectory(prefix="iburo-doc-") as directory:
         pdf_path = Path(directory) / "input.pdf"
         pdf_path.write_bytes(data)
@@ -92,6 +151,7 @@ def _extract_pdf(data: bytes) -> tuple[list[str], int]:
             raise ProcessorError("PAGE_LIMIT_EXCEEDED", 413)
 
         page_texts: list[str] = []
+        page_lines: list[list[dict]] = []
         for page in range(1, page_count + 1):
             embedded = _run(
                 ["pdftotext", "-f", str(page), "-l", str(page), "-layout", "-enc",
@@ -101,6 +161,7 @@ def _extract_pdf(data: bytes) -> tuple[list[str], int]:
             embedded = _bounded_text(embedded)
             if len(embedded) >= 24:
                 page_texts.append(embedded)
+                page_lines.append(_lines_from_text(embedded))
                 continue
 
             prefix = Path(directory) / f"page-{page}"
@@ -112,19 +173,21 @@ def _extract_pdf(data: bytes) -> tuple[list[str], int]:
             image_path = prefix.with_suffix(".jpg")
             try:
                 raw = _run(
-                    ["tesseract", str(image_path), "stdout", "-l", "rus+eng", "--psm", "3"],
+                    ["tesseract", str(image_path), "stdout", "-l", "rus+eng", "--psm", "3", "tsv"],
                     timeout=PROCESS_TIMEOUT_SECONDS,
                 )
             finally:
                 image_path.unlink(missing_ok=True)
-            page_texts.append(raw.decode("utf-8", errors="replace"))
+            text, lines = _parse_tesseract_tsv(raw.decode("utf-8", errors="replace"))
+            page_texts.append(text)
+            page_lines.append(lines)
             if sum(map(len, page_texts)) > MAX_TEXT_CHARS:
                 raise ProcessorError("EXTRACTED_TEXT_TOO_LARGE", 413)
 
-        return _bounded_page_texts(page_texts), page_count
+        return _bounded_page_texts(page_texts), _bounded_page_lines(page_lines), page_count
 
 
-def extract_document(data: bytes, declared_mime_type: str) -> tuple[list[str], int]:
+def extract_document(data: bytes, declared_mime_type: str) -> tuple[list[str], list[list[dict]], int]:
     if not data or len(data) > MAX_UPLOAD_BYTES:
         raise ProcessorError("INVALID_DOCUMENT_SIZE", 413 if data else 400)
     if declared_mime_type not in SUPPORTED_MIME_TYPES:
@@ -134,7 +197,8 @@ def extract_document(data: bytes, declared_mime_type: str) -> tuple[list[str], i
         raise ProcessorError("DOCUMENT_TYPE_MISMATCH", 415)
     if actual == "application/pdf":
         return _extract_pdf(data)
-    return _extract_image(data)
+    page_text, lines = _extract_image(data)
+    return [page_text], _bounded_page_lines([lines]), 1
 
 
 class ProcessorServer(ThreadingHTTPServer):
@@ -217,11 +281,11 @@ class ProcessorHandler(BaseHTTPRequestHandler):
             if len(data) != size:
                 self._send_json(400, {"ok": False, "error": {"code": "INCOMPLETE_REQUEST_BODY"}})
                 return
-            page_texts, pages = self.server.processor(data, mime)
-            if len(page_texts) != pages:
+            page_texts, page_lines, pages = self.server.processor(data, mime)
+            if len(page_texts) != pages or len(page_lines) != pages:
                 raise ProcessorError("INVALID_PROCESSOR_RESULT", 500)
             response = json.dumps(
-                {"ok": True, "data": {"pageTexts": page_texts, "pages": pages}},
+                {"ok": True, "data": {"pageTexts": page_texts, "pageLines": page_lines, "pages": pages}},
                 ensure_ascii=False, separators=(",", ":"),
             ).encode("utf-8")
             if len(response) > MAX_RESPONSE_BYTES:

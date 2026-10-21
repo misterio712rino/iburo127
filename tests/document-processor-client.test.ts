@@ -55,7 +55,14 @@ let call: { url: string; init?: RequestInit } | undefined;
 const client = new DocumentProcessorClient(config, (async (input, init) => {
   call = { url: String(input), init };
   return Response.json(
-    { ok: true, data: { pageTexts: ["Страница 1", "Страница 2"], pages: 2 } },
+    { ok: true, data: {
+      pageTexts: ["Страница 1", "Страница 2"],
+      pageLines: [
+        [{ text: "Страница 1", box: { left: 10, top: 20, width: 100, height: 18 }, confidence: 91.2 }],
+        [{ text: "Страница 2", box: null, confidence: null }],
+      ],
+      pages: 2,
+    } },
     { headers: { "Cache-Control": "private, no-store" } },
   );
 }) as typeof fetch);
@@ -63,6 +70,10 @@ const result = await client.extract({ bytes: new Uint8Array([1, 2, 3]), mimeType
 assert.deepEqual(result, {
   text: ["Страница 1", "Страница 2"].join("\n\n"),
   pageTexts: ["Страница 1", "Страница 2"],
+  pageLines: [
+    [{ text: "Страница 1", box: { left: 10, top: 20, width: 100, height: 18 }, confidence: 91.2 }],
+    [{ text: "Страница 2", box: null, confidence: null }],
+  ],
   pages: 2,
 });
 assert.equal(call?.url, "http://document-processor:8080/v1/extract");
@@ -95,6 +106,17 @@ const nulPageTextClient = new DocumentProcessorClient(config, (async () =>
 ) as typeof fetch);
 await assert.rejects(
   nulPageTextClient.extract({ bytes: new Uint8Array([1]), mimeType: "application/pdf" }),
+  /INVALID_RESPONSE/,
+);
+
+const invalidLayoutClient = new DocumentProcessorClient(config, (async () =>
+  Response.json({ ok: true, data: {
+    pageTexts: ["Страница 1"], pages: 1,
+    pageLines: [[{ text: "Страница 1", box: { left: -1, top: 0, width: 10, height: 10 }, confidence: 50 }]],
+  } })
+) as typeof fetch);
+await assert.rejects(
+  invalidLayoutClient.extract({ bytes: new Uint8Array([1]), mimeType: "application/pdf" }),
   /INVALID_RESPONSE/,
 );
 

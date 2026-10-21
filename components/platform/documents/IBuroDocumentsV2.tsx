@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 
 import { DOCUMENT_DEFINITIONS } from "@/lib/platform/document-definitions";
+import { IBuroExtractedFactsV2 } from "./IBuroExtractedFactsV2";
+import { IBuroConfirmedFactDraftPreviewsV2 } from "./IBuroConfirmedFactDraftPreviewsV2";
 import { CaseStageTimeline } from "../progress/CaseStageTimeline";
 import styles from "./IBuroDocumentsV2.module.css";
 
@@ -104,13 +106,26 @@ export function IBuroDocumentsV2({ caseId, humanSupportAvailable, questionnaire,
         <div>
           <span className={styles.eyebrow}>Материалы дела</span>
           <h1>Документы</h1>
-          <p>{humanSupportAvailable ? "Черновики формируются из актуальных данных анкеты. Перед использованием их проверяет специалист." : "Черновики формируются из актуальных данных анкеты. Перед использованием внимательно проверьте содержание и исходные данные."}</p>
+          <p>{humanSupportAvailable ? "Черновики формируются из актуальных данных анкеты. Перед использованием их проверяет специалист." : "Черновики пока формируются из анкеты. Автозаполнение по распознанным документам ещё не подключено."}</p>
         </div>
         <div className={styles.headerStats}>
           <strong>{humanSupportAvailable ? reviewed : prepared}</strong>
           <span>{humanSupportAvailable ? "проверено" : "подготовлено"}</span>
         </div>
       </header>
+
+      <aside className="flex flex-col gap-3 rounded-2xl border border-[var(--ib-plan-accent)]/15 bg-white/80 p-5 sm:flex-row sm:items-center sm:justify-between" aria-label="Загрузка документов">
+        <div>
+          <p className="text-sm font-semibold text-slate-900">Начните с загрузки документов</p>
+          <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-600">Проверку безопасности и распознавание текста можно отслеживать в разделе «Файлы». Распознанные данные пока не заполняют эти черновики автоматически.</p>
+        </div>
+        <Link href={`/portal/cases/${caseId}/files`} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[var(--ib-plan-accent)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--ib-plan-accent)]/20">
+          Открыть файлы <ArrowRight aria-hidden="true" className="size-4" />
+        </Link>
+      </aside>
+
+      <IBuroExtractedFactsV2 caseId={caseId} />
+      <IBuroConfirmedFactDraftPreviewsV2 caseId={caseId} />
 
       {error ? <div className={styles.error} role="alert">{error}</div> : null}
 

@@ -55,9 +55,26 @@ export type DocumentProcessingJobDeletionSnapshot = {
   updatedAt: Date;
 };
 
+export type ExtractedFactCandidateDeletionSnapshot = {
+  id: string;
+  clientCaseId: string;
+  sourceFileId: string;
+  fieldPath: string;
+  recordKey: string;
+  sourcePage: number;
+  value: unknown;
+  confidence: number;
+  reviewStatus: "NEEDS_REVIEW" | "CONFIRMED" | "REJECTED";
+  reviewedAt: Date | null;
+  reviewedById: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export type StoredFileDeletionSnapshot = {
   file: StoredFileRecord;
   processingJob: DocumentProcessingJobDeletionSnapshot | null;
+  extractedFacts: ExtractedFactCandidateDeletionSnapshot[];
 };
 
 export interface StoredFileRepository {

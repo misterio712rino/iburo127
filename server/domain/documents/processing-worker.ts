@@ -3,6 +3,8 @@ import type { StoredFileStatus } from "@/server/domain/files/contracts";
 import type { ExtractedDocumentText, DocumentProcessorClient } from "@/server/files/document-processor-client";
 import { DOCUMENT_PROCESSOR_MAX_UPLOAD_BYTES } from "@/server/files/document-processor-client";
 import type { PrivateObjectStorage } from "@/server/files/object-storage-contract";
+import type { ExtractedFactCandidate } from "@/server/domain/documents/extracted-fact-contract";
+import { extractExplicitFactCandidates } from "@/server/domain/documents/explicit-fact-extractor";
 
 export const DOCUMENT_PROCESSING_INVALID_CONFIG = "DOCUMENT_PROCESSING_INVALID_CONFIG";
 export const DOCUMENT_PROCESSING_SOURCE_NOT_READY = "DOCUMENT_PROCESSING_SOURCE_NOT_READY";
@@ -38,6 +40,7 @@ export interface DocumentProcessingJobRepository {
     completedAt: Date;
     pageTexts: readonly string[];
     pageCount: number;
+    factCandidates: readonly ExtractedFactCandidate[];
   }): Promise<boolean>;
   reschedule(input: {
     jobId: string;
@@ -151,7 +154,7 @@ export class DocumentProcessingWorker {
     }
     if (!isSupportedSource(file, this.config.maxUploadBytes)) {
       const failed = await this.repository.fail({
-        jobId: job.id, leaseToken: job.leaseToken, failedAt: now,
+        jobId: job.id, leaseToken: job.leaseToken, failedAt: this.clock(),
         errorCode: DOCUMENT_PROCESSING_INVALID_SOURCE,
       });
       if (failed) result.failed += 1;
@@ -165,9 +168,16 @@ export class DocumentProcessingWorker {
         throw new Error(`${DOCUMENT_PROCESSING_FAILED}:SOURCE_SIZE_MISMATCH`);
       }
       const extracted: ExtractedDocumentText = await this.processor.extract({ bytes, mimeType: file.mimeType });
+      const factCandidates = extractExplicitFactCandidates({
+        caseId: job.clientCaseId,
+        sourceFileId: file.id,
+        pageTexts: extracted.pageTexts,
+        pageLines: extracted.pageLines,
+      });
       const completed = await this.repository.complete({
         jobId: job.id, leaseToken: job.leaseToken, completedAt: this.clock(),
         pageTexts: extracted.pageTexts, pageCount: extracted.pages,
+        factCandidates,
       });
       if (completed) result.completed += 1;
       else result.leaseLost += 1;
@@ -175,7 +185,7 @@ export class DocumentProcessingWorker {
       const errorCode = safeProcessorErrorCode(error);
       if (job.attemptCount >= this.config.maxAttempts) {
         const failed = await this.repository.fail({
-          jobId: job.id, leaseToken: job.leaseToken, failedAt: now, errorCode,
+          jobId: job.id, leaseToken: job.leaseToken, failedAt: this.clock(), errorCode,
         });
         if (failed) result.failed += 1;
         else result.leaseLost += 1;
