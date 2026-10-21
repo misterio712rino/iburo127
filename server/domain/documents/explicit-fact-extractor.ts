@@ -34,7 +34,6 @@ function parseRuDate(value: string): string | null {
 function parseRubAmount(value: string): string | null {
   const normalized = value
     .replace(/\u00a0/g, " ")
-    .replace(/\s+/g, "")
     .replace(/руб(?:лей|ля|\.)?/giu, "")
     .replace(/[₽]/gu, "")
     .trim();
@@ -346,7 +345,7 @@ function extractLayoutLabelValues(
   alreadyExtracted: ReadonlySet<string>,
 ): ExtractedFactCandidate[] {
   const candidates: ExtractedFactCandidate[] = [];
-  const usedValueIndexes = new Set<number>();
+  const pairsByField = new Map<string, Array<{ label: LayoutFactLine; value: LayoutFactLine; valueIndex: number }>>();
 
   for (const rule of LAYOUT_LABEL_RULES) {
     if (alreadyExtracted.has(rule.fieldPath)) continue;
@@ -356,7 +355,7 @@ function extractLayoutLabelValues(
       const normalized = normalizeLayoutLabel(label.text);
       if (!rule.labels.some((pattern) => pattern.test(normalized))) continue;
       const relatedValues = lines.flatMap((value, valueIndex) => {
-        if (valueIndex === labelIndex || usedValueIndexes.has(valueIndex) || !hasValidBox(value) ||
+        if (valueIndex === labelIndex || !hasValidBox(value) ||
             !linesGeometricallyRelated(label, value)) return [];
         const parsed = rule.parse(value.text.trim());
         if (!parsed) return [];
@@ -369,14 +368,29 @@ function extractLayoutLabelValues(
         pairs.push({ label, value: only.value, valueIndex: only.valueIndex });
       }
     }
+    pairsByField.set(rule.fieldPath, pairs);
+  }
 
-    // If repeated labels or nearby values make the mapping non-unique, leave
-    // this field for client review rather than choosing one by page order.
+  const fieldsByValueIndex = new Map<number, Set<string>>();
+  for (const [fieldPath, pairs] of pairsByField) {
+    for (const pair of pairs) {
+      const fields = fieldsByValueIndex.get(pair.valueIndex) ?? new Set<string>();
+      fields.add(fieldPath);
+      fieldsByValueIndex.set(pair.valueIndex, fields);
+    }
+  }
+
+  for (const rule of LAYOUT_LABEL_RULES) {
+    if (alreadyExtracted.has(rule.fieldPath)) continue;
+    const pairs = (pairsByField.get(rule.fieldPath) ?? []).filter(
+      (pair) => fieldsByValueIndex.get(pair.valueIndex)?.size === 1,
+    );
+    // Repeated labels, shared values, or nearby values leave this field for
+    // client review rather than assigning a value by rule order.
     if (pairs.length !== 1) continue;
     const pair = pairs[0];
     const value = rule.parse(pair.value.text.trim());
     if (!value || !hasValidBox(pair.label) || !hasValidBox(pair.value)) continue;
-    usedValueIndexes.add(pair.valueIndex);
     const confidence = Math.min(0.70, pair.label.confidence / 100, pair.value.confidence / 100);
     candidates.push(parseExtractedFactCandidate({
       caseId: input.caseId,

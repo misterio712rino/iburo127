@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Check, CircleAlert, FileSearch, Loader2, X } from "lucide-react";
 
 type Candidate = {
@@ -17,6 +17,26 @@ type Candidate = {
 };
 type ApiResult<T> = { ok: true; data: T } | { ok: false; error: { code: string } };
 type DownloadResult = { url: string; expiresAt: string };
+type ProcessingSummary = {
+  fileId: string;
+  fileStatus: string;
+  processingStatus: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "CANCELLED" | null;
+  pageCount: number | null;
+};
+
+async function fetchReviewData(caseId: string) {
+  const [factsResponse, processingResponse] = await Promise.all([
+    fetch(`/api/platform/cases/${caseId}/extracted-facts`, { cache: "no-store" }),
+    fetch(`/api/platform/cases/${caseId}/document-processing`, { cache: "no-store" }),
+  ]);
+  const [factsResult, processingResult] = await Promise.all([
+    factsResponse.json() as Promise<ApiResult<Candidate[]>>,
+    processingResponse.json() as Promise<ApiResult<ProcessingSummary[]>>,
+  ]);
+  if (!factsResult.ok) throw new Error(factsResult.error.code);
+  if (!processingResult.ok) throw new Error(processingResult.error.code);
+  return { candidates: factsResult.data, processing: processingResult.data };
+}
 
 const FIELD_LABELS: Record<string, string> = {
   "subject.fullName": "ФИО",
@@ -60,34 +80,54 @@ function formatValue(value: unknown) {
 export function IBuroExtractedFactsV2({ caseId }: { caseId: string }) {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [edits, setEdits] = useState<Record<string, string>>({});
-  const [sourceUrls, setSourceUrls] = useState<Record<string, string>>({});
+  const [sourceUrls, setSourceUrls] = useState<Record<string, DownloadResult>>({});
   const [loading, setLoading] = useState(true);
+  const [processingPending, setProcessingPending] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function refresh() {
-    const response = await fetch(`/api/platform/cases/${caseId}/extracted-facts`, { cache: "no-store" });
-    const result = (await response.json()) as ApiResult<Candidate[]>;
-    if (!result.ok) throw new Error(result.error.code);
-    setCandidates(result.data);
-    setEdits(Object.fromEntries(result.data.map((candidate) => [candidate.id, editableValue(candidate.value)])));
-  }
+  const refresh = useCallback(async (preserveEdits = false) => {
+    const data = await fetchReviewData(caseId);
+    setCandidates(data.candidates);
+    setEdits((previous) => Object.fromEntries(data.candidates.map((candidate) => [
+      candidate.id,
+      preserveEdits && Object.hasOwn(previous, candidate.id)
+        ? previous[candidate.id]
+        : editableValue(candidate.value),
+    ])));
+    setProcessingPending(data.processing.some((job) =>
+      job.processingStatus === "PENDING" || job.processingStatus === "PROCESSING",
+    ));
+  }, [caseId]);
 
   useEffect(() => {
     let active = true;
-    fetch(`/api/platform/cases/${caseId}/extracted-facts`, { cache: "no-store" })
-      .then(async (response) => {
-        const result = (await response.json()) as ApiResult<Candidate[]>;
-        if (!result.ok) throw new Error(result.error.code);
-        if (active) {
-          setCandidates(result.data);
-          setEdits(Object.fromEntries(result.data.map((candidate) => [candidate.id, editableValue(candidate.value)])));
-        }
+    fetchReviewData(caseId)
+      .then((data) => {
+        if (!active) return;
+        setCandidates(data.candidates);
+        setEdits(Object.fromEntries(data.candidates.map((candidate) => [candidate.id, editableValue(candidate.value)])));
+        setProcessingPending(data.processing.some((job) => job.processingStatus === "PENDING" || job.processingStatus === "PROCESSING"));
       })
       .catch(() => { if (active) setError("Не удалось загрузить распознанные значения."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [caseId]);
+
+  useEffect(() => {
+    if (!processingPending) return;
+    const timer = window.setInterval(() => {
+      void refresh(true).catch(() => setError("Не удалось обновить статус обработки документов."));
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [processingPending, refresh]);
+
+  useEffect(() => {
+    if (Object.keys(sourceUrls).length === 0) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [sourceUrls]);
 
   async function decide(candidate: Candidate, decision: "CONFIRMED" | "REJECTED") {
     if (pending) return;
@@ -131,7 +171,7 @@ export function IBuroExtractedFactsV2({ caseId }: { caseId: string }) {
       });
       const result = (await response.json()) as ApiResult<DownloadResult>;
       if (!result.ok) throw new Error(result.error.code);
-      setSourceUrls((previous) => ({ ...previous, [candidate.id]: result.data.url }));
+      setSourceUrls((previous) => ({ ...previous, [candidate.id]: result.data }));
     } catch {
       setError("Не удалось получить защищённую ссылку на исходный файл.");
     }
@@ -151,6 +191,7 @@ export function IBuroExtractedFactsV2({ caseId }: { caseId: string }) {
       {error ? <p className="mt-4 rounded-xl bg-white px-4 py-3 text-sm text-red-700" role="alert">{error}</p> : null}
       {loading ? <p className="mt-5 flex items-center gap-2 text-sm text-slate-600" role="status"><Loader2 className="size-4 animate-spin" aria-hidden="true" />Загружаем результаты распознавания…</p> : null}
       {!loading && candidates.length === 0 ? <p className="mt-5 text-sm text-slate-600">Пока нет распознанных значений. Загрузите документы в разделе «Файлы» и дождитесь окончания обработки.</p> : null}
+      {!loading && processingPending ? <p className="mt-3 text-sm text-slate-600" role="status">Документы ещё обрабатываются. Список обновится автоматически.</p> : null}
       <div className="mt-5 grid gap-3">
         {candidates.map((candidate) => {
           const needsReview = candidate.reviewStatus === "NEEDS_REVIEW";
@@ -170,9 +211,14 @@ export function IBuroExtractedFactsV2({ caseId }: { caseId: string }) {
               <p className="mt-3 break-words text-base font-medium text-slate-800">{formatValue(candidate.value)}</p>
               <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500"><CircleAlert className="size-3.5" aria-hidden="true" />Источник: {candidate.sourceFile.fileName}, страница {candidate.sourcePage}</p>
               <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
-                {sourceUrls[candidate.id]
-                  ? <a className="font-semibold text-blue-800 underline underline-offset-2" href={sourceUrls[candidate.id]} target="_blank" rel="noreferrer">Открыть исходный файл</a>
-                  : <button type="button" onClick={() => getSourceUrl(candidate)} className="min-h-9 rounded-lg border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">Получить защищённую ссылку</button>}
+                {sourceUrls[candidate.id] && Date.parse(sourceUrls[candidate.id].expiresAt) > now
+                  ? <><a className="font-semibold text-blue-800 underline underline-offset-2" href={sourceUrls[candidate.id].url} target="_blank" rel="noreferrer" onClick={(event) => {
+                    if (Date.parse(sourceUrls[candidate.id].expiresAt) <= Date.now()) {
+                      event.preventDefault();
+                      void getSourceUrl(candidate);
+                    }
+                  }}>Открыть исходный файл</a><span className="text-xs text-slate-500">Ссылка действует до {new Date(sourceUrls[candidate.id].expiresAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}</span></>
+                  : <button type="button" onClick={() => getSourceUrl(candidate)} className="min-h-9 rounded-lg border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">{sourceUrls[candidate.id] ? "Обновить защищённую ссылку" : "Получить защищённую ссылку"}</button>}
               </div>
               {needsReview ? <div className="mt-4 flex flex-wrap gap-2">
                 <label className="sr-only" htmlFor={`fact-edit-${candidate.id}`}>Исправить: {title}</label>

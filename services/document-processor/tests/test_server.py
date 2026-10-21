@@ -135,6 +135,28 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.getheader("Cache-Control"), "private, no-store")
         connection.close()
 
+    def test_extract_accepts_text_and_layout_near_the_character_limit(self):
+        text = "я" * 500_000
+        original_processor = self.server.processor
+        self.server.processor = lambda _data, _mime: ([text], [[{
+            "text": text,
+            "box": {"left": 1, "top": 2, "width": 10, "height": 4},
+            "confidence": 91.0,
+        }]], 1)
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        connection.request(
+            "POST", "/v1/extract",
+            body=b"\xff\xd8\xffimage",
+            headers={"Authorization": f"Bearer {TOKEN}", "Content-Type": "image/jpeg"},
+        )
+        response = connection.getresponse()
+        payload = json.loads(response.read().decode("utf-8"))
+        self.assertEqual(response.status, 200)
+        self.assertEqual(len(payload["data"]["pageTexts"][0]), 500_000)
+        self.assertEqual(len(payload["data"]["pageLines"][0][0]["text"]), 500_000)
+        connection.close()
+        self.server.processor = original_processor
+
     def test_extract_requires_internal_token(self):
         status, payload = self.request(
             "POST", "/v1/extract",

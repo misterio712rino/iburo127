@@ -72,6 +72,10 @@ assert.match(documentJobRepository, /throw new Error\("DOCUMENT_PROCESSING_FAILE
 assert.match(fileRepository, /documentProcessingJob\.findUnique/);
 assert.match(fileRepository, /DocumentProcessingJob[\s\S]{0,180}FOR UPDATE/);
 assert.ok(fileRepository.includes("processingJob: processingJob"));
+assert.match(fileRepository, /ExtractedFactCandidate[\s\S]{0,180}FOR UPDATE/);
+assert.match(fileRepository, /extractedFacts: extractedFacts\.map/);
+assert.match(fileRepository, /for \(const fact of snapshot\.extractedFacts\)/);
+assert.match(fileRepository, /tx\.extractedFactCandidate\.create/);
 assert.match(fileRepository, /documentProcessingJob\.create/);
 assert.match(fileOperations, /const deletionSnapshot = await storedFileService\.takeOwnedForDeletion/);
 assert.match(fileOperations, /storedFileService\.restoreDeleted\(deletionSnapshot\)/);

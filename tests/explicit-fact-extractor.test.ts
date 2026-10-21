@@ -43,6 +43,12 @@ assert.deepEqual(extractExplicitFactCandidates({
 
 assert.deepEqual(extractExplicitFactCandidates({
   caseId: "case_123", sourceFileId: "file_456", pageTexts: [
+    "Общая сумма долга: 10 20 руб.",
+  ],
+}), [], "malformed digit grouping must not be concatenated into a plausible amount");
+
+assert.deepEqual(extractExplicitFactCandidates({
+  caseId: "case_123", sourceFileId: "file_456", pageTexts: [
     "Ежемесячный доход: 85 500",
   ],
 }), []);
@@ -90,6 +96,14 @@ assert.deepEqual(extractExplicitFactCandidates({
     { text: "Петров Петр Петрович", box: { left: 30, top: 32, width: 180, height: 18 }, confidence: 94 },
   ]],
 }).map(({ fieldPath }) => fieldPath), []);
+
+assert.deepEqual(extractExplicitFactCandidates({
+  caseId: "case_123", sourceFileId: "file_456", pageTexts: ["layout scan"], pageLines: [[
+    { text: "Ежемесячный доход", box: { left: 10, top: 10, width: 150, height: 18 }, confidence: 90 },
+    { text: "Общая сумма задолженности", box: { left: 10, top: 28, width: 190, height: 18 }, confidence: 90 },
+    { text: "12 000 руб.", box: { left: 10, top: 55, width: 100, height: 18 }, confidence: 90 },
+  ]],
+}).map(({ fieldPath }) => fieldPath), [], "a shared amount must not be assigned by rule order");
 
 const creditorCandidates = extractExplicitFactCandidates({
   caseId: "case_123",

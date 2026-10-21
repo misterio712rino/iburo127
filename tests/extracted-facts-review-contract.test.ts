@@ -19,6 +19,10 @@ assert.match(ui, /Подтвердить/);
 assert.match(ui, /Отклонить/);
 assert.match(ui, /Исправить: \{title\}/);
 assert.match(ui, /Получить защищённую ссылку/);
+assert.match(ui, /document-processing/);
+assert.match(ui, /setInterval/);
+assert.match(ui, /expiresAt/);
+assert.match(ui, /Обновить защищённую ссылку/);
 assert.match(ui, /не заполняет черновики документов/);
 assert.match(documentsUi, /<IBuroExtractedFactsV2 caseId=\{caseId\} \/>/);
 
