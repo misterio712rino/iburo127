@@ -82,7 +82,9 @@ export class PrismaDocumentProcessingJobRepository implements DocumentProcessing
   }
 
   async complete(input: Parameters<DocumentProcessingJobRepository["complete"]>[0]) {
-    if (!isPageTexts(input.pageTexts, input.pageCount)) return false;
+    if (!isPageTexts(input.pageTexts, input.pageCount)) {
+      throw new Error("DOCUMENT_PROCESSING_FAILED:INVALID_OCR_OUTPUT");
+    }
     const prisma = getPrismaClient();
     const updated = await prisma.documentProcessingJob.updateMany({
       where: {

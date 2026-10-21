@@ -226,7 +226,7 @@ export class DocumentProcessorClient {
       (pages as number) < 1 ||
       (pages as number) > 40 ||
       pageTexts.length !== pages ||
-      pageTexts.some((pageText) => typeof pageText !== "string") ||
+      pageTexts.some((pageText) => typeof pageText !== "string" || pageText.includes("\0")) ||
       pageTexts.reduce((total, pageText) => total + pageText.length, 0) > 500_000
     ) {
       throw new Error(`${DOCUMENT_PROCESSOR_REQUEST_FAILED}:INVALID_RESPONSE`);

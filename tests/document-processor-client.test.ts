@@ -90,6 +90,14 @@ await assert.rejects(
   /INVALID_RESPONSE/,
 );
 
+const nulPageTextClient = new DocumentProcessorClient(config, (async () =>
+  Response.json({ ok: true, data: { pageTexts: ["bad\0text"], pages: 1 } })
+) as typeof fetch);
+await assert.rejects(
+  nulPageTextClient.extract({ bytes: new Uint8Array([1]), mimeType: "application/pdf" }),
+  /INVALID_RESPONSE/,
+);
+
 const oversizedClient = new DocumentProcessorClient(config, (async () =>
   new Response(new Uint8Array(DOCUMENT_PROCESSOR_MAX_RESPONSE_BYTES + 1), {
     status: 200,

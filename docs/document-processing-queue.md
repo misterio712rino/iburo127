@@ -18,7 +18,9 @@ fact extraction must create candidates marked for human review. The maintenance
 route returns aggregate counters only and never returns page text or file identifiers.
 
 Deleting the source file cascades to its processing job and stored OCR text. The
-composite foreign key also guarantees that the job's case ID matches its source file.
+legacy delete flow snapshots the matching processing job before that cascade and restores
+both rows if object-storage deletion fails. The composite foreign key also guarantees
+that the job's case ID matches its source file.
 
 ## Enabling the worker
 

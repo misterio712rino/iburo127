@@ -5,6 +5,7 @@ import { getPrismaClient } from "@/server/database/prisma";
 import type { AuthenticatedActor } from "@/server/domain/client-cases/contracts";
 import type {
   ClaimedStoredFileScan,
+  StoredFileDeletionSnapshot,
   StoredFileRecord,
   StoredFileRepository,
   StoredFileStatus,
@@ -446,9 +447,15 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
     });
   }
 
-  async takeOwnedForDeletion(fileId: string, uploadedById: string) {
+  async takeOwnedForDeletion(fileId: string, uploadedById: string): Promise<StoredFileDeletionSnapshot | null> {
     const prisma = getPrismaClient();
     return prisma.$transaction(async (tx) => {
+      const lockedFiles = await tx.$queryRawUnsafe<Array<{ id: string }>>(
+        'SELECT "id" FROM "StoredFile" WHERE "id" = $1::uuid AND "uploadedById" = $2::uuid FOR UPDATE',
+        fileId,
+        uploadedById,
+      );
+      if (lockedFiles.length !== 1) return null;
       const current = await tx.storedFile.findUnique({ where: { id: fileId } });
       if (
         !current ||
@@ -459,6 +466,19 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
         return null;
       }
 
+      await tx.$queryRawUnsafe<Array<{ id: string }>>(
+        'SELECT "id" FROM "DocumentProcessingJob" WHERE "sourceFileId" = $1::uuid AND "clientCaseId" = $2::uuid FOR UPDATE',
+        current.id,
+        current.clientCaseId,
+      );
+      const processingJob = await tx.documentProcessingJob.findUnique({
+        where: {
+          sourceFileId_clientCaseId: {
+            sourceFileId: current.id,
+            clientCaseId: current.clientCaseId,
+          },
+        },
+      });
       const deleted = await tx.storedFile.deleteMany({
         where: {
           id: current.id,
@@ -467,23 +487,53 @@ export class PrismaStoredFileRepository implements StoredFileRepository {
         },
       });
       if (deleted.count !== 1) return null;
-      return toRecord(current);
+      return {
+        file: toRecord(current),
+        processingJob: processingJob
+          ? {
+              ...processingJob,
+              pageTexts: processingJob.pageTexts as unknown as string[] | null,
+            }
+          : null,
+      };
     });
   }
 
-  async restoreDeleted(file: StoredFileRecord) {
+  async restoreDeleted(snapshot: StoredFileDeletionSnapshot) {
     const prisma = getPrismaClient();
     try {
-      await prisma.storedFile.create({ data: restoreData(file) });
+      await prisma.$transaction(async (tx) => {
+        await tx.storedFile.create({ data: restoreData(snapshot.file) });
+        if (snapshot.processingJob) {
+          const { pageTexts, ...processingJobData } = snapshot.processingJob;
+          await tx.documentProcessingJob.create({
+            data: {
+              ...processingJobData,
+              ...(pageTexts === null ? {} : { pageTexts }),
+            },
+          });
+        }
+      });
       return true;
     } catch (error) {
       if (!isPrismaUniqueConstraintError(error)) throw error;
-      const existing = await prisma.storedFile.findUnique({ where: { id: file.id } });
-      return Boolean(
-        existing &&
-          existing.clientCaseId === file.clientCaseId &&
-          existing.objectKey === file.objectKey,
-      );
+      const existing = await prisma.storedFile.findUnique({ where: { id: snapshot.file.id } });
+      if (
+        !existing ||
+        existing.clientCaseId !== snapshot.file.clientCaseId ||
+        existing.objectKey !== snapshot.file.objectKey
+      ) {
+        return false;
+      }
+      const existingProcessingJob = await prisma.documentProcessingJob.findUnique({
+        where: {
+          sourceFileId_clientCaseId: {
+            sourceFileId: snapshot.file.id,
+            clientCaseId: snapshot.file.clientCaseId,
+          },
+        },
+      });
+      return snapshot.processingJob ? Boolean(existingProcessingJob) : !existingProcessingJob;
     }
   }
 
