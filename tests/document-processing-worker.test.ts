@@ -5,11 +5,13 @@ import {
   DOCUMENT_PROCESSING_STORAGE_PROVIDER_MISMATCH,
   DocumentProcessingWorker,
   documentProcessingRetryDelaySeconds,
+  documentProcessingLeaseHeartbeatIntervalMs,
   type ClaimedDocumentProcessingJob,
   type DocumentProcessingJobRepository,
 } from "@/server/domain/documents/processing-worker";
 import type { PrivateObjectStorage } from "@/server/files/object-storage-contract";
 import type { DocumentProcessorClient } from "@/server/files/document-processor-client";
+import { readDocumentProcessingRuntimeConfig } from "@/server/config/document-processing-runtime";
 
 const now = new Date("2026-10-20T06:00:00.000Z");
 const bytes = new Uint8Array([1, 2, 3]);
@@ -33,6 +35,7 @@ class FakeRepository implements DocumentProcessingJobRepository {
   loseLease = false;
   completeError: Error | null = null;
   async claimDue() { const result = this.claim; this.claim = null; return result; }
+  async extendLease() { return !this.loseLease; }
   async complete(input: Parameters<DocumentProcessingJobRepository["complete"]>[0]) {
     if (this.completeError) throw this.completeError;
     this.completedInput = input; return !this.loseLease;
@@ -60,11 +63,11 @@ class FakeStorage implements PrivateObjectStorage {
 
 function makeWorker(repository: FakeRepository, storage = new FakeStorage(), extract: DocumentProcessorClient["extract"] = async () => ({
   text: "page 1", pageTexts: ["page 1"], pages: 1,
-})) {
+}), clock: () => Date = () => new Date(now.getTime() + 30_000)) {
   const processor = { extract };
   return new DocumentProcessingWorker(repository, storage, processor, {
     leaseSeconds: 120, maxAttempts: 3, retryBaseSeconds: 60, retryMaxSeconds: 300, maxUploadBytes: 50 * 1024 * 1024,
-  });
+  }, clock);
 }
 
 async function testSuccessPersistsPageBoundariesWithoutReturningText() {
@@ -75,6 +78,7 @@ async function testSuccessPersistsPageBoundariesWithoutReturningText() {
   assert.deepEqual(result, { claimed: 1, completed: 1, cancelled: 0, retried: 0, failed: 0, leaseLost: 0 });
   assert.equal(store.readCalls, 1);
   assert.deepEqual(repo.completedInput?.pageTexts, ["page 1", "page 2"]);
+  assert.equal(repo.completedInput?.completedAt.getTime(), now.getTime() + 30_000);
   assert.deepEqual(Object.keys(result), ["claimed", "completed", "cancelled", "retried", "failed", "leaseLost"]);
 }
 
@@ -110,7 +114,7 @@ async function testTransientFailureRetriesWithSafeCode() {
   }).runBatch({ now, limit: 1 });
   assert.equal(result.retried, 1);
   assert.equal(repo.rescheduledInput?.errorCode, "DOCUMENT_PROCESSING_FAILED");
-  assert.equal(repo.rescheduledInput?.nextAttemptAt.getTime(), now.getTime() + 60_000);
+  assert.equal(repo.rescheduledInput?.nextAttemptAt.getTime(), now.getTime() + 90_000);
   assert.doesNotMatch(repo.rescheduledInput?.errorCode ?? "", /secret|token/i);
 }
 
@@ -134,6 +138,12 @@ async function testAttemptsExhaustIntoFailureAndLeaseLossIsNotCountedAsSuccess()
 }
 
 assert.equal(documentProcessingRetryDelaySeconds(3, 60, 300), 240);
+assert.equal(documentProcessingLeaseHeartbeatIntervalMs(120), 40_000);
+assert.equal(documentProcessingLeaseHeartbeatIntervalMs(30), 10_000);
+assert.deepEqual(readDocumentProcessingRuntimeConfig({}), {
+  leaseSeconds: 120, maxAttempts: 3, retryBaseSeconds: 60, retryMaxSeconds: 3_600,
+});
+assert.throws(() => readDocumentProcessingRuntimeConfig({ IB_DOCUMENT_PROCESSING_LEASE_SECONDS: "30" }), /PRODUCTION_CONFIG_ERROR/);
 await testSuccessPersistsPageBoundariesWithoutReturningText();
 await testNonReadySourceNeverReadsOrCallsProcessor();
 await testCaseMismatchIsCancelledBeforeRead();

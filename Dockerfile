@@ -35,3 +35,17 @@ USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD ["node", "-e", "fetch('http://127.0.0.1:3000/api/healthz').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
 CMD ["node", "server.js"]
+
+FROM base AS document-processing-worker
+ENV NODE_ENV=production
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/generated ./generated
+COPY --from=builder /app/lib ./lib
+COPY --from=builder /app/server ./server
+COPY --from=builder /app/scripts/staging-target-guard.ts ./scripts/staging-target-guard.ts
+COPY --from=builder /app/scripts/document-processing-worker.ts ./scripts/document-processing-worker.ts
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
+COPY --from=builder /app/package.json ./package.json
+RUN node --conditions=react-server --import tsx -e "import('./server/database/database-url.ts')"
+USER node
+CMD ["node", "--conditions=react-server", "--import", "tsx", "scripts/document-processing-worker.ts"]

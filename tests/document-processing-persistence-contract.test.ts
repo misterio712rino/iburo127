@@ -30,6 +30,9 @@ const route = await readFile(
   "utf8",
 );
 const productionConfig = await readFile(resolve("server/config/production.ts"), "utf8");
+const workerEntrypoint = await readFile(resolve("scripts/document-processing-worker.ts"), "utf8");
+const dockerfile = await readFile(resolve("Dockerfile"), "utf8");
+const queueDocs = await readFile(resolve("docs/document-processing-queue.md"), "utf8");
 const workflow = (await readFile(
   resolve(".github/workflows/document-processing-maintenance-scheduler.yml"),
   "utf8",
@@ -67,6 +70,7 @@ assert.match(repository, /status: "FAILED"/);
 assert.match(repository, /status: "CANCELLED"/);
 assert.match(documentJobRepository, /throw new Error\("DOCUMENT_PROCESSING_FAILED:INVALID_OCR_OUTPUT"\)/);
 assert.match(fileRepository, /documentProcessingJob\.findUnique/);
+assert.match(fileRepository, /DocumentProcessingJob[\s\S]{0,180}FOR UPDATE/);
 assert.ok(fileRepository.includes("processingJob: processingJob"));
 assert.match(fileRepository, /documentProcessingJob\.create/);
 assert.match(fileOperations, /const deletionSnapshot = await storedFileService\.takeOwnedForDeletion/);
@@ -75,8 +79,16 @@ assert.match(fileRepository, /documentProcessingJob\.findUnique/);
 assert.match(fileRepository, /documentProcessingJob\.create/);
 assert.match(fileOperations, /const deletionSnapshot = await storedFileService\.takeOwnedForDeletion/);
 assert.match(fileOperations, /storedFileService\.restoreDeleted\(deletionSnapshot\)/);
-assert.match(runtime, /DOCUMENT_PROCESSOR_TIMEOUT_MS >= maintenance\.documentProcessingLeaseSeconds \* 1000/);
+assert.match(repository, /async extendLease/);
+assert.match(runtime, /readDocumentProcessingRuntimeConfig\(\)/);
+assert.match((await readFile(resolve("server/domain/documents/processing-worker.ts"), "utf8")), /documentProcessingLeaseHeartbeatIntervalMs/);
 assert.match(runtime, /new PrismaDocumentProcessingJobRepository\(\)/);
+assert.match(workerEntrypoint, /requireStagingDatabaseTarget\(\)/);
+assert.ok(workerEntrypoint.indexOf("requireStagingDatabaseTarget()") < workerEntrypoint.indexOf("getDocumentProcessingWorker()"));
+assert.match(dockerfile, /COPY --from=builder \/app\/lib \.\/lib/);
+assert.match(dockerfile, /import\('\.\/server\/database\/database-url\.ts'\)/);
+assert.match(queueDocs, /IB_OBJECT_STORAGE_PROVIDER=timeweb-object-storage/);
+assert.doesNotMatch(queueDocs, /IB_OBJECT_STORAGE_PROVIDER=timeweb(?:,|\s)/);
 assert.match(productionConfig, /"IB_DOCUMENT_PROCESSING_BATCH_LIMIT",[\s\S]*?1,[\s\S]*?1,[\s\S]*?1/);
 
 const configIndex = route.indexOf("readMaintenanceRuntimeConfig()");

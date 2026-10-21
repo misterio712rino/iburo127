@@ -3,7 +3,8 @@ import { isIP } from "node:net";
 
 export const DOCUMENT_PROCESSOR_MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 export const DOCUMENT_PROCESSOR_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
-export const DOCUMENT_PROCESSOR_TIMEOUT_MS = 45_000;
+// Up to 40 PDF pages can each take three 30-second subprocesses (text extraction, rasterization, OCR), plus a bounded response margin.
+export const DOCUMENT_PROCESSOR_TIMEOUT_MS = 3_900_000;
 export const DOCUMENT_PROCESSOR_INVALID_CONFIG = "DOCUMENT_PROCESSOR_INVALID_CONFIG";
 export const DOCUMENT_PROCESSOR_REQUEST_FAILED = "DOCUMENT_PROCESSOR_REQUEST_FAILED";
 
