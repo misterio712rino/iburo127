@@ -1,5 +1,7 @@
 # Staging File Scanner Live Activation Runbook
 
+> **АКТУАЛЬНОСТЬ (2026-09-22): исторический runbook ниже описывает прежний сценарий создания VM/Yandex Object Storage и НЕ должен исполняться для существующего staging-v2. Текущие правила и блокеры: [STAGING_SCANNER_V2_RELEASE_GATES.md](STAGING_SCANNER_V2_RELEASE_GATES.md). Нельзя повторно применять Terraform/provisioning или подключать общий Blob token к GitHub.**
+
 Status: staging-only operational runbook. This document does not authorize production changes.
 
 ## Current evidence snapshot
