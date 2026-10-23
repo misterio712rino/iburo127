@@ -1,16 +1,8 @@
 import "server-only";
+import { inferUploadMimeType } from "@/lib/platform/files/upload-types";
 
 export const FILE_TRANSPORT_INVALID_INPUT = "FILE_TRANSPORT_INVALID_INPUT";
 export const MAX_PRIVATE_UPLOAD_BYTES = 50 * 1024 * 1024;
-
-const ALLOWED_UPLOAD_MIME_TYPES = new Set([
-  "application/pdf",
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-]);
 
 function invalid(): never {
   throw new Error(FILE_TRANSPORT_INVALID_INPUT);
@@ -47,8 +39,9 @@ export function parsePrepareStoredFileUploadInput(value: unknown, clientCaseId: 
   if (!value || typeof value !== "object" || Array.isArray(value)) invalid();
   const input = value as Record<string, unknown>;
   const fileName = parseNonEmptyString(input.fileName, 500);
-  const mimeType = parseNonEmptyString(input.mimeType, 200).toLowerCase();
-  if (!ALLOWED_UPLOAD_MIME_TYPES.has(mimeType)) invalid();
+  const suppliedMimeType = typeof input.mimeType === "string" ? input.mimeType : "";
+  const mimeType = inferUploadMimeType(fileName, suppliedMimeType);
+  if (!mimeType) invalid();
 
   if (typeof input.sizeBytes !== "number" || !Number.isSafeInteger(input.sizeBytes) || input.sizeBytes <= 0 || input.sizeBytes > MAX_PRIVATE_UPLOAD_BYTES) invalid();
 

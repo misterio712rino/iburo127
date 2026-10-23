@@ -8,12 +8,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     ca-certificates \
+    libreoffice-writer \
+    libreoffice-calc \
+    libreoffice-impress \
     poppler-utils \
     tesseract-ocr \
     tesseract-ocr-eng \
     tesseract-ocr-rus \
   && rm -rf /var/lib/apt/lists/* \
   && useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app
+
+COPY requirements.txt ./requirements.txt
+RUN python -m pip install --no-cache-dir --disable-pip-version-check -r requirements.txt
 
 WORKDIR /service
 COPY src ./src

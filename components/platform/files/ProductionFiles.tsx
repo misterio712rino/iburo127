@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Download, Loader2, ShieldCheck, UploadCloud } from "lucide-react";
+import { inferUploadMimeType } from "@/lib/platform/files/upload-types";
 
 type StoredFileView = {
   id: string;
@@ -24,7 +25,7 @@ type PreparedUpload = {
 };
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
-const ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx";
+const ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff,.heic,.heif,.avif,.doc,.docx,.rtf,.odt,.txt,.csv,.xls,.xlsx,.ods,.ppt,.pptx,.odp";
 
 function formatSize(value: string) {
   const bytes = Number(value);
@@ -68,6 +69,12 @@ export function ProductionFiles({
       return;
     }
 
+    const mimeType = inferUploadMimeType(file.name, file.type);
+    if (!mimeType) {
+      setError("Формат файла не поддерживается. Выберите фото, PDF, Word, Excel, PowerPoint, RTF, ODT, CSV или TXT.");
+      return;
+    }
+
     setUploading(true);
     try {
       const prepareResponse = await fetch(`/api/platform/cases/${caseId}/files`, {
@@ -78,7 +85,7 @@ export function ProductionFiles({
         },
         body: JSON.stringify({
           fileName: file.name,
-          mimeType: file.type,
+          mimeType,
           sizeBytes: file.size,
         }),
       });
@@ -159,7 +166,7 @@ export function ProductionFiles({
             <div className="min-w-0">
               <p className="font-bold text-foreground">Добавить файл в дело</p>
               <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                PDF, JPG, PNG, WEBP, DOC или DOCX до 50 МБ. После загрузки файл проходит проверку безопасности и затем появляется в списке.
+                Фото (JPG, PNG, WEBP, HEIC/HEIF, TIFF, BMP, GIF, AVIF), PDF, Word, Excel, PowerPoint, RTF, ODT, CSV и TXT до 50 МБ. После загрузки файл проходит проверку безопасности и затем обработку.
               </p>
             </div>
             <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground transition hover:bg-primary/90 focus-within:ring-4 focus-within:ring-primary/20 has-[input:disabled]:cursor-not-allowed has-[input:disabled]:opacity-50">

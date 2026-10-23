@@ -179,7 +179,16 @@ export class DocumentProcessorClient {
     if (
       input.bytes.byteLength < 1 ||
       input.bytes.byteLength > DOCUMENT_PROCESSOR_MAX_UPLOAD_BYTES ||
-      !["application/pdf", "image/jpeg", "image/png", "image/webp"].includes(input.mimeType)
+      ![
+        "application/pdf", "image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp",
+        "image/tiff", "image/heic", "image/heif", "image/avif", "text/plain",
+        "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/rtf", "application/vnd.oasis.opendocument.text", "text/csv",
+        "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.oasis.opendocument.spreadsheet", "application/vnd.ms-powerpoint",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/vnd.oasis.opendocument.presentation",
+      ].includes(input.mimeType)
     ) {
       throw new Error(`${DOCUMENT_PROCESSOR_REQUEST_FAILED}:INVALID_INPUT`);
     }

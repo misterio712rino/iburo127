@@ -1,13 +1,13 @@
 # Private document text extraction service
 
-This container is the first document-first intake building block. It extracts text from PDFs and raster images; it does not identify legal facts, store source files, call an external model, or generate legal documents.
+This container extracts text from PDF and common raster, office, spreadsheet, presentation and plain-text files. It does not identify legal facts, store source files, call an external model, or generate legal documents.
 
 ## API
 
 The service is intended for a private application network only. Do not publish port 8080 to the public internet.
 
 - GET /health — bearer-protected dependency readiness.
-- POST /v1/extract — bearer-protected raw-body extraction. Content-Type must be application/pdf, image/jpeg, image/png or image/webp.
+- POST /v1/extract — bearer-protected raw-body extraction. Supported types are PDF; JPEG, PNG, WEBP, GIF, BMP, TIFF, HEIC/HEIF and AVIF images; DOC/DOCX, RTF, ODT; XLS/XLSX, ODS, CSV; PPT/PPTX, ODP; and UTF-8/UTF-16 TXT.
 
 Successful response:
 
@@ -15,7 +15,7 @@ Successful response:
 
 Each `pageTexts` and `pageLines` array item maps to the PDF page with the same one-based position; images return one item. OCR lines include Tesseract word-box bounds and mean confidence. Text-layer PDF lines have `box` and `confidence` set to `null`, because those values are not available from the current PDF text extraction path. The application client keeps page boundaries and line layout available for fact extraction; OCR confidence is a review hint, not proof that a value is correct.
 
-The caller must send Content-Length and no more than 50 MiB. The service checks content magic bytes against the declared media type. PDFs are limited to 40 pages. PDF text layers are extracted directly; scanned pages are rasterized one at a time and OCRed using Tesseract rus+eng. Requests are serialized to one active processing job; concurrent extraction requests receive 429 PROCESSOR_BUSY.
+The caller must send Content-Length and no more than 50 MiB. The service checks content signatures/container structure against the declared media type. Office documents are converted to PDF by LibreOffice in a temporary isolated profile; CSV is converted to PDF for readable row/column extraction. PDFs and converted documents are limited to 40 pages. Image inputs are decoded and normalized before OCR; animated/multipage images are handled up to 40 frames, and images above 40 megapixels per frame are rejected. Requests are serialized to one active processing job; concurrent extraction requests receive 429 PROCESSOR_BUSY.
 
 ## Local container
 
