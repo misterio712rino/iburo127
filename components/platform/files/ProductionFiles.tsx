@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Download, Loader2, ShieldCheck, UploadCloud } from "lucide-react";
-import { inferUploadMimeType } from "@/lib/platform/files/upload-types";
+import { inferUploadMimeType, UPLOAD_ACCEPT_ATTRIBUTE } from "@/lib/platform/files/upload-types";
 
 type StoredFileView = {
   id: string;
@@ -25,7 +25,7 @@ type PreparedUpload = {
 };
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
-const ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff,.heic,.heif,.avif,.doc,.docx,.rtf,.odt,.txt,.csv,.xls,.xlsx,.ods,.ppt,.pptx,.odp";
+const ACCEPT = UPLOAD_ACCEPT_ATTRIBUTE;
 
 function formatSize(value: string) {
   const bytes = Number(value);
