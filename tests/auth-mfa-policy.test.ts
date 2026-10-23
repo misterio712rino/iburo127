@@ -71,6 +71,16 @@ assert.doesNotMatch(signInFormSource, /Зарегистр/i, "sign-in UI must no
 assert.doesNotMatch(accessGateRouteSource, /signUp|sign-up/i, "access gate must never create an auth account");
 assert.doesNotMatch(accessGateSignInSource, /signUp|sign-up/i, "access-gate sign-in must never expose signup");
 assert.match(
+  accessGateRouteSource,
+  /evaluatePlatformMutationOrigin\(request\)/,
+  "access gate origin validation must use the configured public origin behind reverse proxies",
+);
+assert.match(
+  accessGateSignInSource,
+  /evaluatePlatformMutationOrigin\(request\)/,
+  "access-gate sign-in origin validation must use the configured public origin behind reverse proxies",
+);
+assert.match(
   betterAuthRouteSource,
   /ACCESS_GATE_ONLY_PATHS[\s\S]*?\/api\/auth\/sign-in\/email/,
   "direct Better Auth email sign-in must be reserved for the server-side access-gate flow",

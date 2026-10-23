@@ -24,12 +24,15 @@ The maintenance target only contains `scripts/run-maintenance-job.mjs`. It does 
 
 Create a host-side environment file from the variable names in `.env.example`. Fill it only with staging values. At minimum, set the staging runtime identity, public HTTPS origin, database connection, authentication settings, and the selected staging object-storage provider. Keep the file outside the repository and restrict it to the deployment account.
 
+Attach the web container to the same user-defined Docker bridge as the staging database and proxy. The staging database hostname in `DATABASE_URL` must resolve on that bridge; the default Docker bridge does not provide container-name DNS. Keep the PostgreSQL port unpublished.
+
 Run the app behind a TLS-terminating reverse proxy. Bind the application port to loopback so it is not directly exposed:
 
 ```sh
 docker run --detach \
   --name iburo127-web-staging \
   --restart unless-stopped \
+  --network iburo-staging \
   --env-file /etc/iburo/staging.env \
   --publish 127.0.0.1:3000:3000 \
   --security-opt no-new-privileges \
