@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
-import { inferUploadMimeType, UPLOAD_MIME_BY_EXTENSION } from "@/lib/platform/files/upload-types";
+import { inferUploadMimeType, UPLOAD_ACCEPT_ATTRIBUTE, UPLOAD_MIME_BY_EXTENSION } from "@/lib/platform/files/upload-types";
+
+assert.deepEqual(
+  UPLOAD_ACCEPT_ATTRIBUTE.split(",").map((extension) => extension.slice(1)),
+  Object.keys(UPLOAD_MIME_BY_EXTENSION),
+  "the file picker must allow every supported extension",
+);
 
 for (const [extension, mimeType] of Object.entries(UPLOAD_MIME_BY_EXTENSION)) {
   assert.equal(inferUploadMimeType(`sample.${extension}`, mimeType), mimeType);
