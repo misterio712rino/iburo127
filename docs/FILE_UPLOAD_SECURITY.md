@@ -15,6 +15,8 @@ PENDING_UPLOAD
 
 `READY` is the only status visible through normal file list/get/download authorization. `PENDING_SCAN`, `SCANNING`, `QUARANTINED` and `SCAN_FAILED` files cannot receive a user-facing signed download URL.
 
+The upload intake accepts PDF; JPEG, PNG, WEBP, GIF, BMP, TIFF, HEIC/HEIF and AVIF images; DOC/DOCX, RTF, ODT; XLS/XLSX, ODS, CSV; PPT/PPTX, ODP; and UTF-8/UTF-16 TXT. The existing 50 MiB limit remains. This is a defined common-format list, not unrestricted acceptance of arbitrary extensions or executables. Raster inputs are normalized inside the private document processor, and office, spreadsheet and presentation inputs are converted to PDF there after the file reaches `READY`.
+
 ## Upload completion boundary
 
 Client upload completion performs only these operations:

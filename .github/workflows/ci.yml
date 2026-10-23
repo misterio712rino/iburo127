@@ -187,7 +187,9 @@ jobs:
         run: node --test services/file-scanner/tests/*.test.mjs
 
       - name: Document processor service tests
-        run: python3 -m unittest discover -s services/document-processor/tests -v
+        run: |
+          python3 -m pip install --disable-pip-version-check -r services/document-processor/requirements.txt
+          python3 -m unittest discover -s services/document-processor/tests -v
 
       - name: Staging scanner GitHub OIDC boundary tests
         run: npx tsx tests/scanner-fixture-github-oidc.test.ts
@@ -257,6 +259,8 @@ jobs:
               command -v pdfinfo >/dev/null
               command -v pdftotext >/dev/null
               command -v pdftoppm >/dev/null
+              command -v soffice >/dev/null
+              python -c "from src.server import extract_document; pages, _, count = extract_document(bytes.fromhex(\"7b5c727466315c616e736920694275726f20666f726d617420636f6e76657273696f6e20736d6f6b657d\"), \"application/rtf\"); assert count == 1 and \"iBuro format conversion smoke\" in pages[0]"
               tesseract --list-langs 2>/dev/null | grep -Fx rus >/dev/null
               tesseract --list-langs 2>/dev/null | grep -Fx eng >/dev/null
             '

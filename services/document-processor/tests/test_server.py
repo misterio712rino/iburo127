@@ -1,13 +1,15 @@
 import http.client
+from io import BytesIO
 import json
 import sys
 import threading
 import unittest
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from server import MAX_UPLOAD_BYTES, ProcessorError, ProcessorServer, _extract_pdf, _parse_tesseract_tsv, extract_document, sniff_mime_type
+from server import MAX_UPLOAD_BYTES, ProcessorError, ProcessorServer, _extract_image, _extract_pdf, _parse_tesseract_tsv, _validate_office_container, extract_document, sniff_mime_type
 
 
 TOKEN = "test-token-with-at-least-thirty-two-characters"
@@ -68,6 +70,12 @@ class DocumentTypeTests(unittest.TestCase):
         self.assertEqual(sniff_mime_type(b"\xff\xd8\xffimage"), "image/jpeg")
         self.assertEqual(sniff_mime_type(b"\x89PNG\r\n\x1a\nimage"), "image/png")
         self.assertEqual(sniff_mime_type(b"RIFFxxxxWEBPimage"), "image/webp")
+        self.assertEqual(sniff_mime_type(b"GIF89aimage"), "image/gif")
+        self.assertEqual(sniff_mime_type(b"BMimage"), "image/bmp")
+        self.assertEqual(sniff_mime_type(b"II*\x00image"), "image/tiff")
+        self.assertEqual(sniff_mime_type(b"\x00\x00\x00\x18ftypheic"), "image/heic")
+        self.assertEqual(sniff_mime_type(b"\x00\x00\x00\x18ftypavif"), "image/avif")
+        self.assertEqual(sniff_mime_type(b"{\\rtf1 text}"), "application/rtf")
 
     def test_rejects_unknown_type(self):
         with self.assertRaises(ProcessorError) as caught:
@@ -81,8 +89,30 @@ class DocumentTypeTests(unittest.TestCase):
 
     def test_unsupported_declared_type_is_rejected(self):
         with self.assertRaises(ProcessorError) as caught:
-            extract_document(b"word", "application/msword")
+            extract_document(b"not an executable", "application/x-msdownload")
         self.assertEqual(caught.exception.code, "UNSUPPORTED_MEDIA_TYPE")
+
+    def test_plain_text_is_extracted_with_one_page(self):
+        page_texts, page_lines, pages = extract_document("ФИО: Иванов\nДолг: 500000".encode(), "text/plain")
+        self.assertEqual(pages, 1)
+        self.assertEqual(page_texts, ["ФИО: Иванов\nДолг: 500000"])
+        self.assertEqual([line["text"] for line in page_lines[0]], ["ФИО: Иванов", "Долг: 500000"])
+
+    def test_raster_formats_are_normalized_before_ocr(self):
+        image_bytes = BytesIO()
+        from PIL import Image
+        Image.new("RGB", (8, 8), "white").save(image_bytes, format="BMP")
+        with patch("server._run", return_value=TSV_HEADER.encode()):
+            page_texts, page_lines, pages = _extract_image(image_bytes.getvalue())
+        self.assertEqual((page_texts, page_lines, pages), ([""], [[]], 1))
+
+    def test_office_container_must_match_declared_family(self):
+        content = BytesIO()
+        with zipfile.ZipFile(content, "w") as archive:
+            archive.writestr("[Content_Types].xml", '<Types><Override ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>')
+            archive.writestr("word/document.xml", "<document/>")
+        self.assertTrue(_validate_office_container(content.getvalue(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+        self.assertFalse(_validate_office_container(content.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
 
 
 class ApiTests(unittest.TestCase):
@@ -182,7 +212,7 @@ class ApiTests(unittest.TestCase):
     def test_wrong_content_type_is_rejected_without_processing(self):
         status, payload = self.request(
             "POST", "/v1/extract",
-            headers={"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/msword"},
+            headers={"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/x-msdownload"},
             body=b"word",
         )
         self.assertEqual(status, 415)

@@ -12,6 +12,7 @@ import {
   Trash2,
   UploadCloud,
 } from "lucide-react";
+import { inferUploadMimeType, UPLOAD_ACCEPT_ATTRIBUTE } from "@/lib/platform/files/upload-types";
 
 type StoredFileStatus =
   | "PENDING_UPLOAD"
@@ -51,7 +52,20 @@ type PreparedUpload = {
 };
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
-const ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp";
+const ACCEPT = UPLOAD_ACCEPT_ATTRIBUTE;
+
+function getUploadFailureMessage(code: string | null, failedCount: number) {
+  if (failedCount === 1 && code === "STAGING_BACKEND_DISABLED") {
+    return "В этой Preview-сборке серверная загрузка отключена. Чтобы проверить сохранение файла, откройте приложение на Timeweb staging.";
+  }
+  if (failedCount === 1 && code === "OBJECT_UPLOAD_FAILED") {
+    return "Файл выбран, но хранилище не приняло его. Проверьте подключение хранилища и повторите попытку.";
+  }
+  if (failedCount === 1 && (code === "INVALID_INPUT" || code === "UNSUPPORTED_FILE_TYPE")) {
+    return "Формат не поддерживается или размер файла превышает 50 МБ.";
+  }
+  return `Не удалось загрузить ${failedCount} файл(а). Проверьте, что формат поддерживается и размер не превышает 50 МБ; если это так, проверьте соединение с хранилищем и повторите попытку.`;
+}
 
 function formatSize(value: string) {
   const bytes = Number(value);
@@ -185,10 +199,13 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
   }, [caseId, files.length]);
 
   async function uploadOne(file: File) {
+    const mimeType = inferUploadMimeType(file.name, file.type);
+    if (!mimeType) throw new Error("UNSUPPORTED_FILE_TYPE");
+
     const prepareResponse = await fetch(`/api/platform/cases/${caseId}/files`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ fileName: file.name, mimeType: file.type, sizeBytes: file.size }),
+      body: JSON.stringify({ fileName: file.name, mimeType, sizeBytes: file.size }),
     });
     const prepared = (await prepareResponse.json()) as ApiResult<PreparedUpload>;
     if (!prepared.ok) throw new Error(prepared.error.code);
@@ -226,14 +243,16 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
     setUploading(true);
     let uploadedCount = 0;
     let failedCount = invalidCount;
+    let lastFailureCode: string | null = null;
     try {
       for (const [index, file] of validFiles.entries()) {
         setUploadProgress({ current: index + 1, total: validFiles.length });
         try {
           await uploadOne(file);
           uploadedCount += 1;
-        } catch {
+        } catch (uploadError) {
           failedCount += 1;
+          lastFailureCode = uploadError instanceof Error ? uploadError.message : null;
         }
       }
 
@@ -244,9 +263,7 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
         );
       }
       if (failedCount > 0) {
-        setError(
-          `Не удалось завершить загрузку: ${failedCount}. Проверьте формат и размер и повторите попытку.`,
-        );
+        setError(getUploadFailureMessage(lastFailureCode, failedCount));
       }
     } catch {
       setError(
@@ -323,7 +340,7 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
         <div>
           <p className="text-sm font-semibold text-[var(--ib-plan-accent)]">Материалы дела</p>
           <h1 className="mt-2 font-[var(--font-iburo-display)] text-3xl font-semibold tracking-[-.04em] text-slate-950 sm:text-5xl">Файлы</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">Загружайте PDF и изображения по делу. После проверки безопасности для них запускается распознавание текста. Подготовка черновиков и подтверждение извлечённых данных по этому тексту пока не подключены.</p>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">Загружайте PDF, фото и документы по делу. После проверки безопасности для поддерживаемых форматов запускается распознавание текста. Подготовка черновиков и подтверждение извлечённых данных по этому тексту пока не подключены.</p>
         </div>
         <span className="inline-flex min-h-9 w-fit items-center gap-2 rounded-xl border border-emerald-200/70 bg-emerald-50/70 px-3 py-1.5 text-xs font-semibold text-emerald-700">
           <ShieldCheck className="size-4" aria-hidden="true" />
@@ -340,7 +357,7 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
           <div className="max-w-2xl">
             <p className="text-xs font-semibold uppercase tracking-[.14em] text-[var(--ib-plan-accent)]">Загрузить документы</p>
             <h2 className="mt-3 text-2xl font-semibold tracking-[-.035em] sm:text-3xl">Передайте документы в дело</h2>
-            <p className="mt-3 text-sm leading-6 text-slate-500">Выберите один или несколько PDF, JPG, PNG или WEBP размером до 50 МБ каждый. Файлы загрузятся по очереди; статус проверки и распознавания будет виден в списке.</p>
+            <p className="mt-3 text-sm leading-6 text-slate-500">Выберите PDF; фото JPG, PNG, WEBP, GIF, BMP, TIFF, HEIC/HEIF или AVIF; либо DOC/DOCX, RTF, ODT, TXT, CSV, XLS/XLSX, ODS, PPT/PPTX или ODP. До 50 МБ на файл. Файлы загрузятся по очереди.</p>
           </div>
           <label className="inline-flex min-h-12 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[var(--ib-plan-accent)] bg-[var(--ib-plan-accent)] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[var(--ib-plan-accent-hover)] focus-within:ring-4 focus-within:ring-[var(--ib-plan-accent)]/15 has-[input:disabled]:cursor-not-allowed has-[input:disabled]:opacity-60">
             {uploading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <UploadCloud className="size-4" aria-hidden="true" />}
