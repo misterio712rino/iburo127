@@ -498,7 +498,6 @@ for (const forbidden of [
   );
 }
 
-
 for (const routePath of [
   "app/api/public/access-gate/route.ts",
   "app/api/public/access-gate/sign-in/route.ts",
@@ -506,12 +505,12 @@ for (const routePath of [
   const routeSource = await readFile(resolve(routePath), "utf8");
   assert.match(
     routeSource,
-    /evaluatePlatformMutationOrigin\\(request\\)/,
+    /evaluatePlatformMutationOrigin\(request\)/,
     `${routePath} must validate Origin against configured trusted application origins behind a reverse proxy`,
   );
   assert.doesNotMatch(
     routeSource,
-    /new URL\\(request\\.url\\)\\.origin/,
+    /new URL\(request\.url\)\.origin/,
     `${routePath} must not compare the public browser Origin with an internal proxy URL`,
   );
 }
