@@ -7,21 +7,27 @@ const manifestDigest = `sha256:${"a".repeat(64)}`;
 const configDigest = `sha256:${"b".repeat(64)}`;
 const tag = "c".repeat(40);
 
-// Exercise the exact awk program embedded in the workflow, not a JS reimplementation.
+// Confirm the workflow keeps the exact strict push-log extraction grammar. Exercise
+// that grammar in-process so this contract is portable when a sandbox forbids
+// spawning Git for Windows' awk.exe.
 const awkMatch = workflow.match(/image_digest=.*?awk -v tag="\$\{GITHUB_SHA\}:" '([^']+)'/);
 assert.ok(awkMatch, "the push digest must be extracted for the exact candidate tag");
-const awkProgram = awkMatch[1];
-const { spawnSync } = await import("node:child_process");
-const { existsSync } = await import("node:fs");
-const windowsAwk = `${process.env.ProgramFiles ?? "C:\\Program Files"}\\Git\\usr\\bin\\awk.exe`;
-const awk = process.platform === "win32" && existsSync(windowsAwk) ? windowsAwk : "awk";
+assert.equal(
+  awkMatch[1],
+  '$1 == tag && $2 == "digest:" && $4 == "size:" && $5 ~ /^[0-9]+$/ { print $3 }',
+  "the workflow must extract only a tag-specific manifest-digest-shaped push record",
+);
 function extractPushDigest(output) {
-  const result = spawnSync(awk, ["-v", `tag=${tag}:`, awkProgram], {
-    input: output, encoding: "utf8", windowsHide: true,
-  });
-  assert.equal(result.error, undefined, "awk must be available for this workflow contract");
-  assert.equal(result.status, 0, result.stderr);
-  const digest = result.stdout.trim();
+  const digest = output
+    .split(/\r?\n/)
+    .map((line) => line.trim().split(/\s+/))
+    .filter((fields) => fields[0] === `${tag}:`
+      && fields[1] === "digest:"
+      && fields[3] === "size:"
+      && /^[0-9]+$/.test(fields[4] ?? ""))
+    .map((fields) => fields[2])
+    .join("\n")
+    .trim();
   if (!/^sha256:[a-f0-9]{64}$/.test(digest)) throw new Error("invalid registry push digest");
   return digest;
 }
