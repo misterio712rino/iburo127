@@ -2,7 +2,23 @@
 
 Status: staging-only operational runbook. This document does not authorize production changes.
 
-## Current evidence snapshot
+> **Current migration note — 2026-10-23:** The historical evidence snapshot and gates below describe the earlier Yandex/Vercel setup. They are not current readiness evidence and must not be followed as the target deployment plan. The selected destination is Timeweb.Cloud. Timeweb S3 source support and a self-hosted Timeweb scanner verification path are implemented in the local branch `work/timeweb-scanner-source-policy-20261023` (commits `8e8b306`, `5d48c35`); these commits are not pushed or deployed. Automated checks pass, but live Timeweb scanner operation is **not proven**.
+
+For the Timeweb staging smoke, use a dedicated staging application, scanner HTTPS origin, and private Timeweb S3 fixture bucket. The verifier reads only the two configured fixture objects with `HeadObject` and short-lived signed `GetObject` URLs; it does not upload, delete, or list S3 objects. The clean and inert EICAR fixtures therefore must already exist under separate keys in the isolated fixture bucket.
+
+Required consistency checks for the self-hosted Timeweb target:
+
+- `IB_RUNTIME_TARGET=staging`, `IB_FILE_SCANNER_TARGET=staging`, `IB_STORAGE_TARGET=staging`, and `IB_OBJECT_STORAGE_PROVIDER=timeweb-object-storage`.
+- `IB_FILE_SCANNER_ORIGIN` must exactly match `IB_STAGING_FILE_SCANNER_ORIGIN`; both must be an HTTPS staging hostname.
+- `TIMEWEB_STORAGE_BUCKET` must match `IB_STAGING_STORAGE_BUCKET`; `TIMEWEB_STORAGE_ACCESS_KEY_ID` must match `IB_STAGING_STORAGE_ACCESS_KEY_ID`.
+- Supply the staging-only `TIMEWEB_STORAGE_SECRET_ACCESS_KEY`, `IB_FILE_SCANNER_SECRET`, and the SHA-256 fingerprint of the scanner secret. Never print or commit the secret values.
+- The confirmation value is `FILE-SCANNER-SMOKE:<scanner-host>:<bucket>:<scanner-secret-sha256>`.
+- The Timeweb scanner guard rejects Vercel Preview targets. The previous Vercel protected-preview bridge and Yandex-specific image/VM instructions below do not prove a Timeweb deployment.
+- Run `npm run check:staging:file-scanner` only after the dedicated staging environment and both fixture objects are provisioned. A passing result must show one `CLEAN` and one `MALICIOUS` verdict before any application worker or backlog operation is considered.
+
+Last staging queue observation (2026-10-23): the protected Vercel Preview backlog classifier returned HTTP 200 and reported 42 `PENDING_SCAN` files, all overdue with zero attempts. This was a staging observation only; none were processed. The former 502 cause remains unconfirmed because it was not reproducible during the latest checks.
+
+## Historical evidence snapshot
 
 Current candidate at the time of this snapshot: `27ec13ac990d755db0457e2ceabec95462eedc6f`.
 
@@ -34,7 +50,11 @@ Current scanner runtime configuration is still missing:
 - `IB_STAGING_FILE_SCANNER_CONFIRM`
 - `IB_STAGING_VERCEL_BLOB_PRIVATE_HOST`
 
-Therefore the current status remains `LIVE_SCANNER_NOT_PROVEN` until Yandex staging infrastructure, scanner secret, HTTPS origin, and CLEAN/EICAR runtime smoke are actually completed.
+At the time of this historical snapshot, the scanner was `LIVE_SCANNER_NOT_PROVEN` under the then-planned Yandex workflow. The current Timeweb status is stated in the migration note above.
+
+## Historical Yandex/Vercel activation procedure — do not use for Timeweb
+
+The evidence and gates in this section are retained for audit history. Their Yandex registry, Vercel Preview, and prior queue figures are not current Timeweb deployment instructions.
 
 ## Objective
 

@@ -59,7 +59,7 @@ assert.match(source, /Fixture object keys or signed URLs logged: 0/);
 assert.match(source, /STAGING_FILE_SCANNER_VERIFY_PASS/);
 
 const vercelFixtureFunction = source.match(
-  /async function verifyVercelBlobFixtures[\s\S]*?(?=\nasync function verifyYandexFixtures)/,
+  /async function verifyVercelBlobFixtures[\s\S]*?(?=\nasync function verifyS3Fixtures)/,
 )?.[0];
 assert.ok(vercelFixtureFunction, "Vercel Blob scanner fixture function must exist");
 const healthIndex = vercelFixtureFunction.indexOf('runVercelSmokePhase("BRIDGE_HEALTH"');
@@ -333,5 +333,24 @@ assert.equal(
   false,
   "Yandex scanner readiness must not require the Vercel-only private Blob host",
 );
+
+const timewebReadiness = buildProviderAwareStagingStorageReadiness({
+  ...scannerReadinessCore,
+  IB_OBJECT_STORAGE_PROVIDER: "timeweb-object-storage",
+  IB_STAGING_BASE_URL: "https://staging.iburo127.test",
+  IB_STORAGE_TARGET: "staging",
+  IB_STAGING_STORAGE_BUCKET: "iburo-staging-scanner-fixtures",
+  IB_STAGING_STORAGE_ALLOWED_ORIGIN: "https://staging.iburo127.test",
+  IB_STAGING_STORAGE_ACCESS_KEY_ID: "timeweb-staging-key-id",
+  TIMEWEB_STORAGE_BUCKET: "iburo-staging-scanner-fixtures",
+  TIMEWEB_STORAGE_ACCESS_KEY_ID: "timeweb-staging-key-id",
+  TIMEWEB_STORAGE_SECRET_ACCESS_KEY: "timeweb-staging-secret-that-must-not-print",
+  IB_STAGING_FILE_SCANNER_CONFIRM:
+    `FILE-SCANNER-SMOKE:scanner-staging.iburo.test:iburo-staging-scanner-fixtures:${readinessFingerprint}`,
+}).scanner;
+assert.equal(timewebReadiness.ready, true);
+assert.equal(timewebReadiness.provider, "timeweb-object-storage");
+assert.deepEqual(timewebReadiness.missingOrPlaceholder, []);
+assert.deepEqual(timewebReadiness.invalidOrInconsistent, []);
 
 console.log("STAGING_FILE_SCANNER_VERIFIER_CONTRACT_PASS");

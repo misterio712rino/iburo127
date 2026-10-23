@@ -3,6 +3,7 @@ import { SafeScannerError } from "./errors.mjs";
 const VERCEL_SUFFIX = ".private.blob.vercel-storage.com";
 const VERCEL_STORE_ID = /^[A-Za-z0-9_-]{3,128}$/;
 const YANDEX_BUCKET = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/;
+const TIMEWEB_S3_HOST = "s3.twcstorage.ru";
 
 function hasOneNonEmpty(params, name) {
   const values = params.getAll(name);
@@ -46,6 +47,12 @@ export function assertTrustedSourceUrl(value) {
     if (!hasOneNonEmpty(url.searchParams, "X-Amz-Signature")) {
       throw new SafeScannerError("SOURCE_URL_REJECTED", 400);
     }
+    return url;
+  }
+  if (
+    url.hostname === TIMEWEB_S3_HOST &&
+    hasOneNonEmpty(url.searchParams, "X-Amz-Signature")
+  ) {
     return url;
   }
   if (

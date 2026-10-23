@@ -1,5 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import {
+  TIMEWEB_OBJECT_STORAGE_PROVIDER,
   VERCEL_BLOB_STORAGE_PROVIDER,
   YANDEX_OBJECT_STORAGE_PROVIDER,
 } from "@/server/files/object-storage-provider";
@@ -102,6 +103,10 @@ export type StagingFileScannerTarget =
       storageBucket: string;
     })
   | (StagingFileScannerTargetBase & {
+      providerCode: typeof TIMEWEB_OBJECT_STORAGE_PROVIDER;
+      storageBucket: string;
+    })
+  | (StagingFileScannerTargetBase & {
       providerCode: typeof VERCEL_BLOB_STORAGE_PROVIDER;
       expectedPrivateBlobHost: string;
     });
@@ -150,7 +155,11 @@ export function assertStagingFileScannerTarget(
   const delegated = authMode === "github-oidc";
   if (delegated && (vercelEnvironment !== "preview" || explicitProvider !== VERCEL_BLOB_STORAGE_PROVIDER ||
       scannerOrigin !== "https://scanner-v2-staging.iburo127.online")) fail("INVALID_DELEGATED_STAGING_TARGET");
-  const providerCode = delegated ? VERCEL_BLOB_STORAGE_PROVIDER : inferStagingVercelBlobProvider(env);
+  const providerCode = delegated
+    ? VERCEL_BLOB_STORAGE_PROVIDER
+    : explicitProvider === TIMEWEB_OBJECT_STORAGE_PROVIDER
+      ? TIMEWEB_OBJECT_STORAGE_PROVIDER
+      : inferStagingVercelBlobProvider(env);
   if (vercelEnvironment && vercelEnvironment !== "preview") {
     fail("VERCEL_ENV_NOT_PREVIEW");
   }
@@ -176,6 +185,34 @@ export function assertStagingFileScannerTarget(
       cleanObjectKey,
       maliciousObjectKey,
       expectedPrivateBlobHost,
+    };
+  }
+
+  if (providerCode === TIMEWEB_OBJECT_STORAGE_PROVIDER) {
+    if (vercelEnvironment) fail("TIMEWEB_STORAGE_REQUIRES_SELF_HOSTED_STAGING");
+    const storageBucket = requireValue(env, "TIMEWEB_STORAGE_BUCKET");
+    const expectedBucket = requireValue(env, "IB_STAGING_STORAGE_BUCKET");
+    if (!safeEqual(storageBucket, expectedBucket)) fail("STORAGE_BUCKET_MISMATCH");
+
+    const storageAccessKeyId = requireValue(env, "TIMEWEB_STORAGE_ACCESS_KEY_ID");
+    const expectedStorageAccessKeyId = requireValue(env, "IB_STAGING_STORAGE_ACCESS_KEY_ID");
+    if (!safeEqual(storageAccessKeyId, expectedStorageAccessKeyId)) {
+      fail("STORAGE_ACCESS_KEY_ID_MISMATCH");
+    }
+
+    const expectedConfirmation = `FILE-SCANNER-SMOKE:${new URL(expectedScannerOrigin).hostname}:${expectedBucket}:${expectedSecretFingerprint}`;
+    const confirmation = env.IB_STAGING_FILE_SCANNER_CONFIRM?.trim() ?? "";
+    if (!confirmation || !safeEqual(confirmation, expectedConfirmation)) {
+      fail("CONFIRMATION_MISMATCH");
+    }
+
+    return {
+      providerCode: TIMEWEB_OBJECT_STORAGE_PROVIDER,
+      scannerOrigin,
+      scannerSecret,
+      storageBucket,
+      cleanObjectKey,
+      maliciousObjectKey,
     };
   }
 
