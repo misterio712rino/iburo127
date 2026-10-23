@@ -363,4 +363,29 @@ assert.ok(
   "deletion proof must validate the fixture before processing a deletion",
 );
 
+const fileScanBacklogRoute = await readFile(
+  resolve(stagingRoot, "staging-file-scan-backlog-classifier", "route.ts"),
+  "utf8",
+);
+assert.match(
+  fileScanBacklogRoute,
+  /const DIAGNOSTIC_HEADER = "X-Iburo-Staging-File-Scan-Backlog-Diagnostic";/,
+  "the scan backlog classifier must expose only a fixed diagnostic header",
+);
+assert.match(
+  fileScanBacklogRoute,
+  /classifyFileScanBacklogError\(error\)/,
+  "database errors must be reduced to a safe allowlisted diagnostic",
+);
+assert.match(
+  fileScanBacklogRoute,
+  /headers: diagnostic[\s\S]*?\[DIAGNOSTIC_HEADER\]: diagnostic/,
+  "the scan backlog route must return diagnostics only in its fixed header",
+);
+assert.doesNotMatch(
+  fileScanBacklogRoute,
+  /console\s*\.|error\.message|error\.stack/,
+  "the scan backlog route must not log or expose raw database errors",
+);
+
 console.log("STAGING_INTERNAL_ROUTE_BOUNDARY_CONTRACT_PASS");

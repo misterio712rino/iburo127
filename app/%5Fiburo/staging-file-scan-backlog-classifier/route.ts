@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getPrismaClient } from "@/server/database/prisma";
+import { classifyFileScanBacklogError } from "@/server/staging/file-scan-backlog-diagnostic";
 import {
   VERCEL_STAGING_BRANCH,
   isVercelPreviewBackendAllowed,
@@ -40,7 +41,9 @@ function isExactStagingPreview(env: NodeJS.ProcessEnv): boolean {
   );
 }
 
-function unavailable(status = 404, errorCode?: string) {
+const DIAGNOSTIC_HEADER = "X-Iburo-Staging-File-Scan-Backlog-Diagnostic";
+
+function unavailable(status = 404, errorCode?: string, diagnostic?: string) {
   return NextResponse.json(
     {
       service: "iburo127",
@@ -48,7 +51,12 @@ function unavailable(status = 404, errorCode?: string) {
       available: false,
       ...(errorCode ? { errorCode } : {}),
     },
-    { status, headers: NO_STORE_HEADERS },
+    {
+      status,
+      headers: diagnostic
+        ? { ...NO_STORE_HEADERS, [DIAGNOSTIC_HEADER]: diagnostic }
+        : NO_STORE_HEADERS,
+    },
   );
 }
 
@@ -236,7 +244,11 @@ export async function GET() {
       },
       { status: 200, headers: NO_STORE_HEADERS },
     );
-  } catch {
-    return unavailable(502, "STAGING_FILE_SCAN_BACKLOG_CLASSIFIER_FAILED");
+  } catch (error) {
+    return unavailable(
+      502,
+      "STAGING_FILE_SCAN_BACKLOG_CLASSIFIER_FAILED",
+      classifyFileScanBacklogError(error),
+    );
   }
 }
