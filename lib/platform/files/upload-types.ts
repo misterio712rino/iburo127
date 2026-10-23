@@ -29,6 +29,9 @@ export const UPLOAD_MIME_BY_EXTENSION: Readonly<Record<string, string>> = {
 };
 
 export const UPLOAD_MIME_TYPES = new Set(Object.values(UPLOAD_MIME_BY_EXTENSION));
+export const UPLOAD_ACCEPT_ATTRIBUTE = Object.keys(UPLOAD_MIME_BY_EXTENSION)
+  .map((extension) => `.${extension}`)
+  .join(",");
 const MIME_ALIASES: Readonly<Record<string, string>> = {
   "image/x-tiff": "image/tiff",
   "image/x-bmp": "image/bmp",
