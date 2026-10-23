@@ -107,6 +107,51 @@ expectGuardFailure(
 );
 expectGuardFailure({ IB_STAGING_FILE_SCANNER_CONFIRM: "wrong" }, "CONFIRMATION_MISMATCH");
 
+const timewebBucket = "iburo-staging-scanner-fixtures";
+const timewebBase = {
+  ...base,
+  IB_OBJECT_STORAGE_PROVIDER: "timeweb-object-storage",
+  TIMEWEB_STORAGE_BUCKET: timewebBucket,
+  IB_STAGING_STORAGE_BUCKET: timewebBucket,
+  TIMEWEB_STORAGE_ACCESS_KEY_ID: "timeweb-staging-key-id",
+  IB_STAGING_STORAGE_ACCESS_KEY_ID: "timeweb-staging-key-id",
+  TIMEWEB_STORAGE_SECRET_ACCESS_KEY: "timeweb-staging-secret-that-must-not-print",
+  IB_STAGING_FILE_SCANNER_CONFIRM: `FILE-SCANNER-SMOKE:scanner-staging.example.com:${timewebBucket}:${scannerSecretFingerprint}`,
+} satisfies Record<string, string>;
+
+const timewebTarget = assertStagingFileScannerTarget(timewebBase);
+assert.equal(timewebTarget.providerCode, "timeweb-object-storage");
+assert.equal(timewebTarget.storageBucket, timewebBucket);
+assert.equal(timewebTarget.cleanObjectKey, "security-fixtures/file-scanner/clean.txt");
+
+function expectTimewebGuardFailure(
+  overrides: Partial<Record<string, string | undefined>>,
+  expectedCode: string,
+) {
+  const env = { ...timewebBase, ...overrides } as Record<string, string | undefined>;
+  assert.throws(
+    () => assertStagingFileScannerTarget(env),
+    new RegExp(`${STAGING_FILE_SCANNER_TARGET_GUARD}:${expectedCode}`),
+  );
+}
+
+expectTimewebGuardFailure(
+  { TIMEWEB_STORAGE_BUCKET: "production-files" },
+  "STORAGE_BUCKET_MISMATCH",
+);
+expectTimewebGuardFailure(
+  { TIMEWEB_STORAGE_ACCESS_KEY_ID: "different-key" },
+  "STORAGE_ACCESS_KEY_ID_MISMATCH",
+);
+expectTimewebGuardFailure(
+  { IB_STAGING_FILE_SCANNER_CONFIRM: "wrong" },
+  "CONFIRMATION_MISMATCH",
+);
+expectTimewebGuardFailure(
+  { VERCEL_ENV: "preview" },
+  "VERCEL_PROVIDER_NOT_EXACT_STAGING_PREVIEW",
+);
+
 const vercelBase = {
   IB_RUNTIME_TARGET: "staging",
   IB_FILE_SCANNER_TARGET: "staging",
