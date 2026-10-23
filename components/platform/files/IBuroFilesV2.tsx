@@ -54,6 +54,19 @@ type PreparedUpload = {
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 const ACCEPT = UPLOAD_ACCEPT_ATTRIBUTE;
 
+function getUploadFailureMessage(code: string | null, failedCount: number) {
+  if (failedCount === 1 && code === "STAGING_BACKEND_DISABLED") {
+    return "В этой Preview-сборке серверная загрузка отключена. Чтобы проверить сохранение файла, откройте приложение на Timeweb staging.";
+  }
+  if (failedCount === 1 && code === "OBJECT_UPLOAD_FAILED") {
+    return "Файл выбран, но хранилище не приняло его. Проверьте подключение хранилища и повторите попытку.";
+  }
+  if (failedCount === 1 && (code === "INVALID_INPUT" || code === "UNSUPPORTED_FILE_TYPE")) {
+    return "Формат не поддерживается или размер файла превышает 50 МБ.";
+  }
+  return `Не удалось загрузить ${failedCount} файл(а). Проверьте, что формат поддерживается и размер не превышает 50 МБ; если это так, проверьте соединение с хранилищем и повторите попытку.`;
+}
+
 function formatSize(value: string) {
   const bytes = Number(value);
   if (!Number.isFinite(bytes)) return "—";
@@ -230,14 +243,16 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
     setUploading(true);
     let uploadedCount = 0;
     let failedCount = invalidCount;
+    let lastFailureCode: string | null = null;
     try {
       for (const [index, file] of validFiles.entries()) {
         setUploadProgress({ current: index + 1, total: validFiles.length });
         try {
           await uploadOne(file);
           uploadedCount += 1;
-        } catch {
+        } catch (uploadError) {
           failedCount += 1;
+          lastFailureCode = uploadError instanceof Error ? uploadError.message : null;
         }
       }
 
@@ -248,9 +263,7 @@ export function IBuroFilesV2({ caseId, initialFiles }: { caseId: string; initial
         );
       }
       if (failedCount > 0) {
-        setError(
-          `Не удалось загрузить ${failedCount} файл(а). Проверьте, что формат поддерживается и размер не превышает 50 МБ; если это так, проверьте соединение с хранилищем и повторите попытку.`,
-        );
+        setError(getUploadFailureMessage(lastFailureCode, failedCount));
       }
     } catch {
       setError(
