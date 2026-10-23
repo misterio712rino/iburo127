@@ -31,8 +31,8 @@ assert.match(filesUi, /cache: "no-store"/,
 assert.match(filesUi, /Текст распознан/);
 assert.match(filesUi, /не используется для заполнения фактов или подготовки черновиков/,
   "the UI must not claim OCR text already generates legal drafts");
-assert.match(filesUi, /const ACCEPT = "\.pdf,\.jpg,\.jpeg,\.png,\.webp"/,
-  "the upload UI must offer only formats supported by the deployed processor");
+assert.match(filesUi, /accept=\{UPLOAD_ACCEPT_ATTRIBUTE\}/,
+  "the upload UI must use the shared allowlist for all supported formats");
 assert.match(documentsUi, /Автозаполнение по распознанным документам ещё не подключено/);
 assert.match(documentsUi, /\/files/,
   "the document view must route clients toward uploading source documents");
