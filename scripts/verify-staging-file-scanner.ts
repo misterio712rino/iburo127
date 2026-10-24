@@ -13,7 +13,7 @@ import {
 } from "@/scripts/staging-file-scanner-target-guard";
 import { assertStagingScannerFixtureKeysAbsent } from "@/scripts/staging-scanner-fixture-ownership";
 import { scanWithHttpMalwareScanner } from "@/server/files/http-malware-scanner-core";
-import { VERCEL_BLOB_STORAGE_PROVIDER } from "@/server/files/object-storage-provider";
+import { TIMEWEB_OBJECT_STORAGE_PROVIDER, VERCEL_BLOB_STORAGE_PROVIDER } from "@/server/files/object-storage-provider";
 import { createOidcScopedScannerSmokeStorage } from "@/scripts/staging-scanner-blob-oidc-storage";
 import { readBoundedScannerJson } from "@/scripts/staging-scanner-bounded-json";
 import {
@@ -218,8 +218,8 @@ async function scanFixture(
   }
 }
 
-async function verifyYandexFixture(
-  target: Extract<StagingFileScannerTarget, { providerCode: "yandex-object-storage" }>,
+async function verifyS3Fixture(
+  target: Extract<StagingFileScannerTarget, { providerCode: "yandex-object-storage" | "timeweb-object-storage" }>,
   scannerTimeoutMs: number,
   client: S3Client,
   objectKey: string,
@@ -252,7 +252,7 @@ async function verifyYandexFixture(
       { expiresIn: FIXTURE_URL_TTL_SECONDS },
     );
   } catch {
-    throw new Error("Yandex fixture URL signing failed");
+    throw new Error("S3 fixture URL signing failed");
   }
   await scanFixture(target, scannerTimeoutMs, sourceUrl, mimeType, BigInt(sizeBytes), expectedVerdict);
 }
@@ -602,21 +602,23 @@ async function verifyVercelBlobFixtures(
   if (cleanupError) throw cleanupError;
 }
 
-async function verifyYandexFixtures(
-  target: Extract<StagingFileScannerTarget, { providerCode: "yandex-object-storage" }>,
+async function verifyS3Fixtures(
+  target: Extract<StagingFileScannerTarget, { providerCode: "yandex-object-storage" | "timeweb-object-storage" }>,
   scannerTimeoutMs: number,
 ) {
+  const isTimeweb = target.providerCode === TIMEWEB_OBJECT_STORAGE_PROVIDER;
   const client = new S3Client({
-    endpoint: "https://storage.yandexcloud.net",
-    region: "ru-central1",
+    endpoint: isTimeweb ? "https://s3.twcstorage.ru" : "https://storage.yandexcloud.net",
+    region: isTimeweb ? "ru-1" : "ru-central1",
+    forcePathStyle: isTimeweb,
     credentials: {
-      accessKeyId: requireSecretEnv("YANDEX_STORAGE_ACCESS_KEY_ID"),
-      secretAccessKey: requireSecretEnv("YANDEX_STORAGE_SECRET_ACCESS_KEY"),
+      accessKeyId: requireSecretEnv(isTimeweb ? "TIMEWEB_STORAGE_ACCESS_KEY_ID" : "YANDEX_STORAGE_ACCESS_KEY_ID"),
+      secretAccessKey: requireSecretEnv(isTimeweb ? "TIMEWEB_STORAGE_SECRET_ACCESS_KEY" : "YANDEX_STORAGE_SECRET_ACCESS_KEY"),
     },
   });
   try {
-    await verifyYandexFixture(target, scannerTimeoutMs, client, target.cleanObjectKey, "CLEAN");
-    await verifyYandexFixture(target, scannerTimeoutMs, client, target.maliciousObjectKey, "MALICIOUS");
+    await verifyS3Fixture(target, scannerTimeoutMs, client, target.cleanObjectKey, "CLEAN");
+    await verifyS3Fixture(target, scannerTimeoutMs, client, target.maliciousObjectKey, "MALICIOUS");
   } finally {
     client.destroy();
   }
@@ -636,8 +638,8 @@ try {
     console.log("Bounded private Vercel Blob scanner fixtures verified: 2");
     console.log("Fixture cleanup verified: 2");
   } else {
-    await verifyYandexFixtures(target, scannerTimeoutMs);
-    console.log("Dedicated private Yandex scanner fixtures verified: 2");
+    await verifyS3Fixtures(target, scannerTimeoutMs);
+    console.log("Dedicated private S3 scanner fixtures verified: 2");
     console.log("Object mutations/listing performed by verifier: 0");
   }
   console.log("Staging malware scanner target guard verified");

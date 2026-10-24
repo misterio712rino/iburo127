@@ -22,6 +22,7 @@ import { assertTrustedSourceUrl } from "../src/source-url-policy.mjs";
 const SECRET = "scanner-test-secret-that-is-longer-than-thirty-two-characters";
 const VERCEL_URL = "https://abc123.private.blob.vercel-storage.com/security-fixtures/file-scanner/clean.txt?cache=0&vercel-blob-delegation=delegation&vercel-blob-signature=signature";
 const YANDEX_URL = "https://fixture-bucket.storage.yandexcloud.net/security-fixtures/file-scanner/clean.txt?X-Amz-Signature=signature";
+const TIMEWEB_URL = "https://s3.twcstorage.ru/private-iburo-staging-files/security-fixtures/file-scanner/clean.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=staging%2F20261023%2Fru-1%2Fs3%2Faws4_request&X-Amz-Signature=signature";
 const PDF_INPUT = { sourceUrl: VERCEL_URL, mimeType: "application/pdf", sizeBytes: "3" };
 
 function config(overrides = {}) {
@@ -73,8 +74,24 @@ test("request schema and MIME policy are exact and bounded", () => {
     "image/jpeg",
     "image/png",
     "image/webp",
+    "image/gif",
+    "image/bmp",
+    "image/tiff",
+    "image/heic",
+    "image/heif",
+    "image/avif",
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/rtf",
+    "application/vnd.oasis.opendocument.text",
+    "text/plain",
+    "text/csv",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.oasis.opendocument.spreadsheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/vnd.oasis.opendocument.presentation",
   ]) {
     assert.equal(parseScanRequest({ ...PDF_INPUT, mimeType }).mimeType, mimeType);
   }
@@ -83,7 +100,7 @@ test("request schema and MIME policy are exact and bounded", () => {
     [],
     { ...PDF_INPUT, extra: true },
     { ...PDF_INPUT, sourceUrl: 1 },
-    { ...PDF_INPUT, mimeType: "text/plain" },
+    { ...PDF_INPUT, mimeType: "application/x-msdownload" },
     { ...PDF_INPUT, sizeBytes: "0" },
     { ...PDF_INPUT, sizeBytes: "01" },
     { ...PDF_INPUT, sizeBytes: "1.5" },
@@ -91,8 +108,9 @@ test("request schema and MIME policy are exact and bounded", () => {
   ]) expectReject(() => parseScanRequest(invalid), /INVALID_REQUEST/);
 });
 
-test("trusted source URL policy accepts only signed Yandex and delegated private Vercel families", () => {
+test("trusted source URL policy accepts only signed Yandex/Timeweb S3 and delegated private Vercel families", () => {
   assert.equal(assertTrustedSourceUrl(YANDEX_URL).hostname, "fixture-bucket.storage.yandexcloud.net");
+  assert.equal(assertTrustedSourceUrl(TIMEWEB_URL).hostname, "s3.twcstorage.ru");
   assert.equal(assertTrustedSourceUrl(VERCEL_URL).hostname, "abc123.private.blob.vercel-storage.com");
   const invalid = [
     "https://attacker.example/file?vercel-blob-delegation=a&vercel-blob-signature=b",
@@ -112,6 +130,13 @@ test("trusted source URL policy accepts only signed Yandex and delegated private
     `${VERCEL_URL}&vercel-blob-signature=second`,
     YANDEX_URL.replace("X-Amz-Signature=signature", "X-Amz-Signature="),
     `${YANDEX_URL}&X-Amz-Signature=second`,
+    "https://s3.twcstorage.ru:443/private-iburo-staging-files/file.pdf?X-Amz-Signature=value",
+    "https://s3.twcstorage.ru/private-iburo-staging-files/file.pdf?X-Amz-Signature=one&X-Amz-Signature=two",
+    "https://s3.twcstorage.ru/private-iburo-staging-files/file.pdf?X-Amz-Signature=",
+    "http://s3.twcstorage.ru/private-iburo-staging-files/file.pdf?X-Amz-Signature=value",
+    "https://s3.twcstorage.ru.attacker.example/private-iburo-staging-files/file.pdf?X-Amz-Signature=value",
+    "https://user@s3.twcstorage.ru/private-iburo-staging-files/file.pdf?X-Amz-Signature=value",
+    "https://s3.twcstorage.ru/?X-Amz-Signature=value",
   ];
   for (const value of invalid) expectReject(() => assertTrustedSourceUrl(value), /SOURCE_URL_REJECTED/);
 });

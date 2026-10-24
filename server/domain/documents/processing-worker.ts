@@ -1,4 +1,5 @@
 import "server-only";
+import { UPLOAD_MIME_TYPES } from "@/lib/platform/files/upload-types";
 import type { StoredFileStatus } from "@/server/domain/files/contracts";
 import type { ExtractedDocumentText, DocumentProcessorClient } from "@/server/files/document-processor-client";
 import { DOCUMENT_PROCESSOR_MAX_UPLOAD_BYTES } from "@/server/files/document-processor-client";
@@ -113,7 +114,7 @@ function safeProcessorErrorCode(error: unknown) {
 
 function isSupportedSource(file: NonNullable<ClaimedDocumentProcessingJob["sourceFile"]>, maxUploadBytes: number) {
   return file.sizeBytes > BigInt(0) && file.sizeBytes <= BigInt(maxUploadBytes) &&
-    ["application/pdf", "image/jpeg", "image/png", "image/webp"].includes(file.mimeType);
+    UPLOAD_MIME_TYPES.has(file.mimeType);
 }
 
 /**

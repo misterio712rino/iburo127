@@ -12,6 +12,7 @@ import {
 import type { PrivateObjectStorage } from "@/server/files/object-storage-contract";
 import type { DocumentProcessorClient } from "@/server/files/document-processor-client";
 import { readDocumentProcessingRuntimeConfig } from "@/server/config/document-processing-runtime";
+import { UPLOAD_MIME_TYPES } from "@/lib/platform/files/upload-types";
 
 const now = new Date("2026-10-20T06:00:00.000Z");
 const bytes = new Uint8Array([1, 2, 3]);
@@ -91,6 +92,20 @@ async function testSuccessPersistsPageBoundariesWithoutReturningText() {
   assert.deepEqual(Object.keys(result), ["claimed", "completed", "cancelled", "retried", "failed", "leaseLost"]);
 }
 
+async function testEveryUploadMimeTypeCanReachTheProcessor() {
+  for (const mimeType of UPLOAD_MIME_TYPES) {
+    const repo = new FakeRepository();
+    repo.claim = { ...claimed(), sourceFile: { ...claimed().sourceFile!, mimeType } };
+    let processorCalls = 0;
+    const result = await makeWorker(repo, new FakeStorage(), async () => {
+      processorCalls += 1;
+      return { text: "recognized", pageTexts: ["recognized"], pages: 1 };
+    }).runBatch({ now, limit: 1 });
+    assert.equal(result.completed, 1, mimeType);
+    assert.equal(processorCalls, 1, mimeType);
+  }
+}
+
 async function testNonReadySourceNeverReadsOrCallsProcessor() {
   const repo = new FakeRepository(); repo.claim = claimed("PENDING_SCAN");
   const store = new FakeStorage(); let processorCalls = 0;
@@ -154,6 +169,7 @@ assert.deepEqual(readDocumentProcessingRuntimeConfig({}), {
 });
 assert.throws(() => readDocumentProcessingRuntimeConfig({ IB_DOCUMENT_PROCESSING_LEASE_SECONDS: "30" }), /PRODUCTION_CONFIG_ERROR/);
 await testSuccessPersistsPageBoundariesWithoutReturningText();
+await testEveryUploadMimeTypeCanReachTheProcessor();
 await testNonReadySourceNeverReadsOrCallsProcessor();
 await testCaseMismatchIsCancelledBeforeRead();
 await testProviderMismatchFailsClosed();
