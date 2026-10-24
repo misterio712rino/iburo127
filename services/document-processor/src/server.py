@@ -187,9 +187,11 @@ def _extract_image(data: bytes) -> tuple[list[str], list[list[dict]], int]:
                 page_lines: list[list[dict]] = []
                 for index in range(frames):
                     image.seek(index)
-                    frame = ImageOps.exif_transpose(image.copy()).convert("RGB")
+                    frame = ImageOps.exif_transpose(image.copy()).convert("RGBA")
                     if frame.width * frame.height > Image.MAX_IMAGE_PIXELS:
                         raise ProcessorError("IMAGE_PIXEL_LIMIT_EXCEEDED", 413)
+                    background = Image.new("RGBA", frame.size, "white")
+                    frame = Image.alpha_composite(background, frame).convert("RGB")
                     converted = BytesIO()
                     frame.save(converted, format="PNG", optimize=True)
                     raw = _run(
@@ -221,7 +223,20 @@ def _validate_office_container(data: bytes, declared_mime_type: str) -> bool:
             if len(entries) > MAX_OFFICE_ZIP_ENTRIES or sum(item.file_size for item in entries) > MAX_OFFICE_UNCOMPRESSED_BYTES:
                 raise ProcessorError("OFFICE_ARCHIVE_LIMIT_EXCEEDED", 413)
             names = {item.filename for item in entries}
-            if "[Content_Types].xml" not in names or any(item.file_size > MAX_OFFICE_UNCOMPRESSED_BYTES for item in entries):
+            if any(item.file_size > MAX_OFFICE_UNCOMPRESSED_BYTES for item in entries):
+                return False
+            odf_expected = {
+                "application/vnd.oasis.opendocument.text": "application/vnd.oasis.opendocument.text",
+                "application/vnd.oasis.opendocument.spreadsheet": "application/vnd.oasis.opendocument.spreadsheet",
+                "application/vnd.oasis.opendocument.presentation": "application/vnd.oasis.opendocument.presentation",
+            }.get(declared_mime_type)
+            if odf_expected:
+                if "mimetype" not in names or "META-INF/manifest.xml" not in names:
+                    return False
+                if archive.getinfo("mimetype").file_size > 128 or archive.getinfo("META-INF/manifest.xml").file_size > 1024 * 1024:
+                    return False
+                return archive.read("mimetype").decode("ascii", errors="ignore").strip() == odf_expected
+            if "[Content_Types].xml" not in names:
                 return False
             if archive.getinfo("[Content_Types].xml").file_size > 1024 * 1024:
                 return False
@@ -238,15 +253,6 @@ def _validate_office_container(data: bytes, declared_mime_type: str) -> bool:
                     "application/vnd.openxmlformats-officedocument.presentationml.presentation": b"presentationml.presentation.main+xml",
                 }[declared_mime_type]
                 return expected_main_type in manifest and b"macroEnabled" not in manifest and any(name.startswith(roots[declared_mime_type]) for name in names)
-            expected = {
-                "application/vnd.oasis.opendocument.text": "application/vnd.oasis.opendocument.text",
-                "application/vnd.oasis.opendocument.spreadsheet": "application/vnd.oasis.opendocument.spreadsheet",
-                "application/vnd.oasis.opendocument.presentation": "application/vnd.oasis.opendocument.presentation",
-            }.get(declared_mime_type)
-            if expected:
-                if "mimetype" not in names or archive.getinfo("mimetype").file_size > 128:
-                    return False
-                return archive.read("mimetype").decode("ascii", errors="ignore").strip() == expected
             return False
     except ProcessorError:
         raise

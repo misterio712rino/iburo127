@@ -106,6 +106,24 @@ class DocumentTypeTests(unittest.TestCase):
             page_texts, page_lines, pages = _extract_image(image_bytes.getvalue())
         self.assertEqual((page_texts, page_lines, pages), ([""], [[]], 1))
 
+    def test_transparent_image_is_composited_on_white_for_ocr(self):
+        from PIL import Image
+        image_bytes = BytesIO()
+        image = Image.new("RGBA", (2, 1), (0, 0, 0, 0))
+        image.putpixel((1, 0), (0, 0, 0, 255))
+        image.save(image_bytes, format="PNG")
+        captured = {}
+
+        def fake_run(_command, **kwargs):
+            captured["image"] = Image.open(BytesIO(kwargs["input_bytes"])).convert("RGB")
+            return TSV_HEADER.encode()
+
+        with patch("server._run", side_effect=fake_run):
+            _extract_image(image_bytes.getvalue())
+
+        self.assertEqual(captured["image"].getpixel((0, 0)), (255, 255, 255))
+        self.assertEqual(captured["image"].getpixel((1, 0)), (0, 0, 0))
+
     def test_office_container_must_match_declared_family(self):
         content = BytesIO()
         with zipfile.ZipFile(content, "w") as archive:
@@ -113,6 +131,16 @@ class DocumentTypeTests(unittest.TestCase):
             archive.writestr("word/document.xml", "<document/>")
         self.assertTrue(_validate_office_container(content.getvalue(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
         self.assertFalse(_validate_office_container(content.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+
+    def test_odf_container_uses_mimetype_and_manifest_without_ooxml_content_types(self):
+        content = BytesIO()
+        mime = "application/vnd.oasis.opendocument.text"
+        with zipfile.ZipFile(content, "w") as archive:
+            archive.writestr("mimetype", mime)
+            archive.writestr("META-INF/manifest.xml", "<manifest/>")
+            archive.writestr("content.xml", "<document/>")
+        self.assertTrue(_validate_office_container(content.getvalue(), mime))
+        self.assertFalse(_validate_office_container(content.getvalue(), "application/vnd.oasis.opendocument.spreadsheet"))
 
 
 class ApiTests(unittest.TestCase):
